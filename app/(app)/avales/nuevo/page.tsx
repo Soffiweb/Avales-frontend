@@ -63,6 +63,7 @@ export default function NuevoAvalPage() {
       const options: ListEventosOptions = {
         limit: PAGE_SIZE,
         estado: "DISPONIBLE",
+        sinAval: true,
         search: search.trim() || undefined,
         disciplinaId: user?.disciplinaId ?? undefined,
       };

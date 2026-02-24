@@ -211,3 +211,12 @@ export function getNextApprovalStage(
   if (index === -1 || index === APPROVAL_STAGE_FLOW.length - 1) return undefined;
   return APPROVAL_STAGE_FLOW[index + 1];
 }
+
+export function getPreviousApprovalStages(
+  etapa?: EtapaFlujo,
+): EtapaFlujo[] {
+  if (!etapa) return [];
+  const index = APPROVAL_STAGE_FLOW.indexOf(etapa);
+  if (index <= 0) return [];
+  return APPROVAL_STAGE_FLOW.slice(0, index);
+}

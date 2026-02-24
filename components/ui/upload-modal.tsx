@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Upload, FileText, Loader2 } from "lucide-react";
 
 type UploadFiles = {
@@ -30,6 +30,9 @@ export default function UploadModal({
   const [convocatoriaFile, setConvocatoriaFile] = useState<File | null>(null);
   const [certificadoMedicoFile, setCertificadoMedicoFile] =
     useState<File | null>(null);
+  const [draggingOver, setDraggingOver] = useState<
+    "convocatoria" | "certificado" | null
+  >(null);
   const convocatoriaInputRef = useRef<HTMLInputElement>(null);
   const certificadoInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,43 +42,79 @@ export default function UploadModal({
       setCertificadoMedicoFile(null);
       setError(null);
       setUploading(false);
+      setDraggingOver(null);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const validateAndSetFile = (
+    file: File,
+    type: "convocatoria" | "certificado",
+  ) => {
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      setError("Solo se permiten archivos PDF.");
+      return;
+    }
+    if (type === "convocatoria") {
+      setConvocatoriaFile(file);
+    } else {
+      setCertificadoMedicoFile(file);
+    }
+    setError(null);
+  };
+
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: "convocatoria" | "certificado"
+    type: "convocatoria" | "certificado",
   ) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const isPdf =
-        file.type === "application/pdf" ||
-        file.name.toLowerCase().endsWith(".pdf");
-      if (!isPdf) {
-        setError("Solo se permiten archivos PDF.");
-        if (type === "convocatoria") {
-          setConvocatoriaFile(null);
-        } else {
-          setCertificadoMedicoFile(null);
-        }
+      validateAndSetFile(e.target.files[0], type);
+      if (!e.target.files[0].type.includes("pdf")) {
         e.currentTarget.value = "";
-        return;
       }
-      if (type === "convocatoria") {
-        setConvocatoriaFile(file);
-      } else {
-        setCertificadoMedicoFile(file);
-      }
-      setError(null);
+    }
+  };
+
+  const handleDragOver = (
+    e: React.DragEvent,
+    type: "convocatoria" | "certificado",
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) {
+      setDraggingOver(type);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(null);
+  };
+
+  const handleDrop = (
+    e: React.DragEvent,
+    type: "convocatoria" | "certificado",
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOver(null);
+    if (uploading) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      validateAndSetFile(file, type);
     }
   };
 
   const handleUpload = async () => {
     if (!convocatoriaFile || !certificadoMedicoFile) {
       setError(
-        "Debes seleccionar la convocatoria y el certificado médico para continuar."
+        "Debes seleccionar la convocatoria y el certificado médico para continuar.",
       );
       return;
     }
@@ -103,6 +142,13 @@ export default function UploadModal({
     }
     certificadoInputRef.current?.click();
   };
+
+  const dropzoneClass = (type: "convocatoria" | "certificado") =>
+    `relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+      draggingOver === type
+        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+        : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+    }`;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -140,7 +186,10 @@ export default function UploadModal({
               {/* Convocatoria */}
               <div
                 onClick={() => handleClickUpload("convocatoria")}
-                className="relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                onDragOver={(e) => handleDragOver(e, "convocatoria")}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, "convocatoria")}
+                className={dropzoneClass("convocatoria")}
               >
                 <input
                   ref={convocatoriaInputRef}
@@ -172,7 +221,7 @@ export default function UploadModal({
                       Subir convocatoria
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      PDF
+                      Arrastra un PDF aqui o haz clic para seleccionar
                     </p>
                   </>
                 )}
@@ -181,7 +230,10 @@ export default function UploadModal({
               {/* Certificado medico */}
               <div
                 onClick={() => handleClickUpload("certificado")}
-                className="relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                onDragOver={(e) => handleDragOver(e, "certificado")}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, "certificado")}
+                className={dropzoneClass("certificado")}
               >
                 <input
                   ref={certificadoInputRef}
@@ -214,7 +266,7 @@ export default function UploadModal({
                       Subir certificado medico
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      PDF
+                      Arrastra un PDF aqui o haz clic para seleccionar
                     </p>
                   </>
                 )}

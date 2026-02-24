@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
-import { createRevisionDtm, getAval, getRevisionMetodologoItems } from "@/lib/api/avales";
-import type { Aval } from "@/types/aval";
+import { aprobarAval, createRevisionDtm, getAval, getRevisionMetodologoItems, rechazarAval } from "@/lib/api/avales";
+import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -21,6 +21,8 @@ import RevisionMetodologoPreview, {
   type ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
 import AlertBanner from "@/components/ui/alert-banner";
+import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
+import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import {
   DEFAULT_REVIEW_ITEMS,
   mergeReviewStateFromApi,
@@ -145,6 +147,8 @@ export default function RevisionDtmPage() {
     variant: "success" | "error";
     message: string;
   } | null>(null);
+  const [rechazoMotivo, setRechazoMotivo] = useState("");
+  const [etapaDestino, setEtapaDestino] = useState("");
   const [draft, setDraft] = useState(INITIAL_DTM_DRAFT);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(
     DEFAULT_REVIEW_ITEMS,
@@ -306,6 +310,89 @@ export default function RevisionDtmPage() {
     }
   }, [aval, user?.id, draft, loadAval]);
 
+  const etapaActual = (aval?.etapaActual ?? getCurrentEtapa(aval?.historial) ?? "SOLICITUD") as EtapaFlujo;
+  const dtmEtapa: EtapaFlujo = "REVISION_DTM";
+  const nextEtapa = getNextApprovalStage(dtmEtapa);
+  const showApprovalPanel =
+    isDtm &&
+    aval?.estado === "SOLICITADO" &&
+    etapaActual === "REVISION_METODOLOGO";
+  const currentStageLabel = getApprovalStageLabel(dtmEtapa);
+  const nextStageLabel = nextEtapa
+    ? getApprovalStageLabel(nextEtapa)
+    : currentStageLabel;
+
+  const handleSaveAndApprove = useCallback(async () => {
+    if (!aval) return;
+    if (!user?.id) {
+      setActionError("No se pudo identificar el usuario.");
+      return;
+    }
+    if (!draft.descripcion.trim()) {
+      setActionError("La descripción es obligatoria para aprobar.");
+      return;
+    }
+
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await aprobarAval(aval.id, user.id, "REVISION_DTM", undefined, {
+        descripcion: draft.descripcion.trim(),
+        observacion: draft.observacion.trim() || undefined,
+        fechaPresentacion: draft.fechaPresentacion,
+        items: [],
+      });
+      setToast({
+        variant: "success",
+        message: "Revisión DTM aprobada correctamente.",
+      });
+      await loadAval();
+    } catch (err: unknown) {
+      setActionError(
+        err instanceof Error ? err.message : "No se pudo aprobar.",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }, [aval, user?.id, draft, loadAval]);
+
+  const handleReject = useCallback(async () => {
+    if (!aval) return;
+    if (!user?.id) {
+      setActionError("No se pudo identificar el usuario.");
+      return;
+    }
+    if (!rechazoMotivo.trim()) {
+      setActionError("Debes indicar un motivo para el rechazo.");
+      return;
+    }
+
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await rechazarAval(
+        aval.id,
+        user.id,
+        "REVISION_DTM" as EtapaFlujo,
+        rechazoMotivo.trim(),
+        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
+      );
+      setToast({
+        variant: "success",
+        message: "Aval rechazado correctamente.",
+      });
+      setRechazoMotivo("");
+      setEtapaDestino("");
+      await loadAval();
+    } catch (err: unknown) {
+      setActionError(
+        err instanceof Error ? err.message : "No se pudo rechazar el aval.",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }, [aval, user?.id, rechazoMotivo, etapaDestino, loadAval]);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -439,20 +526,67 @@ export default function RevisionDtmPage() {
                 </label>
               </div>
 
+              {showApprovalPanel && (
+                <>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Motivo de rechazo (si aplica)
+                    </span>
+                    <textarea
+                      className="form-textarea w-full mt-1 text-sm"
+                      rows={3}
+                      value={rechazoMotivo}
+                      onChange={(e) => setRechazoMotivo(e.target.value)}
+                      placeholder="Escribe el motivo si vas a rechazar..."
+                    />
+                  </label>
+
+                  {getPreviousApprovalStages(dtmEtapa).length > 0 && (
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Regresar a etapa (opcional)
+                      </span>
+                      <select
+                        className="form-select w-full mt-1 text-sm"
+                        value={etapaDestino}
+                        onChange={(e) => setEtapaDestino(e.target.value)}
+                      >
+                        <option value="">Etapa anterior (por defecto)</option>
+                        {getPreviousApprovalStages(dtmEtapa).map((e) => (
+                          <option key={e} value={e}>
+                            {getApprovalStageLabel(e)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </>
+              )}
+
               {actionError && (
                 <div className="text-xs text-rose-600 dark:text-rose-400">
                   {actionError}
                 </div>
               )}
 
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-2">
+                {showApprovalPanel && (
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={actionLoading}
+                    className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                  >
+                    Rechazar
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={handleSave}
+                  onClick={showApprovalPanel ? handleSaveAndApprove : handleSave}
                   disabled={actionLoading}
-                  className="btn bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                  className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
                 >
-                  Guardar revisión DTM
+                  {showApprovalPanel ? "Aprobar etapa" : "Guardar revisión DTM"}
                 </button>
               </div>
             </div>

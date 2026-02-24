@@ -37,6 +37,7 @@ import {
 import {
   getApprovalStageLabel,
   getNextApprovalStage,
+  getPreviousApprovalStages,
   APPROVAL_STAGE_FLOW,
 } from "@/lib/constants";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
@@ -211,6 +212,7 @@ export default function AvalDetailPage() {
   const { user } = useAuth();
 
   const [rechazoMotivo, setRechazoMotivo] = useState("");
+  const [etapaDestino, setEtapaDestino] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<{
@@ -332,19 +334,26 @@ export default function AvalDetailPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
+      await rechazarAval(
+        aval.id,
+        user.id,
+        currentEtapa,
+        rechazoMotivo.trim(),
+        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
+      );
       setToast({
         variant: "success",
         message: "Aval rechazado correctamente.",
       });
       setRechazoMotivo("");
+      setEtapaDestino("");
       await fetchAval();
     } catch (err: any) {
       setActionError(err?.message ?? "No se pudo rechazar el aval.");
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, rechazoMotivo, currentEtapa, fetchAval]);
+  }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, fetchAval]);
 
   if (loading) {
     return (
@@ -571,9 +580,6 @@ export default function AvalDetailPage() {
           <StageTimeline currentStage={currentEtapa} />
           {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>
-            {summaryLines.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
             <div className="pt-3">
               <button
                 type="button"
@@ -985,6 +991,11 @@ export default function AvalDetailPage() {
             actionLoading={actionLoading}
             onApprove={handleApprove}
             onReject={handleReject}
+            etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
+              (e) => ({ value: e, label: getApprovalStageLabel(e) }),
+            )}
+            etapaDestinoValue={etapaDestino}
+            onEtapaDestinoChange={setEtapaDestino}
           />
         )}
       </div>

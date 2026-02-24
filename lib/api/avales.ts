@@ -183,14 +183,23 @@ export async function aprobarAval(
       observacion?: string;
     }>;
   },
+  revisionDtm?: {
+    descripcion: string;
+    observacion?: string;
+    fechaPresentacion: string;
+    items: Array<{
+      key: string;
+      cumple: boolean;
+      observacion?: string;
+    }>;
+  },
 ) {
+  const payload: Record<string, unknown> = { usuarioId, etapa };
+  if (revisionMetodologo) payload.revisionMetodologo = revisionMetodologo;
+  if (revisionDtm) payload.revisionDtm = revisionDtm;
   return apiFetch<Aval>(`/avales/${id}/aprobar`, {
     method: "PATCH",
-    body: JSON.stringify(
-      revisionMetodologo
-        ? { usuarioId, etapa, revisionMetodologo }
-        : { usuarioId, etapa },
-    ),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -199,10 +208,11 @@ export async function rechazarAval(
   usuarioId: number,
   etapa: EtapaFlujo,
   motivo?: string,
+  etapaDestino?: EtapaFlujo,
 ) {
   return apiFetch<Aval>(`/avales/${id}/rechazar`, {
     method: "PATCH",
-    body: JSON.stringify({ usuarioId, etapa, motivo }),
+    body: JSON.stringify({ usuarioId, etapa, motivo, etapaDestino }),
   });
 }
 

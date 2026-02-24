@@ -32,18 +32,25 @@ const TRANSPORT_OPTIONS = [
   { value: "OTRO", label: "Otro", icon: Bus },
 ];
 
+function splitDateTime(value: string) {
+  if (!value) return { date: "", time: "" };
+  const [date = "", rawTime = ""] = value.split("T");
+  const time = rawTime.slice(0, 5);
+  return { date, time };
+}
+
 export default function Paso02Logistica({
   formData,
   onComplete,
   onPreviewChange,
   onBack,
 }: Paso02LogisticaProps) {
-  const [fechaHoraSalida, setFechaHoraSalida] = useState(
-    formData.fechaHoraSalida || ""
-  );
-  const [fechaHoraRetorno, setFechaHoraRetorno] = useState(
-    formData.fechaHoraRetorno || ""
-  );
+  const salidaInicial = splitDateTime(formData.fechaHoraSalida || "");
+  const retornoInicial = splitDateTime(formData.fechaHoraRetorno || "");
+  const [fechaSalida, setFechaSalida] = useState(salidaInicial.date);
+  const [horaSalida, setHoraSalida] = useState(salidaInicial.time);
+  const [fechaRetorno, setFechaRetorno] = useState(retornoInicial.date);
+  const [horaRetorno, setHoraRetorno] = useState(retornoInicial.time);
   const [lugarSalida, setLugarSalida] = useState(formData.lugarSalida || "");
   const [lugarRetorno, setLugarRetorno] = useState(formData.lugarRetorno || "");
   const [transporteSalida, setTransporteSalida] = useState(
@@ -55,6 +62,10 @@ export default function Paso02Logistica({
   const [transporteSalidaOtro, setTransporteSalidaOtro] = useState("");
   const [transporteRetornoOtro, setTransporteRetornoOtro] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const fechaHoraSalida =
+    fechaSalida && horaSalida ? `${fechaSalida}T${horaSalida}` : "";
+  const fechaHoraRetorno =
+    fechaRetorno && horaRetorno ? `${fechaRetorno}T${horaRetorno}` : "";
 
   useEffect(() => {
     onPreviewChange?.({
@@ -178,12 +189,20 @@ export default function Paso02Logistica({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Fecha y hora de salida
               </label>
-              <input
-                type="datetime-local"
-                value={fechaHoraSalida}
-                onChange={(e) => setFechaHoraSalida(e.target.value)}
-                className="form-input w-full"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={fechaSalida}
+                  onChange={(e) => setFechaSalida(e.target.value)}
+                  className="form-input w-full"
+                />
+                <input
+                  type="time"
+                  value={horaSalida}
+                  onChange={(e) => setHoraSalida(e.target.value)}
+                  className="form-input w-full"
+                />
+              </div>
             </div>
 
             <div>
@@ -258,12 +277,20 @@ export default function Paso02Logistica({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Fecha y hora de retorno
               </label>
-              <input
-                type="datetime-local"
-                value={fechaHoraRetorno}
-                onChange={(e) => setFechaHoraRetorno(e.target.value)}
-                className="form-input w-full"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={fechaRetorno}
+                  onChange={(e) => setFechaRetorno(e.target.value)}
+                  className="form-input w-full"
+                />
+                <input
+                  type="time"
+                  value={horaRetorno}
+                  onChange={(e) => setHoraRetorno(e.target.value)}
+                  className="form-input w-full"
+                />
+              </div>
             </div>
 
             <div>

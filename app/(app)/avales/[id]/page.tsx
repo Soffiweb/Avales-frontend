@@ -402,6 +402,20 @@ export default function AvalDetailPage() {
   const duration = evento
     ? getEventDuration(evento.fechaInicio, evento.fechaFin)
     : null;
+  const summaryLines = [
+    evento?.codigo ? `Evento ${evento.codigo}.` : null,
+    aval.numeroColeccion ? `Colección ${aval.numeroColeccion}.` : null,
+    duration
+      ? `Duración estimada: ${duration} ${duration === 1 ? "día" : "días"}.`
+      : null,
+    daysUntil !== null
+      ? daysUntil < 0
+        ? "La fecha del evento ya pasó."
+        : daysUntil === 0
+          ? "El evento inicia hoy."
+          : `Faltan ${daysUntil} días para el inicio del evento.`
+      : null,
+  ].filter((line): line is string => Boolean(line));
 
   const totalAtletas = evento
     ? (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0)
@@ -555,7 +569,7 @@ export default function AvalDetailPage() {
         {/* Estado del aval */}
         <div className="space-y-4">
           <StageTimeline currentStage={currentEtapa} />
-          <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+          {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>
             {summaryLines.map((line) => (
               <p key={line}>{line}</p>
@@ -569,7 +583,7 @@ export default function AvalDetailPage() {
                 Ver aval en PDF
               </button>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Información del evento */}

@@ -164,33 +164,57 @@ export async function createRevisionDtm(
   });
 }
 
+export type ApproveRevisionMetodologoPayload = {
+  numeroRevision: string;
+  dirigidoA: string;
+  cargoDirigidoA: string;
+  descripcionEncabezado: string;
+  firmanteNombre: string;
+  firmanteCargo: string;
+  fechaRevision: string;
+  observacionesFinales: string;
+  items: Array<{
+    key: string;
+    cumple: boolean;
+    observacion?: string;
+  }>;
+};
+
+export type ApproveRevisionDtmPayload = {
+  descripcion: string;
+  observacion?: string;
+  fechaPresentacion: string;
+  items: Array<{
+    key: string;
+    cumple: boolean;
+    observacion?: string;
+  }>;
+};
+
 export async function aprobarAval(
   id: number,
   usuarioId: number,
   etapa: EtapaFlujo,
-  revisionMetodologo?: {
-    numeroRevision: string;
-    dirigidoA: string;
-    cargoDirigidoA: string;
-    descripcionEncabezado: string;
-    firmanteNombre: string;
-    firmanteCargo: string;
-    fechaRevision: string;
-    observacionesFinales: string;
-    items: Array<{
-      key: string;
-      cumple: boolean;
-      observacion?: string;
-    }>;
-  },
+  revisionMetodologo?: ApproveRevisionMetodologoPayload,
+  revisionDtm?: ApproveRevisionDtmPayload,
 ) {
+  const body: {
+    usuarioId: number;
+    etapa: EtapaFlujo;
+    revisionMetodologo?: ApproveRevisionMetodologoPayload;
+    revisionDtm?: ApproveRevisionDtmPayload;
+  } = { usuarioId, etapa };
+
+  if (revisionMetodologo) {
+    body.revisionMetodologo = revisionMetodologo;
+  }
+  if (revisionDtm) {
+    body.revisionDtm = revisionDtm;
+  }
+
   return apiFetch<Aval>(`/avales/${id}/aprobar`, {
     method: "PATCH",
-    body: JSON.stringify(
-      revisionMetodologo
-        ? { usuarioId, etapa, revisionMetodologo }
-        : { usuarioId, etapa },
-    ),
+    body: JSON.stringify(body),
   });
 }
 

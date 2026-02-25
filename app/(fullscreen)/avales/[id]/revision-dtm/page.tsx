@@ -5,8 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
-import { createRevisionDtm, getAval, getRevisionMetodologoItems } from "@/lib/api/avales";
-import type { Aval } from "@/types/aval";
+import {
+  aprobarAval,
+  getAval,
+  getRevisionMetodologoItems,
+  rechazarAval,
+} from "@/lib/api/avales";
+import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -26,6 +31,8 @@ import {
   mergeReviewStateFromApi,
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
+import { getCurrentEtapa } from "@/lib/utils/aval-historial";
+import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -141,6 +148,7 @@ export default function RevisionDtmPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [rechazoMotivo, setRechazoMotivo] = useState("");
   const [toast, setToast] = useState<{
     variant: "success" | "error";
     message: string;
@@ -158,6 +166,7 @@ export default function RevisionDtmPage() {
   useEffect(() => {
     setDraft(INITIAL_DTM_DRAFT);
     setActionError(null);
+    setRechazoMotivo("");
   }, [avalId]);
 
   useEffect(() => {
@@ -273,10 +282,31 @@ export default function RevisionDtmPage() {
     [aval],
   );
 
-  const handleSave = useCallback(async () => {
+  const etapaActualResponse = aval?.etapaActual;
+  const etapaActualHistorial = getCurrentEtapa(aval?.historial);
+  const rawCurrentEtapa = (
+    etapaActualResponse ??
+    etapaActualHistorial ??
+    "SOLICITUD"
+  ).toUpperCase() as EtapaFlujo;
+  const currentEtapa = APPROVAL_STAGE_FLOW.includes(rawCurrentEtapa)
+    ? rawCurrentEtapa
+    : "SOLICITUD";
+  const isEditable =
+    aval?.estado === "SOLICITADO" && currentEtapa === "REVISION_METODOLOGO";
+  const approvalEtapa: EtapaFlujo = "REVISION_DTM";
+  const currentStageLabel = getApprovalStageLabel(currentEtapa);
+  const nextStageLabel = getApprovalStageLabel(approvalEtapa);
+  const summaryText = `El aval pasará de "${currentStageLabel}" a "${nextStageLabel}" y quedará en "${nextStageLabel}".`;
+
+  const handleApprove = useCallback(async () => {
     if (!aval) return;
     if (!user?.id) {
       setActionError("No se pudo identificar el usuario.");
+      return;
+    }
+    if (!isEditable) {
+      setActionError("No puedes aprobar este aval en la etapa actual.");
       return;
     }
     if (!draft.descripcion.trim()) {
@@ -287,24 +317,87 @@ export default function RevisionDtmPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await createRevisionDtm(aval.id, {
-        descripcion: draft.descripcion.trim(),
-        observacion: draft.observacion.trim() || undefined,
-        fechaPresentacion: draft.fechaPresentacion,
+      const items = reviewItems.map((item) => {
+        const state = reviewState[item.key];
+        return {
+          key: item.key,
+          cumple: state?.cumple ?? item.defaultCumple,
+          observacion: state?.observacion?.trim() || "",
+        };
       });
+
+      await aprobarAval(
+        aval.id,
+        user.id,
+        approvalEtapa,
+        undefined,
+        {
+          descripcion: draft.descripcion.trim(),
+          observacion: draft.observacion.trim() || undefined,
+          fechaPresentacion: draft.fechaPresentacion,
+          items,
+        },
+      );
       setToast({
         variant: "success",
-        message: "Revisión DTM guardada correctamente.",
+        message: "Revisión DTM aprobada correctamente.",
       });
       await loadAval();
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : "No se pudo guardar la revisión DTM.",
+        err instanceof Error
+          ? err.message
+          : "No se pudo aprobar la revisión DTM.",
       );
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, draft, loadAval]);
+  }, [
+    aval,
+    user?.id,
+    isEditable,
+    draft,
+    approvalEtapa,
+    loadAval,
+    reviewItems,
+    reviewState,
+  ]);
+
+  const handleReject = useCallback(async () => {
+    if (!aval) return;
+    if (!user?.id) {
+      setActionError("No se pudo identificar el usuario.");
+      return;
+    }
+    if (!isEditable) {
+      setActionError("No puedes rechazar este aval en la etapa actual.");
+      return;
+    }
+    if (!rechazoMotivo.trim()) {
+      setActionError("Debes indicar un motivo para el rechazo.");
+      return;
+    }
+
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
+      setToast({
+        variant: "success",
+        message: "Aval rechazado correctamente.",
+      });
+      setRechazoMotivo("");
+      await loadAval();
+    } catch (err: unknown) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo rechazar la revisión DTM.",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  }, [aval, user?.id, isEditable, rechazoMotivo, currentEtapa, loadAval]);
 
   if (authLoading) {
     return (
@@ -393,6 +486,8 @@ export default function RevisionDtmPage() {
                     type="date"
                     className="form-input w-full mt-1"
                     value={draft.fechaPresentacion}
+                    readOnly={!isEditable}
+                    disabled={!isEditable}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -410,6 +505,8 @@ export default function RevisionDtmPage() {
                     className="form-textarea w-full mt-1"
                     rows={4}
                     value={draft.descripcion}
+                    readOnly={!isEditable}
+                    disabled={!isEditable}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -428,6 +525,8 @@ export default function RevisionDtmPage() {
                     className="form-textarea w-full mt-1"
                     rows={3}
                     value={draft.observacion}
+                    readOnly={!isEditable}
+                    disabled={!isEditable}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -445,16 +544,55 @@ export default function RevisionDtmPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={actionLoading}
-                  className="btn bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                >
-                  Guardar revisión DTM
-                </button>
-              </div>
+              {isEditable && (
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Aprobación revisión DTM
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {summaryText}
+                    </p>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                      Motivo de rechazo (si aplica)
+                    </span>
+                    <textarea
+                      className="form-textarea w-full mt-1 text-sm"
+                      rows={3}
+                      value={rechazoMotivo}
+                      onChange={(e) => setRechazoMotivo(e.target.value)}
+                      placeholder="Escribe el motivo si vas a rechazar..."
+                    />
+                  </label>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReject}
+                      disabled={actionLoading}
+                      className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApprove}
+                      disabled={actionLoading}
+                      className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                    >
+                      Aprobar
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!isEditable && aval?.dtm?.length ? (
+                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+                  Este aval ya fue revisado por DTM.
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

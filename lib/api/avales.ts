@@ -223,10 +223,11 @@ export async function rechazarAval(
   usuarioId: number,
   etapa: EtapaFlujo,
   motivo?: string,
+  etapaDestino?: EtapaFlujo,
 ) {
   return apiFetch<Aval>(`/avales/${id}/rechazar`, {
     method: "PATCH",
-    body: JSON.stringify({ usuarioId, etapa, motivo }),
+    body: JSON.stringify({ usuarioId, etapa, motivo, etapaDestino }),
   });
 }
 

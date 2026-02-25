@@ -24,7 +24,7 @@ import ComprasPublicasPreview, {
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { formatRoles } from "@/lib/utils/formatters";
-import { getNextApprovalStage } from "@/lib/constants";
+import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
@@ -142,6 +142,7 @@ export default function CertificarComprasPublicasPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rechazoMotivo, setRechazoMotivo] = useState("");
+  const [etapaDestino, setEtapaDestino] = useState("");
   const [toast, setToast] = useState<{
     variant: "success" | "error";
     message: string;
@@ -327,12 +328,19 @@ export default function CertificarComprasPublicasPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
+      await rechazarAval(
+        aval.id,
+        user.id,
+        currentEtapa,
+        rechazoMotivo.trim(),
+        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
+      );
       setToast({
         variant: "success",
         message: "Aval rechazado correctamente.",
       });
       setRechazoMotivo("");
+      setEtapaDestino("");
       await loadAval();
     } catch (err: unknown) {
       pushError(
@@ -341,7 +349,7 @@ export default function CertificarComprasPublicasPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, rechazoMotivo, currentEtapa, loadAval, isEditable, pushError]);
+  }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, loadAval, isEditable, pushError]);
 
   if (authLoading) {
     return (
@@ -580,6 +588,26 @@ export default function CertificarComprasPublicasPage() {
                       placeholder="Escribe el motivo si vas a rechazar..."
                     />
                   </label>
+
+                  {getPreviousApprovalStages(currentEtapa).length > 0 && (
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                        Regresar a etapa (opcional)
+                      </span>
+                      <select
+                        className="form-select w-full mt-1 text-sm"
+                        value={etapaDestino}
+                        onChange={(e) => setEtapaDestino(e.target.value)}
+                      >
+                        <option value="">Etapa anterior (por defecto)</option>
+                        {getPreviousApprovalStages(currentEtapa).map((e) => (
+                          <option key={e} value={e}>
+                            {getApprovalStageLabel(e)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
 
                   {actionError && (
                     <div className="text-xs text-rose-600 dark:text-rose-400">

@@ -13,15 +13,22 @@ import {
   Trophy,
   Tag,
   FileText,
+  Clock,
+  UserCheck,
   DollarSign,
   User,
+  Target,
+  Plane,
   Building2,
+  Eye,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import ApprovalFlowCard from "../_components/approval-flow-card";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import { getAval } from "@/lib/api/avales";
-import type { Aval, EtapaFlujo } from "@/types/aval";
+import { useAuth } from "@/app/providers/auth-provider";
+import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
+import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
 import {
   formatCurrency,
   formatDate,
@@ -29,6 +36,8 @@ import {
 } from "@/lib/utils/formatters";
 import {
   getApprovalStageLabel,
+  getNextApprovalStage,
+  getPreviousApprovalStages,
   APPROVAL_STAGE_FLOW,
 } from "@/lib/constants";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
@@ -200,6 +209,16 @@ export default function AvalDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = Number(params.id);
+  const { user } = useAuth();
+
+  const [rechazoMotivo, setRechazoMotivo] = useState("");
+  const [etapaDestino, setEtapaDestino] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const [aval, setAval] = useState<Aval | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,11 +226,41 @@ export default function AvalDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  const userRoles = user?.roles ?? [];
   const etapaActualResponse = aval?.etapaActual;
   const etapaActualHistorial = getCurrentEtapa(aval?.historial);
   const currentEtapa = (etapaActualResponse ??
     etapaActualHistorial ??
     "SOLICITUD") as EtapaFlujo;
+  const isControlPrevioStage = currentEtapa === "REVISION_DTM";
+  const isFinancieroStage = currentEtapa === "CONTROL_PREVIO";
+  const nextEtapa = getNextApprovalStage(currentEtapa);
+  const showFinancieroPanel =
+    userRoles.includes("FINANCIERO") && isFinancieroStage;
+  const resolvedNextEtapa: EtapaFlujo | undefined = showFinancieroPanel
+    ? "FINANCIERO"
+    : nextEtapa;
+  const approvalEtapa = resolvedNextEtapa ?? currentEtapa;
+  const currentStageLabel = getApprovalStageLabel(currentEtapa);
+  const nextStageLabel = getApprovalStageLabel(
+    resolvedNextEtapa ?? currentEtapa,
+  );
+  const arrowCurrentLabel = currentStageLabel;
+  const arrowNextLabel = nextStageLabel;
+  const hasNextAfterApproval = Boolean(
+    getNextApprovalStage(resolvedNextEtapa ?? currentEtapa),
+  );
+  const isMetodologoStage = currentEtapa === "REVISION_METODOLOGO";
+  const isDtmStage = currentEtapa === "REVISION_DTM";
+  const isPdaStage = currentEtapa === "SOLICITUD";
+  const showMetodologoPanel =
+    userRoles.includes("METODOLOGO") && isMetodologoStage;
+  const showDtmPanel = userRoles.includes("DTM") && isDtmStage;
+  const showControlPrevioPanel =
+    userRoles.includes("CONTROL_PREVIO") && isControlPrevioStage;
+  const showApprovalPanel =
+    aval?.estado === "SOLICITADO" &&
+    (showDtmPanel || showControlPrevioPanel || showFinancieroPanel);
 
   const fetchAval = useCallback(async () => {
     if (!id || Number.isNaN(id)) {
@@ -227,8 +276,8 @@ export default function AvalDetailPage() {
       const res = await getAval(id);
       setAval(res.data);
       console.log(res.data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar el aval.");
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo cargar el aval.");
     } finally {
       setLoading(false);
     }
@@ -243,13 +292,68 @@ export default function AvalDetailPage() {
     try {
       setCancelling(true);
       router.push("/avales?status=cancelled");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudo cancelar el aval.");
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo cancelar el aval.");
       setConfirmOpen(false);
     } finally {
       setCancelling(false);
     }
   };
+
+  const handleApprove = useCallback(async () => {
+    if (!aval) return;
+    if (!user?.id) {
+      setActionError("No se pudo identificar el usuario.");
+      return;
+    }
+
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await aprobarAval(aval.id, user.id, approvalEtapa);
+      setToast({ variant: "success", message: "Aval aprobado correctamente." });
+      await fetchAval();
+    } catch (err: any) {
+      setActionError(err?.message ?? "No se pudo aprobar el aval.");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [aval, user?.id, approvalEtapa, fetchAval]);
+
+  const handleReject = useCallback(async () => {
+    if (!aval) return;
+    if (!user?.id) {
+      setActionError("No se pudo identificar el usuario.");
+      return;
+    }
+    if (!rechazoMotivo.trim()) {
+      setActionError("Debes indicar un motivo para el rechazo.");
+      return;
+    }
+
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await rechazarAval(
+        aval.id,
+        user.id,
+        currentEtapa,
+        rechazoMotivo.trim(),
+        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
+      );
+      setToast({
+        variant: "success",
+        message: "Aval rechazado correctamente.",
+      });
+      setRechazoMotivo("");
+      setEtapaDestino("");
+      await fetchAval();
+    } catch (err: any) {
+      setActionError(err?.message ?? "No se pudo rechazar el aval.");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, fetchAval]);
 
   if (loading) {
     return (
@@ -286,6 +390,10 @@ export default function AvalDetailPage() {
   }
 
   const evento = aval.evento;
+  const stageDescription =
+    aval.estado === "BORRADOR"
+      ? "La convocatoria permanece en borrador hasta que completes el aval técnico."
+      : `Está en ${currentStageLabel.toLowerCase()} (${aval.estado}).`;
   const generoEtiqueta = evento?.genero
     ? formatGenero(evento.genero)
     : undefined;
@@ -303,6 +411,21 @@ export default function AvalDetailPage() {
   const duration = evento
     ? getEventDuration(evento.fechaInicio, evento.fechaFin)
     : null;
+  const summaryLines = [
+    evento?.codigo ? `Evento ${evento.codigo}.` : null,
+    aval.numeroColeccion ? `Colección ${aval.numeroColeccion}.` : null,
+    duration
+      ? `Duración estimada: ${duration} ${duration === 1 ? "día" : "días"}.`
+      : null,
+    daysUntil !== null
+      ? daysUntil < 0
+        ? "La fecha del evento ya pasó."
+        : daysUntil === 0
+          ? "El evento inicia hoy."
+          : `Faltan ${daysUntil} días para el inicio del evento.`
+      : null,
+  ].filter((line): line is string => Boolean(line));
+
   const totalAtletas = evento
     ? (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0)
     : 0;
@@ -409,6 +532,15 @@ export default function AvalDetailPage() {
           />
         </div>
       )}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
+          <AlertBanner
+            variant={toast.variant}
+            message={toast.message}
+            onClose={() => setToast(null)}
+          />
+        </div>
+      )}
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-8">
         {/* Header */}
@@ -448,9 +580,6 @@ export default function AvalDetailPage() {
           <StageTimeline currentStage={currentEtapa} />
           {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>
-            {summaryLines.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
             <div className="pt-3">
               <button
                 type="button"
@@ -850,6 +979,24 @@ export default function AvalDetailPage() {
               </section>
             )}
           </>
+        )}
+        {showApprovalPanel && (
+          <ApprovalFlowCard
+            title="Este aval necesita aprobación"
+            currentStageLabel={arrowCurrentLabel}
+            nextStageLabel={arrowNextLabel}
+            reasonValue={rechazoMotivo}
+            onReasonChange={setRechazoMotivo}
+            actionError={actionError}
+            actionLoading={actionLoading}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
+              (e) => ({ value: e, label: getApprovalStageLabel(e) }),
+            )}
+            etapaDestinoValue={etapaDestino}
+            onEtapaDestinoChange={setEtapaDestino}
+          />
         )}
       </div>
 

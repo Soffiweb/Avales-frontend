@@ -2,6 +2,11 @@
 
 import { ArrowRight } from "lucide-react";
 
+type StageOption = {
+  value: string;
+  label: string;
+};
+
 type ApprovalFlowCardProps = {
   title: string;
   currentStageLabel: string;
@@ -14,6 +19,9 @@ type ApprovalFlowCardProps = {
   onReasonChange: (value: string) => void;
   onApprove: () => void;
   onReject: () => void;
+  etapaDestinoOptions?: StageOption[];
+  etapaDestinoValue?: string;
+  onEtapaDestinoChange?: (value: string) => void;
 };
 
 export default function ApprovalFlowCard({
@@ -28,6 +36,9 @@ export default function ApprovalFlowCard({
   onReasonChange,
   onApprove,
   onReject,
+  etapaDestinoOptions,
+  etapaDestinoValue,
+  onEtapaDestinoChange,
 }: ApprovalFlowCardProps) {
   return (
     <div className="bg-white dark:bg-gray-900/60 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
@@ -62,6 +73,33 @@ export default function ApprovalFlowCard({
           placeholder={reasonPlaceholder}
         />
       </div>
+
+      {etapaDestinoOptions && etapaDestinoOptions.length > 0 && onEtapaDestinoChange && (
+        <div className="space-y-2">
+          <label
+            htmlFor="etapaDestino"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Regresar a etapa (opcional)
+          </label>
+          <select
+            id="etapaDestino"
+            value={etapaDestinoValue ?? ""}
+            onChange={(e) => onEtapaDestinoChange(e.target.value)}
+            className="form-select w-full text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md"
+          >
+            <option value="">Etapa anterior (por defecto)</option>
+            {etapaDestinoOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Si no seleccionas una etapa, el aval regresará a la etapa inmediatamente anterior.
+          </p>
+        </div>
+      )}
 
       {actionError && <p className="text-sm text-rose-500">{actionError}</p>}
 

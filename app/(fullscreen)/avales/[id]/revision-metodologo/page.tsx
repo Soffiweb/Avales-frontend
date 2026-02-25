@@ -12,7 +12,7 @@ import {
   type RevisionMetodologoItem,
 } from "@/lib/api/avales";
 import { getDirigido } from "@/lib/api/user";
-import type { Aval } from "@/types/aval";
+import type { Aval, EtapaFlujo } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import { formatDate, formatRoles } from "@/lib/utils/formatters";
 import {
@@ -28,7 +28,7 @@ import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
-import { getApprovalStageLabel, getNextApprovalStage } from "@/lib/constants";
+import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
@@ -198,6 +198,7 @@ export default function RevisionMetodologoPage() {
   const [dtmName, setDtmName] = useState("");
   const [dtmCargo, setDtmCargo] = useState("");
   const [rechazoMotivo, setRechazoMotivo] = useState("");
+  const [etapaDestino, setEtapaDestino] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<{
@@ -499,8 +500,15 @@ export default function RevisionMetodologoPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
+      await rechazarAval(
+        aval.id,
+        user.id,
+        currentEtapa,
+        rechazoMotivo.trim(),
+        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
+      );
       setRechazoMotivo("");
+      setEtapaDestino("");
       await loadAval();
     } catch (err: unknown) {
       setActionError(
@@ -509,7 +517,7 @@ export default function RevisionMetodologoPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, currentEtapa, rechazoMotivo, loadAval]);
+  }, [aval, user?.id, currentEtapa, rechazoMotivo, etapaDestino, loadAval]);
   const comprasDraft = useMemo(() => {
     if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
     const compras = aval.comprasPublicas;
@@ -819,6 +827,11 @@ export default function RevisionMetodologoPage() {
                   actionLoading={actionLoading}
                   onApprove={handleApprove}
                   onReject={handleReject}
+                  etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
+                    (e) => ({ value: e, label: getApprovalStageLabel(e) }),
+                  )}
+                  etapaDestinoValue={etapaDestino}
+                  onEtapaDestinoChange={setEtapaDestino}
                 />
               )}
               {!showApprovalPanel && aval?.revisionMetodologo?.numeroRevision && (

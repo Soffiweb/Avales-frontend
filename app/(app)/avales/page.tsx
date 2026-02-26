@@ -81,12 +81,19 @@ export default function AvalesPage() {
   const isPda = user?.roles?.some((role) => role === "PDA") ?? false;
   const isControlPrevio =
     user?.roles?.some((role) => role === "CONTROL_PREVIO") ?? false;
+  const isFinanciero =
+    user?.roles?.some((role) => role === "FINANCIERO") ?? false;
   const isSecretaria =
     user?.roles?.some((role) => role === "SECRETARIA") ?? false;
   const isComprasPublicas =
     user?.roles?.some((role) => role === "COMPRAS_PUBLICAS") ?? false;
   const isReviewer =
-    isDTM || isMetodologo || isPda || isControlPrevio || isComprasPublicas;
+    isDTM ||
+    isMetodologo ||
+    isPda ||
+    isControlPrevio ||
+    isComprasPublicas ||
+    isFinanciero;
 
   useEffect(() => {
     if (page === currentPage) return;
@@ -108,6 +115,8 @@ export default function AvalesPage() {
           ? "REVISION_METODOLOGO"
           : isControlPrevio
             ? "REVISION_DTM"
+            : isFinanciero
+              ? "CONTROL_PREVIO"
             : isComprasPublicas
               ? "PDA"
               : undefined;
@@ -128,6 +137,7 @@ export default function AvalesPage() {
         isDTM,
         isPda,
         isComprasPublicas,
+        isFinanciero,
         efectivoEstado,
         efectivoEtapa,
       });
@@ -167,6 +177,7 @@ export default function AvalesPage() {
     isDTM,
     isPda,
     isComprasPublicas,
+    isFinanciero,
   ]);
 
   useEffect(() => {
@@ -283,6 +294,7 @@ export default function AvalesPage() {
             {!isAdmin &&
               !isPda &&
               !isControlPrevio &&
+              !isFinanciero &&
               !isMetodologo &&
               !isDTM &&
               !isComprasPublicas &&
@@ -312,6 +324,7 @@ export default function AvalesPage() {
           !hasDisciplina &&
           !isPda &&
           !isControlPrevio &&
+          !isFinanciero &&
           !isMetodologo &&
           !isDTM &&
           !isComprasPublicas &&
@@ -355,6 +368,8 @@ export default function AvalesPage() {
           isPda={isPda}
           isDtm={isDTM}
           isMetodologo={isMetodologo}
+          isControlPrevio={isControlPrevio}
+          isFinanciero={isFinanciero}
           isComprasPublicas={isComprasPublicas}
         />
 

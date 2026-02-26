@@ -46,6 +46,7 @@ export type Evento = {
   numAtletasMujeres: number;
   estado?: EventoEstado | null;
   archivo?: string | null;
+  cargadoPorExcel?: boolean;
   deleted?: boolean;
   createdAt?: string;
   updatedAt?: string;

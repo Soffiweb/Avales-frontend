@@ -34,6 +34,8 @@ type Props = {
   isPda?: boolean;
   isDtm?: boolean;
   isMetodologo?: boolean;
+  isControlPrevio?: boolean;
+  isFinanciero?: boolean;
   isComprasPublicas?: boolean;
 };
 
@@ -59,6 +61,8 @@ export default function AvalListCard({
   isPda = false,
   isDtm = false,
   isMetodologo = false,
+  isControlPrevio = false,
+  isFinanciero = false,
   isComprasPublicas = false,
 }: Props) {
   if (loading) {
@@ -260,6 +264,24 @@ export default function AvalListCard({
                       >
                         <Eye className="w-4 h-4" />
                         Revisar
+                      </Link>
+                    )}
+                    {isControlPrevio && (
+                      <Link
+                        href={`/avales/${aval.id}/revision-control-previo`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Revisar
+                      </Link>
+                    )}
+                    {isFinanciero && (
+                      <Link
+                        href={`/avales/${aval.id}/certificacion-financiera`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                      >
+                        <Stamp className="w-4 h-4" />
+                        Certificar
                       </Link>
                     )}
                   </>

@@ -7,5 +7,5 @@
     "statusBar.background": "#463869",
     "statusBar.foreground": "#FAF9FC"
   },
-  "conventionalCommits.scopes": ["build", "compras_publicas", "auth"]
+  "conventionalCommits.scopes": ["build", "compras_publicas", "auth", "evento"]
 }

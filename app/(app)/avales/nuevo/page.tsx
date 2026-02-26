@@ -6,9 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, Users, Search } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
-import UploadModal from "@/components/ui/upload-modal";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
-import { uploadConvocatoria } from "@/lib/api/avales";
 import type { Evento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
@@ -36,10 +34,6 @@ export default function NuevoAvalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
-
-  // Upload convocatoria
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   // Submission
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -89,58 +83,12 @@ export default function NuevoAvalPage() {
       return;
     }
 
-    setSelectedEvento(evento);
-    setUploadModalOpen(true);
+    router.push(`/avales/nuevo/eventos/${evento.id}`);
     console.log("Evento seleccionado para convocatoria:", {
       id: evento.id,
       nombre: evento.nombre,
       fecha: evento.fechaInicio,
     });
-  };
-
-  const handleUploadConvocatoria = async ({
-    convocatoria,
-    certificadoMedico,
-  }: {
-    convocatoria: File;
-    certificadoMedico: File;
-  }) => {
-    if (!selectedEvento) {
-      throw new Error("No se ha seleccionado un evento");
-    }
-
-    try {
-      console.log("Preparando llamada uploadConvocatoria...");
-      const response = await uploadConvocatoria(
-        selectedEvento.id,
-        convocatoria,
-        certificadoMedico
-      );
-
-      console.log("Upload exitoso:", response);
-      console.log("Redirigiendo al wizard con ID de aval:", response.data?.id);
-
-      setUploadModalOpen(false);
-      setSelectedEvento(null);
-
-      // Redirigir directamente al wizard para crear el aval técnico
-      router.push(`/avales/${response.data.id}/crear-solicitud`);
-    } catch (err: any) {
-      console.error("Error al subir convocatoria:", err);
-
-      // Mejorar el mensaje de error
-      let errorMessage = "Error al subir los documentos";
-
-      if (err?.problem?.detail) {
-        errorMessage = err.problem.detail;
-      } else if (err?.problem?.title) {
-        errorMessage = err.problem.title;
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-
-      throw new Error(errorMessage);
-    }
   };
 
   return (
@@ -154,18 +102,6 @@ export default function NuevoAvalPage() {
           />
         </div>
       )}
-
-      {/* Upload Modal */}
-      <UploadModal
-        isOpen={uploadModalOpen}
-        onClose={() => {
-          setUploadModalOpen(false);
-          setSelectedEvento(null);
-        }}
-        onUpload={handleUploadConvocatoria}
-        title="Subir documentos obligatorios"
-        description="Sube la convocatoria y el certificado médico para crear la colección de aval. Luego podrás completar el aval técnico."
-      />
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
         {/* Header */}
@@ -181,7 +117,8 @@ export default function NuevoAvalPage() {
             Crear nuevo aval
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Selecciona un evento disponible y sube convocatoria + certificado médico.
+            Selecciona un evento disponible y sube convocatoria + certificado
+            médico.
           </p>
         </div>
 

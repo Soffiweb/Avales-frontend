@@ -10,6 +10,7 @@ import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
+import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { getApprovalStageLabel } from "@/lib/constants";
@@ -507,18 +508,12 @@ Telefono: 72570734`;
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview certificacion financiera
-              </p>
+            <PreviewCollapsible title="Preview certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview presupuesto salida anticipo
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview presupuesto salida anticipo">
               <PresupuestoSalidaAnticipoPreview aval={aval} draft={draft} />
-            </div>
+            </PreviewCollapsible>
           </div>
         </div>
       </div>

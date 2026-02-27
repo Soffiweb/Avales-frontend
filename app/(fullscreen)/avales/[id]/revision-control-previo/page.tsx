@@ -25,6 +25,7 @@ import RevisionMetodologoPreview, {
   type ReviewItem,
   type ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
+import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
@@ -463,34 +464,22 @@ export default function RevisionControlPrevioPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview solicitud aval
-              </p>
+            <PreviewCollapsible title="Preview solicitud aval" defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview lista deportistas
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview lista deportistas" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview certificacion PDA
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview certificacion PDA" defaultOpen>
               <PdaPreview aval={aval} draft={pdaDraft} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview certificacion compras publicas
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible
+              title="Preview certificacion compras publicas"
+              defaultOpen
+            >
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview revision metodologo
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview revision metodologo" defaultOpen>
               <RevisionMetodologoPreview
                 aval={aval}
                 header={revisionHeader}
@@ -499,7 +488,7 @@ export default function RevisionControlPrevioPage() {
                 reviewState={reviewState}
                 useDefaultObservations={false}
               />
-            </div>
+            </PreviewCollapsible>
           </div>
         </div>
       </div>

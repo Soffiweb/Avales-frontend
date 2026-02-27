@@ -21,6 +21,7 @@ import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-pr
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
+import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { formatRoles } from "@/lib/utils/formatters";
@@ -648,30 +649,21 @@ export default function CertificarComprasPublicasPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview lista deportistas
-              </p>
+            <PreviewCollapsible title="Preview lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview solicitud aval
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview certificacion PDA
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview certificacion PDA">
               <PdaPreview aval={aval} draft={pdaDraft} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                Preview certificacion compras publicas
-              </p>
+            </PreviewCollapsible>
+            <PreviewCollapsible
+              title="Preview certificacion compras publicas"
+              defaultOpen
+            >
               <ComprasPublicasPreview aval={aval} draft={draft} />
-            </div>
+            </PreviewCollapsible>
           </div>
         </div>
       </div>

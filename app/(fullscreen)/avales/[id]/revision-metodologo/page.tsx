@@ -212,6 +212,7 @@ export default function RevisionMetodologoPage() {
     cargoDirigidoA: "",
     descripcionEncabezado: "",
     fechaRevision: new Date().toISOString().slice(0, 10),
+    observacionFechaTramite: "",
   });
   const [revisionFooter, setRevisionFooter] = useState({
     observacionesFinales: "",
@@ -233,6 +234,7 @@ export default function RevisionMetodologoPage() {
       cargoDirigidoA: "",
       descripcionEncabezado: "",
       fechaRevision: new Date().toISOString().slice(0, 10),
+      observacionFechaTramite: "",
     });
     setRevisionFooter({
       observacionesFinales: "",
@@ -332,6 +334,10 @@ export default function RevisionMetodologoPage() {
         prev.descripcionEncabezado,
       fechaRevision:
         aval.revisionMetodologo?.fechaRevision ?? prev.fechaRevision,
+      observacionFechaTramite:
+        prev.observacionFechaTramite ||
+        aval.revisionMetodologo?.observacionesFinales ||
+        "",
     }));
   }, [aval]);
 
@@ -462,7 +468,9 @@ export default function RevisionMetodologoPage() {
         firmanteNombre: revisionFooter.firmanteNombre.trim(),
         firmanteCargo: revisionFooter.firmanteCargo.trim(),
         fechaRevision: revisionHeader.fechaRevision,
-        observacionesFinales: revisionFooter.observacionesFinales.trim(),
+        observacionesFinales:
+          revisionHeader.observacionFechaTramite.trim() ||
+          revisionFooter.observacionesFinales.trim(),
         items,
       });
       setToast({
@@ -618,6 +626,23 @@ export default function RevisionMetodologoPage() {
                           fechaRevision: e.target.value,
                         }))
                       }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Observación de fecha de trámite
+                    </span>
+                    <textarea
+                      className="form-textarea w-full mt-1"
+                      rows={3}
+                      value={revisionHeader.observacionFechaTramite}
+                      onChange={(e) =>
+                        setRevisionHeader((prev) => ({
+                          ...prev,
+                          observacionFechaTramite: e.target.value,
+                        }))
+                      }
+                      placeholder="Escribe la observación para la fecha de trámite..."
                     />
                   </label>
                   <label className="block">

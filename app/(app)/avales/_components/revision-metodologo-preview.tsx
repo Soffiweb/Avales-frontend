@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 
 import type { Aval } from "@/types/aval";
-import { formatDate, formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
+import { formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
 
 export type ReviewItem = {
   key: string;
@@ -23,6 +23,7 @@ type RevisionHeader = {
   cargoDirigidoA: string;
   descripcionEncabezado: string;
   fechaRevision: string;
+  observacionFechaTramite?: string;
 };
 
 type RevisionFooter = {
@@ -144,6 +145,16 @@ function buildDefaultDescripcion(aval: Aval, header: RevisionHeader) {
   return `En base a la presentacion del Aval Tecnico de PARTICIPACION en ${eventoNombre}, por el entrenador ${entrenadorResponsable} de ${disciplina}, evento a desarrollarse en ${lugar}, ${fechas}. Luego de la revision se describe brevemente la tabla de cumplimiento y no cumplimiento de los items revisados.`;
 }
 
+function formatFechaTramite(value?: string | null) {
+  if (!value) return "-";
+  const parts = value.split("-");
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    if (year && month && day) return `${day}-${month}-${year}`;
+  }
+  return value;
+}
+
 export default function RevisionMetodologoPreview({
   aval,
   reviewItems,
@@ -156,7 +167,6 @@ export default function RevisionMetodologoPreview({
   const descripcion = buildDefaultDescripcion(aval, header);
   const dirigidoA = header.dirigidoA || "[NOMBRE DESTINATARIO]";
   const cargoDirigidoA = header.cargoDirigidoA || "[CARGO]";
-  const fechaRevision = header.fechaRevision ? formatDate(header.fechaRevision) : "-";
   const numeroRevision = header.numeroRevision?.trim() || "014";
 
   const sortedItems = [...reviewItems].sort((a, b) => a.order - b.order);
@@ -176,26 +186,19 @@ export default function RevisionMetodologoPreview({
         <p className="font-semibold uppercase">{cargoDirigidoA}</p>
       </div>
 
-      <div className="text-[10px] leading-4">
-        <p className="font-semibold uppercase">Fecha: {fechaRevision}</p>
-      </div>
-
       <p className="text-[10px] leading-4">{descripcion}</p>
 
       <div className="border border-slate-400">
         <table className="w-full border-collapse text-[9px]">
           <thead>
             <tr className="bg-slate-200">
-              <th className="border border-slate-400 px-2 py-1 text-left w-[52%]">
+              <th className="border border-slate-400 px-2 py-1 text-left w-[56%]">
                 PARAMETROS
               </th>
-              <th className="border border-slate-400 px-2 py-1 text-center w-10">
-                SI
+              <th className="border border-slate-400 px-2 py-1 text-center w-[16%]">
+                VALOR
               </th>
-              <th className="border border-slate-400 px-2 py-1 text-center w-10">
-                NO
-              </th>
-              <th className="border border-slate-400 px-2 py-1 text-left w-[48%]">
+              <th className="border border-slate-400 px-2 py-1 text-left w-[44%]">
                 OBSERVACIONES
               </th>
             </tr>
@@ -208,7 +211,7 @@ export default function RevisionMetodologoPreview({
                   <tr className="bg-slate-50">
                     <td
                       className="border border-slate-400 px-2 py-1 font-semibold uppercase"
-                      colSpan={4}
+                      colSpan={3}
                     >
                       {SECTION_LABELS[section]}
                     </td>
@@ -230,10 +233,7 @@ export default function RevisionMetodologoPreview({
                           {item.order}. {item.label}
                         </td>
                         <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
-                          {cumple ? "X" : ""}
-                        </td>
-                        <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
-                          {!cumple ? "X" : ""}
+                          {cumple ? "SI" : "NO"}
                         </td>
                         <td className="border border-slate-400 px-2 py-0.5 align-top">
                           {observacion}
@@ -244,6 +244,17 @@ export default function RevisionMetodologoPreview({
                 </Fragment>
               ),
             )}
+            <tr>
+              <td className="border border-slate-400 px-2 py-0.5 align-top font-semibold">
+                Fecha de tramite
+              </td>
+              <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
+                {formatFechaTramite(header.fechaRevision)}
+              </td>
+              <td className="border border-slate-400 px-2 py-0.5 align-top">
+                {header.observacionFechaTramite?.trim() || "-"}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

@@ -73,6 +73,7 @@ const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
 const INITIAL_DTM_DRAFT = {
   descripcion: "",
   observacion: "",
+  observacionFechaTramite: "",
   fechaPresentacion: new Date().toISOString().slice(0, 10),
 };
 
@@ -394,8 +395,14 @@ export default function RevisionDtmPage() {
       ...revisionHeader,
       descripcionEncabezado: draft.descripcion,
       fechaRevision: draft.fechaPresentacion,
+      observacionFechaTramite: draft.observacionFechaTramite,
     }),
-    [revisionHeader, draft.descripcion, draft.fechaPresentacion],
+    [
+      revisionHeader,
+      draft.descripcion,
+      draft.fechaPresentacion,
+      draft.observacionFechaTramite,
+    ],
   );
 
   const dtmPreviewFooter = useMemo(
@@ -618,6 +625,25 @@ export default function RevisionDtmPage() {
                         fechaPresentacion: e.target.value,
                       }))
                     }
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Observación de fecha de trámite
+                  </span>
+                  <textarea
+                    className="form-textarea w-full mt-1"
+                    rows={3}
+                    value={draft.observacionFechaTramite}
+                    readOnly={!isEditable}
+                    disabled={!isEditable}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        observacionFechaTramite: e.target.value,
+                      }))
+                    }
+                    placeholder="Escribe la observación para la fecha de trámite..."
                   />
                 </label>
 

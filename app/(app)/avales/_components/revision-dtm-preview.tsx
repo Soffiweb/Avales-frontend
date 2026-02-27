@@ -10,6 +10,7 @@ type RevisionHeader = {
   cargoDirigidoA: string;
   descripcionEncabezado: string;
   fechaRevision: string;
+  observacionFechaTramite?: string;
 };
 
 type RevisionFooter = {

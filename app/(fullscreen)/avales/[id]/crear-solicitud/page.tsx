@@ -4,7 +4,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getAval } from "@/lib/api/avales";
 import type { Aval } from "@/types/aval";
-import AvalDocumentPreview from "@/app/(app)/avales/_components/aval-document-preview";
+import {
+  ListaDeportistasPreview,
+  SolicitudAvalPreview,
+} from "@/app/(app)/avales/_components/aval-document-preview";
+import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import Paso01Deportistas from "@/app/(app)/avales/_components/paso-01-deportistas";
 import Paso02Logistica from "@/app/(app)/avales/_components/paso-02-logistica";
 import Paso03Objetivos from "@/app/(app)/avales/_components/paso-03-objetivos";
@@ -243,10 +247,14 @@ export default function CrearSolicitudPage() {
       {/* Right Panel - Documento */}
       <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
         <div className="p-6 xl:p-8">
-          <AvalDocumentPreview
-            aval={aval}
-            formData={formData}
-          />
+          <div className="space-y-6">
+            <PreviewCollapsible title="Preview escuela de iniciacion" defaultOpen>
+              <ListaDeportistasPreview aval={aval} formData={formData} />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview solicitud de aval" defaultOpen>
+              <SolicitudAvalPreview aval={aval} formData={formData} />
+            </PreviewCollapsible>
+          </div>
         </div>
       </div>
     </div>

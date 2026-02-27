@@ -25,6 +25,7 @@ import RevisionMetodologoPreview, {
   type ReviewItem,
   type ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
+import RevisionDtmPreview from "@/app/(app)/avales/_components/revision-dtm-preview";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
   DEFAULT_REVIEW_ITEMS,
@@ -33,6 +34,7 @@ import {
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
+import { formatLocationWithProvince } from "@/lib/utils/formatters";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -72,6 +74,101 @@ const INITIAL_DTM_DRAFT = {
   observacion: "",
   fechaPresentacion: new Date().toISOString().slice(0, 10),
 };
+
+function getEntrenadorResponsableNombre(aval: Aval) {
+  const sorted = [...(aval.entrenadores ?? [])].sort(
+    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+  );
+  const first = sorted[0] as
+    | (typeof sorted)[number] & {
+        usuario?: { nombre?: string; apellido?: string };
+        entrenador?: { nombre?: string; apellido?: string };
+        nombre?: string;
+        apellido?: string;
+      }
+    | undefined;
+
+  if (!first) return "[ENTRENADOR RESPONSABLE]";
+
+  return (
+    [
+      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
+      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "[ENTRENADOR RESPONSABLE]"
+  );
+}
+
+function formatEventDateRangeForDescripcion(
+  fechaInicio?: string | null,
+  fechaFin?: string | null,
+) {
+  if (!fechaInicio) return "en fecha por definir";
+  const start = new Date(fechaInicio);
+  if (Number.isNaN(start.getTime())) return "en fecha por definir";
+
+  if (!fechaFin) {
+    return `el ${start.toLocaleDateString("es-EC", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })}`;
+  }
+
+  const end = new Date(fechaFin);
+  if (Number.isNaN(end.getTime())) {
+    return `el ${start.toLocaleDateString("es-EC", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })}`;
+  }
+
+  const sameMonth =
+    start.getMonth() === end.getMonth() &&
+    start.getFullYear() === end.getFullYear();
+
+  if (sameMonth) {
+    return `del ${start.getDate()} al ${end.getDate()} de ${start.toLocaleDateString(
+      "es-EC",
+      { month: "long", year: "numeric" },
+    )}`;
+  }
+
+  return `del ${start.toLocaleDateString("es-EC", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })} al ${end.toLocaleDateString("es-EC", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })}`;
+}
+
+function buildDefaultDtmDescripcion(aval: Aval) {
+  const evento = aval.evento;
+  const entrenador = getEntrenadorResponsableNombre(aval);
+  const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
+  const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
+  const numeroSolicitud =
+    aval.avalTecnico?.numeroAval ??
+    aval.aval ??
+    aval.numeroColeccion ??
+    `[SOLICITUD ${aval.id}]`;
+  const lugar =
+    [evento?.provincia, evento?.ciudad].filter(Boolean).join("-") ||
+    formatLocationWithProvince(evento) ||
+    "[LUGAR]";
+  const rangoFechas = formatEventDateRangeForDescripcion(
+    evento?.fechaInicio,
+    evento?.fechaFin,
+  );
+
+  return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
+}
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   const tecnico = aval.avalTecnico;
@@ -260,6 +357,15 @@ export default function RevisionDtmPage() {
     );
   }, [aval, reviewItems]);
 
+  useEffect(() => {
+    if (!aval) return;
+    if (draft.descripcion.trim()) return;
+    setDraft((prev) => ({
+      ...prev,
+      descripcion: buildDefaultDtmDescripcion(aval),
+    }));
+  }, [aval, draft.descripcion]);
+
   const revisionHeader = useMemo(
     () => ({
       numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
@@ -280,6 +386,23 @@ export default function RevisionDtmPage() {
       firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
     }),
     [aval],
+  );
+
+  const dtmPreviewHeader = useMemo(
+    () => ({
+      ...revisionHeader,
+      descripcionEncabezado: draft.descripcion,
+      fechaRevision: draft.fechaPresentacion,
+    }),
+    [revisionHeader, draft.descripcion, draft.fechaPresentacion],
+  );
+
+  const dtmPreviewFooter = useMemo(
+    () => ({
+      ...revisionFooter,
+      observacionesFinales: draft.observacion,
+    }),
+    [revisionFooter, draft.observacion],
   );
 
   const etapaActualResponse = aval?.etapaActual;
@@ -605,14 +728,32 @@ export default function RevisionDtmPage() {
             <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             <PdaPreview aval={aval} draft={pdaDraft} />
             <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
-            <RevisionMetodologoPreview
-              aval={aval}
-              header={revisionHeader}
-              footer={revisionFooter}
-              reviewItems={reviewItems}
-              reviewState={reviewState}
-              useDefaultObservations={false}
-            />
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview revision Metodologo
+              </p>
+              <RevisionMetodologoPreview
+                aval={aval}
+                header={revisionHeader}
+                footer={revisionFooter}
+                reviewItems={reviewItems}
+                reviewState={reviewState}
+                useDefaultObservations={false}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview revision DTM
+              </p>
+              <RevisionDtmPreview
+                aval={aval}
+                header={dtmPreviewHeader}
+                footer={dtmPreviewFooter}
+                reviewItems={reviewItems}
+                reviewState={reviewState}
+                useDefaultObservations={false}
+              />
+            </div>
           </div>
         </div>
       </div>

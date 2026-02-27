@@ -41,7 +41,7 @@ type Props = {
 };
 
 const SECTION_LABELS: Record<ReviewItem["section"], string> = {
-  CHECKLIST: "PARAMETROS",
+  CHECKLIST: "CHECKLIST",
   DATOS_INFORMATIVOS: "DATOS INFORMATIVOS",
   HOJAS_EXCEL: "HOJAS DE EXCEL",
 };
@@ -135,12 +135,13 @@ function buildDefaultObservations(aval: Aval) {
 function buildDefaultDescripcion(aval: Aval, header: RevisionHeader) {
   if (header.descripcionEncabezado.trim()) return header.descripcionEncabezado;
   const evento = aval.evento;
-  const disciplina = evento?.disciplina?.nombre ?? "la disciplina";
-  const fecha = evento?.fechaInicio ? formatDate(evento.fechaInicio) : "-";
-  const eventoNombre = evento?.nombre ?? "el evento";
+  const eventoNombre = (evento?.nombre ?? "EL EVENTO").toUpperCase();
+  const lugar = formatLocationWithProvince(evento) || "LUGAR POR DEFINIR";
+  const fechas = formatDateRange(evento?.fechaInicio, evento?.fechaFin);
   const entrenadorResponsable = getEntrenadorResponsableNombre(aval);
+  const disciplina = evento?.disciplina?.nombre ?? "LA DISCIPLINA";
 
-  return `En base a la presentacion del Aval Tecnico de Participacion Competitiva de ${disciplina}, ${eventoNombre}, con fecha ${fecha}, suscrito por el ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los items revisados.`;
+  return `En base a la presentacion del Aval Tecnico de PARTICIPACION en ${eventoNombre}, por el entrenador ${entrenadorResponsable} de ${disciplina}, evento a desarrollarse en ${lugar}, ${fechas}. Luego de la revision se describe brevemente la tabla de cumplimiento y no cumplimiento de los items revisados.`;
 }
 
 export default function RevisionMetodologoPreview({
@@ -156,33 +157,36 @@ export default function RevisionMetodologoPreview({
   const dirigidoA = header.dirigidoA || "[NOMBRE DESTINATARIO]";
   const cargoDirigidoA = header.cargoDirigidoA || "[CARGO]";
   const fechaRevision = header.fechaRevision ? formatDate(header.fechaRevision) : "-";
+  const numeroRevision = header.numeroRevision?.trim() || "014";
 
   const sortedItems = [...reviewItems].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
-      <div className="text-center space-y-1">
-        <p className="text-[11px] uppercase font-semibold tracking-wide">
-          Informe de revision del aval tecnico LG-METODOLOGA DTM-FDPL-2024
+    <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-3">
+      <div className="space-y-0.5">
+        <p className="text-[12px] uppercase font-semibold tracking-wide">
+          Informe de revision del aval tecnico LG-METODOLOGA DTM-FDPL-2024-AI-R{String.fromCharCode(176)}{" "}
+          {numeroRevision}
         </p>
+        <p className="text-[10px] uppercase">N{String.fromCharCode(176)} {numeroRevision}</p>
       </div>
 
-      <div className="text-[11px] leading-4">
-        <p className="font-semibold uppercase">{dirigidoA}</p>
+      <div className="text-[10px] leading-4">
+        <p className="uppercase">{dirigidoA}</p>
         <p className="font-semibold uppercase">{cargoDirigidoA}</p>
       </div>
 
-      <div className="text-[11px] leading-4">
+      <div className="text-[10px] leading-4">
         <p className="font-semibold uppercase">Fecha: {fechaRevision}</p>
       </div>
 
-      <p className="text-[11px] leading-4">{descripcion}</p>
+      <p className="text-[10px] leading-4">{descripcion}</p>
 
       <div className="border border-slate-400">
-        <table className="w-full border-collapse text-[10px]">
+        <table className="w-full border-collapse text-[9px]">
           <thead>
             <tr className="bg-slate-200">
-              <th className="border border-slate-400 px-2 py-1 text-left">
+              <th className="border border-slate-400 px-2 py-1 text-left w-[52%]">
                 PARAMETROS
               </th>
               <th className="border border-slate-400 px-2 py-1 text-center w-10">
@@ -191,7 +195,7 @@ export default function RevisionMetodologoPreview({
               <th className="border border-slate-400 px-2 py-1 text-center w-10">
                 NO
               </th>
-              <th className="border border-slate-400 px-2 py-1 text-left w-56">
+              <th className="border border-slate-400 px-2 py-1 text-left w-[48%]">
                 OBSERVACIONES
               </th>
             </tr>
@@ -200,14 +204,16 @@ export default function RevisionMetodologoPreview({
             {(["CHECKLIST", "DATOS_INFORMATIVOS", "HOJAS_EXCEL"] as const).map(
               (section) => (
                 <Fragment key={section}>
-                <tr className="bg-slate-50">
-                  <td
-                    className="border border-slate-400 px-2 py-1 font-semibold uppercase"
-                    colSpan={4}
-                  >
-                    {SECTION_LABELS[section]}
-                  </td>
-                </tr>
+                {section !== "CHECKLIST" ? (
+                  <tr className="bg-slate-50">
+                    <td
+                      className="border border-slate-400 px-2 py-1 font-semibold uppercase"
+                      colSpan={4}
+                    >
+                      {SECTION_LABELS[section]}
+                    </td>
+                  </tr>
+                ) : null}
                 {sortedItems
                   .filter((item) => item.section === section)
                   .map((item) => {
@@ -220,16 +226,16 @@ export default function RevisionMetodologoPreview({
 
                     return (
                       <tr key={item.key}>
-                        <td className="border border-slate-400 px-2 py-1">
+                        <td className="border border-slate-400 px-2 py-0.5 align-top">
                           {item.order}. {item.label}
                         </td>
-                        <td className="border border-slate-400 px-2 py-1 text-center">
+                        <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
                           {cumple ? "X" : ""}
                         </td>
-                        <td className="border border-slate-400 px-2 py-1 text-center">
+                        <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
                           {!cumple ? "X" : ""}
                         </td>
-                        <td className="border border-slate-400 px-2 py-1">
+                        <td className="border border-slate-400 px-2 py-0.5 align-top">
                           {observacion}
                         </td>
                       </tr>
@@ -242,12 +248,12 @@ export default function RevisionMetodologoPreview({
         </table>
       </div>
 
-      <div className="text-[11px] leading-4 space-y-2">
+      <div className="text-[10px] leading-4 space-y-2">
         <div>
-          <p className="font-semibold uppercase">Observaciones finales</p>
+          <p className="font-semibold uppercase">Observaciones:</p>
           <p>{footer.observacionesFinales.trim() || "-"}</p>
         </div>
-        <div className="pt-2">
+        <div className="pt-4">
           <p className="font-semibold uppercase">{footer.firmanteNombre || "-"}</p>
           <p className="uppercase">{footer.firmanteCargo || "-"}</p>
         </div>

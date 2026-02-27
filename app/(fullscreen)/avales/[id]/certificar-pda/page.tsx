@@ -565,9 +565,24 @@ export default function CertificarAvalPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
-            <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            <PdaPreview aval={aval} draft={draft} />
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview lista deportistas
+              </p>
+              <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview solicitud aval
+              </p>
+              <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview certificacion PDA
+              </p>
+              <PdaPreview aval={aval} draft={draft} />
+            </div>
           </div>
         </div>
       </div>

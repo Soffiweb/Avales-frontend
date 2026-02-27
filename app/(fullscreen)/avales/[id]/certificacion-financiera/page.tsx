@@ -507,8 +507,18 @@ Telefono: 72570734`;
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <CertificacionFinancieraPreview aval={aval} draft={draft} />
-            <PresupuestoSalidaAnticipoPreview aval={aval} draft={draft} />
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview certificacion financiera
+              </p>
+              <CertificacionFinancieraPreview aval={aval} draft={draft} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Preview presupuesto salida anticipo
+              </p>
+              <PresupuestoSalidaAnticipoPreview aval={aval} draft={draft} />
+            </div>
           </div>
         </div>
       </div>

@@ -50,7 +50,8 @@ export default function EventosPage() {
   } | null>(null);
   const { user } = useAuth();
   const userRoles = user?.roles ?? [];
-  const isSecretaria = userRoles.includes("SECRETARIA");
+  const canManageEvents =
+    userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -249,7 +250,7 @@ export default function EventosPage() {
                 </option>
               ))}
             </select>
-            {!isSecretaria && (
+            {canManageEvents && (
               <>
                 <button
                   onClick={() => setUploadModalOpen(true)}
@@ -273,8 +274,8 @@ export default function EventosPage() {
           eventos={eventos}
           loading={loading}
           error={error}
-          onDelete={isSecretaria ? undefined : handleDelete}
-          canManageEvents={!isSecretaria}
+          onDelete={canManageEvents ? handleDelete : undefined}
+          canManageEvents={canManageEvents}
         />
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-6">

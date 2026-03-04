@@ -12,6 +12,7 @@
     "compras_publicas",
     "auth",
     "evento",
-    "previews"
+    "previews",
+    "sidebar"
   ]
 }

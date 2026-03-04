@@ -30,8 +30,9 @@ export const ROLES_WITHOUT_SIDEBAR: Role[] = [];
 
 export const SIDEBAR_ITEMS: SidebarItem[] = [
   {
-    type: "group",
-    label: "Dashboard",
+    type: "link",
+    label: "Principal",
+    href: "/dashboard",
     segment: "dashboard",
     icon: "dashboard",
     roles: [
@@ -45,24 +46,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
       "FINANCIERO",
       "SECRETARIA",
       "COMPRAS_PUBLICAS",
-    ],
-    children: [
-      {
-        label: "Main",
-        href: "/dashboard",
-        segment: "dashboard",
-        roles: [
-          "SUPER_ADMIN",
-          "ADMIN",
-          "DTM",
-          "METODOLOGO",
-          "FINANCIERO",
-          "PDA",
-          "CONTROL_PREVIO",
-          "ENTRENADOR",
-          "COMPRAS_PUBLICAS",
-        ],
-      },
     ],
   },
   {
@@ -106,6 +89,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/eventos",
     segment: "eventos",
     icon: "eventos",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR"],
   },
 ];

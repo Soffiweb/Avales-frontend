@@ -156,7 +156,8 @@ export default function EventoDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const userRoles = user?.roles ?? [];
-  const isSecretaria = userRoles.includes("SECRETARIA");
+  const canManageEvents =
+    userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);
@@ -276,7 +277,7 @@ export default function EventoDetailPage() {
               </p>
             )}
           </div>
-          {!isSecretaria && (
+          {canManageEvents && (
             <div className="flex items-center gap-2">
               <Link
                 href={`/eventos/${evento.id}/editar`}

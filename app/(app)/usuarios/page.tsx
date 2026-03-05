@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Upload } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import Pagination from "@/components/ui/pagination";
 import UsuarioTable from "./_components/usuario-table";
+import UploadUsersExcelModal from "@/components/users/upload-excel-users-modal";
 import { softDeleteUser, listUsers } from "@/lib/api/user";
 import type { User } from "@/types/user";
 
@@ -37,6 +39,7 @@ export default function Usuarios() {
   const [confirmUser, setConfirmUser] = useState<User | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   const pageSize = pagination.limit || PAGE_SIZE;
   const totalPages = useMemo(
@@ -206,6 +209,14 @@ export default function Usuarios() {
               }}
             />
 
+            <button
+              onClick={() => setUploadModalOpen(true)}
+              className="btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Cargar Excel
+            </button>
+
             <Link
               href="/usuarios/nuevo"
               className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
@@ -251,6 +262,13 @@ export default function Usuarios() {
         onClose={() => {
           if (deleting) return;
           setConfirmOpen(false);
+        }}
+      />
+      <UploadUsersExcelModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onSuccess={() => {
+          fetchUsers();
         }}
       />
     </>

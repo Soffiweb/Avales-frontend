@@ -116,3 +116,22 @@ export async function updatePushToken(pushToken: string) {
     body: JSON.stringify({ pushToken }),
   });
 }
+
+export type UploadUsersExcelResponse = {
+  procesados: number;
+  creados: string[];
+  actualizados: string[];
+  errores: { fila: number; error: string }[];
+  disciplinasCreadas: string[];
+};
+
+export async function uploadUsersExcel(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFetch<UploadUsersExcelResponse>("/users/upload-excel", {
+    method: "POST",
+    body: formData,
+    headers: {},
+  });
+}

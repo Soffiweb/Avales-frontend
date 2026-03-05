@@ -178,11 +178,15 @@ function unsupportedOperationError(operation: string) {
   );
 }
 
-export async function createDeportista(_values: unknown) {
+export async function createDeportista(
+  _values: unknown
+): Promise<ApiResponse<Deportista>> {
   throw unsupportedOperationError("Crear deportista");
 }
 
-export async function getDeportista(_id: number) {
+export async function getDeportista(
+  _id: number
+): Promise<ApiResponse<Deportista>> {
   throw unsupportedOperationError("Consultar deportista por ID");
 }
 
@@ -191,7 +195,7 @@ export type UpdateDeportistaPayload = unknown;
 export async function updateDeportista(
   _id: number,
   _values: UpdateDeportistaPayload
-) {
+): Promise<ApiResponse<Deportista>> {
   throw unsupportedOperationError("Actualizar deportista");
 }
 

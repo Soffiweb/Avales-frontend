@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, MapPin, Users, Search } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import UploadModal from "@/components/ui/upload-modal";
+import { uploadConvocatoria } from "@/lib/api/avales";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
 import type { Evento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -37,6 +39,8 @@ export default function NuevoAvalPage() {
 
   // Submission
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
 
   const isEntrenador =
     user?.roles?.includes("ENTRENADOR") &&
@@ -83,12 +87,30 @@ export default function NuevoAvalPage() {
       return;
     }
 
-    router.push(`/avales/nuevo/eventos/${evento.id}`);
-    console.log("Evento seleccionado para convocatoria:", {
-      id: evento.id,
-      nombre: evento.nombre,
-      fecha: evento.fechaInicio,
-    });
+    setSelectedEvento(evento);
+    setUploadModalOpen(true);
+  };
+
+  const handleUploadConvocatoria = async ({
+    convocatoria,
+    certificadoMedico,
+  }: {
+    convocatoria: File;
+    certificadoMedico: File;
+  }) => {
+    if (!selectedEvento) {
+      throw new Error("No se ha seleccionado un evento.");
+    }
+
+    const response = await uploadConvocatoria(
+      selectedEvento.id,
+      convocatoria,
+      certificadoMedico
+    );
+
+    setUploadModalOpen(false);
+    setSelectedEvento(null);
+    router.push(`/avales/${response.data.id}/crear-solicitud`);
   };
 
   return (
@@ -102,6 +124,18 @@ export default function NuevoAvalPage() {
           />
         </div>
       )}
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => {
+          setUploadModalOpen(false);
+          setSelectedEvento(null);
+        }}
+        onUpload={handleUploadConvocatoria}
+        title="Subir documentos obligatorios"
+        description={`Sube la convocatoria y el certificado médico para crear el aval${
+          selectedEvento?.nombre ? ` de "${selectedEvento.nombre}"` : ""
+        }.`}
+      />
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
         {/* Header */}

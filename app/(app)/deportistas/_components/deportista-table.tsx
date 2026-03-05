@@ -1,8 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { Pencil, Trash2 } from "lucide-react";
-
 import type { Deportista } from "@/types/deportista";
 
 type Props = {
@@ -40,13 +37,15 @@ export default function DeportistaTable({
   deportistas,
   loading,
   error,
-  onDelete,
 }: Props) {
-  const showEmpty = !loading && !error && deportistas.length === 0;
+  const hasRows = deportistas.length > 0;
+  const showInitialLoading = Boolean(loading) && !hasRows;
+  const showEmpty = !loading && !error && !hasRows;
+  const showError = Boolean(error) && !hasRows;
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto min-h-[26rem]">
         <table className="table-auto w-full dark:text-gray-300">
           <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-b border-gray-100 dark:border-gray-700/60">
               <tr>
@@ -78,7 +77,7 @@ export default function DeportistaTable({
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {loading && (
+              {showInitialLoading && (
                 <tr>
                   <td
                     className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
@@ -89,7 +88,7 @@ export default function DeportistaTable({
                 </tr>
               )}
 
-              {error && !loading && (
+              {showError && (
                 <tr>
                   <td
                     className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-red-500"
@@ -111,8 +110,7 @@ export default function DeportistaTable({
                 </tr>
               )}
 
-              {!loading &&
-                !error &&
+              {hasRows &&
                 deportistas.map((d) => (
                   <tr key={d.id}>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
@@ -151,6 +149,7 @@ export default function DeportistaTable({
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                      {/*
                       <div className="flex items-center justify-start gap-2">
                         <Link
                           href={`/deportistas/${d.id}/editar`}
@@ -174,6 +173,7 @@ export default function DeportistaTable({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                      */}
                     </td>
                   </tr>
                 ))}

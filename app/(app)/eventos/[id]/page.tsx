@@ -17,11 +17,15 @@ import {
   Clock,
   UserCheck,
   DollarSign,
+  Upload,
+  ClipboardEdit,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
+import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -158,11 +162,15 @@ export default function EventoDetailPage() {
   const userRoles = user?.roles ?? [];
   const canManageEvents =
     userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
+  const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS");
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [existingAvalId, setExistingAvalId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -176,8 +184,15 @@ export default function EventoDetailPage() {
     async function fetchEvento() {
       try {
         setLoading(true);
-        const res = await getEvento(id);
-        setEvento(res.data);
+        const eventoRes = await getEvento(id);
+        setEvento(eventoRes.data);
+        try {
+          const avalesRes = await getAvalesByEvento(id);
+          const avales = avalesRes.data ?? [];
+          setExistingAvalId(avales.length > 0 ? avales[0].id : null);
+        } catch {
+          setExistingAvalId(null);
+        }
       } catch (err: any) {
         setError(err?.message ?? "No se pudo cargar el evento.");
       } finally {
@@ -200,6 +215,23 @@ export default function EventoDetailPage() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleUploadConvocatoria = async ({
+    convocatoria,
+    certificadoMedico,
+  }: {
+    convocatoria: File;
+    certificadoMedico: File;
+  }) => {
+    if (!evento) throw new Error("No se ha seleccionado un evento.");
+    const response = await uploadConvocatoria(
+      evento.id,
+      convocatoria,
+      certificadoMedico
+    );
+    setUploadModalOpen(false);
+    router.push(`/avales/${response.data.id}/crear-solicitud`);
   };
 
   if (loading) {
@@ -244,6 +276,8 @@ export default function EventoDetailPage() {
     (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0);
   const totalEntrenadores =
     (evento.numEntrenadoresHombres || 0) + (evento.numEntrenadoresMujeres || 0);
+  const hasAval = existingAvalId !== null;
+  const canStartAval = canCreateAval && evento.estado === "DISPONIBLE" && !hasAval;
 
   return (
     <>
@@ -256,6 +290,22 @@ export default function EventoDetailPage() {
           />
         </div>
       )}
+      {submitError && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
+          <AlertBanner
+            variant="error"
+            message={submitError}
+            onClose={() => setSubmitError(null)}
+          />
+        </div>
+      )}
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUpload={handleUploadConvocatoria}
+        title="Subir documentos obligatorios"
+        description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
+      />
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-8xl mx-auto space-y-6">
         {/* Header */}
@@ -277,26 +327,80 @@ export default function EventoDetailPage() {
               </p>
             )}
           </div>
-          {canManageEvents && (
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/eventos/${evento.id}/editar`}
-                className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Editar
-              </Link>
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(true)}
-                className="btn bg-rose-500 hover:bg-rose-600 text-white"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar
-              </button>
+          <div className="w-full sm:w-auto">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                {canCreateAval && (
+                  <>
+                    {canStartAval ? (
+                      <button
+                        type="button"
+                        onClick={() => setUploadModalOpen(true)}
+                        className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Crear aval
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {hasAval ? "Aval ya creado" : "No disponible para crear aval"}
+                      </button>
+                    )}
+                    {hasAval && existingAvalId && (
+                      <Link
+                        href={`/avales/${existingAvalId}`}
+                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        Ver aval
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSubmitError(
+                          "La solicitud de reforma estará disponible próximamente."
+                        )
+                      }
+                      className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                    >
+                      <ClipboardEdit className="w-4 h-4 mr-2" />
+                      Solicitar reforma
+                    </button>
+                  </>
+                )}
+              </div>
+              {canCreateAval && hasAval && (
+                <p className="mt-2 px-1 text-xs text-gray-500 dark:text-gray-400">
+                  Este evento ya tiene un aval registrado.
+                </p>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+            {canManageEvents && (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex items-center gap-2">
+                <Link
+                  href={`/eventos/${evento.id}/editar`}
+                  className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Editar
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(true)}
+                  className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar
+                </button>
+              </div>
+            )}
+          </div>
 
         {/* Estado y badges */}
         <div className="flex flex-wrap items-center gap-3">

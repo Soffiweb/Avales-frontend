@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Calendar, MapPin, Users, Eye, Pencil, Trash2, DollarSign } from "lucide-react";
 
 import type { Evento } from "@/types/evento";
@@ -98,6 +99,8 @@ export default function EventoCard({
   onDelete,
   canManageEvents = true,
 }: Props) {
+  const router = useRouter();
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -139,7 +142,8 @@ export default function EventoCard({
       {eventos.map((evento) => (
         <div
           key={evento.id}
-          className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+          onClick={() => router.push(`/eventos/${evento.id}`)}
+          className="group cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
         >
           {/* Header con estado */}
           <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
@@ -226,6 +230,7 @@ export default function EventoCard({
           <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/30 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-end gap-2">
             <Link
               href={`/eventos/${evento.id}`}
+              onClick={(e) => e.stopPropagation()}
               className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-sky-100 hover:text-sky-600 dark:hover:bg-sky-900/40 dark:hover:text-sky-300 transition-colors"
               title="Ver detalle"
             >
@@ -235,6 +240,7 @@ export default function EventoCard({
               <>
                 <Link
                   href={`/eventos/${evento.id}/editar`}
+                  onClick={(e) => e.stopPropagation()}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-300 transition-colors"
                   title="Editar"
                 >
@@ -242,7 +248,10 @@ export default function EventoCard({
                 </Link>
                 <button
                   type="button"
-                  onClick={() => onDelete?.(evento)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete?.(evento);
+                  }}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-900/40 dark:hover:text-rose-300 transition-colors"
                   title="Eliminar"
                 >

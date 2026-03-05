@@ -50,7 +50,6 @@ export default function AvalTecnicoForm({
       const options: ListDeportistasOptions = {
         query: search.trim(),
         limit: 20,
-        soloAfiliados: true,
       };
 
       const res = await listDeportistas(options);

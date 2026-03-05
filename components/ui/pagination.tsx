@@ -7,13 +7,54 @@ type Props = {
   className?: string;
 };
 
+type PageItem = number | "...";
+
+function buildPageItems(currentPage: number, totalPages: number): PageItem[] {
+  if (totalPages <= 1) return [1];
+
+  const pages = new Set<number>();
+
+  pages.add(1);
+  if (totalPages >= 2) pages.add(2);
+
+  for (
+    let page = Math.max(1, currentPage - 3);
+    page <= Math.min(totalPages, currentPage + 3);
+    page += 1
+  ) {
+    pages.add(page);
+  }
+
+  if (totalPages >= 2) pages.add(totalPages - 1);
+  pages.add(totalPages);
+
+  const sorted = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+
+  const items: PageItem[] = [];
+
+  for (let i = 0; i < sorted.length; i += 1) {
+    const page = sorted[i];
+    const prev = sorted[i - 1];
+
+    if (i > 0 && prev !== undefined && page - prev > 1) {
+      items.push("...");
+    }
+
+    items.push(page);
+  }
+
+  return items;
+}
+
 export default function Pagination({
   currentPage,
   totalPages,
   onPageChange,
   className = "",
 }: Props) {
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  const pages = buildPageItems(currentPage, totalPages);
 
   return (
     <div className={`flex justify-center ${className}`}>
@@ -60,6 +101,19 @@ export default function Pagination({
         {/* Pages */}
         <ul className="inline-flex text-sm font-medium -space-x-px rounded-lg shadow-sm">
           {pages.map((p, idx) => {
+            if (p === "...") {
+              return (
+                <li key={`ellipsis-${idx}`}>
+                  <span
+                    className="inline-flex items-center justify-center leading-5 px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 text-gray-400 dark:text-gray-500"
+                    aria-hidden="true"
+                  >
+                    ...
+                  </span>
+                </li>
+              );
+            }
+
             const isActive = p === currentPage;
             const isFirst = idx === 0;
             const isLast = idx === pages.length - 1;

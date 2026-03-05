@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
+import { listDeportistas } from "@/lib/api/deportistas";
 
 export type StatisticsQuery = {
   fechaInicio?: string;
@@ -96,4 +97,16 @@ export async function getAllStatistics(query?: StatisticsQuery) {
   const qs = params.toString();
 
   return apiFetch<AllStatistics>(qs ? `/statistics?${qs}` : "/statistics");
+}
+
+export async function getTotalDeportistasFromSoffimedh() {
+  const res = await listDeportistas({ page: 1, limit: 1 });
+  const pagination = res.pagination;
+  const total = pagination?.total ?? res.meta?.total;
+
+  if (typeof total === "number" && total >= 0) {
+    return total;
+  }
+
+  return null;
 }

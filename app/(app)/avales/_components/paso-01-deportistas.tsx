@@ -213,7 +213,6 @@ export default function Paso01Deportistas({
       const options: ListDeportistasOptions = {
         query: searchDeportistasHombres.trim(),
         limit: 20,
-        soloAfiliados: true,
         genero: "Masculino",
       };
 
@@ -239,7 +238,6 @@ export default function Paso01Deportistas({
       const options: ListDeportistasOptions = {
         query: searchDeportistasMujeres.trim(),
         limit: 20,
-        soloAfiliados: true,
         genero: "FEMENINO",
       };
 

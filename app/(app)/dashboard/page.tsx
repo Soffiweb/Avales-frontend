@@ -29,7 +29,12 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
-import { getAllStatistics, getAvalesTimeline, type AllStatistics } from "@/lib/api/statistics";
+import {
+  getAllStatistics,
+  getAvalesTimeline,
+  getTotalDeportistasFromSoffimedh,
+  type AllStatistics,
+} from "@/lib/api/statistics";
 import AlertBanner from "@/components/ui/alert-banner";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
@@ -62,16 +67,37 @@ export default function Dashboard() {
     async function loadStats() {
       try {
         setLoading(true);
-        // Execute both requests in parallel
-        const [resStats, resTimeline] = await Promise.all([
+        const [resStats, resTimeline, deportistasResult] = await Promise.allSettled([
           getAllStatistics(),
-          getAvalesTimeline(12) // Last 12 months
+          getAvalesTimeline(12),
+          getTotalDeportistasFromSoffimedh(),
         ]);
-        
-        setStats(resStats.data);
+
+        if (resStats.status !== "fulfilled") {
+          throw resStats.reason;
+        }
+        if (resTimeline.status !== "fulfilled") {
+          throw resTimeline.reason;
+        }
+
+        const totalDeportistas =
+          deportistasResult.status === "fulfilled"
+            ? deportistasResult.value
+            : null;
+
+        setStats({
+          ...resStats.value.data,
+          dashboard: {
+            ...resStats.value.data.dashboard,
+            totalDeportistas:
+              typeof totalDeportistas === "number"
+                ? totalDeportistas
+                : resStats.value.data.dashboard.totalDeportistas,
+          },
+        });
         // Map timeline data for the chart
-        if (resTimeline.data && resTimeline.data.items) {
-             setTimeline(resTimeline.data.items);
+        if (resTimeline.value.data && resTimeline.value.data.items) {
+             setTimeline(resTimeline.value.data.items);
         }
       } catch (err: any) {
         setError(err.message || "Error al cargar estadísticas");

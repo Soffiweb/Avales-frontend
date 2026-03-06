@@ -192,13 +192,16 @@ export default function RevisionMetodologoPreview({
         <table className="w-full border-collapse text-[9px]">
           <thead>
             <tr className="bg-slate-200">
-              <th className="border border-slate-400 px-2 py-1 text-left w-[56%]">
+              <th className="border border-slate-400 px-2 py-1 text-left w-[44%]">
                 PARAMETROS
               </th>
-              <th className="border border-slate-400 px-2 py-1 text-center w-[16%]">
-                VALOR
+              <th className="border border-slate-400 px-2 py-1 text-center w-[8%]">
+                SI
               </th>
-              <th className="border border-slate-400 px-2 py-1 text-left w-[44%]">
+              <th className="border border-slate-400 px-2 py-1 text-center w-[8%]">
+                NO
+              </th>
+              <th className="border border-slate-400 px-2 py-1 text-left w-[40%]">
                 OBSERVACIONES
               </th>
             </tr>
@@ -211,7 +214,7 @@ export default function RevisionMetodologoPreview({
                   <tr className="bg-slate-50">
                     <td
                       className="border border-slate-400 px-2 py-1 font-semibold uppercase"
-                      colSpan={3}
+                      colSpan={4}
                     >
                       {SECTION_LABELS[section]}
                     </td>
@@ -233,7 +236,10 @@ export default function RevisionMetodologoPreview({
                           {item.order}. {item.label}
                         </td>
                         <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
-                          {cumple ? "SI" : "NO"}
+                          {cumple ? "X" : ""}
+                        </td>
+                        <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
+                          {cumple ? "" : "X"}
                         </td>
                         <td className="border border-slate-400 px-2 py-0.5 align-top">
                           {observacion}
@@ -248,7 +254,10 @@ export default function RevisionMetodologoPreview({
               <td className="border border-slate-400 px-2 py-0.5 align-top font-semibold">
                 Fecha de tramite
               </td>
-              <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
+              <td
+                className="border border-slate-400 px-2 py-0.5 text-center align-top"
+                colSpan={2}
+              >
                 {formatFechaTramite(header.fechaRevision)}
               </td>
               <td className="border border-slate-400 px-2 py-0.5 align-top">

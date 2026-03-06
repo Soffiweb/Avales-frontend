@@ -14,6 +14,8 @@ import { softDeleteUser, listUsers } from "@/lib/api/user";
 import type { User } from "@/types/user";
 
 const PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 400;
+const MIN_QUERY_LENGTH = 2;
 
 export default function Usuarios() {
   const router = useRouter();
@@ -22,6 +24,9 @@ export default function Usuarios() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState(() => searchParams.get("query") ?? "");
+  const [debouncedQ, setDebouncedQ] = useState(() =>
+    searchParams.get("query") ?? ""
+  );
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get("page") ?? "1");
     return Number.isFinite(value) && value > 0 ? value : 1;
@@ -54,29 +59,51 @@ export default function Usuarios() {
     setPage(currentPage);
   }, [page, currentPage]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [q]);
+
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      const query = debouncedQ.trim();
+      const effectiveQuery =
+        query.length >= MIN_QUERY_LENGTH ? query : undefined;
+
       const res = await listUsers({
-        query: q.trim() || undefined,
+        query: effectiveQuery,
         page: currentPage,
         limit: pageSize,
       });
       const items = res.data ?? [];
+      const apiPagination = res.pagination;
       const meta = res.meta;
+      const apiPage = apiPagination?.current_page ?? apiPagination?.page;
+      const apiLimit = apiPagination?.per_page ?? apiPagination?.limit;
+      const apiTotal = apiPagination?.total;
       setUsers(items);
       setPagination({
         page:
-          typeof meta?.page === "number" && meta.page > 0
+          typeof apiPage === "number" && apiPage > 0
+            ? apiPage
+            : typeof meta?.page === "number" && meta.page > 0
             ? meta.page
             : currentPage,
         limit:
-          typeof meta?.limit === "number" && meta.limit > 0
+          typeof apiLimit === "number" && apiLimit > 0
+            ? apiLimit
+            : typeof meta?.limit === "number" && meta.limit > 0
             ? meta.limit
             : pageSize,
         total:
-          typeof meta?.total === "number" && meta.total >= 0
+          typeof apiTotal === "number" && apiTotal >= 0
+            ? apiTotal
+            : typeof meta?.total === "number" && meta.total >= 0
             ? meta.total
             : items.length ?? 0,
       });
@@ -90,21 +117,23 @@ export default function Usuarios() {
     } finally {
       setLoading(false);
     }
-  }, [q, currentPage, pageSize]);
+  }, [debouncedQ, currentPage, pageSize]);
 
   useEffect(() => {
     void fetchUsers();
   }, [fetchUsers]);
 
   useEffect(() => {
+    const query = debouncedQ.trim();
+    const effectiveQuery = query.length >= MIN_QUERY_LENGTH ? query : "";
     const params = new URLSearchParams();
-    if (q.trim()) params.set("query", q.trim());
+    if (effectiveQuery) params.set("query", effectiveQuery);
     if (currentPage > 1) params.set("page", String(currentPage));
 
     router.replace(params.toString() ? `/usuarios?${params}` : "/usuarios", {
       scroll: false,
     });
-  }, [q, currentPage, router]);
+  }, [debouncedQ, currentPage, router]);
 
   // leer mensaje de exito desde querystring y limpiar la URL
   useEffect(() => {

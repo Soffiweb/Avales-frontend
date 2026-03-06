@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import type { User, UserListResponse } from "@/types/user";
+import type { ApiResponse } from "@/types/api-response";
 import type {
   ProfileFormValues,
   CreateUserFormValues,
@@ -34,6 +35,20 @@ export type ListEntrenadoresOptions = {
   genero?: string;
 };
 
+export type UsersPagination = {
+  page?: number;
+  limit?: number;
+  total?: number;
+  lastPage?: number;
+  current_page?: number;
+  per_page?: number;
+  last_page?: number;
+};
+
+export type ListUsersResponse = ApiResponse<UserListResponse> & {
+  pagination?: UsersPagination;
+};
+
 export async function listUsers(options: ListUsersOptions = {}) {
   const params = new URLSearchParams();
 
@@ -46,7 +61,9 @@ export async function listUsers(options: ListUsersOptions = {}) {
   const qs = params.toString();
   const url = qs ? `/users?${qs}` : "/users";
 
-  return apiFetch<UserListResponse>(url, { method: "GET" });
+  return apiFetch<UserListResponse>(url, {
+    method: "GET",
+  }) as Promise<ListUsersResponse>;
 }
 
 export async function getDirigido(role: DirigidoRole) {

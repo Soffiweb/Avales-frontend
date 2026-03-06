@@ -4,9 +4,14 @@ import { formatLocationWithProvince } from "@/lib/utils/formatters";
 type FormData = {
   deportistas: Array<{
     id: number;
+    deportistaExternoId?: string;
     nombre: string;
+    apellido?: string;
+    nombres?: string;
+    apellidos?: string;
     cedula?: string;
     fechaNacimiento?: string;
+    payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
   }>;

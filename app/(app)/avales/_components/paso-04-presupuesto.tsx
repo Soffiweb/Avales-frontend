@@ -8,7 +8,17 @@ import { createAval } from "@/lib/api/avales";
 import type { Aval } from "@/types/aval";
 
 type FormData = {
-  deportistas: Array<{ id: number; nombre: string; rol?: string }>;
+  deportistas: Array<{
+    id: number;
+    deportistaExternoId?: string;
+    nombre: string;
+    apellido?: string;
+    nombres?: string;
+    apellidos?: string;
+    cedula?: string;
+    payload?: Record<string, unknown>;
+    rol?: string;
+  }>;
   entrenadores: Array<{ id: number; nombre: string }>;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -83,8 +93,14 @@ export default function Paso04Presupuesto({
           descripcion: crit,
         })),
         deportistas: formData.deportistas.map((d) => ({
-          deportistaId: d.id,
+          deportistaExternoId: d.deportistaExternoId ?? String(d.id),
           rol: d.rol ?? "ATLETA",
+          nombre: d.nombre?.trim() || undefined,
+          apellido: d.apellido?.trim() || undefined,
+          nombres: d.nombres?.trim() || undefined,
+          apellidos: d.apellidos?.trim() || undefined,
+          cedula: d.cedula?.trim() || undefined,
+          payload: d.payload,
         })),
         entrenadores: formData.entrenadores.map((e, index) => ({
           entrenadorId: e.id,

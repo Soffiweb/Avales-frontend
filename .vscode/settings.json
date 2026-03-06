@@ -13,6 +13,8 @@
     "auth",
     "evento",
     "previews",
-    "sidebar"
+    "sidebar",
+    "deportistas",
+    "users"
   ]
 }

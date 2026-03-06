@@ -4,7 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Target, CheckCircle } from "lucide-react";
 
 type FormData = {
-  deportistas: Array<{ id: number; nombre: string; rol?: string }>;
+  deportistas: Array<{
+    id: number;
+    deportistaExternoId?: string;
+    nombre: string;
+    apellido?: string;
+    nombres?: string;
+    apellidos?: string;
+    cedula?: string;
+    payload?: Record<string, unknown>;
+    rol?: string;
+  }>;
   entrenadores: Array<{ id: number; nombre: string }>;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;

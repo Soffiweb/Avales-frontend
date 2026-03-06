@@ -12,7 +12,9 @@ import EventoCard from "./_components/evento-card";
 import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
+import { getDisciplinas } from "@/lib/api/catalog";
 import { listEventos, softDeleteEvento, type ListEventosOptions } from "@/lib/api/eventos";
+import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 
 const PAGE_SIZE = 9;
@@ -34,6 +36,9 @@ export default function EventosPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [estado, setEstado] = useState(() => searchParams.get("estado") ?? "");
+  const [disciplinaId, setDisciplinaId] = useState(
+    () => searchParams.get("disciplinaId") ?? ""
+  );
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get("page") ?? "1");
     return Number.isFinite(value) && value > 0 ? value : 1;
@@ -52,6 +57,12 @@ export default function EventosPage() {
   const userRoles = user?.roles ?? [];
   const canManageEvents =
     userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
+  const isEntrenador =
+    userRoles.includes("ENTRENADOR") && !canManageEvents;
+  const entrenadorDisciplinaId =
+    user?.disciplinaId ?? user?.disciplinas?.[0];
+  const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
+  const [disciplinasLoading, setDisciplinasLoading] = useState(false);
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -70,15 +81,48 @@ export default function EventosPage() {
     setPage(currentPage);
   }, [page, currentPage]);
 
+  useEffect(() => {
+    if (!canManageEvents) return;
+
+    const loadDisciplinas = async () => {
+      try {
+        setDisciplinasLoading(true);
+        const res = await getDisciplinas();
+        setDisciplinas(res.data ?? []);
+      } catch {
+        setDisciplinas([]);
+      } finally {
+        setDisciplinasLoading(false);
+      }
+    };
+
+    void loadDisciplinas();
+  }, [canManageEvents]);
+
   const fetchEventos = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      if (isEntrenador && !entrenadorDisciplinaId) {
+        setEventos([]);
+        setPagination({
+          page: currentPage,
+          limit: PAGE_SIZE,
+          total: 0,
+        });
+        setError("Tu usuario no tiene una disciplina asignada.");
+        return;
+      }
       const options: ListEventosOptions = {
         page: currentPage,
         limit: PAGE_SIZE,
         estado: estado || undefined,
         search: search.trim() || undefined,
+        disciplinaId: isEntrenador
+          ? entrenadorDisciplinaId
+          : disciplinaId
+            ? Number(disciplinaId)
+            : undefined,
       };
       const res = await listEventos(options);
       const items = res.data ?? [];
@@ -105,7 +149,14 @@ export default function EventosPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, estado, search]);
+  }, [
+    currentPage,
+    estado,
+    search,
+    isEntrenador,
+    entrenadorDisciplinaId,
+    disciplinaId,
+  ]);
 
   useEffect(() => {
     void fetchEventos();
@@ -115,13 +166,14 @@ export default function EventosPage() {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (estado) params.set("estado", estado);
+    if (disciplinaId) params.set("disciplinaId", disciplinaId);
     if (currentPage > 1) params.set("page", String(currentPage));
 
     router.replace(
       params.toString() ? `/eventos?${params}` : "/eventos",
       { scroll: false }
     );
-  }, [search, estado, currentPage, router]);
+  }, [search, estado, disciplinaId, currentPage, router]);
 
   // mostrar toast cuando viene status desde la creacion/edicion
   useEffect(() => {
@@ -250,6 +302,24 @@ export default function EventosPage() {
                 </option>
               ))}
             </select>
+            {canManageEvents && (
+              <select
+                className="form-select w-full sm:w-56"
+                value={disciplinaId}
+                onChange={(e) => {
+                  setPage(1);
+                  setDisciplinaId(e.target.value);
+                }}
+                disabled={disciplinasLoading}
+              >
+                <option value="">Todas las disciplinas</option>
+                {disciplinas.map((disciplina) => (
+                  <option key={disciplina.id} value={String(disciplina.id)}>
+                    {disciplina.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
             {canManageEvents && (
               <>
                 <button

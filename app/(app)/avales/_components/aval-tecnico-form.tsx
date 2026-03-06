@@ -112,8 +112,21 @@ export default function AvalTecnicoForm({
 
     const deportistasDto: DeportistaAvalDto[] = selectedDeportistas.map(
       (sd) => ({
-        deportistaId: sd.deportista.id,
+        deportistaExternoId: sd.deportista.externoId ?? String(sd.deportista.id),
         rol: sd.rol,
+        nombre:
+          `${sd.deportista.nombres ?? ""} ${sd.deportista.apellidos ?? ""}`.trim() ||
+          undefined,
+        apellido: sd.deportista.apellidos ?? undefined,
+        nombres: sd.deportista.nombres ?? undefined,
+        apellidos: sd.deportista.apellidos ?? undefined,
+        cedula: sd.deportista.cedula ?? undefined,
+        payload: {
+          genero: sd.deportista.genero ?? null,
+          fechaNacimiento: sd.deportista.fechaNacimiento ?? null,
+          afiliado: Boolean(sd.deportista.afiliacion),
+          club: sd.deportista.club ?? null,
+        },
       })
     );
 

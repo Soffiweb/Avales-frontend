@@ -11,6 +11,7 @@ export type ListDeportistasOptions = {
 
 type SoffimedhDeportista = {
   id: number;
+  external_id?: string | number | null;
   name: string;
   cedula: string;
   gender?: string | null;
@@ -84,9 +85,11 @@ function mapGenero(gender?: string | null) {
 
 function mapSoffimedhDeportista(item: SoffimedhDeportista): Deportista {
   const { nombres, apellidos } = splitName(item.name ?? "");
+  const externoId = item.external_id ?? item.id;
 
   return {
     id: item.id,
+    externoId: String(externoId),
     nombres,
     apellidos,
     cedula: item.cedula ?? "",

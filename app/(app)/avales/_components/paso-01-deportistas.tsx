@@ -16,9 +16,17 @@ import { useAuth } from "@/app/providers/auth-provider";
 type FormData = {
   deportistas: Array<{
     id: number;
+    deportistaExternoId?: string;
     nombre: string;
+    apellido?: string;
+    nombres?: string;
+    apellidos?: string;
     cedula?: string;
     fechaNacimiento?: string;
+    genero?: string;
+    club?: string;
+    afiliacion?: boolean;
+    payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
   }>;
@@ -127,9 +135,22 @@ export default function Paso01Deportistas({
 
     const deportistasData = allDeportistas.map((d) => ({
       id: d.id,
-      nombre: `${d.nombres} ${d.apellidos}`,
+      deportistaExternoId: d.externoId ?? String(d.id),
+      nombre: `${d.nombres ?? ""} ${d.apellidos ?? ""}`.trim(),
+      apellido: d.apellidos ?? undefined,
+      nombres: d.nombres ?? undefined,
+      apellidos: d.apellidos ?? undefined,
       cedula: d.cedula,
       fechaNacimiento: d.fechaNacimiento,
+      genero: d.genero,
+      club: d.club,
+      afiliacion: d.afiliacion,
+      payload: {
+        genero: d.genero ?? null,
+        fechaNacimiento: d.fechaNacimiento ?? null,
+        afiliado: Boolean(d.afiliacion),
+        club: d.club ?? null,
+      },
       observacion: d.afiliacion ? "AFILIADO/A 2024" : "SIN AFILIACION",
       rol: d.rol ?? "ATLETA",
     }));

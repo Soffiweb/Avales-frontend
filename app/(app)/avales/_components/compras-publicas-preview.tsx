@@ -43,6 +43,10 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
   const fechaEmision = formatFecha(
     draft.fechaEmision || aval.comprasPublicas?.fechaEmision
   );
+  const certificacionTexto =
+    draft.realizoProceso === false
+      ? "No se realizó el correspondiente proceso de contratación pública para el evento antes mencionado."
+      : `${realizo} se realizó el correspondiente proceso de contratación pública para el evento antes mencionado, con Código de necesidad N. ${codigoNecesidad} y objeto de contratación: ${objeto}.`;
 
   return (
     <div className="bg-white border border-slate-300 p-6 text-slate-900 space-y-4">
@@ -55,9 +59,7 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
 
       <p className="text-[12px] leading-5">
         Quien suscribe, {nombreFirmante}, encargada del area de Compras Publicas de FDPL,
-        CERTIFICO que: {realizo} se realizó el correspondiente proceso de contratación
-        pública para el evento antes mencionado, con Código de necesidad N. {codigoNecesidad}
-        y objeto de contratación: {objeto}.
+        CERTIFICO que: {certificacionTexto}
       </p>
 
       <p className="text-[12px] leading-5">

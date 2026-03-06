@@ -21,9 +21,17 @@ type FormData = {
   // Paso 1: Participantes
   deportistas: Array<{
     id: number;
+    deportistaExternoId?: string;
     nombre: string;
+    apellido?: string;
+    nombres?: string;
+    apellidos?: string;
     cedula?: string;
     fechaNacimiento?: string;
+    genero?: string;
+    club?: string;
+    afiliacion?: boolean;
+    payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
   }>;

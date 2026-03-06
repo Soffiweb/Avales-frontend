@@ -249,6 +249,7 @@ export default function CertificarComprasPublicasPage() {
     aval?.estado === "SOLICITADO" &&
     currentEtapa === "PDA" &&
     !aval?.comprasPublicas;
+  const requiresContratacionData = draft.realizoProceso === true;
   const approvalEtapa = getNextApprovalStage(currentEtapa) ?? currentEtapa;
   const summaryText =
     "Al aprobarlo quedará certificado por Compras Públicas y continuará el flujo.";
@@ -272,14 +273,33 @@ export default function CertificarComprasPublicasPage() {
     setActionError(null);
     setActionLoading(true);
     try {
+      const requiresContratacionData = draft.realizoProceso === true;
+      if (requiresContratacionData) {
+        if (!draft.codigoNecesidad?.trim()) {
+          pushError(
+            "Debes ingresar el código de necesidad cuando sí existe proceso de contratación pública.",
+          );
+          return;
+        }
+        if (!draft.objetoContratacion?.trim()) {
+          pushError(
+            "Debes ingresar el objeto de contratación cuando sí existe proceso de contratación pública.",
+          );
+          return;
+        }
+      }
       const payload = {
         numeroCertificado: draft.numeroCertificado?.trim() || undefined,
         realizoProceso:
           typeof draft.realizoProceso === "boolean"
             ? draft.realizoProceso
             : undefined,
-        codigoNecesidad: draft.codigoNecesidad?.trim() || undefined,
-        objetoContratacion: draft.objetoContratacion?.trim() || undefined,
+        codigoNecesidad: requiresContratacionData
+          ? draft.codigoNecesidad?.trim() || undefined
+          : undefined,
+        objetoContratacion: requiresContratacionData
+          ? draft.objetoContratacion?.trim() || undefined
+          : undefined,
         nombreFirmante: draft.nombreFirmante?.trim() || undefined,
         cargoFirmante: draft.cargoFirmante?.trim() || undefined,
         fechaEmision: draft.fechaEmision?.trim() || undefined,
@@ -480,6 +500,8 @@ export default function CertificarComprasPublicasPage() {
                           setDraft((prev) => ({
                             ...prev,
                             realizoProceso: false,
+                            codigoNecesidad: "",
+                            objetoContratacion: "",
                           }))
                         }
                       />
@@ -495,8 +517,8 @@ export default function CertificarComprasPublicasPage() {
                   <input
                     className="form-input w-full mt-1"
                     value={draft.codigoNecesidad}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
+                    readOnly={!isEditable || !requiresContratacionData}
+                    disabled={!isEditable || !requiresContratacionData}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,
@@ -515,8 +537,8 @@ export default function CertificarComprasPublicasPage() {
                     className="form-textarea w-full mt-1"
                     rows={3}
                     value={draft.objetoContratacion}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
+                    readOnly={!isEditable || !requiresContratacionData}
+                    disabled={!isEditable || !requiresContratacionData}
                     onChange={(e) =>
                       setDraft((prev) => ({
                         ...prev,

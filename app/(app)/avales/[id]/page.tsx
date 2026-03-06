@@ -20,7 +20,7 @@ import {
   Target,
   Plane,
   Building2,
-  Eye,
+  Download,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
@@ -275,7 +275,11 @@ export default function AvalDetailPage() {
       setError(null);
       const res = await getAval(id);
       setAval(res.data);
-      console.log(res.data);
+      console.log("[AvalDetail] getAval response:", res.data);
+      console.log(
+        "[AvalDetail] deportistasAval:",
+        res.data?.avalTecnico?.deportistasAval ?? [],
+      );
     } catch (err: any) {
       setError(err?.message ?? "No se pudo cargar el aval.");
     } finally {
@@ -425,6 +429,9 @@ export default function AvalDetailPage() {
           : `Faltan ${daysUntil} días para el inicio del evento.`
       : null,
   ].filter((line): line is string => Boolean(line));
+  const isAvalCompleto =
+    aval.estado === "ACEPTADO" || currentEtapa === "FINANCIERO";
+  const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-pdf`;
 
   const totalAtletas = evento
     ? (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0)
@@ -462,9 +469,12 @@ export default function AvalDetailPage() {
   );
 
   const formatDeportistaName = (item: (typeof deportistasList)[number]) => {
-    const nombre = item.deportista?.nombre?.trim();
-    if (nombre) return nombre;
-    return `Deportista #${item.id}`;
+    const nombreCompleto = item.deportista?.nombre?.trim();
+    if (nombreCompleto) return nombreCompleto;
+
+    const nombresSeparados = `${item.deportista?.nombres ?? ""} ${item.deportista?.apellidos ?? ""}`.trim();
+    if (nombresSeparados) return nombresSeparados;
+    return "Nombre no disponible";
   };
 
   const getDeportistaCedula = (item: (typeof deportistasList)[number]) => {
@@ -563,15 +573,16 @@ export default function AvalDetailPage() {
             )}
           </div>
 
-          {/* Botón de crear solicitud si está en borrador */}
-          {aval.estado === "BORRADOR" && (
-            <Link
-              href={`/avales/${aval.id}/crear-solicitud`}
+          {isAvalCompleto && (
+            <a
+              href={avalCompletoPdfUrl}
+              target="_blank"
+              rel="noreferrer noopener"
               className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
             >
-              <FileText className="w-4 h-4 mr-2" />
-              Crear solicitud
-            </Link>
+              <Download className="w-4 h-4 mr-2" />
+              Descargar aval
+            </a>
           )}
         </div>
 

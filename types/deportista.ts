@@ -2,6 +2,7 @@ import type { CatalogItem } from "@/types/catalog";
 
 export type Deportista = {
   id: number;
+  externoId?: string;
   nombres: string;
   apellidos: string;
   cedula: string;

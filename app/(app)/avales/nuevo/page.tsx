@@ -16,7 +16,8 @@ import {
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 6;
+const FETCH_LIMIT = 20;
 
 function getTotalParticipants(evento: Evento) {
   return (
@@ -25,6 +26,14 @@ function getTotalParticipants(evento: Evento) {
     (evento.numEntrenadoresHombres || 0) +
     (evento.numEntrenadoresMujeres || 0)
   );
+}
+
+function getEventSortTimestamp(evento: Evento) {
+  const start = evento.fechaInicio ? new Date(evento.fechaInicio).getTime() : NaN;
+  if (!Number.isNaN(start)) return start;
+  const end = evento.fechaFin ? new Date(evento.fechaFin).getTime() : NaN;
+  if (!Number.isNaN(end)) return end;
+  return 0;
 }
 
 export default function NuevoAvalPage() {
@@ -58,17 +67,48 @@ export default function NuevoAvalPage() {
     try {
       setLoading(true);
       setError(null);
-      const options: ListEventosOptions = {
-        limit: PAGE_SIZE,
+      const baseOptions: ListEventosOptions = {
+        limit: FETCH_LIMIT,
         estado: "DISPONIBLE",
         sinAval: true,
         search: search.trim() || undefined,
         disciplinaId: user?.disciplinaId ?? undefined,
       };
 
-      const res = await listEventos(options);
-      const items = res.data ?? [];
-      setEventos(items);
+      const collected = new Map<number, Evento>();
+      let page = 1;
+      let total = Number.POSITIVE_INFINITY;
+      let pageLimit = FETCH_LIMIT;
+
+      while (
+        collected.size < PAGE_SIZE &&
+        (page - 1) * pageLimit < total
+      ) {
+        const res = await listEventos({ ...baseOptions, page });
+        const items = res.data ?? [];
+        const meta = res.meta;
+
+        for (const item of items) {
+          collected.set(item.id, item);
+        }
+
+        total =
+          typeof meta?.total === "number" && meta.total >= 0
+            ? meta.total
+            : collected.size;
+        pageLimit =
+          typeof meta?.limit === "number" && meta.limit > 0
+            ? meta.limit
+            : FETCH_LIMIT;
+
+        if (items.length === 0) break;
+        page += 1;
+      }
+
+      const sorted = [...collected.values()].sort(
+        (a, b) => getEventSortTimestamp(b) - getEventSortTimestamp(a),
+      );
+      setEventos(sorted.slice(0, PAGE_SIZE));
     } catch (err: any) {
       console.error("Error al cargar eventos:", err);
       setError(err?.message ?? "No se pudieron cargar los eventos.");

@@ -88,15 +88,21 @@ export type RubroPresupuestario = {
 };
 
 export type DeportistaAvalDetail = {
-  id: number;
-  nombre: string;
-  cedula: string;
-  genero: string;
+  id?: number;
+  deportistaExternoId?: string;
+  nombre?: string;
+  apellido?: string;
+  nombres?: string;
+  apellidos?: string;
+  cedula?: string;
+  genero?: string;
+  payload?: unknown;
 };
 
 export type DeportistaAval = {
   id: number;
-  deportistaId: number;
+  deportistaId?: number;
+  deportistaExternoId?: string;
   rol: string;
   deportista: DeportistaAvalDetail;
 };
@@ -225,8 +231,14 @@ export type RubroPresupuestarioDto = {
 };
 
 export type DeportistaAvalDto = {
-  deportistaId: number;
+  deportistaExternoId: string;
   rol: string;
+  nombre?: string;
+  apellido?: string;
+  nombres?: string;
+  apellidos?: string;
+  cedula?: string;
+  payload?: Record<string, unknown>;
 };
 
 export type EntrenadorAvalDto = {

@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import type { Evento, EventoListResponse } from "@/types/evento";
-import type { CreateEventoPayload } from "@/lib/validation/evento";
+import type { CreateEventoPayload, EventoItemPayload } from "@/lib/validation/evento";
 
 export type ListEventosOptions = {
   page?: number;
@@ -54,29 +54,50 @@ export async function createEvento(
   });
 }
 
-export type UpdateEventoPayload = Partial<CreateEventoPayload>;
+export type UpdateEventoPayload = Partial<CreateEventoPayload> & {
+  eventoItems?: EventoItemPayload[];
+};
 
 export async function updateEvento(
   id: number,
   values: UpdateEventoPayload,
   archivo?: File
 ) {
-  const formData = new FormData();
-
-  Object.entries(values).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      formData.append(key, String(value));
-    }
-  });
-
   if (archivo) {
+    // Si hay archivo, usar FormData (no incluye eventoItems)
+    const { eventoItems, ...rest } = values;
+    const formData = new FormData();
+
+    Object.entries(rest).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
+      }
+    });
+
     formData.append("archivo", archivo);
+
+    // Primero subir archivo
+    await apiFetch<Evento>(`/events/${id}`, {
+      method: "PATCH",
+      body: formData,
+      headers: {},
+    });
+
+    // Luego actualizar items si existen
+    if (eventoItems) {
+      return apiFetch<Evento>(`/events/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ eventoItems }),
+      });
+    }
+
+    return apiFetch<Evento>(`/events/${id}`, { method: "GET" });
   }
 
+  // Sin archivo: enviar todo como JSON
   return apiFetch<Evento>(`/events/${id}`, {
     method: "PATCH",
-    body: formData,
-    headers: {},
+    body: JSON.stringify(values),
   });
 }
 

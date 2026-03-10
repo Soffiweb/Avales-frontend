@@ -1,21 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Upload, X } from "lucide-react";
+import { Plus, Trash2, Upload, X } from "lucide-react";
 
 import DatePicker from "@/components/forms/DatePicker";
 import { ApiError } from "@/lib/api/client";
 import { createEvento, updateEvento } from "@/lib/api/eventos";
-import { getCatalog } from "@/lib/api/catalog";
-import type { CatalogItem } from "@/types/catalog";
+import { getCatalog, getItemsPresupuestarios } from "@/lib/api/catalog";
+import type { CatalogItem, CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import {
   eventoSchema,
   type CreateEventoPayload,
   type EventoFormValues,
 } from "@/lib/validation/evento";
+
+const MESES = [
+  { value: 1, label: "Enero" },
+  { value: 2, label: "Febrero" },
+  { value: 3, label: "Marzo" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Mayo" },
+  { value: 6, label: "Junio" },
+  { value: 7, label: "Julio" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Septiembre" },
+  { value: 10, label: "Octubre" },
+  { value: 11, label: "Noviembre" },
+  { value: 12, label: "Diciembre" },
+];
 
 const EMPTY_FORM_VALUES: EventoFormValues = {
   codigo: "",
@@ -36,6 +51,7 @@ const EMPTY_FORM_VALUES: EventoFormValues = {
   numEntrenadoresMujeres: 0,
   numAtletasHombres: 0,
   numAtletasMujeres: 0,
+  eventoItems: [],
 };
 
 const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
@@ -63,6 +79,12 @@ const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
   numEntrenadoresMujeres: evento.numEntrenadoresMujeres ?? 0,
   numAtletasHombres: evento.numAtletasHombres ?? 0,
   numAtletasMujeres: evento.numAtletasMujeres ?? 0,
+  eventoItems:
+    evento.eventoItems?.map((ei) => ({
+      itemId: ei.item.id,
+      mes: ei.mes,
+      presupuesto: parseFloat(ei.presupuesto) || 0,
+    })) ?? [],
 });
 
 type Props = {
@@ -81,10 +103,12 @@ export default function EventoForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [categorias, setCategorias] = useState<CatalogItem[]>([]);
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
+  const [itemsCatalogo, setItemsCatalogo] = useState<CatalogItemPresupuestario[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null);
+  const [draggingArchivo, setDraggingArchivo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initialValues = useMemo<EventoFormValues>(() => {
@@ -101,10 +125,23 @@ export default function EventoForm({
     formState: { errors, isSubmitting },
     reset,
     setError,
+    watch,
   } = useForm<EventoFormValues>({
     resolver: zodResolver(eventoSchema),
     defaultValues: initialValues,
   });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "eventoItems",
+  });
+
+  const eventoItemsValues = watch("eventoItems") ?? [];
+
+  const totalPresupuesto = eventoItemsValues.reduce(
+    (sum, item) => sum + (item?.presupuesto || 0),
+    0
+  );
 
   useEffect(() => {
     if (mode !== "edit" || !evento || catalogLoading) {
@@ -118,11 +155,15 @@ export default function EventoForm({
       try {
         setCatalogLoading(true);
         setCatalogError(null);
-        const res = await getCatalog();
-        const cats = res.data?.categorias ?? [];
-        const discs = res.data?.disciplinas ?? [];
+        const [catalogRes, itemsRes] = await Promise.all([
+          getCatalog(),
+          getItemsPresupuestarios(),
+        ]);
+        const cats = catalogRes.data?.categorias ?? [];
+        const discs = catalogRes.data?.disciplinas ?? [];
         setCategorias(cats);
         setDisciplinas(discs);
+        setItemsCatalogo(itemsRes.data ?? []);
       } catch (err: any) {
         setCatalogError(
           err?.message ?? "No se pudieron cargar categorias/disciplinas."
@@ -137,10 +178,7 @@ export default function EventoForm({
     void loadCatalog();
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processArchivo = (file: File) => {
     const validTypes = ["image/jpeg", "image/png", "application/pdf"];
     if (!validTypes.includes(file.type)) {
       setSubmitError("Solo se permiten archivos JPG, PNG o PDF");
@@ -164,6 +202,31 @@ export default function EventoForm({
     } else {
       setArchivoPreview(null);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processArchivo(file);
+  };
+
+  const handleArchivoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingArchivo(true);
+  };
+
+  const handleArchivoDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingArchivo(false);
+  };
+
+  const handleArchivoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingArchivo(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) processArchivo(droppedFile);
   };
 
   const removeFile = () => {
@@ -203,7 +266,11 @@ export default function EventoForm({
         if (!evento?.id) {
           throw new Error("No se pudo identificar el evento a editar.");
         }
-        await updateEvento(evento.id, payload, archivo ?? undefined);
+        await updateEvento(
+          evento.id,
+          { ...payload, eventoItems: values.eventoItems ?? [] },
+          archivo ?? undefined
+        );
         if (onUpdated) {
           await onUpdated();
         }
@@ -244,6 +311,19 @@ export default function EventoForm({
     : mode === "edit"
     ? "Guardar cambios"
     : "Guardar evento";
+
+  // Agrupar items del catálogo por actividad para el select
+  const itemsByActividad = useMemo(() => {
+    const groups: Record<string, CatalogItemPresupuestario[]> = {};
+    for (const item of itemsCatalogo) {
+      const key = item.actividad
+        ? `${item.actividad.numero} - ${item.actividad.nombre}`
+        : "Sin actividad";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    }
+    return groups;
+  }, [itemsCatalogo]);
 
   return (
     <form
@@ -681,6 +761,151 @@ export default function EventoForm({
         </div>
       </div>
 
+      {/* Seccion: Items Presupuestarios (solo en modo edicion) */}
+      {mode === "edit" && (
+        <>
+          <div className="px-5 py-4 border-t border-b border-gray-100 dark:border-gray-700/60">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-800 dark:text-gray-100">
+                  Items presupuestarios
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Asigna items presupuestarios por mes y monto.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Total presupuesto
+                </p>
+                <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                  ${totalPresupuesto.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-3">
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="grid grid-cols-12 gap-3 items-start p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
+              >
+                <div className="col-span-5">
+                  {index === 0 && (
+                    <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                      Item
+                    </label>
+                  )}
+                  <select
+                    className="form-select w-full text-sm"
+                    {...register(`eventoItems.${index}.itemId`, {
+                      setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                    })}
+                  >
+                    <option value="">Seleccionar item...</option>
+                    {Object.entries(itemsByActividad).map(([actName, items]) => (
+                      <optgroup key={actName} label={actName}>
+                        {items.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.numero} - {item.nombre}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {errors.eventoItems?.[index]?.itemId && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.eventoItems[index].itemId?.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="col-span-3">
+                  {index === 0 && (
+                    <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                      Mes
+                    </label>
+                  )}
+                  <select
+                    className="form-select w-full text-sm"
+                    {...register(`eventoItems.${index}.mes`, {
+                      setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                    })}
+                  >
+                    <option value="">Mes...</option>
+                    {MESES.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.eventoItems?.[index]?.mes && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.eventoItems[index].mes?.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="col-span-3">
+                  {index === 0 && (
+                    <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                      Presupuesto ($)
+                    </label>
+                  )}
+                  <input
+                    className="form-input w-full text-sm"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...register(`eventoItems.${index}.presupuesto`, {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  {errors.eventoItems?.[index]?.presupuesto && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.eventoItems[index].presupuesto?.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="col-span-1 flex items-end">
+                  {index === 0 && (
+                    <label className="block text-xs font-medium mb-1 text-transparent">
+                      &nbsp;
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Eliminar item"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => append({ itemId: 0, mes: 1, presupuesto: 0 })}
+              className="flex items-center gap-2 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Agregar item presupuestario
+            </button>
+
+            {fields.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                No hay items presupuestarios asignados.
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
       {/* Seccion: Archivo */}
       <div className="px-5 py-4 border-t border-b border-gray-100 dark:border-gray-700/60">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
@@ -692,32 +917,51 @@ export default function EventoForm({
       </div>
 
       <div className="p-5 space-y-4">
-        <div className="flex items-center gap-4">
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={handleArchivoDragOver}
+          onDragLeave={handleArchivoDragLeave}
+          onDrop={handleArchivoDrop}
+          className={`
+            relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+            ${draggingArchivo
+              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+              : archivo
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10"
+                : "border-gray-300 hover:border-indigo-400 dark:border-gray-600"}
+          `}
+        >
           <input
             ref={fileInputRef}
             type="file"
             accept=".jpg,.jpeg,.png,.pdf"
             onChange={handleFileChange}
             className="hidden"
-            id="archivo"
           />
-          <label
-            htmlFor="archivo"
-            className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 cursor-pointer"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Seleccionar archivo
-          </label>
-          {archivo && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <span>{archivo.name}</span>
+
+          {archivo ? (
+            <div className="flex flex-col items-center">
+              <Upload className="w-10 h-10 text-indigo-500 mb-2" />
+              <p className="font-medium text-gray-900 dark:text-gray-100">{archivo.name}</p>
+              <p className="text-sm text-gray-500">{(archivo.size / 1024).toFixed(1)} KB</p>
               <button
                 type="button"
-                onClick={removeFile}
-                className="text-red-500 hover:text-red-600"
+                onClick={(e) => { e.stopPropagation(); removeFile(); }}
+                className="mt-2 text-sm text-red-500 hover:text-red-600 flex items-center gap-1"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3" />
+                Quitar archivo
               </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <Upload className="w-10 h-10 text-gray-400 mb-2" />
+              <p className="font-medium text-gray-700 dark:text-gray-200">
+                {draggingArchivo ? "Suelta el archivo aqui" : "Arrastra o haz clic para seleccionar"}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                JPG, PNG o PDF (max 5MB)
+              </p>
             </div>
           )}
         </div>

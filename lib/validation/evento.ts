@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const eventoItemSchema = z.object({
+  itemId: z.number().int().positive("Selecciona un item"),
+  mes: z.number().int().min(1, "Mes minimo 1").max(12, "Mes maximo 12"),
+  presupuesto: z.number().min(0, "Presupuesto no puede ser negativo"),
+});
+
 export const eventoSchema = z.object({
   codigo: z
     .string()
@@ -36,9 +42,16 @@ export const eventoSchema = z.object({
     .min(0, "Numero de entrenadores mujeres invalido"),
   numAtletasHombres: z.number().int().min(0, "Numero de atletas hombres invalido"),
   numAtletasMujeres: z.number().int().min(0, "Numero de atletas mujeres invalido"),
+  eventoItems: z.array(eventoItemSchema).optional(),
 });
 
 export type EventoFormValues = z.infer<typeof eventoSchema>;
+
+export type EventoItemPayload = {
+  itemId: number;
+  mes: number;
+  presupuesto: number;
+};
 
 export type CreateEventoPayload = {
   codigo: string;

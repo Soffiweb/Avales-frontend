@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import EventoForm from "../../_components/evento-form";
+import EventoFormSkeleton from "../../_components/evento-form-skeleton";
 import { getEvento } from "@/lib/api/eventos";
 import type { Evento } from "@/types/evento";
 
@@ -44,7 +45,12 @@ export default function EditarEventoPage() {
   if (loading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <p className="text-gray-500 dark:text-gray-400">Cargando evento...</p>
+        <div className="mb-8">
+          <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
+          <div className="h-8 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
+          <div className="h-4 w-80 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </div>
+        <EventoFormSkeleton />
       </div>
     );
   }

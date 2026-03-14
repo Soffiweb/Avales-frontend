@@ -48,6 +48,7 @@ export type Evento = {
   archivo?: string | null;
   cargadoPorExcel?: boolean;
   deleted?: boolean;
+  tieneReformaPendiente?: boolean;
   createdAt?: string;
   updatedAt?: string;
   disciplina?: CatalogItem | null;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Calendar, MapPin, Users, Eye, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Calendar, MapPin, Users, Pencil, Trash2, DollarSign } from "lucide-react";
 
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
@@ -177,11 +177,6 @@ export default function EventoCard({
           <div className="px-5 pb-4 flex-1 space-y-3">
             {/* Tipo y disciplina */}
             <div className="flex flex-wrap gap-2">
-              {evento.tipoEvento && (
-                <span className="inline-flex items-center rounded-md bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                  {evento.tipoEvento}
-                </span>
-              )}
               {evento.disciplina?.nombre && (
                 <span className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/30 px-2 py-1 text-xs font-medium text-purple-700 dark:text-purple-300">
                   {evento.disciplina.nombre}
@@ -227,14 +222,21 @@ export default function EventoCard({
           </div>
 
           {/* Footer con acciones */}
-          <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/30 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-end gap-2">
+          <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/30 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-2">
+            <div>
+              {evento.tieneReformaPendiente ? (
+                <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                  Reforma pendiente
+                </span>
+              ) : null}
+            </div>
+            <div className="flex items-center justify-end gap-2">
             <Link
               href={`/eventos/${evento.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-sky-100 hover:text-sky-600 dark:hover:bg-sky-900/40 dark:hover:text-sky-300 transition-colors"
-              title="Ver detalle"
+              className="inline-flex items-center justify-center rounded-lg border border-sky-200 px-3 py-1.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-900/30"
             >
-              <Eye className="w-4 h-4" />
+              Ver detalle
             </Link>
             {canManageEvents && (
               <>
@@ -259,6 +261,7 @@ export default function EventoCard({
                 </button>
               </>
             )}
+            </div>
           </div>
         </div>
       ))}

@@ -123,6 +123,9 @@ export default function EventoDetailForAvalPage() {
   };
 
   const isAvailable = evento.estado === "DISPONIBLE";
+  const hasPendingReform = Boolean(evento.tieneReformaPendiente);
+  const canCreateAval = isAvailable && !hasPendingReform;
+  const canRequestReforma = isAvailable && !hasPendingReform;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto space-y-6">
@@ -165,7 +168,13 @@ export default function EventoDetailForAvalPage() {
           <button
             type="button"
             onClick={() => {
-              if (!isAvailable) {
+              if (!canCreateAval) {
+                if (hasPendingReform) {
+                  setSubmitError(
+                    "Este evento tiene una reforma pendiente. No se puede crear un aval hasta que se apruebe o rechace.",
+                  );
+                  return;
+                }
                 setSubmitError("Solo puedes crear aval para eventos disponibles.");
                 return;
               }
@@ -176,16 +185,34 @@ export default function EventoDetailForAvalPage() {
             <Upload className="w-4 h-4 mr-2" />
             Crear aval
           </button>
-          <button
-            type="button"
-            onClick={() => {}}
-            className="btn bg-amber-500 hover:bg-amber-600 text-white"
-          >
-            <ClipboardEdit className="w-4 h-4 mr-2" />
-            Solicitar reforma
-          </button>
+          {canRequestReforma ? (
+            <Link
+              href={`/eventos/${evento.id}/reforma`}
+              className="btn bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              <ClipboardEdit className="w-4 h-4 mr-2" />
+              Solicitar reforma
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="btn bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:text-gray-300"
+            >
+              <ClipboardEdit className="w-4 h-4 mr-2" />
+              Reforma no disponible
+            </button>
+          )}
         </div>
       </div>
+
+      {hasPendingReform ? (
+        <AlertBanner
+          variant="error"
+          message="Este evento tiene una reforma pendiente."
+          description="No se puede crear un aval ni solicitar otra reforma hasta que la actual se apruebe o rechace."
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">

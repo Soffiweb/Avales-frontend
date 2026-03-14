@@ -277,7 +277,11 @@ export default function EventoDetailPage() {
   const totalEntrenadores =
     (evento.numEntrenadoresHombres || 0) + (evento.numEntrenadoresMujeres || 0);
   const hasAval = existingAvalId !== null;
-  const canStartAval = canCreateAval && evento.estado === "DISPONIBLE" && !hasAval;
+  const hasPendingReform = Boolean(evento.tieneReformaPendiente);
+  const canStartAval =
+    canCreateAval && evento.estado === "DISPONIBLE" && !hasAval && !hasPendingReform;
+  const canRequestReforma =
+    canCreateAval && evento.estado === "DISPONIBLE" && !hasPendingReform;
 
   return (
     <>
@@ -308,6 +312,12 @@ export default function EventoDetailPage() {
       />
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-8xl mx-auto space-y-6">
+        {hasPendingReform ? (
+          <AlertBanner
+            variant="error"
+            message="Este evento tiene una reforma pendiente."
+          />
+        ) : null}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -348,7 +358,11 @@ export default function EventoDetailPage() {
                         className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        {hasAval ? "Aval ya creado" : "No disponible para crear aval"}
+                        {hasAval
+                          ? "Aval ya creado"
+                          : hasPendingReform
+                          ? "Bloqueado por reforma pendiente"
+                          : "No disponible para crear aval"}
                       </button>
                     )}
                     {hasAval && existingAvalId && (
@@ -359,25 +373,31 @@ export default function EventoDetailPage() {
                         Ver aval
                       </Link>
                     )}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSubmitError(
-                          "La solicitud de reforma estará disponible próximamente."
-                        )
-                      }
-                      className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                    >
-                      <ClipboardEdit className="w-4 h-4 mr-2" />
-                      Solicitar reforma
-                    </button>
+                    {canRequestReforma ? (
+                      <Link
+                        href={`/eventos/${evento.id}/reforma`}
+                        className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                      >
+                        <ClipboardEdit className="w-4 h-4 mr-2" />
+                        Solicitar reforma
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
+                      >
+                        <ClipboardEdit className="w-4 h-4 mr-2" />
+                        Reforma no disponible
+                      </button>
+                    )}
                   </>
                 )}
               </div>
               {canCreateAval && hasAval && (
-                <p className="mt-2 px-1 text-xs text-gray-500 dark:text-gray-400">
-                  Este evento ya tiene un aval registrado.
-                </p>
+                <div className="mt-2 space-y-1 px-1 text-xs text-gray-500 dark:text-gray-400">
+                  {hasAval ? <p>Este evento ya tiene un aval registrado.</p> : null}
+                </div>
               )}
             </div>
           </div>
@@ -412,6 +432,11 @@ export default function EventoDetailPage() {
               {evento.estado || "Sin estado"}
             </span>
           </div>
+          {hasPendingReform ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-sm font-medium">
+              Reforma pendiente
+            </span>
+          ) : null}
           {evento.alcance && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm">
               <Globe className="w-3.5 h-3.5" />

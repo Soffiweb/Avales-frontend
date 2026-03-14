@@ -1,4 +1,11 @@
-import { Gauge, Users, BookOpen, BicepsFlexed, CalendarDays } from "lucide-react";
+import {
+  Gauge,
+  Users,
+  BookOpen,
+  BicepsFlexed,
+  CalendarDays,
+  ClipboardEdit,
+} from "lucide-react";
 
 export const SidebarIcons = {
   dashboard: Gauge,
@@ -6,6 +13,7 @@ export const SidebarIcons = {
   usuarios: Users,
   avales: BookOpen,
   eventos: CalendarDays,
+  reformas: ClipboardEdit,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

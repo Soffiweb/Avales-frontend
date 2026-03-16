@@ -143,20 +143,28 @@ export default function AvalDocumentPreview({
     <div className="w-full space-y-6 text-slate-900">
       {showNomina && (
         <div className="bg-white p-5 xl:p-6 border border-slate-300">
-        <p className="text-[13px] leading-5">
+        <div className="text-[13px] leading-5 space-y-0.5">
+          <p>Lic.</p>
+          <p>{entrenadorResponsable.toUpperCase()}</p>
+          <p className="font-semibold uppercase">ENTRENADOR DE {disciplina} DE FDPL</p>
+          <p>Ciudad.-</p>
+        </div>
+
+        <p className="mt-4 text-[13px] leading-5">
+          De mis consideraciones:
+        </p>
+
+        <p className="mt-3 text-[13px] leading-5">
           Por medio de la presente me permito dirigirme a usted, para extender
           mi cordial saludo y desear lo mejor al frente de las actividades
           encomendadas para el desarrollo del deporte de nuestra ciudad y
           provincia de Loja.
         </p>
 
-        <p className="mt-3 text-[13px] leading-5">
-          A lo solicitado por usted mediante el{" "}
-          <span className="font-semibold uppercase underline">
-            aval tecnico de participacion competitiva del deporte del &quot;
-            {disciplina}&quot;
-          </span>
-          , presentado en esta dependencia, me permito informar lo siguiente:
+        <p className="mt-3 text-[13px] leading-5 font-semibold">
+          A lo solicitado por usted mediante el AVAL TÉCNICO DE PARTICIPACIÓN
+          COMPETITIVA DEL DEPORTE DEL &quot;{disciplina}&quot; Presentado en esta
+          dependencia el {new Date().getFullYear()}.
         </p>
 
         <div className="mt-4 border border-slate-400">
@@ -209,9 +217,15 @@ export default function AvalDocumentPreview({
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
-                  CATEGORIA
+                  ASISTENTE
                 </td>
-                <td className="border border-slate-400 px-2 py-1">{categoria}</td>
+                <td className="border border-slate-400 px-2 py-1">{asistente.toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-400 px-2 py-1 font-semibold">
+                  DELEGADOS
+                </td>
+                <td className="border border-slate-400 px-2 py-1">-</td>
               </tr>
             </tbody>
           </table>
@@ -219,9 +233,9 @@ export default function AvalDocumentPreview({
 
         <p className="mt-4 text-[13px] leading-5">
           Certifico que una vez revisado los archivos que se mantienen en la
-          Secretaria de las escuelas de iniciacion deportiva relacionado a la
-          afiliacion del 2024 de los deportistas de FDPL. Me permito informar
-          lo siguiente:
+          Secretaria de las ESCUELAS DE INICIACIÓN DEPORTIVA relacionada a la
+          &quot;AFILIACIÓN del {new Date().getFullYear()} de los deportistas de FDPL. Me
+          permito informarle lo siguiente.
         </p>
 
         <div className="mt-3 overflow-x-auto">
@@ -281,6 +295,15 @@ export default function AvalDocumentPreview({
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="pt-4 text-[12px]">
+          <p>Atentamente,</p>
+          <div className="mt-8">
+            <p className="text-slate-400">____________________________</p>
+            <p className="font-semibold uppercase">{entrenadorResponsable}</p>
+            <p className="text-[11px] uppercase">SECRETARIA ESCUELAS DE INICIACIÓN DEPORTIVA DE FDPL</p>
+          </div>
         </div>
       </div>
       )}
@@ -500,6 +523,22 @@ export default function AvalDocumentPreview({
                     </tr>
                   ))
                 )}
+                {presupuestoItems.length > 0 && (
+                  <tr>
+                    <td className="border border-slate-400 px-2 py-1" />
+                    <td className="border border-slate-400 px-2 py-1 font-semibold">TOTAL</td>
+                    <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
+                      {formatMoneda(
+                        String(
+                          presupuestoItems.reduce(
+                            (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
+                            0,
+                          ),
+                        ),
+                      )}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -548,6 +587,22 @@ export default function AvalDocumentPreview({
             <p className="mt-1 min-h-6">
               {formData.observaciones?.trim() || "-"}
             </p>
+          </div>
+
+          <div className="pt-4 text-[12px]">
+            <p>Atentamente,</p>
+            <div className="mt-8 flex justify-between">
+              <div>
+                <p className="text-slate-400">____________________________</p>
+                <p className="font-semibold uppercase">{entrenadorResponsable}</p>
+                <p className="text-[11px] uppercase">ENTRENADOR RESPONSABLE</p>
+              </div>
+              <div className="text-right">
+                <p className="text-slate-400">____________________________</p>
+                <p className="font-semibold uppercase">PRESIDENTE FDPL</p>
+                <p className="text-[11px] uppercase">PRESIDENTE</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -274,8 +274,12 @@ export default function RevisionMetodologoPreview({
           <p>{footer.observacionesFinales.trim() || "-"}</p>
         </div>
         <div className="pt-4">
-          <p className="font-semibold uppercase">{footer.firmanteNombre || "-"}</p>
-          <p className="uppercase">{footer.firmanteCargo || "-"}</p>
+          <p>Atentamente,</p>
+          <div className="mt-6">
+            <p className="text-slate-400">____________________________</p>
+            <p className="font-semibold uppercase">{footer.firmanteNombre || "-"}</p>
+            <p className="uppercase">{footer.firmanteCargo || "-"}</p>
+          </div>
         </div>
       </div>
     </div>

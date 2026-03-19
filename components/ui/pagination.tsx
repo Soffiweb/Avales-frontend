@@ -77,7 +77,7 @@ export default function Pagination({
               }
             }}
             className={[
-              "inline-flex items-center justify-center rounded-lg leading-5 px-2.5 py-2",
+              "inline-flex items-center justify-center rounded-lg leading-5 px-3 py-3",
               "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60",
               "shadow-sm",
               currentPage === 1
@@ -124,14 +124,19 @@ export default function Pagination({
             const radius = isFirst
               ? "rounded-l-lg"
               : isLast
-              ? "rounded-r-lg"
-              : "";
+                ? "rounded-r-lg"
+                : "";
 
             if (isActive) {
               return (
                 <li key={p}>
                   <span
-                    className={[base, radius, "text-violet-500"].join(" ")}
+                    className={[
+                      base,
+                      radius,
+                      "relative z-10 border-2 border-violet-400 bg-white text-violet-500 shadow-sm",
+                      "dark:border-violet-400 dark:bg-gray-800 dark:text-violet-300",
+                    ].join(" ")}
                     aria-current="page"
                   >
                     {p}
@@ -179,7 +184,7 @@ export default function Pagination({
               }
             }}
             className={[
-              "inline-flex items-center justify-center rounded-lg leading-5 px-2.5 py-2",
+              "inline-flex items-center justify-center rounded-lg leading-5 px-3 py-3",
               "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60",
               "shadow-sm",
               currentPage === totalPages

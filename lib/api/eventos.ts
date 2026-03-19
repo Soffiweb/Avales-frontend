@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import type { Evento, EventoListResponse } from "@/types/evento";
+import type { ApiResponse } from "@/types/api-response";
 import type { CreateEventoPayload, EventoItemPayload } from "@/lib/validation/evento";
 
 export type ListEventosOptions = {
@@ -10,6 +11,42 @@ export type ListEventosOptions = {
   sinAval?: boolean;
   disciplinaId?: number;
 };
+
+export type EventsPagination = {
+  page?: number;
+  limit?: number;
+  total?: number;
+  lastPage?: number;
+  current_page?: number;
+  per_page?: number;
+  last_page?: number;
+};
+
+export type ListEventosResponse = ApiResponse<EventoListResponse> & {
+  pagination?: EventsPagination;
+};
+
+type EventoNestedPayload = {
+  items?: Evento[];
+  pagination?: EventsPagination;
+};
+
+type RawListEventosResponse = ApiResponse<Evento[] | EventoNestedPayload> & {
+  pagination?: EventsPagination;
+};
+
+function normalizePagination(
+  pagination?: EventsPagination
+): EventsPagination | undefined {
+  if (!pagination) return undefined;
+
+  return {
+    ...pagination,
+    current_page: pagination.current_page ?? pagination.page,
+    per_page: pagination.per_page ?? pagination.limit,
+    last_page: pagination.last_page ?? pagination.lastPage,
+  };
+}
 
 export async function listEventos(options: ListEventosOptions = {}) {
   const params = new URLSearchParams();
@@ -24,7 +61,31 @@ export async function listEventos(options: ListEventosOptions = {}) {
   const qs = params.toString();
   const url = qs ? `/events?${qs}` : "/events";
 
-  return apiFetch<EventoListResponse>(url, { method: "GET" });
+  const response = (await apiFetch<Evento[] | EventoNestedPayload>(url, {
+    method: "GET",
+  })) as RawListEventosResponse;
+
+  const data = Array.isArray(response.data)
+    ? response.data
+    : (response.data?.items ?? []);
+  const rawPagination = Array.isArray(response.data)
+    ? response.pagination
+    : response.data?.pagination ?? response.pagination;
+  const pagination = normalizePagination(rawPagination);
+
+  return {
+    ...response,
+    data,
+    pagination,
+    meta: response.meta
+      ? {
+          ...response.meta,
+          page: pagination?.current_page ?? response.meta.page,
+          limit: pagination?.per_page ?? response.meta.limit,
+          total: pagination?.total ?? response.meta.total,
+        }
+      : response.meta,
+  } as ListEventosResponse;
 }
 
 export async function getEvento(id: number) {

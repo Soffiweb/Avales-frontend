@@ -215,6 +215,7 @@ export default function PdaPreview({ aval, draft }: Props) {
       </table>
 
       <div className="mt-8 text-sm">
+        <p className="text-slate-400">____________________________</p>
         <p className="font-semibold">{draft.nombreFirmante || "NOMBRE FIRMANTE"}</p>
         <p>{draft.cargoFirmante || "CARGO FIRMANTE"}</p>
       </div>

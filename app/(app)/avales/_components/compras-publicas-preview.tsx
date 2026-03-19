@@ -43,10 +43,12 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
   const fechaEmision = formatFecha(
     draft.fechaEmision || aval.comprasPublicas?.fechaEmision
   );
+  const eventoNombre = aval.evento?.nombre ?? "el evento";
+  const eventoCodigo = aval.evento?.codigo ?? "";
   const certificacionTexto =
     draft.realizoProceso === false
-      ? "No se realizó el correspondiente proceso de contratación pública para el evento antes mencionado."
-      : `${realizo} se realizó el correspondiente proceso de contratación pública para el evento antes mencionado, con Código de necesidad N. ${codigoNecesidad} y objeto de contratación: ${objeto}.`;
+      ? `No se realizó el correspondiente proceso de contratación pública para el evento "${eventoNombre}" (Código: ${eventoCodigo}).`
+      : `${realizo} se realizó el correspondiente proceso de contratación pública para el evento "${eventoNombre}" (Código: ${eventoCodigo}), con Código de necesidad N. ${codigoNecesidad} objeto de contratación: ${objeto}.`;
 
   return (
     <div className="bg-white border border-slate-300 p-6 text-slate-900 space-y-4">

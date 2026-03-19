@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layouts/sidebar";
 import Header from "@/components/layouts/header";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -11,8 +13,15 @@ export default function DefaultLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const { user, loading } = useAuth();
-  if (loading) return null;
+
+  useEffect(() => {
+    if (loading || user) return;
+    router.replace("/signin");
+  }, [loading, router, user]);
+
+  if (loading || !user) return null;
 
   const showSidebar = canSeeSidebar(user, ROLES_WITHOUT_SIDEBAR);
 

@@ -521,7 +521,7 @@ export default function EventoReformaPage() {
   };
 
   const budgetComparisonRows = useMemo(() => {
-    if (!selectedSections.budget) return [];
+    if (!selectedSections.budget || !evento) return [];
 
     return budgetRows.map((row) => {
       const originalItem = evento.eventoItems?.find((item) => item.id === row.sourceId);

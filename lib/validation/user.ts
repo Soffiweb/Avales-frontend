@@ -68,9 +68,9 @@ export const updateUserSchema = baseUserSchema.extend({
     .or(z.literal("")),
 });
 
-export type CreateUserFormValues = z.infer<typeof createUserSchema>;
-export type UpdateUserFormValues = z.infer<typeof updateUserSchema>;
-export type UserFormValues = UpdateUserFormValues;
+export type CreateUserFormValues = z.input<typeof createUserSchema>;
+export type UpdateUserFormValues = z.input<typeof updateUserSchema>;
+export type UserFormValues = CreateUserFormValues | UpdateUserFormValues;
 
-export type CreateUserPayload = CreateUserFormValues;
+export type CreateUserPayload = z.output<typeof createUserSchema>;
 export type UpdateUserPayload = Partial<CreateUserPayload>;

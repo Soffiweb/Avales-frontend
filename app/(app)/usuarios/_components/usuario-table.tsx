@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 
-import { User } from "@/types/user";
+import { User, type UserDisciplina } from "@/types/user";
+import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
 
 type Props = {
   users: User[];
@@ -11,6 +12,20 @@ type Props = {
   error?: string | null;
   onDelete?: (user: User) => void;
 };
+
+function getDisciplinaNames(user: User) {
+  const fromDetail = (user.disciplinasDetalle ?? []).map((disciplina) => disciplina.nombre);
+  if (fromDetail.length > 0) return fromDetail;
+
+  const fromArray = (user.disciplinas ?? [])
+    .map((disciplina: UserDisciplina) =>
+      typeof disciplina === "number" ? null : disciplina?.nombre ?? null
+    )
+    .filter((name): name is string => Boolean(name));
+  if (fromArray.length > 0) return fromArray;
+
+  return user.disciplina?.nombre ? [user.disciplina.nombre] : [];
+}
 
 export default function UsuarioTable({
   users,
@@ -48,6 +63,9 @@ export default function UsuarioTable({
                   <div className="font-semibold text-left">Roles</div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
+                  <div className="font-semibold text-left">Permiso reforma</div>
+                </th>
+                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <div className="font-semibold text-left">Acciones</div>
                 </th>
               </tr>
@@ -58,7 +76,7 @@ export default function UsuarioTable({
                 <tr>
                   <td
                     className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
-                    colSpan={8}
+                    colSpan={9}
                   >
                     Cargando usuarios...
                   </td>
@@ -69,7 +87,7 @@ export default function UsuarioTable({
                 <tr>
                   <td
                     className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-red-500"
-                    colSpan={8}
+                    colSpan={9}
                   >
                     {error}
                   </td>
@@ -80,7 +98,7 @@ export default function UsuarioTable({
                 <tr>
                   <td
                     className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
-                    colSpan={8}
+                    colSpan={9}
                   >
                     No hay usuarios para mostrar.
                   </td>
@@ -118,14 +136,24 @@ export default function UsuarioTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {user.disciplina?.nombre ?? "-"}
+                        {getDisciplinaNames(user).length > 0
+                          ? getDisciplinaNames(user).join(", ")
+                          : Array.isArray(user.disciplinas) &&
+                            user.disciplinas.length > 0
+                          ? `${user.disciplinas.length} disciplina(s)`
+                          : "-"}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {user.roles && user.roles.length > 0
-                          ? user.roles.join(", ")
-                          : "-"}
+                        {formatRoles(user.roles)}
+                      </div>
+                    </td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                      <div className="text-gray-700 dark:text-gray-300">
+                        {user.roles?.includes("ENTRENADOR")
+                          ? formatBoolean(user.puedeSolicitarReformas)
+                          : "No aplica"}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">

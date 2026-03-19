@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, ChevronDown, X } from "lucide-react";
 
 import { ApiError } from "@/lib/api/client";
 import { createUser, updateUser } from "@/lib/api/user";
 import { getCatalog } from "@/lib/api/catalog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   createUserSchema,
   updateUserSchema,
@@ -40,6 +46,32 @@ const formatRoleLabel = (role: Role) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+const MAX_SELECTED_DISCIPLINAS = 3;
+
+function buildDisciplinasLabel(
+  selectedIds: number[],
+  options: CatalogItem[],
+  maxSelectedLabels = MAX_SELECTED_DISCIPLINAS,
+) {
+  if (selectedIds.length === 0) return "Selecciona disciplinas";
+
+  const selectedNames = selectedIds
+    .map((id) => options.find((option) => option.id === id)?.nombre)
+    .filter((name): name is string => Boolean(name));
+
+  if (selectedNames.length === 0) {
+    return `${selectedIds.length} seleccionada(s)`;
+  }
+
+  if (selectedNames.length <= maxSelectedLabels) {
+    return selectedNames.join(", ");
+  }
+
+  return `${selectedNames.slice(0, maxSelectedLabels).join(", ")} +${
+    selectedNames.length - maxSelectedLabels
+  }`;
+}
+
 type Props = {
   mode?: "create" | "edit";
   userId?: number;
@@ -60,10 +92,11 @@ export default function UsuarioForm({
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [disciplinasOpen, setDisciplinasOpen] = useState(false);
 
   const schema = useMemo(
     () => (mode === "edit" ? updateUserSchema : createUserSchema),
-    [mode]
+    [mode],
   );
 
   const {
@@ -71,8 +104,10 @@ export default function UsuarioForm({
     handleSubmit,
     reset,
     control,
+    watch,
     formState: { errors, isSubmitting },
     setError,
+    setValue,
   } = useForm<UserFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -83,10 +118,14 @@ export default function UsuarioForm({
       cedula: initialValues?.cedula ?? "",
       genero: initialValues?.genero ?? "",
       categoriaId: initialValues?.categoriaId,
-      disciplinaId: initialValues?.disciplinaId,
+      disciplinas: initialValues?.disciplinas ?? [],
       roles: initialValues?.roles ?? defaultRoleSelection,
+      puedeSolicitarReformas: initialValues?.puedeSolicitarReformas ?? false,
     },
   });
+
+  const selectedRoles = watch("roles");
+  const isEntrenador = selectedRoles.includes("ENTRENADOR");
 
   // sincronizar valores iniciales cuando llegan (edicion)
   useEffect(() => {
@@ -99,8 +138,17 @@ export default function UsuarioForm({
         initialValues.roles && initialValues.roles.length > 0
           ? initialValues.roles
           : defaultRoleSelection,
+      puedeSolicitarReformas: initialValues.puedeSolicitarReformas ?? false,
     });
   }, [initialValues, catalogLoading, reset]);
+
+  useEffect(() => {
+    if (isEntrenador) return;
+    setValue("puedeSolicitarReformas", false, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [isEntrenador, setValue]);
 
   // cargar catalogos de categorias y disciplinas
   useEffect(() => {
@@ -115,7 +163,7 @@ export default function UsuarioForm({
         setDisciplinas(discs);
       } catch (err: any) {
         setCatalogError(
-          err?.message ?? "No se pudieron cargar categorias/disciplinas."
+          err?.message ?? "No se pudieron cargar categorias/disciplinas.",
         );
         setCategorias([]);
         setDisciplinas([]);
@@ -161,8 +209,9 @@ export default function UsuarioForm({
           cedula: "",
           genero: "",
           categoriaId: undefined,
-          disciplinaId: undefined,
+          disciplinas: [],
           roles: defaultRoleSelection,
+          puedeSolicitarReformas: false,
         });
         if (onCreated) {
           await onCreated();
@@ -179,7 +228,11 @@ export default function UsuarioForm({
         const detail =
           problem?.detail ?? problem?.title ?? err.message ?? fallback;
         if (problem?.field) {
-          const fieldName = problem.field as keyof UserFormValues;
+          const fieldName =
+            problem.field === "disciplinaId" ||
+            problem.field === "disciplinaIds"
+              ? "disciplinas"
+              : (problem.field as keyof UserFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
         message = detail;
@@ -319,7 +372,7 @@ export default function UsuarioForm({
                 value={field.value[0] ?? ""}
                 onChange={(e) =>
                   field.onChange(
-                    e.target.value ? ([e.target.value] as Role[]) : []
+                    e.target.value ? ([e.target.value] as Role[]) : [],
                   )
                 }
               >
@@ -344,6 +397,31 @@ export default function UsuarioForm({
             </div>
           )}
         />
+
+        {isEntrenador ? (
+          <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-800/60 dark:bg-amber-950/20">
+            <label
+              htmlFor="puedeSolicitarReformas"
+              className="flex items-start gap-3"
+            >
+              <input
+                id="puedeSolicitarReformas"
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                {...register("puedeSolicitarReformas")}
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Puede solicitar reformas
+                </p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                  Habilita este permiso adicional para usuarios con rol
+                  entrenador.
+                </p>
+              </div>
+            </label>
+          </div>
+        ) : null}
 
         <div>
           <label
@@ -374,34 +452,151 @@ export default function UsuarioForm({
           )}
         </div>
 
-        <div>
-          <label
-            className="block text-sm font-medium mb-1"
-            htmlFor="disciplinaId"
-          >
-            Disciplina
-          </label>
-          <select
-            id="disciplinaId"
-            className="form-select w-full"
-            disabled={catalogLoading || !disciplinas.length}
-            {...register("disciplinaId", {
-              setValueAs: (v) => Number(v),
-            })}
-          >
-            <option value="">Selecciona una opcion</option>
-            {(disciplinas ?? []).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.nombre}
-              </option>
-            ))}
-          </select>
-          {errors.disciplinaId && (
-            <p className="mt-1 text-xs text-red-600">
-              {errors.disciplinaId.message}
-            </p>
-          )}
-        </div>
+        <Controller
+          control={control}
+          name="disciplinas"
+          render={({ field }) => {
+            const selectedIds = field.value ?? [];
+            const selectedLabel = buildDisciplinasLabel(
+              selectedIds,
+              disciplinas,
+            );
+            const allDisciplinaIds = disciplinas.map(
+              (disciplina) => disciplina.id,
+            );
+            const allSelected =
+              allDisciplinaIds.length > 0 &&
+              allDisciplinaIds.every((id) => selectedIds.includes(id));
+
+            return (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Disciplinas
+                </label>
+                <Popover
+                  open={disciplinasOpen}
+                  onOpenChange={setDisciplinasOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={catalogLoading || !disciplinas.length}
+                      className="form-select flex w-full items-center justify-between px-3 py-2 text-left "
+                    >
+                      <span className="truncate text-sm">{selectedLabel}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                  >
+                    <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700/60">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          Selecciona disciplinas
+                        </p>
+                        {selectedIds.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => field.onChange([])}
+                            className="inline-flex items-center gap-1 text-xs text-gray-500 transition hover:text-violet-600 dark:text-gray-400 dark:hover:text-violet-300"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Limpiar
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto py-1">
+                      {disciplinas.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            field.onChange(allSelected ? [] : allDisciplinaIds);
+                          }}
+                          className={[
+                            "flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-medium transition dark:border-gray-700/60",
+                            allSelected
+                              ? "bg-violet-50 text-violet-900 dark:bg-violet-500/10 dark:text-violet-100"
+                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/40",
+                          ].join(" ")}
+                        >
+                          <span
+                            className={[
+                              "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                              allSelected
+                                ? "border-violet-500 bg-violet-500 text-white dark:border-violet-400 dark:bg-violet-400"
+                                : "border-gray-300 bg-white text-transparent dark:border-gray-600 dark:bg-gray-800",
+                            ].join(" ")}
+                            aria-hidden="true"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="truncate">
+                            Todas las disciplinas
+                          </span>
+                        </button>
+                      ) : null}
+
+                      {(disciplinas ?? []).map((disciplina) => {
+                        const isChecked = selectedIds.includes(disciplina.id);
+
+                        return (
+                          <button
+                            key={disciplina.id}
+                            type="button"
+                            onClick={() => {
+                              const nextValue = isChecked
+                                ? selectedIds.filter(
+                                    (id) => id !== disciplina.id,
+                                  )
+                                : [...selectedIds, disciplina.id];
+
+                              field.onChange(nextValue);
+                            }}
+                            className={[
+                              "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition",
+                              isChecked
+                                ? "bg-violet-50 text-violet-900 dark:bg-violet-500/10 dark:text-violet-100"
+                                : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/40",
+                            ].join(" ")}
+                          >
+                            <span
+                              className={[
+                                "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                                isChecked
+                                  ? "border-violet-500 bg-violet-500 text-white dark:border-violet-400 dark:bg-violet-400"
+                                  : "border-gray-300 bg-white text-transparent dark:border-gray-600 dark:bg-gray-800",
+                              ].join(" ")}
+                              aria-hidden="true"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="truncate">
+                              {disciplina.nombre}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Selecciona una o varias disciplinas para este usuario.
+                </p>
+                {errors.disciplinas && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.disciplinas.message}
+                  </p>
+                )}
+              </div>
+            );
+          }}
+        />
       </div>
 
       {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
@@ -417,8 +612,8 @@ export default function UsuarioForm({
           {isSubmitting
             ? "Guardando..."
             : mode === "edit"
-            ? "Guardar cambios"
-            : "Guardar usuario"}
+              ? "Guardar cambios"
+              : "Guardar usuario"}
         </button>
       </div>
     </form>

@@ -35,8 +35,11 @@ const baseUserSchema = z.object({
     .optional()
     .or(z.literal("")),
   categoriaId: z.number().int().positive("Selecciona una categoria"),
-  disciplinaId: z.number().int().positive("Selecciona una disciplina"),
+  disciplinas: z
+    .array(z.number().int().positive("Selecciona una disciplina valida"))
+    .min(1, "Selecciona al menos una disciplina"),
   roles: rolesSchema,
+  puedeSolicitarReformas: z.boolean().default(false),
 });
 
 export const profileSchema = z.object({

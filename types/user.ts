@@ -16,6 +16,8 @@ export type Role =
 
 export type Genero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
 
+export type UserDisciplina = number | CatalogItem;
+
 export type User = {
   id: number;
   email: string;
@@ -27,10 +29,12 @@ export type User = {
   categoriaId?: number;
   disciplina?: CatalogItem;
   disciplinaId?: number;
+  disciplinasDetalle?: CatalogItem[];
   roles?: Role[];
   rolId?: number;
-  disciplinas?: number[];
+  disciplinas?: UserDisciplina[];
   categorias?: number[];
+  puedeSolicitarReformas?: boolean;
   pushToken?: string;
   createdAt?: string;
   updatedAt?: string;

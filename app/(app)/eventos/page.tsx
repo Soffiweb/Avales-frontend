@@ -62,7 +62,15 @@ export default function EventosPage() {
   const canManageEvents =
     userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
-  const entrenadorDisciplinaId = user?.disciplinaId ?? user?.disciplinas?.[0];
+  const firstUserDisciplina =
+    Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
+      ? user.disciplinas[0]
+      : undefined;
+  const entrenadorDisciplinaId =
+    user?.disciplinaId ??
+    (typeof firstUserDisciplina === "number"
+      ? firstUserDisciplina
+      : firstUserDisciplina?.id);
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [disciplinasLoading, setDisciplinasLoading] = useState(false);
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);

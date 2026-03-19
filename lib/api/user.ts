@@ -7,6 +7,16 @@ import type {
   UpdateUserFormValues,
 } from "@/lib/validation/user";
 
+function withDisciplinaIds<T extends { disciplinas?: number[] }>(values: T) {
+  const { disciplinas, ...rest } = values;
+
+  return {
+    ...rest,
+    disciplinaIds: disciplinas ?? [],
+    disciplinaId: disciplinas?.[0],
+  };
+}
+
 export type ListUsersOptions = {
   query?: string;
   page?: number;
@@ -94,7 +104,7 @@ export async function getUser(id: number) {
 export async function createUser(values: CreateUserFormValues) {
   return apiFetch<User>("/users/create", {
     method: "POST",
-    body: JSON.stringify(values),
+    body: JSON.stringify(withDisciplinaIds(values)),
   });
 }
 
@@ -104,7 +114,9 @@ export async function updateUser(
 ) {
   return apiFetch<User>(`/users/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(values),
+    body: JSON.stringify(
+      "disciplinas" in values ? withDisciplinaIds(values) : values
+    ),
   });
 }
 

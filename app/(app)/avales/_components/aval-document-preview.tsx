@@ -288,7 +288,7 @@ export default function AvalDocumentPreview({
                       {formatFechaNacimiento(deportista.fechaNacimiento)}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 align-top font-semibold">
-                      {deportista.observacion ?? "AFILIADO/A 2024"}
+                      {deportista.observacion ?? "AFILIADO/A 2026"}
                     </td>
                   </tr>
                 ))

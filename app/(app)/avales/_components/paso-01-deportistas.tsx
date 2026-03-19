@@ -53,12 +53,35 @@ type Paso01DeportistasProps = {
 type SelectedDeportista = Deportista & { rol?: string };
 type SelectedEntrenador = User;
 
-const DEPORTISTA_ROLE_OPTIONS = [
-  { value: "ATLETA", label: "Atleta" },
-];
+function formatDeportistaNombre(
+  deportista: Pick<Deportista, "nombres" | "apellidos">
+) {
+  return `${deportista.apellidos} ${deportista.nombres}`.trim();
+}
+
+function sortDeportistasByApellido<T extends Pick<Deportista, "nombres" | "apellidos" | "cedula">>(
+  deportistas: T[]
+) {
+  return [...deportistas].sort((a, b) => {
+    const apellidoCompare = (a.apellidos ?? "").localeCompare(b.apellidos ?? "", "es", {
+      sensitivity: "base",
+    });
+
+    if (apellidoCompare !== 0) return apellidoCompare;
+
+    const nombreCompare = (a.nombres ?? "").localeCompare(b.nombres ?? "", "es", {
+      sensitivity: "base",
+    });
+
+    if (nombreCompare !== 0) return nombreCompare;
+
+    return (a.cedula ?? "").localeCompare(b.cedula ?? "", "es", {
+      sensitivity: "base",
+    });
+  });
+}
 
 export default function Paso01Deportistas({
-  formData,
   aval,
   onComplete,
   onPreviewChange,
@@ -67,107 +90,72 @@ export default function Paso01Deportistas({
   const evento = aval.evento;
   const { user } = useAuth();
 
-  // State for deportistas hombres
-  const [searchDeportistasHombres, setSearchDeportistasHombres] = useState("");
-  const [deportistasHombres, setDeportistasHombres] = useState<Deportista[]>(
-    []
-  );
-  const [loadingDeportistasHombres, setLoadingDeportistasHombres] =
-    useState(false);
-  const [selectedDeportistasHombres, setSelectedDeportistasHombres] = useState<
+  const [searchDeportistas, setSearchDeportistas] = useState("");
+  const [deportistas, setDeportistas] = useState<Deportista[]>([]);
+  const [loadingDeportistas, setLoadingDeportistas] = useState(false);
+  const [selectedDeportistas, setSelectedDeportistas] = useState<
     SelectedDeportista[]
   >([]);
 
-  // State for deportistas mujeres
-  const [searchDeportistasMujeres, setSearchDeportistasMujeres] = useState("");
-  const [deportistasMujeres, setDeportistasMujeres] = useState<Deportista[]>(
-    []
-  );
-  const [loadingDeportistasMujeres, setLoadingDeportistasMujeres] =
-    useState(false);
-  const [selectedDeportistasMujeres, setSelectedDeportistasMujeres] = useState<
-    SelectedDeportista[]
+  const [searchEntrenadores, setSearchEntrenadores] = useState("");
+  const [entrenadores, setEntrenadores] = useState<User[]>([]);
+  const [loadingEntrenadores, setLoadingEntrenadores] = useState(false);
+  const [selectedEntrenadores, setSelectedEntrenadores] = useState<
+    SelectedEntrenador[]
   >([]);
-
-  // State for entrenadores hombres
-  const [searchEntrenadoresHombres, setSearchEntrenadoresHombres] =
-    useState("");
-  const [entrenadoresHombres, setEntrenadoresHombres] = useState<User[]>([]);
-  const [loadingEntrenadoresHombres, setLoadingEntrenadoresHombres] =
-    useState(false);
-  const [selectedEntrenadoresHombres, setSelectedEntrenadoresHombres] =
-    useState<SelectedEntrenador[]>([]);
-
-  // State for entrenadores mujeres
-  const [searchEntrenadoresMujeres, setSearchEntrenadoresMujeres] =
-    useState("");
-  const [entrenadoresMujeres, setEntrenadoresMujeres] = useState<User[]>([]);
-  const [loadingEntrenadoresMujeres, setLoadingEntrenadoresMujeres] =
-    useState(false);
-  const [selectedEntrenadoresMujeres, setSelectedEntrenadoresMujeres] =
-    useState<SelectedEntrenador[]>([]);
 
   const [principalEntrenadorId, setPrincipalEntrenadorId] = useState<
     number | null
   >(null);
-
   const [error, setError] = useState<string | null>(null);
   const autoSelectEntrenadorRef = useRef(false);
 
-  const getAllEntrenadores = useCallback(
-    () => [...selectedEntrenadoresHombres, ...selectedEntrenadoresMujeres],
-    [selectedEntrenadoresHombres, selectedEntrenadoresMujeres]
-  );
+  const totalDeportistasRequeridos =
+    (evento.numAtletasHombres ?? 0) + (evento.numAtletasMujeres ?? 0);
+  const totalEntrenadoresRequeridos =
+    (evento.numEntrenadoresHombres ?? 0) +
+    (evento.numEntrenadoresMujeres ?? 0);
 
   const buildSelectedData = useCallback(() => {
-    const allDeportistas = [
-      ...selectedDeportistasHombres,
-      ...selectedDeportistasMujeres,
-    ];
-    const allEntrenadores = getAllEntrenadores();
     const principal =
       principalEntrenadorId != null
-        ? allEntrenadores.find((e) => e.id === principalEntrenadorId)
+        ? selectedEntrenadores.find((e) => e.id === principalEntrenadorId)
         : undefined;
     const orderedEntrenadores = principal
-      ? [principal, ...allEntrenadores.filter((e) => e.id !== principal.id)]
-      : allEntrenadores;
-
-    const deportistasData = allDeportistas.map((d) => ({
-      id: d.id,
-      deportistaExternoId: d.externoId ?? String(d.id),
-      nombre: `${d.nombres ?? ""} ${d.apellidos ?? ""}`.trim(),
-      apellido: d.apellidos ?? undefined,
-      nombres: d.nombres ?? undefined,
-      apellidos: d.apellidos ?? undefined,
-      cedula: d.cedula,
-      fechaNacimiento: d.fechaNacimiento,
-      genero: d.genero,
-      club: d.club,
-      afiliacion: d.afiliacion,
-      payload: {
-        genero: d.genero ?? null,
-        fechaNacimiento: d.fechaNacimiento ?? null,
-        afiliado: Boolean(d.afiliacion),
-        club: d.club ?? null,
-      },
-      observacion: d.afiliacion ? "AFILIADO/A 2024" : "SIN AFILIACION",
-      rol: d.rol ?? "ATLETA",
-    }));
+      ? [
+          principal,
+          ...selectedEntrenadores.filter((e) => e.id !== principal.id),
+        ]
+      : selectedEntrenadores;
 
     return {
-      deportistas: deportistasData,
+      deportistas: sortDeportistasByApellido(selectedDeportistas).map((d) => ({
+        id: d.id,
+        deportistaExternoId: d.externoId ?? String(d.id),
+        nombre: formatDeportistaNombre(d),
+        apellido: d.apellidos ?? undefined,
+        nombres: d.nombres ?? undefined,
+        apellidos: d.apellidos ?? undefined,
+        cedula: d.cedula,
+        fechaNacimiento: d.fechaNacimiento,
+        genero: d.genero,
+        club: d.club,
+        afiliacion: d.afiliacion,
+        payload: {
+          genero: d.genero ?? null,
+          fechaNacimiento: d.fechaNacimiento ?? null,
+          afiliado: Boolean(d.afiliacion),
+          club: d.club ?? null,
+        },
+        observacion: d.afiliacion ? "AFILIADO/A 2026" : "SIN AFILIACION",
+        rol: d.rol ?? "ATLETA",
+      })),
       entrenadores: orderedEntrenadores.map((e) => ({
         id: e.id,
-        nombre: `${e.nombre} ${e.apellido}`,
+        nombre: `${e.nombre} ${e.apellido}`.trim(),
       })),
     };
-  }, [
-    selectedDeportistasHombres,
-    selectedDeportistasMujeres,
-    getAllEntrenadores,
-    principalEntrenadorId,
-  ]);
+  }, [principalEntrenadorId, selectedDeportistas, selectedEntrenadores]);
 
   useEffect(() => {
     onPreviewChange?.(buildSelectedData());
@@ -181,347 +169,151 @@ export default function Paso01Deportistas({
       !user.roles?.includes("SUPER_ADMIN") &&
       !user.roles?.includes("ADMIN");
     if (!isEntrenador) return;
+    if (totalEntrenadoresRequeridos <= 0) return;
 
-    const alreadySelected =
-      selectedEntrenadoresHombres.some((e) => e.id === user.id) ||
-      selectedEntrenadoresMujeres.some((e) => e.id === user.id);
+    const alreadySelected = selectedEntrenadores.some((e) => e.id === user.id);
     if (alreadySelected) {
       autoSelectEntrenadorRef.current = true;
       return;
     }
 
-    const hasSelection =
-      selectedEntrenadoresHombres.length > 0 ||
-      selectedEntrenadoresMujeres.length > 0;
-    if (hasSelection) {
+    if (selectedEntrenadores.length > 0) {
       autoSelectEntrenadorRef.current = true;
       return;
     }
 
-    const allowMale = evento.numEntrenadoresHombres > 0;
-    const allowFemale = evento.numEntrenadoresMujeres > 0;
-
-    if ((user.genero === "MASCULINO" || user.genero === "MASCULINO_FEMENINO") && allowMale) {
-      setSelectedEntrenadoresHombres([user]);
-      setPrincipalEntrenadorId(user.id);
-      autoSelectEntrenadorRef.current = true;
-      return;
-    }
-
-    if ((user.genero === "FEMENINO" || user.genero === "MASCULINO_FEMENINO") && allowFemale) {
-      setSelectedEntrenadoresMujeres([user]);
-      setPrincipalEntrenadorId(user.id);
-      autoSelectEntrenadorRef.current = true;
-    }
+    setSelectedEntrenadores([user]);
+    setPrincipalEntrenadorId(user.id);
     autoSelectEntrenadorRef.current = true;
-  }, [
-    evento.numEntrenadoresHombres,
-    evento.numEntrenadoresMujeres,
-    selectedEntrenadoresHombres,
-    selectedEntrenadoresMujeres,
-    user,
-  ]);
+  }, [selectedEntrenadores, totalEntrenadoresRequeridos, user]);
 
-  // Fetch deportistas hombres
-  const fetchDeportistasHombres = useCallback(async () => {
-    if (!searchDeportistasHombres.trim()) {
-      setDeportistasHombres([]);
+  const fetchDeportistas = useCallback(async () => {
+    if (!searchDeportistas.trim()) {
+      setDeportistas([]);
       return;
     }
 
     try {
-      setLoadingDeportistasHombres(true);
+      setLoadingDeportistas(true);
       const options: ListDeportistasOptions = {
-        query: searchDeportistasHombres.trim(),
+        query: searchDeportistas.trim(),
         limit: 20,
-        genero: "Masculino",
       };
 
       const res = await listDeportistas(options);
-      const items = res.data ?? [];
-      setDeportistasHombres(items);
+      setDeportistas(sortDeportistasByApellido(res.data ?? []));
     } catch (err: any) {
-      console.error("Error al cargar deportistas hombres:", err);
+      console.error("Error al cargar deportistas:", err);
     } finally {
-      setLoadingDeportistasHombres(false);
+      setLoadingDeportistas(false);
     }
-  }, [searchDeportistasHombres]);
+  }, [searchDeportistas]);
 
-  // Fetch deportistas mujeres
-  const fetchDeportistasMujeres = useCallback(async () => {
-    if (!searchDeportistasMujeres.trim()) {
-      setDeportistasMujeres([]);
+  const fetchEntrenadores = useCallback(async () => {
+    if (!searchEntrenadores.trim()) {
+      setEntrenadores([]);
       return;
     }
 
     try {
-      setLoadingDeportistasMujeres(true);
-      const options: ListDeportistasOptions = {
-        query: searchDeportistasMujeres.trim(),
-        limit: 20,
-        genero: "FEMENINO",
-      };
-
-      const res = await listDeportistas(options);
-      const items = res.data ?? [];
-      setDeportistasMujeres(items);
-    } catch (err: any) {
-      console.error("Error al cargar deportistas mujeres:", err);
-    } finally {
-      setLoadingDeportistasMujeres(false);
-    }
-  }, [searchDeportistasMujeres]);
-
-  // Fetch entrenadores hombres
-  const fetchEntrenadoresHombres = useCallback(async () => {
-    if (!searchEntrenadoresHombres.trim()) {
-      setEntrenadoresHombres([]);
-      return;
-    }
-
-    try {
-      setLoadingEntrenadoresHombres(true);
+      setLoadingEntrenadores(true);
       const options: ListEntrenadoresOptions = {
         limit: 50,
-        genero: "MASCULINO",
       };
 
       const res = await listEntrenadores(options);
       const items = res.data ?? [];
-
-      const filtered = items.filter((e) =>
-        `${e.nombre} ${e.apellido} ${e.cedula}`
-          .toLowerCase()
-          .includes(searchEntrenadoresHombres.toLowerCase())
+      const query = searchEntrenadores.toLowerCase();
+      setEntrenadores(
+        items.filter((entrenador) =>
+          `${entrenador.nombre} ${entrenador.apellido} ${entrenador.cedula}`
+            .toLowerCase()
+            .includes(query)
+        )
       );
-
-      setEntrenadoresHombres(filtered);
     } catch (err: any) {
-      console.error("Error al cargar entrenadores hombres:", err);
+      console.error("Error al cargar entrenadores:", err);
     } finally {
-      setLoadingEntrenadoresHombres(false);
+      setLoadingEntrenadores(false);
     }
-  }, [searchEntrenadoresHombres]);
+  }, [searchEntrenadores]);
 
-  // Fetch entrenadores mujeres
-  const fetchEntrenadoresMujeres = useCallback(async () => {
-    if (!searchEntrenadoresMujeres.trim()) {
-      setEntrenadoresMujeres([]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchDeportistas();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchDeportistas]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchEntrenadores();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchEntrenadores]);
+
+  const handleAddDeportista = (deportista: Deportista) => {
+    const alreadySelected = selectedDeportistas.some((d) => d.id === deportista.id);
+    if (alreadySelected || selectedDeportistas.length >= totalDeportistasRequeridos) {
       return;
     }
 
-    try {
-      setLoadingEntrenadoresMujeres(true);
-      const options: ListEntrenadoresOptions = {
-        limit: 50,
-        genero: "FEMENINO",
-      };
-
-      const res = await listEntrenadores(options);
-      const items = res.data ?? [];
-
-      const filtered = items.filter((e) =>
-        `${e.nombre} ${e.apellido} ${e.cedula}`
-          .toLowerCase()
-          .includes(searchEntrenadoresMujeres.toLowerCase())
-      );
-
-      setEntrenadoresMujeres(filtered);
-    } catch (err: any) {
-      console.error("Error al cargar entrenadores mujeres:", err);
-    } finally {
-      setLoadingEntrenadoresMujeres(false);
-    }
-  }, [searchEntrenadoresMujeres]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchDeportistasHombres();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [fetchDeportistasHombres]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchDeportistasMujeres();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [fetchDeportistasMujeres]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchEntrenadoresHombres();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [fetchEntrenadoresHombres]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchEntrenadoresMujeres();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [fetchEntrenadoresMujeres]);
-
-  // Handlers for deportistas hombres
-  const handleAddDeportistaHombre = (deportista: Deportista) => {
-    const alreadySelected = selectedDeportistasHombres.some(
-      (d) => d.id === deportista.id
+    setSelectedDeportistas((prev) =>
+      sortDeportistasByApellido([...prev, { ...deportista, rol: "ATLETA" }])
     );
-    if (alreadySelected) return;
-
-    setSelectedDeportistasHombres([
-      ...selectedDeportistasHombres,
-      { ...deportista, rol: "ATLETA" },
-    ]);
-    setSearchDeportistasHombres("");
-    setDeportistasHombres([]);
+    setSearchDeportistas("");
+    setDeportistas([]);
   };
 
-  const handleRemoveDeportistaHombre = (deportistaId: number) => {
-    setSelectedDeportistasHombres(
-      selectedDeportistasHombres.filter((d) => d.id !== deportistaId)
-    );
+  const handleRemoveDeportista = (deportistaId: number) => {
+    setSelectedDeportistas((prev) => prev.filter((d) => d.id !== deportistaId));
   };
 
-  // Handlers for deportistas mujeres
-  const handleAddDeportistaMujer = (deportista: Deportista) => {
-    const alreadySelected = selectedDeportistasMujeres.some(
-      (d) => d.id === deportista.id
-    );
-    if (alreadySelected) return;
-
-    setSelectedDeportistasMujeres([
-      ...selectedDeportistasMujeres,
-      { ...deportista, rol: "ATLETA" },
-    ]);
-    setSearchDeportistasMujeres("");
-    setDeportistasMujeres([]);
-  };
-
-  const handleRemoveDeportistaMujer = (deportistaId: number) => {
-    setSelectedDeportistasMujeres(
-      selectedDeportistasMujeres.filter((d) => d.id !== deportistaId)
-    );
-  };
-
-  const handleDeportistaRoleChange = (
-    deportistaId: number,
-    rol: string,
-    genero: "Masculino" | "Femenino"
-  ) => {
-    if (genero === "Masculino") {
-      setSelectedDeportistasHombres((prev) =>
-        prev.map((d) => (d.id === deportistaId ? { ...d, rol } : d))
-      );
+  const handleAddEntrenador = (entrenador: User) => {
+    const alreadySelected = selectedEntrenadores.some((e) => e.id === entrenador.id);
+    if (alreadySelected || selectedEntrenadores.length >= totalEntrenadoresRequeridos) {
       return;
     }
 
-    setSelectedDeportistasMujeres((prev) =>
-      prev.map((d) => (d.id === deportistaId ? { ...d, rol } : d))
-    );
-  };
-
-  // Handlers for entrenadores hombres
-  const handleAddEntrenadorHombre = (entrenador: User) => {
-    const alreadySelected = selectedEntrenadoresHombres.some(
-      (e) => e.id === entrenador.id
-    );
-    if (alreadySelected) return;
-
-    setSelectedEntrenadoresHombres([
-      ...selectedEntrenadoresHombres,
-      entrenador,
-    ]);
+    setSelectedEntrenadores((prev) => [...prev, entrenador]);
     if (principalEntrenadorId == null) {
       setPrincipalEntrenadorId(entrenador.id);
     }
-    setSearchEntrenadoresHombres("");
-    setEntrenadoresHombres([]);
+    setSearchEntrenadores("");
+    setEntrenadores([]);
   };
 
-  const handleRemoveEntrenadorHombre = (entrenadorId: number) => {
-    setSelectedEntrenadoresHombres(
-      selectedEntrenadoresHombres.filter((e) => e.id !== entrenadorId)
-    );
+  const handleRemoveEntrenador = (entrenadorId: number) => {
+    const remaining = selectedEntrenadores.filter((e) => e.id !== entrenadorId);
+    setSelectedEntrenadores(remaining);
     if (principalEntrenadorId === entrenadorId) {
-      const remaining = getAllEntrenadores().filter((e) => e.id !== entrenadorId);
-      setPrincipalEntrenadorId(remaining[0]?.id ?? null);
-    }
-  };
-
-  // Handlers for entrenadores mujeres
-  const handleAddEntrenadoraMujer = (entrenador: User) => {
-    const alreadySelected = selectedEntrenadoresMujeres.some(
-      (e) => e.id === entrenador.id
-    );
-    if (alreadySelected) return;
-
-    setSelectedEntrenadoresMujeres([
-      ...selectedEntrenadoresMujeres,
-      entrenador,
-    ]);
-    if (principalEntrenadorId == null) {
-      setPrincipalEntrenadorId(entrenador.id);
-    }
-    setSearchEntrenadoresMujeres("");
-    setEntrenadoresMujeres([]);
-  };
-
-  const handleRemoveEntrenadoraMujer = (entrenadorId: number) => {
-    setSelectedEntrenadoresMujeres(
-      selectedEntrenadoresMujeres.filter((e) => e.id !== entrenadorId)
-    );
-    if (principalEntrenadorId === entrenadorId) {
-      const remaining = getAllEntrenadores().filter((e) => e.id !== entrenadorId);
       setPrincipalEntrenadorId(remaining[0]?.id ?? null);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    // Validation
-    if (selectedDeportistasHombres.length !== evento.numAtletasHombres) {
+    if (selectedDeportistas.length !== totalDeportistasRequeridos) {
       setError(
-        `Debes seleccionar exactamente ${evento.numAtletasHombres} ${
-          evento.numAtletasHombres === 1
-            ? "deportista hombre"
-            : "deportistas hombres"
-        } según los requisitos del evento`
+        `Debes seleccionar exactamente ${totalDeportistasRequeridos} ${
+          totalDeportistasRequeridos === 1 ? "deportista" : "deportistas"
+        } según los requisitos del evento.`
       );
       return;
     }
 
-    if (selectedDeportistasMujeres.length !== evento.numAtletasMujeres) {
+    if (selectedEntrenadores.length !== totalEntrenadoresRequeridos) {
       setError(
-        `Debes seleccionar exactamente ${evento.numAtletasMujeres} ${
-          evento.numAtletasMujeres === 1
-            ? "deportista mujer"
-            : "deportistas mujeres"
-        } según los requisitos del evento`
+        `Debes seleccionar exactamente ${totalEntrenadoresRequeridos} ${
+          totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"
+        } según los requisitos del evento.`
       );
       return;
     }
 
-    if (selectedEntrenadoresHombres.length !== evento.numEntrenadoresHombres) {
-      setError(
-        `Debes seleccionar exactamente ${evento.numEntrenadoresHombres} ${
-          evento.numEntrenadoresHombres === 1 ? "entrenador" : "entrenadores"
-        } hombres según los requisitos del evento`
-      );
-      return;
-    }
-
-    if (selectedEntrenadoresMujeres.length !== evento.numEntrenadoresMujeres) {
-      setError(
-        `Debes seleccionar exactamente ${evento.numEntrenadoresMujeres} ${
-          evento.numEntrenadoresMujeres === 1 ? "entrenadora" : "entrenadoras"
-        } mujeres según los requisitos del evento`
-      );
-      return;
-    }
-
-    if (getAllEntrenadores().length > 0 && principalEntrenadorId == null) {
+    if (selectedEntrenadores.length > 0 && principalEntrenadorId == null) {
       setError("Debes seleccionar un entrenador principal.");
       return;
     }
@@ -529,33 +321,12 @@ export default function Paso01Deportistas({
     onComplete(buildSelectedData());
   };
 
-  // Helper component for rendering search section
-  const renderDeportistaSearch = (
-    genero: "Masculino" | "Femenino",
-    search: string,
-    setSearch: (value: string) => void,
-    deportistas: Deportista[],
-    loading: boolean,
-    setDeportistas: (value: Deportista[]) => void,
-    selected: SelectedDeportista[],
-    required: number,
-    handleAdd: (d: Deportista) => void,
-    handleRemove: (id: number) => void,
-    handleRoleChange: (id: number, role: string) => void
-  ) => {
-    const label =
-      genero === "Masculino" ? "Deportistas hombres" : "Deportistas mujeres";
-    const placeholder =
-      genero === "Masculino"
-        ? "Buscar deportista hombre..."
-        : "Buscar deportista mujer...";
-
-    if (required === 0) {
+  const renderDeportistaSearch = () => {
+    if (totalDeportistasRequeridos === 0) {
       return (
         <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">{label}:</span> Este evento no
-            requiere {label.toLowerCase()} para esta delegación.
+            Este evento no requiere deportistas para esta delegación.
           </p>
         </div>
       );
@@ -565,25 +336,23 @@ export default function Paso01Deportistas({
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {label}
+            Deportistas
           </label>
           <span
             className={`text-sm font-medium ${
-              selected.length === required
+              selectedDeportistas.length === totalDeportistasRequeridos
                 ? "text-emerald-600 dark:text-emerald-400"
-                : selected.length > required
+                : selectedDeportistas.length > totalDeportistasRequeridos
                 ? "text-rose-600 dark:text-rose-400"
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            {selected.length} / {required}
+            {selectedDeportistas.length} / {totalDeportistasRequeridos}
           </span>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          El evento requiere {required}{" "}
-          {required === 1
-            ? label.toLowerCase().slice(0, -1)
-            : label.toLowerCase()}
+          El evento requiere {totalDeportistasRequeridos}{" "}
+          {totalDeportistasRequeridos === 1 ? "deportista" : "deportistas"}.
         </p>
 
         <div className="relative">
@@ -591,16 +360,16 @@ export default function Paso01Deportistas({
           <input
             type="text"
             className="form-input w-full pl-10 pr-10"
-            placeholder={placeholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={selected.length >= required}
+            placeholder="Buscar deportista..."
+            value={searchDeportistas}
+            onChange={(e) => setSearchDeportistas(e.target.value)}
+            disabled={selectedDeportistas.length >= totalDeportistasRequeridos}
           />
-          {search.trim() && (
+          {searchDeportistas.trim() && (
             <button
               type="button"
               onClick={() => {
-                setSearch("");
+                setSearchDeportistas("");
                 setDeportistas([]);
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -609,9 +378,9 @@ export default function Paso01Deportistas({
             </button>
           )}
 
-          {(loading || search.trim() !== "") && (
+          {(loadingDeportistas || searchDeportistas.trim() !== "") && (
             <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {loading ? (
+              {loadingDeportistas ? (
                 <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                   Buscando...
@@ -622,17 +391,18 @@ export default function Paso01Deportistas({
                 </div>
               ) : (
                 deportistas.map((deportista) => {
-                  const alreadySelected = selected.some(
+                  const alreadySelected = selectedDeportistas.some(
                     (d) => d.id === deportista.id
                   );
-                  const limitReached = selected.length >= required;
+                  const limitReached =
+                    selectedDeportistas.length >= totalDeportistasRequeridos;
                   const isDisabled = alreadySelected || limitReached;
 
                   return (
                     <button
                       key={deportista.id}
                       type="button"
-                      onClick={() => handleAdd(deportista)}
+                      onClick={() => handleAddDeportista(deportista)}
                       disabled={isDisabled}
                       className={`w-full px-4 py-3 text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
                         isDisabled
@@ -643,7 +413,7 @@ export default function Paso01Deportistas({
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {deportista.nombres} {deportista.apellidos}
+                            {formatDeportistaNombre(deportista)}
                           </p>
                           <div className="flex items-center gap-3 mt-1">
                             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -670,71 +440,49 @@ export default function Paso01Deportistas({
           )}
         </div>
 
-        {selected.length > 0 && (
-          <div className="mt-3 space-y-1.5">
-            <div className="space-y-2">
-              {selected.map((deportista) => (
-                <div
-                  key={deportista.id}
-                  className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">
-                      {deportista.nombres} {deportista.apellidos}
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                      <span>{deportista.cedula}</span>
-                      {deportista.genero && (
-                        <span>{formatGenero(deportista.genero)}</span>
-                      )}
-                      {deportista.disciplina?.nombre && (
-                        <span>{deportista.disciplina.nombre}</span>
-                      )}
-                    </div>
+        {selectedDeportistas.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {selectedDeportistas.map((deportista) => (
+              <div
+                key={deportista.id}
+                className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">
+                    {formatDeportistaNombre(deportista)}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                    <span>{deportista.cedula}</span>
+                    {deportista.genero && (
+                      <span>{formatGenero(deportista.genero)}</span>
+                    )}
+                    {deportista.disciplina?.nombre && (
+                      <span>{deportista.disciplina.nombre}</span>
+                    )}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(deportista.id)}
-                    className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
                 </div>
-              ))}
-            </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDeportista(deportista.id)}
+                  className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
     );
   };
 
-  // Helper component for rendering entrenador search section
-  const renderEntrenadorSearch = (
-    genero: "Masculino" | "Femenino",
-    search: string,
-    setSearch: (value: string) => void,
-    entrenadores: User[],
-    loading: boolean,
-    setEntrenadores: (value: User[]) => void,
-    selected: SelectedEntrenador[],
-    required: number,
-    handleAdd: (e: User) => void,
-    handleRemove: (id: number) => void,
-    principalId: number | null,
-    onSetPrincipal: (id: number) => void
-  ) => {
-    const label =
-      genero === "Masculino" ? "Entrenadores hombres" : "Entrenadoras mujeres";
-    const placeholder =
-      genero === "Masculino" ? "Buscar entrenador..." : "Buscar entrenadora...";
-
-    if (required === 0) {
+  const renderEntrenadorSearch = () => {
+    if (totalEntrenadoresRequeridos === 0) {
       return (
         <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">{label}:</span> Este evento no
-            requiere {label.toLowerCase()} para esta delegación.
+            Este evento no requiere entrenadores para esta delegación.
           </p>
         </div>
       );
@@ -744,25 +492,23 @@ export default function Paso01Deportistas({
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {label}
+            Entrenadores
           </label>
           <span
             className={`text-sm font-medium ${
-              selected.length === required
+              selectedEntrenadores.length === totalEntrenadoresRequeridos
                 ? "text-emerald-600 dark:text-emerald-400"
-                : selected.length > required
+                : selectedEntrenadores.length > totalEntrenadoresRequeridos
                 ? "text-rose-600 dark:text-rose-400"
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            {selected.length} / {required}
+            {selectedEntrenadores.length} / {totalEntrenadoresRequeridos}
           </span>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          El evento requiere {required}{" "}
-          {required === 1
-            ? label.toLowerCase().slice(0, -1)
-            : label.toLowerCase()}
+          El evento requiere {totalEntrenadoresRequeridos}{" "}
+          {totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"}.
         </p>
 
         <div className="relative">
@@ -770,16 +516,16 @@ export default function Paso01Deportistas({
           <input
             type="text"
             className="form-input w-full pl-10 pr-10"
-            placeholder={placeholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={selected.length >= required}
+            placeholder="Buscar entrenador..."
+            value={searchEntrenadores}
+            onChange={(e) => setSearchEntrenadores(e.target.value)}
+            disabled={selectedEntrenadores.length >= totalEntrenadoresRequeridos}
           />
-          {search.trim() && (
+          {searchEntrenadores.trim() && (
             <button
               type="button"
               onClick={() => {
-                setSearch("");
+                setSearchEntrenadores("");
                 setEntrenadores([]);
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -788,9 +534,9 @@ export default function Paso01Deportistas({
             </button>
           )}
 
-          {(loading || search.trim() !== "") && (
+          {(loadingEntrenadores || searchEntrenadores.trim() !== "") && (
             <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {loading ? (
+              {loadingEntrenadores ? (
                 <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                   Cargando entrenadores...
@@ -801,17 +547,18 @@ export default function Paso01Deportistas({
                 </div>
               ) : (
                 entrenadores.map((entrenador) => {
-                  const alreadySelected = selected.some(
+                  const alreadySelected = selectedEntrenadores.some(
                     (e) => e.id === entrenador.id
                   );
-                  const limitReached = selected.length >= required;
+                  const limitReached =
+                    selectedEntrenadores.length >= totalEntrenadoresRequeridos;
                   const isDisabled = alreadySelected || limitReached;
 
                   return (
                     <button
                       key={entrenador.id}
                       type="button"
-                      onClick={() => handleAdd(entrenador)}
+                      onClick={() => handleAddEntrenador(entrenador)}
                       disabled={isDisabled}
                       className={`w-full px-4 py-3 text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
                         isDisabled
@@ -842,48 +589,46 @@ export default function Paso01Deportistas({
           )}
         </div>
 
-        {selected.length > 0 && (
-          <div className="mt-3 space-y-1.5">
-            <div className="space-y-2">
-              {selected.map((entrenador) => (
-                <div
-                  key={entrenador.id}
-                  className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">
-                      {entrenador.nombre} {entrenador.apellido}
-                    </p>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                      {entrenador.cedula}
-                    </p>
-                    <div className="mt-1">
-                      <button
-                        type="button"
-                        onClick={() => onSetPrincipal(entrenador.id)}
-                        className={`text-[11px] font-semibold ${
-                          principalId === entrenador.id
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                      >
-                        {principalId === entrenador.id
-                          ? "Principal"
-                          : "Marcar como principal"}
-                      </button>
-                    </div>
+        {selectedEntrenadores.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {selectedEntrenadores.map((entrenador) => (
+              <div
+                key={entrenador.id}
+                className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">
+                    {entrenador.nombre} {entrenador.apellido}
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    {entrenador.cedula}
+                  </p>
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setPrincipalEntrenadorId(entrenador.id)}
+                      className={`text-[11px] font-semibold ${
+                        principalEntrenadorId === entrenador.id
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      }`}
+                    >
+                      {principalEntrenadorId === entrenador.id
+                        ? "Principal"
+                        : "Marcar como principal"}
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(entrenador.id)}
-                    className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
                 </div>
-              ))}
-            </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveEntrenador(entrenador.id)}
+                  className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -907,38 +652,7 @@ export default function Paso01Deportistas({
               Deportistas
             </h2>
           </div>
-
-          <div className="space-y-4">
-            {renderDeportistaSearch(
-              "Masculino",
-              searchDeportistasHombres,
-              setSearchDeportistasHombres,
-              deportistasHombres,
-              loadingDeportistasHombres,
-              setDeportistasHombres,
-              selectedDeportistasHombres,
-              evento.numAtletasHombres,
-              handleAddDeportistaHombre,
-              handleRemoveDeportistaHombre,
-              (id, role) => handleDeportistaRoleChange(id, role, "Masculino")
-            )}
-
-            <div className="pt-4 border-t border-indigo-100 dark:border-indigo-800/60">
-              {renderDeportistaSearch(
-                "Femenino",
-                searchDeportistasMujeres,
-                setSearchDeportistasMujeres,
-                deportistasMujeres,
-                loadingDeportistasMujeres,
-                setDeportistasMujeres,
-                selectedDeportistasMujeres,
-                evento.numAtletasMujeres,
-                handleAddDeportistaMujer,
-                handleRemoveDeportistaMujer,
-                (id, role) => handleDeportistaRoleChange(id, role, "Femenino")
-              )}
-            </div>
-          </div>
+          {renderDeportistaSearch()}
         </section>
 
         <section className="space-y-4 rounded-xl border border-emerald-200/70 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-900/10 p-4">
@@ -947,50 +661,15 @@ export default function Paso01Deportistas({
               Entrenadores
             </h2>
           </div>
-
-          <div className="space-y-4">
-            {renderEntrenadorSearch(
-              "Masculino",
-              searchEntrenadoresHombres,
-              setSearchEntrenadoresHombres,
-              entrenadoresHombres,
-              loadingEntrenadoresHombres,
-              setEntrenadoresHombres,
-              selectedEntrenadoresHombres,
-              evento.numEntrenadoresHombres,
-              handleAddEntrenadorHombre,
-              handleRemoveEntrenadorHombre,
-              principalEntrenadorId,
-              setPrincipalEntrenadorId
-            )}
-
-            <div className="pt-4 border-t border-emerald-100 dark:border-emerald-800/60">
-              {renderEntrenadorSearch(
-                "Femenino",
-                searchEntrenadoresMujeres,
-                setSearchEntrenadoresMujeres,
-                entrenadoresMujeres,
-                loadingEntrenadoresMujeres,
-                setEntrenadoresMujeres,
-                selectedEntrenadoresMujeres,
-                evento.numEntrenadoresMujeres,
-                handleAddEntrenadoraMujer,
-                handleRemoveEntrenadoraMujer,
-                principalEntrenadorId,
-                setPrincipalEntrenadorId
-              )}
-            </div>
-          </div>
+          {renderEntrenadorSearch()}
         </section>
 
-        {/* Error message */}
         {error && (
           <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-sm rounded-lg px-4 py-3">
             {error}
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="button"

@@ -72,7 +72,9 @@ export default function AvalesPage() {
   const currentPage = Math.min(page, totalPages);
   const showing = avales.length;
 
-  const hasDisciplina = user?.disciplinaId != null;
+  const hasDisciplina =
+    user?.disciplinaId != null ||
+    Boolean(user?.disciplinas && user.disciplinas.length > 0);
   const isAdmin =
     user?.roles?.some((role) => ADMIN_ROLES.includes(role)) ?? false;
   const isDTM = user?.roles?.some((role) => role === "DTM") ?? false;

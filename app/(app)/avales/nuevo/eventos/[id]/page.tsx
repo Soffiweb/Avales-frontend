@@ -18,6 +18,8 @@ import {
 
 import AlertBanner from "@/components/ui/alert-banner";
 import UploadModal from "@/components/ui/upload-modal";
+import { useAuth } from "@/app/providers/auth-provider";
+import { canCreateReforma } from "@/lib/auth/access";
 import { getEvento } from "@/lib/api/eventos";
 import { uploadConvocatoria } from "@/lib/api/avales";
 import type { Evento } from "@/types/evento";
@@ -40,6 +42,7 @@ function getTotalParticipants(evento: Evento) {
 export default function EventoDetailForAvalPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);
@@ -125,7 +128,9 @@ export default function EventoDetailForAvalPage() {
   const isAvailable = evento.estado === "DISPONIBLE";
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const canCreateAval = isAvailable && !hasPendingReform;
-  const canRequestReforma = isAvailable && !hasPendingReform;
+  const canManageReforms = canCreateReforma(user);
+  const canRequestReforma =
+    canManageReforms && isAvailable && !hasPendingReform;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto space-y-6">
@@ -185,7 +190,7 @@ export default function EventoDetailForAvalPage() {
             <Upload className="w-4 h-4 mr-2" />
             Crear aval
           </button>
-          {canRequestReforma ? (
+          {canManageReforms ? canRequestReforma ? (
             <Link
               href={`/eventos/${evento.id}/reforma`}
               className="btn bg-amber-500 hover:bg-amber-600 text-white"
@@ -202,7 +207,7 @@ export default function EventoDetailForAvalPage() {
               <ClipboardEdit className="w-4 h-4 mr-2" />
               Reforma no disponible
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 

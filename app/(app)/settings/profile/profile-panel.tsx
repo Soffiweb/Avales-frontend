@@ -11,10 +11,23 @@ import { getUser, updateUser } from "@/lib/api/user";
 import { getCatalog } from "@/lib/api/catalog";
 import { CatalogItem } from "@/types/catalog";
 import type { User } from "@/types/user";
+import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
 
 type Props = {
   viewUserId?: number;
 };
+
+function getPrimaryDisciplinaId(user: User | null) {
+  if (!user) return undefined;
+
+  const fromArray = (user.disciplinas ?? [])
+    .map((disciplina) =>
+      typeof disciplina === "number" ? disciplina : disciplina?.id
+    )
+    .find((id): id is number => typeof id === "number" && id > 0);
+
+  return fromArray ?? user.disciplina?.id ?? user.disciplinaId;
+}
 
 export default function ProfilePanel({ viewUserId }: Props) {
   const { user, loading, error, refreshUser } = useAuth();
@@ -124,11 +137,9 @@ export default function ProfilePanel({ viewUserId }: Props) {
         ? subjectUser.categoria?.id ?? subjectUser.categoriaId
         : categorias[0].id,
       disciplinaId: disciplinas.some(
-        (d) =>
-          d.id ===
-          (subjectUser.disciplina?.id ?? subjectUser.disciplinaId)
+        (d) => d.id === getPrimaryDisciplinaId(subjectUser)
       )
-        ? subjectUser.disciplina?.id ?? subjectUser.disciplinaId
+        ? getPrimaryDisciplinaId(subjectUser)
         : disciplinas[0].id,
     };
 
@@ -354,6 +365,34 @@ export default function ProfilePanel({ viewUserId }: Props) {
                   {errors.disciplinaId.message}
                 </p>
               )}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-xl leading-snug text-gray-800 dark:text-gray-100 font-bold mb-1">
+            Permisos
+          </h2>
+
+          <div className="grid gap-4 mt-5 sm:grid-cols-2">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/70">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Roles
+              </p>
+              <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                {formatRoles(subjectUser?.roles)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/70">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Puede solicitar reformas
+              </p>
+              <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                {subjectUser?.roles?.includes("ENTRENADOR")
+                  ? formatBoolean(subjectUser.puedeSolicitarReformas)
+                  : "No aplica"}
+              </p>
             </div>
           </div>
         </section>

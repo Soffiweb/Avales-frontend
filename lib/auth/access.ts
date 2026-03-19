@@ -7,6 +7,18 @@ const hasAnyRole = (userRoles: Role[], required?: Role[]) => {
   return required.some((r) => userRoles.includes(r));
 };
 
+export function canCreateReforma(user: User | null | undefined) {
+  if (!user) return false;
+
+  const roles = (user.roles ?? []) as Role[];
+
+  return (
+    roles.includes("SUPER_ADMIN") ||
+    roles.includes("ADMIN") ||
+    (roles.includes("ENTRENADOR") && Boolean(user.puedeSolicitarReformas))
+  );
+}
+
 export function canSeeSidebar(
   user: User | null | undefined,
   noSidebar: Role[]

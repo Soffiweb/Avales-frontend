@@ -26,6 +26,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
+import { canCreateReforma } from "@/lib/auth/access";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -278,10 +279,11 @@ export default function EventoDetailPage() {
     (evento.numEntrenadoresHombres || 0) + (evento.numEntrenadoresMujeres || 0);
   const hasAval = existingAvalId !== null;
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
+  const canManageReforms = canCreateReforma(user);
   const canStartAval =
     canCreateAval && evento.estado === "DISPONIBLE" && !hasAval && !hasPendingReform;
   const canRequestReforma =
-    canCreateAval && evento.estado === "DISPONIBLE" && !hasPendingReform;
+    canManageReforms && evento.estado === "DISPONIBLE" && !hasPendingReform;
 
   return (
     <>
@@ -373,7 +375,7 @@ export default function EventoDetailPage() {
                         Ver aval
                       </Link>
                     )}
-                    {canRequestReforma ? (
+                    {canManageReforms ? canRequestReforma ? (
                       <Link
                         href={`/eventos/${evento.id}/reforma`}
                         className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
@@ -390,7 +392,7 @@ export default function EventoDetailPage() {
                         <ClipboardEdit className="w-4 h-4 mr-2" />
                         Reforma no disponible
                       </button>
-                    )}
+                    ) : null}
                   </>
                 )}
               </div>

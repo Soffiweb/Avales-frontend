@@ -6,7 +6,15 @@ import { useParams, useRouter } from "next/navigation";
 import { getUser } from "@/lib/api/user";
 import UsuarioForm from "../../_components/usuario-form";
 import { type UpdateUserFormValues } from "@/lib/validation/user";
-import type { Role } from "@/types/user";
+import type { Role, UserDisciplina } from "@/types/user";
+
+function extractDisciplinaIds(disciplinas?: UserDisciplina[]) {
+  return (disciplinas ?? [])
+    .map((disciplina) =>
+      typeof disciplina === "number" ? disciplina : disciplina?.id
+    )
+    .filter((id): id is number => typeof id === "number" && id > 0);
+}
 
 export default function EditarUsuario() {
   const params = useParams<{ id: string }>();
@@ -48,8 +56,13 @@ export default function EditarUsuario() {
           password: "",
           cedula: u.cedula ?? "",
           categoriaId: u.categoriaId ?? u.categoria?.id ?? 0,
-          disciplinaId: u.disciplinaId ?? u.disciplina?.id ?? 0,
+          disciplinas: extractDisciplinaIds(u.disciplinas).length
+            ? extractDisciplinaIds(u.disciplinas)
+            : u.disciplinaId ?? u.disciplina?.id
+            ? [u.disciplinaId ?? u.disciplina?.id ?? 0]
+            : [],
           roles: rolesFromUser,
+          puedeSolicitarReformas: u.puedeSolicitarReformas ?? false,
         });
       } catch (err: any) {
         setError(err?.message ?? "No se pudo cargar el usuario.");

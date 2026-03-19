@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import { useAuth } from "@/app/providers/auth-provider";
+import { canCreateReforma } from "@/lib/auth/access";
+import { ApiError } from "@/lib/api/client";
 import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import { getEvento } from "@/lib/api/eventos";
 import { createReform } from "@/lib/api/reforms";
@@ -330,6 +333,7 @@ function BudgetComparisonRow({
 export default function EventoReformaPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const id = Number(params.id);
 
   const [loading, setLoading] = useState(true);
@@ -402,6 +406,7 @@ export default function EventoReformaPage() {
   const proposedBudgetTotal = useMemo(() => getBudgetTotal(budgetRows), [budgetRows]);
 
   const canContinueFromStep1 = selectedCount > 0;
+  const canSubmitReforma = canCreateReforma(user);
 
   const proposedChanges = useMemo(() => {
     if (!evento || !generalForm || !participantsForm) return {};
@@ -471,6 +476,10 @@ export default function EventoReformaPage() {
 
   const handleSubmit = async () => {
     if (!evento || !requestReason.trim()) return;
+    if (!canSubmitReforma) {
+      setSubmitError("Tu usuario no tiene permiso para solicitar reformas.");
+      return;
+    }
     if (hasUnresolvableBudgetItems) {
       setSubmitError(
         "No se puede enviar la reforma porque falta la relacion real itemId para uno o mas items presupuestarios cambiados.",
@@ -494,6 +503,13 @@ export default function EventoReformaPage() {
       setSubmitSuccess("La solicitud de reforma fue registrada correctamente.");
       router.push(`/eventos/${evento.id}?status=reform-requested`);
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 403) {
+        setSubmitError(
+          "No tienes permisos para solicitar reformas con este usuario.",
+        );
+        return;
+      }
+
       setSubmitError(
         err instanceof Error
           ? err.message
@@ -637,6 +653,27 @@ export default function EventoReformaPage() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Cargando formulario de reforma...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authLoading && !canSubmitReforma) {
+    return (
+      <div className="px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <AlertBanner
+            variant="error"
+            message="No tienes permiso para solicitar reformas."
+            description="Solo administradores o entrenadores con permiso habilitado pueden registrar una reforma."
+          />
+          <Link
+            href={evento ? `/eventos/${evento.id}` : "/eventos"}
+            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al evento
+          </Link>
         </div>
       </div>
     );

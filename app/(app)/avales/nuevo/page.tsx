@@ -56,6 +56,15 @@ export default function NuevoAvalPage() {
     !user?.roles?.includes("SUPER_ADMIN") &&
     !user?.roles?.includes("ADMIN");
   const isComprasPublicas = user?.roles?.includes("COMPRAS_PUBLICAS");
+  const firstUserDisciplina =
+    Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
+      ? user.disciplinas[0]
+      : undefined;
+  const primaryDisciplinaId =
+    user?.disciplinaId ??
+    (typeof firstUserDisciplina === "number"
+      ? firstUserDisciplina
+      : firstUserDisciplina?.id);
 
   useEffect(() => {
     if (isComprasPublicas) {
@@ -72,7 +81,7 @@ export default function NuevoAvalPage() {
         estado: "DISPONIBLE",
         sinAval: true,
         search: search.trim() || undefined,
-        disciplinaId: user?.disciplinaId ?? undefined,
+        disciplinaId: primaryDisciplinaId ?? undefined,
       };
 
       const collected = new Map<number, Evento>();
@@ -115,7 +124,7 @@ export default function NuevoAvalPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, user?.disciplinaId]);
+  }, [search, primaryDisciplinaId]);
 
   useEffect(() => {
     void fetchEventos();

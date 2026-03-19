@@ -13,7 +13,11 @@ import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getDisciplinas } from "@/lib/api/catalog";
-import { listEventos, softDeleteEvento, type ListEventosOptions } from "@/lib/api/eventos";
+import {
+  listEventos,
+  softDeleteEvento,
+  type ListEventosOptions,
+} from "@/lib/api/eventos";
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 
@@ -37,7 +41,7 @@ export default function EventosPage() {
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [estado, setEstado] = useState(() => searchParams.get("estado") ?? "");
   const [disciplinaId, setDisciplinaId] = useState(
-    () => searchParams.get("disciplinaId") ?? ""
+    () => searchParams.get("disciplinaId") ?? "",
   );
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get("page") ?? "1");
@@ -57,10 +61,8 @@ export default function EventosPage() {
   const userRoles = user?.roles ?? [];
   const canManageEvents =
     userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
-  const isEntrenador =
-    userRoles.includes("ENTRENADOR") && !canManageEvents;
-  const entrenadorDisciplinaId =
-    user?.disciplinaId ?? user?.disciplinas?.[0];
+  const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
+  const entrenadorDisciplinaId = user?.disciplinaId ?? user?.disciplinas?.[0];
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [disciplinasLoading, setDisciplinasLoading] = useState(false);
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);
@@ -71,15 +73,16 @@ export default function EventosPage() {
   const pageSize = pagination.limit || PAGE_SIZE;
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((pagination.total || 0) / pageSize)),
-    [pagination.total, pageSize]
+    [pagination.total, pageSize],
   );
-  const currentPage = Math.min(page, totalPages);
+  const hasPaginationInfo = pagination.total > 0;
+  const currentPage = hasPaginationInfo ? Math.min(page, totalPages) : page;
   const showing = eventos.length;
 
   useEffect(() => {
-    if (page === currentPage) return;
+    if (!hasPaginationInfo || page === currentPage) return;
     setPage(currentPage);
-  }, [page, currentPage]);
+  }, [hasPaginationInfo, page, currentPage]);
 
   useEffect(() => {
     if (!canManageEvents) return;
@@ -126,21 +129,37 @@ export default function EventosPage() {
       };
       const res = await listEventos(options);
       const items = res.data ?? [];
+      const apiPagination = res.pagination;
       const meta = res.meta;
+      const apiPage =
+        typeof apiPagination?.current_page === "number" &&
+        apiPagination.current_page > 0
+          ? apiPagination.current_page
+          : typeof apiPagination?.page === "number" && apiPagination.page > 0
+          ? apiPagination.page
+          : typeof meta?.page === "number" && meta.page > 0
+          ? meta.page
+          : currentPage;
+      const apiLimit =
+        typeof apiPagination?.per_page === "number" &&
+        apiPagination.per_page > 0
+          ? apiPagination.per_page
+          : typeof apiPagination?.limit === "number" && apiPagination.limit > 0
+          ? apiPagination.limit
+          : typeof meta?.limit === "number" && meta.limit > 0
+          ? meta.limit
+          : PAGE_SIZE;
+      const apiTotal =
+        typeof apiPagination?.total === "number" && apiPagination.total >= 0
+          ? apiPagination.total
+          : typeof meta?.total === "number" && meta.total >= 0
+          ? meta.total
+          : items.length;
       setEventos(items);
       setPagination({
-        page:
-          typeof meta?.page === "number" && meta.page > 0
-            ? meta.page
-            : currentPage,
-        limit:
-          typeof meta?.limit === "number" && meta.limit > 0
-            ? meta.limit
-            : PAGE_SIZE,
-        total:
-          typeof meta?.total === "number" && meta.total >= 0
-            ? meta.total
-            : items.length,
+        page: apiPage,
+        limit: apiLimit,
+        total: apiTotal,
       });
     } catch (err: any) {
       const message = err?.message ?? "No se pudieron cargar los eventos.";
@@ -169,10 +188,9 @@ export default function EventosPage() {
     if (disciplinaId) params.set("disciplinaId", disciplinaId);
     if (currentPage > 1) params.set("page", String(currentPage));
 
-    router.replace(
-      params.toString() ? `/eventos?${params}` : "/eventos",
-      { scroll: false }
-    );
+    router.replace(params.toString() ? `/eventos?${params}` : "/eventos", {
+      scroll: false,
+    });
   }, [search, estado, disciplinaId, currentPage, router]);
 
   // mostrar toast cuando viene status desde la creacion/edicion
@@ -200,10 +218,9 @@ export default function EventosPage() {
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("status");
-    router.replace(
-      params.toString() ? `/eventos?${params}` : "/eventos",
-      { scroll: false }
-    );
+    router.replace(params.toString() ? `/eventos?${params}` : "/eventos", {
+      scroll: false,
+    });
   }, [searchParams, router]);
 
   useEffect(() => {
@@ -380,7 +397,7 @@ export default function EventosPage() {
         onClose={() => setUploadModalOpen(false)}
         onSuccess={() => {
           fetchEventos(); // Refrescar la lista
-          // No cerramos el modal automáticamente para que vean el resultado, 
+          // No cerramos el modal automáticamente para que vean el resultado,
           // pero si el usuario cierra, ya estará refrescado.
         }}
       />

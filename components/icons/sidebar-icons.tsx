@@ -5,6 +5,7 @@ import {
   BicepsFlexed,
   CalendarDays,
   ClipboardEdit,
+  UploadCloud,
 } from "lucide-react";
 
 export const SidebarIcons = {
@@ -14,6 +15,7 @@ export const SidebarIcons = {
   avales: BookOpen,
   eventos: CalendarDays,
   reformas: ClipboardEdit,
+  cargaMasiva: UploadCloud,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

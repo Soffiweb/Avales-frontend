@@ -146,6 +146,18 @@ export async function updatePushToken(pushToken: string) {
   });
 }
 
+export type CheckCedulasResponse = Record<
+  string,
+  { nombre: string; apellido: string }
+>;
+
+export async function checkCedulas(cedulas: string[]) {
+  return apiFetch<CheckCedulasResponse>("/users/check-cedulas", {
+    method: "POST",
+    body: JSON.stringify({ cedulas }),
+  });
+}
+
 export type UploadUsersExcelResponse = {
   procesados: number;
   creados: string[];

@@ -99,4 +99,12 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     icon: "reformas",
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
+  {
+    type: "link",
+    label: "Carga Masiva",
+    href: "/carga-masiva",
+    segment: "carga-masiva",
+    icon: "cargaMasiva",
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
 ];

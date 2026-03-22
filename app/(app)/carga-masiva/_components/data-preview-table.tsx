@@ -151,6 +151,18 @@ export default function DataPreviewTable({
                       const value = row[col.key] ?? "";
                       const isEmpty =
                         col.required && !value.toString().trim();
+
+                      // For budget item columns, show total + unit cost
+                      const isBudgetCol = !!col.itemDescription;
+                      const numValue = isBudgetCol ? Number(value) : 0;
+                      const entrenadores = Number(row["Entrenadores"] || 0);
+                      const atletas = Number(row["Atletas"] || 0);
+                      const totalPersonas = entrenadores + atletas;
+                      const unitCost =
+                        isBudgetCol && numValue > 0 && totalPersonas > 0
+                          ? (numValue / totalPersonas).toFixed(2)
+                          : null;
+
                       return (
                         <td
                           key={col.key}
@@ -159,8 +171,26 @@ export default function DataPreviewTable({
                               ? "text-rose-500 dark:text-rose-400 italic"
                               : "text-gray-900 dark:text-gray-100"
                           }`}
+                          title={
+                            unitCost
+                              ? `Total: $${numValue} / ${totalPersonas} personas = $${unitCost} c/u`
+                              : undefined
+                          }
                         >
-                          {isEmpty ? "vacio" : value.toString()}
+                          {isEmpty ? (
+                            "vacio"
+                          ) : isBudgetCol && numValue > 0 ? (
+                            <div className="flex flex-col">
+                              <span>${numValue}</span>
+                              {unitCost && (
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                  ${unitCost}/persona
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            value.toString()
+                          )}
                         </td>
                       );
                     })}

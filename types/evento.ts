@@ -21,6 +21,7 @@ export type EventoItem = {
   id: number;
   mes: number;
   presupuesto: string;
+  valorUnitario?: string | null;
   item: EventoItemDetalle;
   createdAt?: string;
   updatedAt?: string;

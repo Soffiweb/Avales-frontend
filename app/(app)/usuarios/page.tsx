@@ -6,14 +6,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Upload } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import SearchInput from "@/components/ui/search-input";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import Pagination from "@/components/ui/pagination";
 import UsuarioTable from "./_components/usuario-table";
 import UploadUsersExcelModal from "@/components/users/upload-excel-users-modal";
 import { softDeleteUser, listUsers } from "@/lib/api/user";
 import type { User } from "@/types/user";
-
-const PAGE_SIZE = 10;
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 const SEARCH_DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 2;
 
@@ -33,7 +33,7 @@ export default function Usuarios() {
   });
   const [pagination, setPagination] = useState({
     page,
-    limit: PAGE_SIZE,
+    limit: DEFAULT_PAGE_SIZE,
     total: 0,
   });
   const [toast, setToast] = useState<{
@@ -46,7 +46,7 @@ export default function Usuarios() {
   const [deleting, setDeleting] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const pageSize = pagination.limit || PAGE_SIZE;
+  const pageSize = pagination.limit || DEFAULT_PAGE_SIZE;
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((pagination.total || 0) / pageSize)),
     [pagination.total, pageSize]
@@ -228,13 +228,13 @@ export default function Usuarios() {
           </div>
 
           <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-            <input
-              className="form-input w-full sm:w-64"
+            <SearchInput
+              className="w-full sm:w-64"
               placeholder="Buscar por nombre, email, cedula..."
               value={q}
-              onChange={(e) => {
+              onChange={(v) => {
                 setPage(1);
-                setQ(e.target.value);
+                setQ(v);
               }}
             />
 

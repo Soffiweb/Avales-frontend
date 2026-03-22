@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Upload } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import SearchInput from "@/components/ui/search-input";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import EventoCard from "./_components/evento-card";
 import Pagination from "@/components/ui/pagination";
@@ -20,8 +21,7 @@ import {
 } from "@/lib/api/eventos";
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
-
-const PAGE_SIZE = 9;
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 const STATUS_OPTIONS = [
   { label: "Todos los estados", value: "" },
@@ -49,7 +49,7 @@ export default function EventosPage() {
   });
   const [pagination, setPagination] = useState({
     page,
-    limit: PAGE_SIZE,
+    limit: DEFAULT_PAGE_SIZE,
     total: 0,
   });
   const [toast, setToast] = useState<{
@@ -78,7 +78,7 @@ export default function EventosPage() {
   const [deleting, setDeleting] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const pageSize = pagination.limit || PAGE_SIZE;
+  const pageSize = pagination.limit || DEFAULT_PAGE_SIZE;
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((pagination.total || 0) / pageSize)),
     [pagination.total, pageSize],
@@ -118,7 +118,7 @@ export default function EventosPage() {
         setEventos([]);
         setPagination({
           page: currentPage,
-          limit: PAGE_SIZE,
+          limit: DEFAULT_PAGE_SIZE,
           total: 0,
         });
         setError("Tu usuario no tiene una disciplina asignada.");
@@ -126,7 +126,7 @@ export default function EventosPage() {
       }
       const options: ListEventosOptions = {
         page: currentPage,
-        limit: PAGE_SIZE,
+        limit: DEFAULT_PAGE_SIZE,
         estado: estado || undefined,
         search: search.trim() || undefined,
         disciplinaId: isEntrenador
@@ -156,7 +156,7 @@ export default function EventosPage() {
           ? apiPagination.limit
           : typeof meta?.limit === "number" && meta.limit > 0
           ? meta.limit
-          : PAGE_SIZE;
+          : DEFAULT_PAGE_SIZE;
       const apiTotal =
         typeof apiPagination?.total === "number" && apiPagination.total >= 0
           ? apiPagination.total
@@ -304,13 +304,13 @@ export default function EventosPage() {
           </div>
 
           <div className="grid grid-flow-row sm:grid-flow-col sm:auto-cols-max sm:justify-end gap-2 w-full sm:w-auto">
-            <input
-              className="form-input w-full sm:w-64"
-              placeholder="Buscar por nombre, lugar o código"
+            <SearchInput
+              className="w-full sm:w-64"
+              placeholder="Buscar por nombre, lugar o codigo"
               value={search}
-              onChange={(e) => {
+              onChange={(v) => {
                 setPage(1);
-                setSearch(e.target.value);
+                setSearch(v);
               }}
             />
             <select

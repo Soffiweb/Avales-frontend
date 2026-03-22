@@ -173,7 +173,7 @@ export default function ReformasPage() {
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                       Reforma #{reform.id}
                     </p>
-                    <h2 className="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    <h2 className="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100" title={reform.evento?.nombre}>
                       {reform.evento?.nombre || "Evento sin nombre"}
                     </h2>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

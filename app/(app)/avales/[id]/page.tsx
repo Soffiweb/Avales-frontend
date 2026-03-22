@@ -6,34 +6,26 @@ import Link from "next/link";
 import type React from "react";
 import {
   ArrowLeft,
-  Calendar,
   Check,
   MapPin,
   Users,
   Trophy,
-  Tag,
   FileText,
-  Clock,
-  UserCheck,
   DollarSign,
-  User,
-  Target,
-  Plane,
-  Building2,
   Download,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import ApprovalFlowCard from "../_components/approval-flow-card";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import AvalPresupuestoSection from "./_components/aval-presupuesto-section";
+import AvalDeportistasSection from "./_components/aval-deportistas-section";
+import AvalLogisticaSection from "./_components/aval-logistica-section";
+import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
-import {
-  formatCurrency,
-  formatDate,
-  formatDateTime,
-} from "@/lib/utils/formatters";
+import { formatDate } from "@/lib/utils/formatters";
 import {
   getApprovalStageLabel,
   getNextApprovalStage,
@@ -76,25 +68,6 @@ function getEventDuration(
   const diff =
     Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   return diff;
-}
-
-const MESES = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
-
-function formatMes(mes: number) {
-  return MESES[mes - 1] || `Mes ${mes}`;
 }
 
 type SectionHeaderProps = {
@@ -365,7 +338,7 @@ export default function AvalDetailPage() {
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
           <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl" />
             <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl" />
           </div>
@@ -449,87 +422,6 @@ export default function AvalDetailPage() {
     : 0;
 
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
-  const groupedDeportistas = deportistasList.reduce(
-    (acc, item) => {
-      const genero = item.deportista?.genero?.toUpperCase();
-      if (genero === "FEMENINO") {
-        acc.mujeres.push(item);
-      } else if (genero === "MASCULINO") {
-        acc.hombres.push(item);
-      } else {
-        acc.otros.push(item);
-      }
-      return acc;
-    },
-    {
-      hombres: [] as typeof deportistasList,
-      mujeres: [] as typeof deportistasList,
-      otros: [] as typeof deportistasList,
-    },
-  );
-
-  const formatDeportistaName = (item: (typeof deportistasList)[number]) => {
-    const nombreCompleto = item.deportista?.nombre?.trim();
-    if (nombreCompleto) return nombreCompleto;
-
-    const nombresSeparados = `${item.deportista?.nombres ?? ""} ${item.deportista?.apellidos ?? ""}`.trim();
-    if (nombresSeparados) return nombresSeparados;
-    return "Nombre no disponible";
-  };
-
-  const getDeportistaCedula = (item: (typeof deportistasList)[number]) => {
-    return item.deportista?.cedula ?? "Cédula no disponible";
-  };
-
-  const renderDeportistasGroup = (
-    title: string,
-    list: typeof deportistasList,
-    options?: { showEmpty?: boolean; emptyMessage?: string },
-  ) => {
-    const showEmpty = options?.showEmpty ?? false;
-    if (!list.length && !showEmpty) return null;
-    return (
-      <section className="space-y-3 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </p>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {list.length} {list.length === 1 ? "registro" : "registros"}
-          </span>
-        </div>
-        <div className="space-y-3">
-          {list.length > 0 ? (
-            list.map((deportista) => (
-              <div
-                key={deportista.id}
-                className="flex items-center gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 px-3 py-2"
-              >
-                <div className="w-10 h-10 rounded-full border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800/60 flex items-center justify-center">
-                  <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                    {formatDeportistaName(deportista)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {deportista.rol}
-                    {" · "}
-                    {getDeportistaCedula(deportista)}
-                  </p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-gray-900/40 px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-              {options?.emptyMessage ??
-                `No hay ${title.toLowerCase()} registrados aún.`}
-            </div>
-          )}
-        </div>
-      </section>
-    );
-  };
 
   return (
     <>
@@ -556,13 +448,12 @@ export default function AvalDetailPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <Link
-              href="/avales"
-              className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Volver a mis avales
-            </Link>
+            <div className="mb-2">
+              <Breadcrumb items={[
+                { label: "Avales", href: "/avales" },
+                { label: "Detalle del Aval" },
+              ]} />
+            </div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
               Detalle del Aval
             </h1>
@@ -802,57 +693,10 @@ export default function AvalDetailPage() {
                   title="Presupuesto del evento"
                   description="Lista de partidas y montos para cotejar con los anexos del PDF."
                 />
-                <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
-                  <div className="flex flex-col gap-2 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                        Presupuesto total
-                      </p>
-                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                        Items registrados
-                      </p>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                        {formatCurrency(totalPresupuesto)}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {evento.presupuesto.length}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-6 space-y-3">
-                    {evento.presupuesto.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex flex-col gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {item.item.nombre}
-                          </h4>
-                          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                            {formatCurrency(parseFloat(item.presupuesto))}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <Tag className="w-3 h-3" />
-                            Item #{item.item.numero}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Building2 className="w-3 h-3" />
-                            {item.item.actividad.nombre}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {formatMes(item.mes)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <AvalPresupuestoSection
+                  presupuesto={evento.presupuesto}
+                  totalPresupuesto={totalPresupuesto}
+                />
               </section>
             )}
             {aval.avalTecnico && (
@@ -865,43 +709,7 @@ export default function AvalDetailPage() {
                   description="Logística, objetivos y deportistas organizados como en el PDF impreso."
                 />
                 <div className="space-y-4">
-                  <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                    <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-2">
-                      Información de viaje
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                          Salida
-                        </p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">
-                          {formatDateTime(aval.avalTecnico.fechaHoraSalida)}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {aval.avalTecnico.transporteSalida}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                          Retorno
-                        </p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">
-                          {formatDateTime(aval.avalTecnico.fechaHoraRetorno)}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {aval.avalTecnico.transporteRetorno}
-                        </p>
-                      </div>
-                    </div>
-                    {aval.avalTecnico.observaciones && (
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
-                        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                          Observaciones
-                        </p>
-                        <p className="mt-1">{aval.avalTecnico.observaciones}</p>
-                      </div>
-                    )}
-                  </div>
+                  <AvalLogisticaSection avalTecnico={aval.avalTecnico} />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {aval.avalTecnico.objetivos &&
                       aval.avalTecnico.objetivos.length > 0 && (
@@ -955,36 +763,7 @@ export default function AvalDetailPage() {
                       )}
                   </div>
                   {deportistasList.length > 0 && (
-                    <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">
-                        Deportistas seleccionados ({deportistasList.length})
-                      </p>
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 gap-6 rounded-3xl bg-gray-50/60 dark:bg-gray-900/40 p-1 divide-y divide-gray-200 dark:divide-gray-700 lg:grid-cols-2 lg:divide-y-0 lg:divide-x">
-                          {renderDeportistasGroup(
-                            "Hombres",
-                            groupedDeportistas.hombres,
-                          )}
-                          {renderDeportistasGroup(
-                            "Mujeres",
-                            groupedDeportistas.mujeres,
-                            {
-                              showEmpty: true,
-                              emptyMessage:
-                                "No hay deportistas mujeres registradas.",
-                            },
-                          )}
-                        </div>
-                        {groupedDeportistas.otros.length > 0 && (
-                          <div className="pt-6 border-t border-dashed border-gray-200 dark:border-gray-700/60">
-                            {renderDeportistasGroup(
-                              "Otros géneros",
-                              groupedDeportistas.otros,
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <AvalDeportistasSection deportistas={deportistasList} />
                   )}
                 </div>
               </section>

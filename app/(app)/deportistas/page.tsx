@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import SearchInput from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import DeportistaTable from "./_components/deportista-table";
 import { listDeportistas } from "@/lib/api/deportistas";
 import type { Deportista } from "@/types/deportista";
-
-const PAGE_SIZE = 10;
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 export default function DeportistasPage() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function DeportistasPage() {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     page,
-    limit: PAGE_SIZE,
+    limit: DEFAULT_PAGE_SIZE,
     total: 0,
     lastPage: 1,
   });
@@ -36,13 +36,13 @@ export default function DeportistasPage() {
     description?: string;
   } | null>(null);
 
-  const limit = pagination.limit || PAGE_SIZE;
+  const limit = pagination.limit || DEFAULT_PAGE_SIZE;
   const totalPages = useMemo(
     () =>
       Math.max(
         1,
         pagination.lastPage ||
-          Math.ceil((pagination.total || 0) / (limit || PAGE_SIZE))
+          Math.ceil((pagination.total || 0) / (limit || DEFAULT_PAGE_SIZE))
       ),
     [pagination.lastPage, pagination.total, limit]
   );
@@ -62,7 +62,7 @@ export default function DeportistasPage() {
         query: q.trim() || undefined,
         genero: genero || undefined,
         page: currentPage,
-        limit: PAGE_SIZE,
+        limit: DEFAULT_PAGE_SIZE,
       });
       const items = res.data ?? [];
       const meta = res.meta;
@@ -84,7 +84,7 @@ export default function DeportistasPage() {
             ? apiLimit
             : typeof meta?.limit === "number" && meta.limit > 0
             ? meta.limit
-            : PAGE_SIZE,
+            : DEFAULT_PAGE_SIZE,
         total:
           typeof apiTotal === "number" && apiTotal >= 0
             ? apiTotal
@@ -182,13 +182,13 @@ export default function DeportistasPage() {
           </div>
 
           <div className="grid grid-flow-row sm:grid-flow-col sm:auto-cols-max sm:justify-end gap-2 w-full sm:w-auto">
-            <input
-              className="form-input w-full sm:w-64"
+            <SearchInput
+              className="w-full sm:w-64"
               placeholder="Buscar por nombres, apellidos o cedula"
               value={q}
-              onChange={(e) => {
+              onChange={(v) => {
                 setPage(1);
-                setQ(e.target.value);
+                setQ(v);
               }}
             />
             <select

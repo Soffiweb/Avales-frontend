@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import Breadcrumb from "@/components/ui/breadcrumb";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
@@ -241,7 +242,7 @@ export default function EventoDetailPage() {
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
           <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl" />
             <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl" />
           </div>
@@ -323,13 +324,12 @@ export default function EventoDetailPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <Link
-              href="/eventos"
-              className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Volver a eventos
-            </Link>
+            <div className="mb-2">
+              <Breadcrumb items={[
+                { label: "Eventos", href: "/eventos" },
+                { label: evento.nombre },
+              ]} />
+            </div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
               {evento.nombre}
             </h1>

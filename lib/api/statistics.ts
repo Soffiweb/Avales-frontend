@@ -99,6 +99,26 @@ export async function getAllStatistics(query?: StatisticsQuery) {
   return apiFetch<AllStatistics>(qs ? `/statistics?${qs}` : "/statistics");
 }
 
+export type PresupuestoMesItem = {
+  label: string;
+  mes: number;
+  value: number;
+};
+
+export type PresupuestoStats = {
+  resumen: {
+    totalPresupuesto: number;
+    totalEventosConPresupuesto: number;
+  };
+  porMes: { items: PresupuestoMesItem[]; total: number };
+  porDisciplina: { items: CountItem[]; total: number };
+  porItem: { items: CountItem[]; total: number };
+};
+
+export async function getPresupuestoStats() {
+  return apiFetch<PresupuestoStats>("/statistics/presupuesto");
+}
+
 export async function getTotalDeportistasFromSoffimedh() {
   const res = await listDeportistas({ page: 1, limit: 1 });
   const pagination = res.pagination;

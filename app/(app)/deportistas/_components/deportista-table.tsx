@@ -1,5 +1,7 @@
 "use client";
 
+import { Dumbbell } from "lucide-react";
+
 import type { Deportista } from "@/types/deportista";
 
 type Props = {
@@ -77,16 +79,19 @@ export default function DeportistaTable({
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {showInitialLoading && (
-                <tr>
-                  <td
-                    className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
-                    colSpan={8}
-                  >
-                    Cargando deportistas...
-                  </td>
-                </tr>
-              )}
+              {showInitialLoading &&
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="animate-pulse">
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
+                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12" /></td>
+                  </tr>
+                ))}
 
               {showError && (
                 <tr>
@@ -102,10 +107,11 @@ export default function DeportistaTable({
               {showEmpty && (
                 <tr>
                   <td
-                    className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
+                    className="px-2 first:pl-5 last:pr-5 py-12 text-center"
                     colSpan={8}
                   >
-                    No hay deportistas para mostrar.
+                    <Dumbbell className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-base text-gray-500 dark:text-gray-400">No hay deportistas para mostrar.</p>
                   </td>
                 </tr>
               )}

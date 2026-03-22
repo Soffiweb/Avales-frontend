@@ -6,14 +6,15 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import SearchInput from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import { listAvales, type ListAvalesOptions } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import AvalListCard from "./_components/aval-list-card";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
-const PAGE_SIZE = 9;
 
 const STATUS_OPTIONS = [
   { label: "Todos los estados", value: "" },
@@ -55,7 +56,7 @@ export default function AvalesPage() {
   });
   const [pagination, setPagination] = useState({
     page,
-    limit: PAGE_SIZE,
+    limit: DEFAULT_PAGE_SIZE,
     total: 0,
   });
   const [toast, setToast] = useState<{
@@ -64,7 +65,7 @@ export default function AvalesPage() {
     description?: string;
   } | null>(null);
 
-  const pageSize = pagination.limit || PAGE_SIZE;
+  const pageSize = pagination.limit || DEFAULT_PAGE_SIZE;
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((pagination.total || 0) / pageSize)),
     [pagination.total, pageSize],
@@ -127,22 +128,11 @@ export default function AvalesPage() {
 
       const options: ListAvalesOptions = {
         page: currentPage,
-        limit: PAGE_SIZE,
+        limit: DEFAULT_PAGE_SIZE,
         estado: efectivoEstado ? (efectivoEstado as any) : undefined,
         etapa: efectivoEtapa ? (efectivoEtapa as EtapaFlujo) : undefined,
         search: search.trim() || undefined,
       };
-
-      console.log("Fetching avales with options:", options, {
-        isReviewer,
-        isMetodologo,
-        isDTM,
-        isPda,
-        isComprasPublicas,
-        isFinanciero,
-        efectivoEstado,
-        efectivoEtapa,
-      });
 
       const res = await listAvales(options);
       const items = res.data ?? [];
@@ -156,7 +146,7 @@ export default function AvalesPage() {
         limit:
           typeof meta?.limit === "number" && meta.limit > 0
             ? meta.limit
-            : PAGE_SIZE,
+            : DEFAULT_PAGE_SIZE,
         total:
           typeof meta?.total === "number" && meta.total >= 0
             ? meta.total
@@ -270,13 +260,13 @@ export default function AvalesPage() {
           </div>
 
           <div className="grid grid-flow-row sm:grid-flow-col sm:auto-cols-max sm:justify-end gap-2 w-full sm:w-auto">
-            <input
-              className="form-input w-full sm:w-64"
-              placeholder="Buscar por evento o código"
+            <SearchInput
+              className="w-full sm:w-64"
+              placeholder="Buscar por evento o codigo"
               value={search}
-              onChange={(e) => {
+              onChange={(v) => {
                 setPage(1);
-                setSearch(e.target.value);
+                setSearch(v);
               }}
             />
             <select
@@ -288,6 +278,20 @@ export default function AvalesPage() {
               }}
             >
               {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="form-select w-full sm:w-56"
+              value={etapa}
+              onChange={(e) => {
+                setPage(1);
+                setEtapa(e.target.value);
+              }}
+            >
+              {ETAPA_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

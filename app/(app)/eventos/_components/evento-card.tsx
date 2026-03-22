@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Calendar, MapPin, Users, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Calendar, CalendarDays, MapPin, Users, Pencil, Trash2, DollarSign } from "lucide-react";
 
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
@@ -131,8 +131,9 @@ export default function EventoCard({
 
   if (eventos.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center text-gray-500 dark:text-gray-400">
-        No hay eventos registrados.
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+        <CalendarDays className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+        <p className="text-base text-gray-500 dark:text-gray-400">No hay eventos registrados.</p>
       </div>
     );
   }
@@ -162,7 +163,7 @@ export default function EventoCard({
                   </span>
                 )}
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate" title={evento.nombre}>
                 {evento.nombre || "Sin nombre"}
               </h3>
               {evento.codigo && (
@@ -197,7 +198,7 @@ export default function EventoCard({
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span className="truncate">{formatLocation(evento)}</span>
+                <span className="truncate" title={formatLocation(evento)}>{formatLocation(evento)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
@@ -245,6 +246,7 @@ export default function EventoCard({
                   onClick={(e) => e.stopPropagation()}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-300 transition-colors"
                   title="Editar"
+                  aria-label={`Editar evento ${evento.nombre || ""}`}
                 >
                   <Pencil className="w-4 h-4" />
                 </Link>
@@ -256,6 +258,7 @@ export default function EventoCard({
                   }}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-900/40 dark:hover:text-rose-300 transition-colors"
                   title="Eliminar"
+                  aria-label={`Eliminar evento ${evento.nombre || ""}`}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

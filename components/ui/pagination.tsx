@@ -62,20 +62,10 @@ export default function Pagination({
         {/* Previous */}
 
         <div className="mr-2">
-          <span
-            role="button"
-            tabIndex={currentPage === 1 ? -1 : 0}
-            aria-disabled={currentPage === 1}
-            onClick={() =>
-              currentPage !== 1 && onPageChange(Math.max(1, currentPage - 1))
-            }
-            onKeyDown={(e) => {
-              if (currentPage === 1) return;
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onPageChange(Math.max(1, currentPage - 1));
-              }
-            }}
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             className={[
               "inline-flex items-center justify-center rounded-lg leading-5 px-3 py-3",
               "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60",
@@ -84,9 +74,8 @@ export default function Pagination({
                 ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                 : "text-violet-500 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer",
             ].join(" ")}
+            aria-label="Pagina anterior"
           >
-            <span className="sr-only">Previous</span>
-            <wbr />
             <svg
               className="fill-current"
               width="16"
@@ -95,7 +84,7 @@ export default function Pagination({
             >
               <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z" />
             </svg>
-          </span>
+          </button>
         </div>
 
         {/* Pages */}
@@ -166,23 +155,11 @@ export default function Pagination({
         </ul>
 
         {/* Next */}
-        {/* Next */}
         <div className="ml-2">
-          <span
-            role="button"
-            tabIndex={currentPage === totalPages ? -1 : 0}
-            aria-disabled={currentPage === totalPages}
-            onClick={() =>
-              currentPage !== totalPages &&
-              onPageChange(Math.min(totalPages, currentPage + 1))
-            }
-            onKeyDown={(e) => {
-              if (currentPage === totalPages) return;
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onPageChange(Math.min(totalPages, currentPage + 1));
-              }
-            }}
+          <button
+            type="button"
+            disabled={currentPage === totalPages}
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             className={[
               "inline-flex items-center justify-center rounded-lg leading-5 px-3 py-3",
               "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60",
@@ -191,9 +168,8 @@ export default function Pagination({
                 ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                 : "text-violet-500 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer",
             ].join(" ")}
+            aria-label="Pagina siguiente"
           >
-            <span className="sr-only">Next</span>
-            <wbr />
             <svg
               className="fill-current"
               width="16"
@@ -202,7 +178,7 @@ export default function Pagination({
             >
               <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z" />
             </svg>
-          </span>
+          </button>
         </div>
       </nav>
     </div>

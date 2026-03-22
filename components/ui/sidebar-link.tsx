@@ -20,6 +20,7 @@ export default function SidebarLink({ children, href }: SidebarLinkProps) {
       }`}
       href={href}
       onClick={() => setSidebarOpen(false)}
+      aria-current={pathname === href ? "page" : undefined}
     >
       {children}
     </Link>

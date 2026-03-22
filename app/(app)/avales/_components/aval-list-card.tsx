@@ -10,6 +10,7 @@ import {
   XCircle,
   AlertCircle,
   FileEdit,
+  FileText,
   Stamp,
 } from "lucide-react";
 
@@ -95,12 +96,13 @@ export default function AvalListCard({
 
   if (avales.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center text-gray-500 dark:text-gray-400">
-        <p className="mb-2">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+        <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+        <p className="text-base text-gray-500 dark:text-gray-400 mb-2">
           {isAdmin ? "No hay avales registrados en el sistema." : "No tienes avales registrados."}
         </p>
         {!isAdmin && (
-          <p className="text-sm">
+          <p className="text-sm text-gray-400 dark:text-gray-500">
             Haz clic en &quot;Crear aval&quot; para solicitar uno nuevo.
           </p>
         )}
@@ -136,7 +138,7 @@ export default function AvalListCard({
                     {stageLabel}
                   </span>
                 </div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate" title={aval.evento?.nombre}>
                   {aval.evento?.nombre || "Sin evento"}
                 </h3>
                 {aval.evento?.codigo && (
@@ -207,6 +209,7 @@ export default function AvalListCard({
                     <Link
                       href={`/avales/${aval.id}`}
                       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      aria-label={`Ver detalle del aval de ${aval.evento?.nombre || "evento"}`}
                     >
                       <Eye className="w-4 h-4" />
                       Ver detalle
@@ -226,6 +229,7 @@ export default function AvalListCard({
                     <Link
                       href={`/avales/${aval.id}`}
                       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-sky-100 hover:text-sky-600 dark:hover:bg-sky-900/40 dark:hover:text-sky-300 transition-colors"
+                      aria-label={`Ver detalle del aval de ${aval.evento?.nombre || "evento"}`}
                     >
                       <Eye className="w-4 h-4" />
                       Ver detalle

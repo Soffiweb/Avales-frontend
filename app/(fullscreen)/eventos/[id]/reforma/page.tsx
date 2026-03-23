@@ -30,6 +30,7 @@ import { createReform } from "@/lib/api/reforms";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
+import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
 
 type WizardStep = 1 | 2 | 3;
 type EditableSection = "general" | "participants" | "budget";
@@ -77,21 +78,6 @@ const MONTH_OPTIONS = [
   { value: 11, label: "Noviembre" },
   { value: 12, label: "Diciembre" },
 ] as const;
-
-function formatDateInput(value?: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-EC", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 function getInitialBudgetRows(evento: Evento): BudgetRow[] {
   return (evento.eventoItems ?? []).map((item) => ({

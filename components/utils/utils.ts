@@ -1,14 +1,8 @@
-export const formatValue = (value: number): string => Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumSignificantDigits: 3,
-  notation: 'compact',
-}).format(value)
+import { formatCompactCurrency, formatCompactNumber } from "@/lib/utils/formatters";
 
-export const formatThousands = (value: number): string => Intl.NumberFormat('en-US', {
-  maximumSignificantDigits: 3,
-  notation: 'compact',
-}).format(value)
+export const formatValue = (value: number): string => formatCompactCurrency(value)
+
+export const formatThousands = (value: number): string => formatCompactNumber(value)
 
 export const getCssVariable = (variable: string): string => {
   if (typeof window === 'undefined') {

@@ -35,7 +35,11 @@ import {
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
-import { formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatEventDateRangeForDescripcion,
+  formatLocationWithProvince,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -77,82 +81,9 @@ const INITIAL_DTM_DRAFT = {
   fechaPresentacion: new Date().toISOString().slice(0, 10),
 };
 
-function getEntrenadorResponsableNombre(aval: Aval) {
-  const sorted = [...(aval.entrenadores ?? [])].sort(
-    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-  );
-  const first = sorted[0] as
-    | (typeof sorted)[number] & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
-        nombre?: string;
-        apellido?: string;
-      }
-    | undefined;
-
-  if (!first) return "[ENTRENADOR RESPONSABLE]";
-
-  return (
-    [
-      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
-      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || "[ENTRENADOR RESPONSABLE]"
-  );
-}
-
-function formatEventDateRangeForDescripcion(
-  fechaInicio?: string | null,
-  fechaFin?: string | null,
-) {
-  if (!fechaInicio) return "en fecha por definir";
-  const start = new Date(fechaInicio);
-  if (Number.isNaN(start.getTime())) return "en fecha por definir";
-
-  if (!fechaFin) {
-    return `el ${start.toLocaleDateString("es-EC", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })}`;
-  }
-
-  const end = new Date(fechaFin);
-  if (Number.isNaN(end.getTime())) {
-    return `el ${start.toLocaleDateString("es-EC", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })}`;
-  }
-
-  const sameMonth =
-    start.getMonth() === end.getMonth() &&
-    start.getFullYear() === end.getFullYear();
-
-  if (sameMonth) {
-    return `del ${start.getDate()} al ${end.getDate()} de ${start.toLocaleDateString(
-      "es-EC",
-      { month: "long", year: "numeric" },
-    )}`;
-  }
-
-  return `del ${start.toLocaleDateString("es-EC", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })} al ${end.toLocaleDateString("es-EC", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })}`;
-}
-
 function buildDefaultDtmDescripcion(aval: Aval) {
   const evento = aval.evento;
-  const entrenador = getEntrenadorResponsableNombre(aval);
+  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
   const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
   const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
   const numeroSolicitud =

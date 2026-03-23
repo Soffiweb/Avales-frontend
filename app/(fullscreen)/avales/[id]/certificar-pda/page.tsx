@@ -7,13 +7,19 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { aprobarAval, createPda, getAval, rechazarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
-import { formatDate, formatRoles } from "@/lib/utils/formatters";
+import {
+  formatCurrency,
+  formatDate,
+  formatRoles,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
 import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
+import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import AlertBanner from "@/components/ui/alert-banner";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
@@ -40,6 +46,17 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
+};
+
+type BudgetDraftItem = {
+  id: number;
+  itemId: number;
+  codigo: number;
+  nombre: string;
+  actividad: string;
+  cantidad: number;
+  dias: number;
+  valorUnitario: number;
 };
 
 
@@ -107,32 +124,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   };
 }
 
-function getEntrenadorResponsableNombre(aval: Aval) {
-  const sorted = [...(aval.entrenadores ?? [])].sort(
-    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-  );
-  const first = sorted[0] as
-    | (typeof sorted)[number] & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
-        nombre?: string;
-        apellido?: string;
-      }
-    | undefined;
-
-  if (!first) return "[NOMBRE ENTRENADOR RESPONSABLE]";
-
-  return (
-    [
-      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
-      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || "[NOMBRE ENTRENADOR RESPONSABLE]"
-  );
-}
-
 function buildDefaultDescripcion(aval: Aval) {
   const evento = aval.evento;
   const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
@@ -141,7 +132,10 @@ function buildDefaultDescripcion(aval: Aval) {
     : "[FECHA EVENTO]";
   const eventoNombre = evento?.nombre ?? "[NOMBRE EVENTO]";
   const categoria = evento?.categoria?.nombre;
-  const entrenadorResponsable = getEntrenadorResponsableNombre(aval);
+  const entrenadorResponsable = getResponsibleTrainerName(
+    aval,
+    "[NOMBRE ENTRENADOR RESPONSABLE]",
+  );
   const numeroAval =
     aval.avalTecnico?.numeroAval ??
     aval.aval ??
@@ -166,6 +160,52 @@ function validatePdaDraft(draft: PdaDraft): string | null {
   return null;
 }
 
+function normalizePositiveNumber(value: string, fallback = 1) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getDraftItemTotal(item: BudgetDraftItem) {
+  return roundCurrency(item.cantidad * item.dias * item.valorUnitario);
+}
+
+function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
+  const requerimientos = aval.avalTecnico?.requerimientos ?? [];
+
+  return (aval.evento?.presupuesto ?? []).map((item) => {
+    const totalOriginal = roundCurrency(
+      Number.parseFloat(item.presupuesto ?? "0") || 0,
+    );
+    const requerimiento = requerimientos.find(
+      (candidate) =>
+        candidate.rubroId === item.item.id || candidate.rubroId === item.id,
+    );
+    const dias = normalizePositiveNumber(requerimiento?.cantidadDias ?? "1");
+    const cantidad = 1;
+    const valorUnitario = roundCurrency(
+      requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
+        ? requerimiento.valorUnitario
+        : totalOriginal / (cantidad * dias || 1),
+    );
+
+    return {
+      id: item.id,
+      itemId: item.item.id,
+      codigo: item.item.numero,
+      nombre: item.item.nombre,
+      actividad: item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
+      cantidad,
+      dias,
+      valorUnitario,
+    };
+  });
+}
+
 export default function CertificarAvalPage() {
   const params = useParams();
   const router = useRouter();
@@ -184,6 +224,7 @@ export default function CertificarAvalPage() {
     message: string;
   } | null>(null);
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
+  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
 
   const isPda = user?.roles?.includes("PDA") ?? false;
   const defaultSignerName = useMemo(() => {
@@ -197,6 +238,7 @@ export default function CertificarAvalPage() {
 
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);
+    setBudgetDraftItems([]);
     setRechazoMotivo("");
     setActionError(null);
   }, [avalId]);
@@ -238,6 +280,11 @@ export default function CertificarAvalPage() {
   }, [aval, draft.descripcion]);
 
   useEffect(() => {
+    if (!aval) return;
+    setBudgetDraftItems(buildBudgetDraftItems(aval));
+  }, [aval]);
+
+  useEffect(() => {
     if (!user) return;
     setDraft((prev) => {
       const next = { ...prev };
@@ -255,6 +302,33 @@ export default function CertificarAvalPage() {
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
+  const presupuestoItems = aval?.evento?.presupuesto ?? [];
+  const totalPresupuestoOriginal = useMemo(
+    () =>
+      presupuestoItems.reduce(
+        (total, item) => total + (Number.parseFloat(item.presupuesto ?? "0") || 0),
+        0,
+      ),
+    [presupuestoItems],
+  );
+  const totalPresupuestoDraft = useMemo(
+    () => budgetDraftItems.reduce((total, item) => total + getDraftItemTotal(item), 0),
+    [budgetDraftItems],
+  );
+  const totalDifference = useMemo(
+    () => roundCurrency(totalPresupuestoDraft - totalPresupuestoOriginal),
+    [totalPresupuestoDraft, totalPresupuestoOriginal],
+  );
+  const budgetPreviewItems = useMemo(
+    () =>
+      budgetDraftItems.map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        total: getDraftItemTotal(item),
+      })),
+    [budgetDraftItems],
+  );
+  const totalMatches = Math.abs(totalDifference) < 0.01;
 
   const etapaActualResponse = aval?.etapaActual;
   const etapaActualHistorial = getCurrentEtapa(aval?.historial);
@@ -284,19 +358,20 @@ export default function CertificarAvalPage() {
       setActionError(validationError);
       return;
     }
+    if (!totalMatches) {
+      setActionError("El total del presupuesto editado debe coincidir con el total original del evento.");
+      return;
+    }
 
     setActionError(null);
     setActionLoading(true);
     try {
-      const items =
-        aval.evento?.presupuesto
-          ?.map((item) => ({
-            itemId: item.item?.id ?? 0,
-            presupuesto: Number.parseFloat(item.presupuesto ?? "0"),
-          }))
-          .filter(
-            (item) => Number.isFinite(item.presupuesto) && item.itemId > 0,
-          ) ?? [];
+      const items = budgetDraftItems
+        .map((item) => ({
+          itemId: item.itemId,
+          presupuesto: getDraftItemTotal(item),
+        }))
+        .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
 
       const pdaPayload = {
         descripcion: draft.descripcion.trim(),
@@ -321,7 +396,26 @@ export default function CertificarAvalPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, approvalEtapa, loadAval, draft, isEditable]);
+  }, [aval, user?.id, approvalEtapa, loadAval, draft, isEditable, budgetDraftItems, totalMatches]);
+
+  const handleBudgetItemChange = useCallback(
+    (id: number, field: "cantidad" | "dias" | "valorUnitario", value: string) => {
+      setBudgetDraftItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                [field]:
+                  field === "valorUnitario"
+                    ? roundCurrency(normalizePositiveNumber(value))
+                    : normalizePositiveNumber(value),
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
   const handleReject = useCallback(async () => {
     if (!aval) return;
@@ -488,6 +582,139 @@ export default function CertificarAvalPage() {
                 </label>
               </div>
 
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40">
+                <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Items del presupuesto
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Ajusta cantidades, dias o valor unitario sin cambiar el total general.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+                      Total
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {formatCurrency(totalPresupuestoDraft)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-4 pt-4">
+                  <div
+                    className={`rounded-xl border px-3 py-2 text-xs ${
+                      totalMatches
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300"
+                    }`}
+                  >
+                    <p>Total original: {formatCurrency(totalPresupuestoOriginal)}</p>
+                    <p>Total editado: {formatCurrency(totalPresupuestoDraft)}</p>
+                    <p>
+                      Diferencia: {formatCurrency(Math.abs(totalDifference))}
+                      {!totalMatches ? " (debe quedar en 0)" : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {budgetDraftItems.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">
+                    Este aval no tiene items presupuestarios registrados.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800/60">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                            Cantidad
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                            Dias
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                            Codigo
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                            Nombre
+                          </th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">
+                            V. unitario
+                          </th>
+                          <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">
+                            Valor
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                        {budgetDraftItems.map((item) => (
+                          <tr key={item.id}>
+                            <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                className="form-input w-20"
+                                value={item.cantidad}
+                                readOnly={!isEditable}
+                                disabled={!isEditable}
+                                onChange={(e) =>
+                                  handleBudgetItemChange(item.id, "cantidad", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                className="form-input w-20"
+                                value={item.dias}
+                                readOnly={!isEditable}
+                                disabled={!isEditable}
+                                onChange={(e) =>
+                                  handleBudgetItemChange(item.id, "dias", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
+                              {item.codigo}
+                            </td>
+                            <td className="px-4 py-3 text-gray-900 dark:text-gray-100">
+                              <div className="min-w-[220px]">
+                                <p>{item.nombre}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  {item.actividad}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100">
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                className="form-input w-28 ml-auto text-right"
+                                value={item.valorUnitario}
+                                readOnly={!isEditable}
+                                disabled={!isEditable}
+                                onChange={(e) =>
+                                  handleBudgetItemChange(item.id, "valorUnitario", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
+                              {formatCurrency(getDraftItemTotal(item))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {isEditable && (
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
@@ -573,7 +800,31 @@ export default function CertificarAvalPage() {
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Preview certificacion PDA" defaultOpen>
-              <PdaPreview aval={aval} draft={draft} />
+              <PdaPreview
+                aval={{
+                  ...aval,
+                  evento: {
+                    ...aval.evento,
+                    presupuesto: aval.evento.presupuesto.map((item) => {
+                      const budgetItem = budgetDraftItems.find((draftItem) => draftItem.id === item.id);
+                      return {
+                        ...item,
+                        presupuesto: String(
+                          budgetItem ? getDraftItemTotal(budgetItem) : Number.parseFloat(item.presupuesto ?? "0") || 0,
+                        ),
+                      };
+                    }),
+                  },
+                }}
+                draft={draft}
+              />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Preview presupuesto de salida" defaultOpen>
+              <PresupuestoSalidaAnticipoPreview
+                aval={aval}
+                items={budgetPreviewItems}
+                draft={{ notas: [] }}
+              />
             </PreviewCollapsible>
           </div>
         </div>

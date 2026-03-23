@@ -89,7 +89,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/eventos",
     segment: "eventos",
     icon: "eventos",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR", "PDA"],
   },
   {
     type: "link",
@@ -97,7 +97,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/reformas",
     segment: "reformas",
     icon: "reformas",
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN", "PDA"],
   },
   {
     type: "link",

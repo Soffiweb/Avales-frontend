@@ -6,6 +6,7 @@ import { ClipboardEdit, Clock3, Search } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import { listReforms, type ReformResponse } from "@/lib/api/reforms";
+import { formatDateTimeShort } from "@/lib/utils/formatters";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDIENTE:
@@ -24,19 +25,6 @@ function getStatusClasses(status?: string | null) {
     STATUS_STYLES[status.toUpperCase()] ??
     "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
   );
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("es-EC", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export default function ReformasPage() {
@@ -212,7 +200,7 @@ export default function ReformasPage() {
                       </dt>
                       <dd className="mt-1 inline-flex items-center gap-1.5 text-gray-900 dark:text-gray-100">
                         <Clock3 className="h-3.5 w-3.5 text-gray-400" />
-                        {formatDate(reform.createdAt)}
+                        {formatDateTimeShort(reform.createdAt)}
                       </dd>
                     </div>
                   </div>

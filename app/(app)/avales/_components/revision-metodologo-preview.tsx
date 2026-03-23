@@ -1,7 +1,13 @@
 import { Fragment } from "react";
 
 import type { Aval } from "@/types/aval";
-import { formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatDateRange,
+  formatEnumLabel,
+  formatLocationWithProvince,
+  formatTramiteDate,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 
 export type ReviewItem = {
   key: string;
@@ -48,47 +54,16 @@ const SECTION_LABELS: Record<ReviewItem["section"], string> = {
   HOJAS_EXCEL: "HOJAS DE EXCEL",
 };
 
-function getEntrenadorResponsableNombre(aval: Aval) {
-  const sorted = [...(aval.entrenadores ?? [])].sort(
-    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-  );
-  const first = sorted[0] as
-    | (typeof sorted)[number] & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
-        nombre?: string;
-        apellido?: string;
-      }
-    | undefined;
-
-  if (!first) return "POR DEFINIR";
-
-  return (
-    [
-      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
-      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || "POR DEFINIR"
-  );
-}
-
-function formatGenero(value?: string | null) {
-  if (!value) return "POR DEFINIR";
-  return value.replaceAll("_", " ");
-}
-
 function buildDefaultObservations(aval: Aval) {
   const evento = aval.evento;
   const disciplina = evento?.disciplina?.nombre ?? "SIN DISCIPLINA";
   const categoria = evento?.categoria?.nombre ?? "SIN CATEGORIA";
-  const genero = formatGenero(evento?.genero);
+  const genero = formatEnumLabel(evento?.genero, " ", "POR DEFINIR");
   const lugar = formatLocationWithProvince(evento) || "POR DEFINIR";
   const fechas = formatDateRange(evento?.fechaInicio, evento?.fechaFin)
     .toUpperCase()
     .trim();
-  const entrenadorResponsable = getEntrenadorResponsableNombre(aval);
+  const entrenadorResponsable = getResponsibleTrainerName(aval);
   const objetivos = aval.avalTecnico?.objetivos
     ?.map((item) => item.descripcion)
     .filter(Boolean)
@@ -140,24 +115,10 @@ function buildDefaultDescripcion(aval: Aval, header: RevisionHeader) {
   const eventoNombre = (evento?.nombre ?? "EL EVENTO").toUpperCase();
   const lugar = formatLocationWithProvince(evento) || "LUGAR POR DEFINIR";
   const fechas = formatDateRange(evento?.fechaInicio, evento?.fechaFin);
-  const entrenadorResponsable = getEntrenadorResponsableNombre(aval);
+  const entrenadorResponsable = getResponsibleTrainerName(aval);
   const disciplina = evento?.disciplina?.nombre ?? "LA DISCIPLINA";
 
   return `En base a la presentacion del Aval Tecnico de PARTICIPACION en ${eventoNombre}, por el entrenador ${entrenadorResponsable} de ${disciplina}, evento a desarrollarse en ${lugar}, ${fechas}. Luego de la revision se describe brevemente la tabla de cumplimiento y no cumplimiento de los items revisados.`;
-}
-
-function formatFechaTramite(value?: string | null) {
-  if (!value) return "-";
-  const normalized = value.trim();
-  const datePart = normalized.includes("T")
-    ? normalized.split("T")[0]
-    : normalized;
-  const parts = datePart.split("-");
-  if (parts.length === 3) {
-    const [year, month, day] = parts;
-    if (year && month && day) return `${day}-${month}-${year}`;
-  }
-  return normalized;
 }
 
 export default function RevisionMetodologoPreview({
@@ -264,7 +225,7 @@ export default function RevisionMetodologoPreview({
                 className="border border-slate-400 px-2 py-0.5 text-center align-top"
                 colSpan={2}
               >
-                {formatFechaTramite(header.fechaRevision)}
+                {formatTramiteDate(header.fechaRevision)}
               </td>
               <td className="border border-slate-400 px-2 py-0.5 align-top">
                 {header.observacionFechaTramite?.trim() || "-"}

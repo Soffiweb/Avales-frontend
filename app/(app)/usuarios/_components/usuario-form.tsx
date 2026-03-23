@@ -22,6 +22,7 @@ import {
 } from "@/lib/validation/user";
 import { CatalogItem } from "@/types/catalog";
 import type { Role } from "@/types/user";
+import { formatRole } from "@/lib/utils/formatters";
 
 const ROLE_OPTIONS: Role[] = [
   "SUPER_ADMIN",
@@ -39,12 +40,7 @@ const ROLE_OPTIONS: Role[] = [
 
 const defaultRoleSelection: Role[] = [];
 
-const formatRoleLabel = (role: Role) =>
-  role
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+const formatRoleLabel = (role: Role) => formatRole(role);
 
 const MAX_SELECTED_DISCIPLINAS = 3;
 

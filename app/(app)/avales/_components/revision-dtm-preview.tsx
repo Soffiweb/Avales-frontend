@@ -1,5 +1,11 @@
 import type { Aval } from "@/types/aval";
-import { formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatDateRange,
+  formatEnumLabel,
+  formatLocationWithProvince,
+  formatTramiteDate,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 import type {
   ReviewItem,
   ReviewStateItem,
@@ -36,51 +42,6 @@ type DtmRow = {
   data: string;
 };
 
-function getEntrenadorResponsableNombre(aval: Aval) {
-  const sorted = [...(aval.entrenadores ?? [])].sort(
-    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-  );
-  const first = sorted[0] as
-    | (typeof sorted)[number] & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
-        nombre?: string;
-        apellido?: string;
-      }
-    | undefined;
-
-  if (!first) return "POR DEFINIR";
-
-  return (
-    [
-      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
-      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || "POR DEFINIR"
-  );
-}
-
-function formatGenero(value?: string | null) {
-  if (!value) return "POR DEFINIR";
-  return value.replaceAll("_", " ");
-}
-
-function formatFechaTramite(value?: string | null) {
-  if (!value) return "-";
-  const normalized = value.trim();
-  const datePart = normalized.includes("T")
-    ? normalized.split("T")[0]
-    : normalized;
-  const parts = datePart.split("-");
-  if (parts.length === 3) {
-    const [year, month, day] = parts;
-    if (year && month && day) return `${day}-${month}-${year}`;
-  }
-  return normalized;
-}
-
 function getReviewState(
   reviewState: Record<string, ReviewStateItem | undefined>,
   key: string,
@@ -102,8 +63,8 @@ function buildDtmRows(
   const tecnico = aval.avalTecnico;
   const deporte = evento?.disciplina?.nombre ?? "SIN DEPORTE";
   const categoria = evento?.categoria?.nombre ?? "SIN CATEGORIA";
-  const genero = formatGenero(evento?.genero);
-  const entrenadorResponsable = getEntrenadorResponsableNombre(aval);
+  const genero = formatEnumLabel(evento?.genero, " ", "POR DEFINIR");
+  const entrenadorResponsable = getResponsibleTrainerName(aval);
   const eventoNombre = evento?.nombre?.toUpperCase() ?? "SIN EVENTO";
   const sedeFechas = `${formatLocationWithProvince(evento) || "POR DEFINIR"}${
     evento?.fechaInicio ? `, ${formatDateRange(evento.fechaInicio, evento.fechaFin)}` : ""
@@ -153,7 +114,7 @@ function buildDtmRows(
 
   const metodologoNombre = aval.revisionMetodologo?.firmanteNombre || "POR DEFINIR";
 
-  const fechaPresentacion = formatFechaTramite(header.fechaRevision);
+  const fechaPresentacion = formatTramiteDate(header.fechaRevision);
   const fechaTramite = header.observacionFechaTramite?.trim() || "-";
 
   const row = (

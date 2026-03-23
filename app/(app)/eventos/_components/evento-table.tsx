@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 
 import type { Evento } from "@/types/evento";
+import { formatDateNumeric, formatLocationWithProvince } from "@/lib/utils/formatters";
 
 type Props = {
   eventos: Evento[];
@@ -30,23 +31,6 @@ function getStatusClasses(status?: string | null) {
     STATUS_STYLES[status.toUpperCase()] ??
     "bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-200"
   );
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString();
-}
-
-function formatLocation(evento: Evento) {
-  const parts = [
-    // evento.lugar,
-    evento.ciudad,
-    evento.provincia,
-    evento.pais,
-  ].filter(Boolean);
-  return parts.length ? parts.join(", ") : "-";
 }
 
 export default function EventoTable({
@@ -158,17 +142,17 @@ export default function EventoTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {formatLocation(evento)}
+                        {formatLocationWithProvince(evento)}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {formatDate(evento.fechaInicio)}
+                        {formatDateNumeric(evento.fechaInicio)}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {formatDate(evento.fechaFin)}
+                        {formatDateNumeric(evento.fechaFin)}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">

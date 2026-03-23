@@ -1,5 +1,10 @@
 import type { Aval } from "@/types/aval";
-import { formatDate, formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateRange,
+  formatLocationWithProvince,
+} from "@/lib/utils/formatters";
 
 type Props = {
   aval: Aval;
@@ -10,16 +15,6 @@ type Props = {
     fechaEmision: string;
   };
 };
-
-function formatMoney(value: number) {
-  return (
-    "$" +
-    value.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  );
-}
 
 function InfoTable({ aval, year }: { aval: Aval; year: number }) {
   const evento = aval.evento;
@@ -132,7 +127,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
                   TOTAL
                 </td>
                 <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
-                  {formatMoney(total)}
+                  {formatCurrency(total, { locale: "en-US" })}
                 </td>
               </tr>
             </tbody>
@@ -171,7 +166,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
         <InfoTable aval={aval} year={year} />
 
         <p className="text-[11px]">
-          Por un valor de USD$ {formatMoney(total)} - dolares de acuerdo al
+          Por un valor de USD$ {formatCurrency(total, { locale: "en-US" })} - dolares de acuerdo al
           siguiente detalle
         </p>
 
@@ -198,7 +193,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
                     {item.item.nombre.toUpperCase()}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-right">
-                    {formatMoney(Number.parseFloat(item.presupuesto) || 0)}
+                    {formatCurrency(Number.parseFloat(item.presupuesto) || 0, { locale: "en-US" })}
                   </td>
                 </tr>
               ))}
@@ -210,7 +205,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
                   TOTAL
                 </td>
                 <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
-                  {formatMoney(total)}
+                  {formatCurrency(total, { locale: "en-US" })}
                 </td>
               </tr>
             </tbody>

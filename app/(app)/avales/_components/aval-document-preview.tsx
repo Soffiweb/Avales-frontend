@@ -1,5 +1,13 @@
 import type { Aval } from "@/types/aval";
-import { formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatCurrencyFromString,
+  formatDateDMY,
+  formatDocumentEventDateRange,
+  formatEnumLabel,
+  formatLocationWithProvince,
+  formatTimeCompact,
+  formatTransport,
+} from "@/lib/utils/formatters";
 
 type FormData = {
   deportistas: Array<{
@@ -33,80 +41,6 @@ type AvalDocumentPreviewProps = {
   mode?: "all" | "nomina" | "solicitud";
 };
 
-const TRANSPORTE_LABELS: Record<string, string> = {
-  AEREO: "TRANSPORTE AEREO",
-  TERRESTRE: "TRANSPORTE TERRESTRE",
-  VEHICULO_PROPIO: "VEHICULO PROPIO",
-  MARITIMO: "TRANSPORTE MARITIMO",
-  OTRO: "OTRO",
-};
-
-function formatFechaNacimiento(fecha?: string) {
-  if (!fecha) return "-";
-  const parsed = new Date(fecha);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleDateString("es-EC");
-}
-
-function formatFechaEventoDocumento(inicio?: string, fin?: string) {
-  if (!inicio) return "-";
-
-  const start = new Date(inicio);
-  if (Number.isNaN(start.getTime())) return "-";
-
-  const startFormatted = start.toLocaleDateString("es-EC", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-
-  if (!fin) return startFormatted.toUpperCase();
-
-  const end = new Date(fin);
-  if (Number.isNaN(end.getTime())) return startFormatted.toUpperCase();
-
-  const endFormatted = end.toLocaleDateString("es-EC", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-
-  return `${startFormatted} AL ${endFormatted}`.toUpperCase();
-}
-
-function formatLogisticaFecha(value?: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  return `${day}-${month}-${year}`;
-}
-
-function formatLogisticaHora(value?: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${hh}H${mm}`;
-}
-
-function formatTransporte(value?: string) {
-  if (!value) return "-";
-  return TRANSPORTE_LABELS[value] ?? value.replaceAll("_", " ");
-}
-
-function formatMoneda(value?: string) {
-  const parsed = Number.parseFloat(value ?? "");
-  if (Number.isNaN(parsed)) return "-";
-  return new Intl.NumberFormat("es-EC", {
-    style: "currency",
-    currency: "USD",
-  }).format(parsed);
-}
-
 export type AvalPreviewFormData = FormData;
 
 export default function AvalDocumentPreview({
@@ -123,7 +57,7 @@ export default function AvalDocumentPreview({
     .join(", ") || "-";
   const disciplina = evento?.disciplina?.nombre?.toUpperCase() ?? "SIN DISCIPLINA";
   const categoria = evento?.categoria?.nombre?.toUpperCase() ?? "SIN CATEGORIA";
-  const genero = (evento?.genero ?? "MASCULINO_FEMENINO").replaceAll("_", " - ");
+  const genero = formatEnumLabel(evento?.genero ?? "MASCULINO_FEMENINO", " - ");
   const avalNumero =
     aval.avalTecnico?.numeroAval ??
     aval.aval ??
@@ -207,7 +141,7 @@ export default function AvalDocumentPreview({
                 </td>
                 <td className="border border-slate-400 px-2 py-1">
                   {(formatLocationWithProvince(evento) || "-").toUpperCase()} /{" "}
-                  {formatFechaEventoDocumento(evento?.fechaInicio, evento?.fechaFin)}
+                  {formatDocumentEventDateRange(evento?.fechaInicio, evento?.fechaFin)}
                 </td>
               </tr>
               <tr>
@@ -288,7 +222,7 @@ export default function AvalDocumentPreview({
                       {deportista.cedula ?? "-"}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 align-top">
-                      {formatFechaNacimiento(deportista.fechaNacimiento)}
+                      {formatDateDMY(deportista.fechaNacimiento)}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 align-top font-semibold">
                       {deportista.observacion ?? "AFILIADO/A 2026"}
@@ -354,7 +288,7 @@ export default function AvalDocumentPreview({
                 </td>
                 <td className="border border-slate-400 px-2 py-1">
                   {(formatLocationWithProvince(evento) || "-").toUpperCase()} /{" "}
-                  {formatFechaEventoDocumento(evento?.fechaInicio, evento?.fechaFin)}
+                  {formatDocumentEventDateRange(evento?.fechaInicio, evento?.fechaFin)}
                 </td>
               </tr>
               <tr>
@@ -521,7 +455,7 @@ export default function AvalDocumentPreview({
                         {item.item.nombre}
                       </td>
                       <td className="border border-slate-400 px-2 py-1 text-right">
-                        {formatMoneda(item.presupuesto)}
+                        {formatCurrencyFromString(item.presupuesto)}
                       </td>
                     </tr>
                   ))
@@ -531,7 +465,7 @@ export default function AvalDocumentPreview({
                     <td className="border border-slate-400 px-2 py-1" />
                     <td className="border border-slate-400 px-2 py-1 font-semibold">TOTAL</td>
                     <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
-                      {formatMoneda(
+                      {formatCurrencyFromString(
                         String(
                           presupuestoItems.reduce(
                             (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
@@ -558,10 +492,10 @@ export default function AvalDocumentPreview({
                     <span className="font-semibold">Hora:</span>
                     <span className="font-semibold">Lugar:</span>
                     <span className="font-semibold">Transporte</span>
-                    <span>{formatLogisticaFecha(formData.fechaHoraSalida)}</span>
-                    <span>{formatLogisticaHora(formData.fechaHoraSalida)}</span>
+                    <span>{formatDateDMY(formData.fechaHoraSalida)}</span>
+                    <span>{formatTimeCompact(formData.fechaHoraSalida)}</span>
                     <span>{(formData.lugarSalida || "-").toUpperCase()}</span>
-                    <span>{formatTransporte(formData.transporteSalida)}</span>
+                    <span>{formatTransport(formData.transporteSalida)}</span>
                   </div>
                 </td>
               </tr>
@@ -575,10 +509,10 @@ export default function AvalDocumentPreview({
                     <span className="font-semibold">Hora:</span>
                     <span className="font-semibold">Lugar:</span>
                     <span className="font-semibold">Transporte</span>
-                    <span>{formatLogisticaFecha(formData.fechaHoraRetorno)}</span>
-                    <span>{formatLogisticaHora(formData.fechaHoraRetorno)}</span>
+                    <span>{formatDateDMY(formData.fechaHoraRetorno)}</span>
+                    <span>{formatTimeCompact(formData.fechaHoraRetorno)}</span>
                     <span>{(formData.lugarRetorno || "-").toUpperCase()}</span>
-                    <span>{formatTransporte(formData.transporteRetorno)}</span>
+                    <span>{formatTransport(formData.transporteRetorno)}</span>
                   </div>
                 </td>
               </tr>

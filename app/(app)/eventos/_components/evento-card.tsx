@@ -6,6 +6,7 @@ import { Calendar, CalendarDays, MapPin, Users, Pencil, Trash2, DollarSign } fro
 
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
+import { formatCurrency, formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
 
 type Props = {
   eventos: Evento[];
@@ -34,47 +35,6 @@ function getStatusClasses(status?: string | null) {
   );
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("es-EC", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateRange(inicio?: string | null, fin?: string | null) {
-  if (!inicio) return "-";
-  const startDate = new Date(inicio);
-  const endDate = fin ? new Date(fin) : null;
-
-  if (Number.isNaN(startDate.getTime())) return "-";
-
-  const startStr = startDate.toLocaleDateString("es-EC", {
-    day: "numeric",
-    month: "short",
-  });
-
-  if (!endDate || Number.isNaN(endDate.getTime())) {
-    return `${startStr}, ${startDate.getFullYear()}`;
-  }
-
-  const endStr = endDate.toLocaleDateString("es-EC", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  return `${startStr} - ${endStr}`;
-}
-
-function formatLocation(evento: Evento) {
-  const parts = [evento.ciudad, evento.provincia, evento.pais].filter(Boolean);
-  return parts.length ? parts.join(", ") : "-";
-}
-
 function getTotalParticipants(evento: Evento) {
   return (
     (evento.numAtletasHombres || 0) +
@@ -82,14 +42,6 @@ function getTotalParticipants(evento: Evento) {
     (evento.numEntrenadoresHombres || 0) +
     (evento.numEntrenadoresMujeres || 0)
   );
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-EC", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(value);
 }
 
 export default function EventoCard({
@@ -198,7 +150,7 @@ export default function EventoCard({
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span className="truncate" title={formatLocation(evento)}>{formatLocation(evento)}</span>
+                <span className="truncate" title={formatLocationWithProvince(evento)}>{formatLocationWithProvince(evento)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />

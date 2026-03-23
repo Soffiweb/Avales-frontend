@@ -16,11 +16,6 @@ type Props = {
   draft: ComprasPublicasDraft;
 };
 
-function formatFecha(value?: string | null) {
-  if (!value) return "-";
-  return formatDate(value);
-}
-
 export default function ComprasPublicasPreview({ aval, draft }: Props) {
   const numero =
     aval.comprasPublicas?.numeroCertificado || draft.numeroCertificado || "POR DEFINIR";
@@ -40,7 +35,7 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
     draft.cargoFirmante?.trim() ||
     aval.comprasPublicas?.cargoFirmante ||
     "-";
-  const fechaEmision = formatFecha(
+  const fechaEmision = formatDate(
     draft.fechaEmision || aval.comprasPublicas?.fechaEmision
   );
   const eventoNombre = aval.evento?.nombre ?? "el evento";

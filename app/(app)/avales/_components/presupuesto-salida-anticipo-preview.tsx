@@ -1,5 +1,5 @@
 import type { Aval } from "@/types/aval";
-import { formatDateRange } from "@/lib/utils/formatters";
+import { formatDateRange, formatDecimal } from "@/lib/utils/formatters";
 
 export type PresupuestoSalidaPreviewItem = {
   id: number;
@@ -14,13 +14,6 @@ type Props = {
   };
   items?: PresupuestoSalidaPreviewItem[];
 };
-
-function formatMoney(value: number) {
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default function PresupuestoSalidaAnticipoPreview({
   aval,
@@ -121,12 +114,12 @@ export default function PresupuestoSalidaAnticipoPreview({
             {presupuestoItems.map((item) => (
               <tr key={item.id}>
                 <td className="border border-slate-400 px-2 py-1">{item.nombre}</td>
-                <td className="border border-slate-400 px-2 py-1 text-right">{formatMoney(item.total)}</td>
+                <td className="border border-slate-400 px-2 py-1 text-right">{formatDecimal(item.total)}</td>
               </tr>
             ))}
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold text-right">TOTAL</td>
-              <td className="border border-slate-400 px-2 py-1 font-semibold text-right">{formatMoney(total)}</td>
+              <td className="border border-slate-400 px-2 py-1 font-semibold text-right">{formatDecimal(total)}</td>
             </tr>
           </tbody>
         </table>

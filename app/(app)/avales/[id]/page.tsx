@@ -25,7 +25,7 @@ import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
-import { formatDate } from "@/lib/utils/formatters";
+import { formatDate, formatGenero } from "@/lib/utils/formatters";
 import {
   getApprovalStageLabel,
   getNextApprovalStage,
@@ -33,16 +33,6 @@ import {
   APPROVAL_STAGE_FLOW,
 } from "@/lib/constants";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
-
-function formatGenero(genero?: string | null) {
-  if (!genero) return "-";
-  const map: Record<string, string> = {
-    MASCULINO: "Masculino",
-    FEMENINO: "Femenino",
-    MASCULINO_FEMENINO: "Mixto",
-  };
-  return map[genero.toUpperCase()] ?? genero;
-}
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
   if (!fechaInicio) return null;

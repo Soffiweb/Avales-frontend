@@ -14,7 +14,11 @@ import {
 import { getDirigido } from "@/lib/api/user";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
-import { formatDate, formatRoles } from "@/lib/utils/formatters";
+import {
+  formatDate,
+  formatRoles,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -136,38 +140,15 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   };
 }
 
-function getEntrenadorResponsableNombre(aval: Aval) {
-  const sorted = [...(aval.entrenadores ?? [])].sort(
-    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-  );
-  const first = sorted[0] as
-    | (typeof sorted)[number] & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
-        nombre?: string;
-        apellido?: string;
-      }
-    | undefined;
-
-  if (!first) return "[NOMBRE ENTRENADOR RESPONSABLE]";
-
-  return (
-    [
-      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
-      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || "[NOMBRE ENTRENADOR RESPONSABLE]"
-  );
-}
-
 function buildDefaultDescripcion(aval: Aval) {
   const evento = aval.evento;
   const disciplina = evento?.disciplina?.nombre ?? "la disciplina";
   const fecha = evento?.fechaInicio ? formatDate(evento.fechaInicio) : "-";
   const eventoNombre = evento?.nombre ?? "el evento";
-  const entrenadorResponsable = getEntrenadorResponsableNombre(aval);
+  const entrenadorResponsable = getResponsibleTrainerName(
+    aval,
+    "[NOMBRE ENTRENADOR RESPONSABLE]",
+  );
 
   return `En base a la presentacion del Aval Tecnico de Participacion Competitiva de ${disciplina}, ${eventoNombre}, con fecha ${fecha}, suscrito por el ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los items revisados.`;
 }

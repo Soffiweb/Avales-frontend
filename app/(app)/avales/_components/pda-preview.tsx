@@ -1,5 +1,11 @@
-import type { Aval, EntrenadorAval } from "@/types/aval";
-import { formatDate, formatLocationWithProvince } from "@/lib/utils/formatters";
+import type { Aval } from "@/types/aval";
+import {
+  formatAvalDepartureDate,
+  formatCurrencyFromString,
+  formatCurrentLongDate,
+  formatLocationWithProvince,
+  getResponsibleTrainerData,
+} from "@/lib/utils/formatters";
 
 export type PdaDraft = {
   descripcion: string;
@@ -15,66 +21,9 @@ type Props = {
   draft: PdaDraft;
 };
 
-type ExtendedEntrenador = EntrenadorAval & {
-  cedula?: string;
-  nombre?: string;
-  apellido?: string;
-  usuario?: { nombre?: string; apellido?: string; cedula?: string };
-  entrenador?: { nombre?: string; apellido?: string; cedula?: string };
-};
-
-function formatNowDate() {
-  return new Date().toLocaleDateString("es-EC", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function getResponsible(aval: Aval) {
-  const sorted = [...(aval.entrenadores ?? [])].sort(
-    (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-  );
-  const first = (sorted[0] as ExtendedEntrenador | undefined) ?? undefined;
-  if (!first) return { nombre: "-", cedula: "-" };
-
-  const nombre = (
-    [
-      first.entrenador?.nombre ?? first.usuario?.nombre ?? first.nombre,
-      first.entrenador?.apellido ?? first.usuario?.apellido ?? first.apellido,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || `Entrenador ${first.entrenadorId}`
-  ).toUpperCase();
-
-  const cedula =
-    first.entrenador?.cedula ?? first.usuario?.cedula ?? first.cedula ?? "-";
-
-  return { nombre, cedula };
-}
-
-function formatFechaSalida(aval: Aval) {
-  const salida = aval.avalTecnico?.fechaHoraSalida;
-  const retorno = aval.avalTecnico?.fechaHoraRetorno;
-  if (!salida && !retorno) return "-";
-  if (salida && retorno) return `DEL ${formatDate(salida)} AL ${formatDate(retorno)}`;
-  return formatDate(salida ?? retorno);
-}
-
-function formatMoney(value?: string) {
-  const parsed = Number.parseFloat(value ?? "");
-  if (Number.isNaN(parsed)) return "$ 0,00";
-  return new Intl.NumberFormat("es-EC", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(parsed);
-}
-
 export default function PdaPreview({ aval, draft }: Props) {
   const evento = aval.evento;
-  const responsable = getResponsible(aval);
+  const responsable = getResponsibleTrainerData(aval);
   const participantesEntrenadores =
     (evento?.numEntrenadoresHombres ?? 0) + (evento?.numEntrenadoresMujeres ?? 0);
   const participantesDeportistas =
@@ -91,7 +40,7 @@ export default function PdaPreview({ aval, draft }: Props) {
     <div className="bg-white border border-slate-300 p-6 text-slate-900">
       <div className="text-right text-sm leading-5">
         <p>FDPL-METODOLOGO PDA - {draft.numeroPda || "S/N"} - 2026</p>
-        <p>{formatNowDate()}</p>
+        <p>{formatCurrentLongDate()}</p>
       </div>
 
       <h2 className="text-center text-xl font-bold mt-4 mb-6">
@@ -140,7 +89,7 @@ export default function PdaPreview({ aval, draft }: Props) {
           </tr>
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
-            <td className="border border-slate-400 px-2 py-1">{formatFechaSalida(aval)}</td>
+            <td className="border border-slate-400 px-2 py-1">{formatAvalDepartureDate(aval)}</td>
           </tr>
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">RESPONSABLE ANTICIPO</td>
@@ -168,7 +117,7 @@ export default function PdaPreview({ aval, draft }: Props) {
       </table>
 
       <p className="mt-3 text-sm">
-        Por un valor de <span className="font-semibold">{formatMoney(String(total))}</span> dolares.
+        Por un valor de <span className="font-semibold">{formatCurrencyFromString(String(total), { fallback: "$ 0,00" })}</span> dolares.
       </p>
 
       <table className="w-full border-collapse text-[12px] mt-2">
@@ -198,7 +147,7 @@ export default function PdaPreview({ aval, draft }: Props) {
                 <td className="border border-slate-400 px-2 py-1">{item.item?.numero ?? "-"}</td>
                 <td className="border border-slate-400 px-2 py-1">{item.item?.nombre || "-"}</td>
                 <td className="border border-slate-400 px-2 py-1 text-right">
-                  {formatMoney(item.presupuesto)}
+                  {formatCurrencyFromString(item.presupuesto, { fallback: "$ 0,00" })}
                 </td>
               </tr>
             ))
@@ -208,7 +157,7 @@ export default function PdaPreview({ aval, draft }: Props) {
               TOTAL
             </td>
             <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
-              {formatMoney(String(total))}
+              {formatCurrencyFromString(String(total), { fallback: "$ 0,00" })}
             </td>
           </tr>
         </tbody>

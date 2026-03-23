@@ -2,26 +2,7 @@
 
 import { Calendar, DollarSign, Tag, Building2 } from "lucide-react";
 import type { PresupuestoItem } from "@/types/aval";
-import { formatCurrency } from "@/lib/utils/formatters";
-
-const MESES = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
-
-function formatMes(mes: number) {
-  return MESES[mes - 1] || `Mes ${mes}`;
-}
+import { formatCurrency, formatMonth } from "@/lib/utils/formatters";
 
 type AvalPresupuestoSectionProps = {
   presupuesto: PresupuestoItem[];
@@ -77,7 +58,7 @@ export default function AvalPresupuestoSection({
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {formatMes(item.mes)}
+                {formatMonth(item.mes)}
               </span>
             </div>
           </div>

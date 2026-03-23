@@ -31,6 +31,12 @@ import { canCreateReforma } from "@/lib/auth/access";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
+import {
+  formatCurrency,
+  formatDateLong,
+  formatGenero,
+  formatMonth,
+} from "@/lib/utils/formatters";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   {
@@ -72,38 +78,6 @@ function getStatusStyles(status?: string | null) {
   );
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("es-EC", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatGenero(genero?: string | null) {
-  if (!genero) return "-";
-  const map: Record<string, string> = {
-    MASCULINO: "Masculino",
-    FEMENINO: "Femenino",
-    MASCULINO_FEMENINO: "Mixto",
-  };
-  return map[genero.toUpperCase()] ?? genero;
-}
-
-function formatLocation(evento: Evento) {
-  const parts = [
-    evento.lugar,
-    evento.ciudad,
-    evento.provincia,
-    evento.pais,
-  ].filter(Boolean);
-  return parts.length ? parts.join(", ") : "-";
-}
-
 function getDaysUntilEvent(fechaInicio?: string | null) {
   if (!fechaInicio) return null;
   const start = new Date(fechaInicio);
@@ -128,33 +102,6 @@ function getEventDuration(
   const diff =
     Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   return diff;
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-EC", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
-
-const MESES = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
-
-function formatMes(mes: number) {
-  return MESES[mes - 1] || `Mes ${mes}`;
 }
 
 export default function EventoDetailPage() {
@@ -476,13 +423,13 @@ export default function EventoDetailPage() {
                   <div>
                     <p className="text-gray-500 dark:text-gray-400">Inicio</p>
                     <p className="text-gray-900 dark:text-gray-100 font-medium capitalize">
-                      {formatDate(evento.fechaInicio)}
+                    {formatDateLong(evento.fechaInicio)}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-500 dark:text-gray-400">Fin</p>
                     <p className="text-gray-900 dark:text-gray-100 font-medium capitalize">
-                      {formatDate(evento.fechaFin)}
+                    {formatDateLong(evento.fechaFin)}
                     </p>
                   </div>
                   {duration && (
@@ -739,7 +686,7 @@ export default function EventoDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                            {formatMes(eventoItem.mes)}
+                            {formatMonth(eventoItem.mes)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">

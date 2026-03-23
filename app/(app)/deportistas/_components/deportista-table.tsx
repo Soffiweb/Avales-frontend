@@ -3,6 +3,7 @@
 import { Dumbbell } from "lucide-react";
 
 import type { Deportista } from "@/types/deportista";
+import { formatDateNumeric, formatGenero } from "@/lib/utils/formatters";
 
 type Props = {
   deportistas: Deportista[];
@@ -11,26 +12,10 @@ type Props = {
   onDelete?: (deportista: Deportista) => void;
 };
 
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString();
-}
-
-function formatGenero(genero?: string | null) {
-  if (!genero) return "-";
-  const upper = genero.toUpperCase();
-  if (upper === "M" || upper === "MASCULINO") return "Masculino";
-  if (upper === "F" || upper === "FEMENINO") return "Femenino";
-  if (upper === "O" || upper === "OTRO") return "Otro";
-  return genero;
-}
-
 function formatAfiliacion(d: Deportista) {
   if (!d.afiliacion) return "No afiliado";
   if (d.afiliacionFin) {
-    return `Vigente hasta ${formatDate(d.afiliacionFin)}`;
+    return `Vigente hasta ${formatDateNumeric(d.afiliacionFin)}`;
   }
   return "Vigente";
 }

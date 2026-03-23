@@ -39,6 +39,7 @@ type Props = {
   header: RevisionHeader;
   footer: RevisionFooter;
   useDefaultObservations?: boolean;
+  detailColumnLabel?: string;
 };
 
 const SECTION_LABELS: Record<ReviewItem["section"], string> = {
@@ -147,12 +148,16 @@ function buildDefaultDescripcion(aval: Aval, header: RevisionHeader) {
 
 function formatFechaTramite(value?: string | null) {
   if (!value) return "-";
-  const parts = value.split("-");
+  const normalized = value.trim();
+  const datePart = normalized.includes("T")
+    ? normalized.split("T")[0]
+    : normalized;
+  const parts = datePart.split("-");
   if (parts.length === 3) {
     const [year, month, day] = parts;
     if (year && month && day) return `${day}-${month}-${year}`;
   }
-  return value;
+  return normalized;
 }
 
 export default function RevisionMetodologoPreview({
@@ -162,6 +167,7 @@ export default function RevisionMetodologoPreview({
   header,
   footer,
   useDefaultObservations = true,
+  detailColumnLabel = "OBSERVACIONES",
 }: Props) {
   const defaults = buildDefaultObservations(aval);
   const descripcion = buildDefaultDescripcion(aval, header);
@@ -202,7 +208,7 @@ export default function RevisionMetodologoPreview({
                 NO
               </th>
               <th className="border border-slate-400 px-2 py-1 text-left w-[40%]">
-                OBSERVACIONES
+                {detailColumnLabel}
               </th>
             </tr>
           </thead>

@@ -117,7 +117,10 @@ export default function AvalDocumentPreview({
   const evento = aval.evento;
   const presupuestoItems = evento?.presupuesto ?? [];
   const entrenadorResponsable = formData.entrenadores[0]?.nombre ?? "POR DEFINIR";
-  const asistente = formData.entrenadores[1]?.nombre ?? "-";
+  const entrenadores = formData.entrenadores
+    .slice(1)
+    .map((entrenador) => entrenador.nombre)
+    .join(", ") || "-";
   const disciplina = evento?.disciplina?.nombre?.toUpperCase() ?? "SIN DISCIPLINA";
   const categoria = evento?.categoria?.nombre?.toUpperCase() ?? "SIN CATEGORIA";
   const genero = (evento?.genero ?? "MASCULINO_FEMENINO").replaceAll("_", " - ");
@@ -209,7 +212,7 @@ export default function AvalDocumentPreview({
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
-                  ENTRENADOR RESPONSABLE
+                  ENTRENADORES RESPONSABLES
                 </td>
                 <td className="border border-slate-400 px-2 py-1">
                   {entrenadorResponsable.toUpperCase()}
@@ -217,9 +220,9 @@ export default function AvalDocumentPreview({
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
-                  ASISTENTE
+                  ENTRENADORES
                 </td>
-                <td className="border border-slate-400 px-2 py-1">{asistente.toUpperCase()}</td>
+                <td className="border border-slate-400 px-2 py-1">{entrenadores.toUpperCase()}</td>
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
@@ -356,7 +359,7 @@ export default function AvalDocumentPreview({
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
-                  ENTRENADOR RESPONSABLE
+                  ENTRENADORES RESPONSABLES
                 </td>
                 <td className="border border-slate-400 px-2 py-1">
                   {entrenadorResponsable.toUpperCase()}
@@ -364,9 +367,9 @@ export default function AvalDocumentPreview({
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
-                  ASISTENTE
+                  ENTRENADORES
                 </td>
-                <td className="border border-slate-400 px-2 py-1">{asistente.toUpperCase()}</td>
+                <td className="border border-slate-400 px-2 py-1">{entrenadores.toUpperCase()}</td>
               </tr>
             </tbody>
           </table>

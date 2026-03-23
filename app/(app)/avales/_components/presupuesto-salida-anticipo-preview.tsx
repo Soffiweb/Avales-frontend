@@ -1,11 +1,18 @@
 import type { Aval } from "@/types/aval";
 import { formatDateRange } from "@/lib/utils/formatters";
 
+export type PresupuestoSalidaPreviewItem = {
+  id: number;
+  nombre: string;
+  total: number;
+};
+
 type Props = {
   aval: Aval;
-  draft: {
-    notas: string[];
+  draft?: {
+    notas?: string[];
   };
+  items?: PresupuestoSalidaPreviewItem[];
 };
 
 function formatMoney(value: number) {
@@ -15,7 +22,11 @@ function formatMoney(value: number) {
   });
 }
 
-export default function PresupuestoSalidaAnticipoPreview({ aval, draft }: Props) {
+export default function PresupuestoSalidaAnticipoPreview({
+  aval,
+  draft,
+  items,
+}: Props) {
   const evento = aval.evento;
   const entrenadores =
     (evento?.numEntrenadoresHombres || 0) +
@@ -23,10 +34,19 @@ export default function PresupuestoSalidaAnticipoPreview({ aval, draft }: Props)
   const deportistas =
     (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
 
-  const total = (evento?.presupuesto ?? []).reduce((sum, item) => {
-    const value = Number.parseFloat(item.presupuesto);
-    return sum + (Number.isFinite(value) ? value : 0);
-  }, 0);
+  const presupuestoItems =
+    items?.map((item) => ({
+      id: item.id,
+      nombre: item.nombre,
+      total: item.total,
+    })) ??
+    (evento?.presupuesto ?? []).map((item) => ({
+      id: item.id,
+      nombre: item.item.nombre,
+      total: Number.parseFloat(item.presupuesto) || 0,
+    }));
+
+  const total = presupuestoItems.reduce((sum, item) => sum + item.total, 0);
 
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
@@ -98,10 +118,10 @@ export default function PresupuestoSalidaAnticipoPreview({ aval, draft }: Props)
             </tr>
           </thead>
           <tbody>
-            {(evento?.presupuesto ?? []).map((item) => (
+            {presupuestoItems.map((item) => (
               <tr key={item.id}>
-                <td className="border border-slate-400 px-2 py-1">{item.item.nombre}</td>
-                <td className="border border-slate-400 px-2 py-1 text-right">{formatMoney(Number.parseFloat(item.presupuesto) || 0)}</td>
+                <td className="border border-slate-400 px-2 py-1">{item.nombre}</td>
+                <td className="border border-slate-400 px-2 py-1 text-right">{formatMoney(item.total)}</td>
               </tr>
             ))}
             <tr>
@@ -113,7 +133,7 @@ export default function PresupuestoSalidaAnticipoPreview({ aval, draft }: Props)
       </div>
 
       <div className="space-y-1 text-[10px] leading-4">
-        {draft.notas.map((nota, index) => (
+        {(draft?.notas ?? []).map((nota, index) => (
           <p key={index} className="whitespace-pre-line">
             <span className="font-semibold uppercase">{`Nota ${index + 1}:`}</span>{" "}
             {nota.trim() || ""}

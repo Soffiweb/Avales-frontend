@@ -412,6 +412,7 @@ export default function AvalDetailPage() {
     : 0;
 
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
+  const adjuntosSolicitud = aval.adjuntosSolicitud ?? [];
 
   return (
     <>
@@ -483,6 +484,41 @@ export default function AvalDetailPage() {
             </div>
           </div> */}
         </div>
+
+        {adjuntosSolicitud.length > 0 && (
+          <section className="space-y-4">
+            <SectionHeader
+              icon={
+                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              }
+              title="Documentos de la solicitud"
+              description="Archivos adjuntos de respaldo cargados en la solicitud."
+            />
+            <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-2 shadow-sm">
+              {adjuntosSolicitud.map((adjunto) => (
+                <a
+                  key={adjunto.id}
+                  href={adjunto.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 hover:border-indigo-400 dark:hover:border-indigo-500"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {adjunto.nombreOriginal || adjunto.nombreArchivo}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {adjunto.mimeType || "Archivo"} · {adjunto.tamanoBytes.toLocaleString("es-EC")} bytes
+                      {" · "}
+                      {formatDate(adjunto.createdAt)}
+                    </p>
+                  </div>
+                  <Download className="w-4 h-4 shrink-0 text-gray-400" />
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Información del evento */}
         {evento && (

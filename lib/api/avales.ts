@@ -84,6 +84,28 @@ export async function createAval(payload: CreateAvalPayload) {
   });
 }
 
+export async function uploadSolicitudAval(id: number, archivo: File) {
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+
+  return apiFetch<Aval>(`/avales/${id}/solicitud-aval`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export async function uploadAdjuntosSolicitud(id: number, archivos: File[]) {
+  const formData = new FormData();
+  archivos.forEach((archivo) => {
+    formData.append("archivos", archivo);
+  });
+
+  return apiFetch<Aval>(`/avales/${id}/adjuntos`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
 export async function uploadAvalArchivo(id: number, archivo: File) {
   const formData = new FormData();
   formData.append("archivo", archivo);

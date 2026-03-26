@@ -51,6 +51,7 @@ type FormData = {
 
   // Paso 4: Observaciones
   observaciones?: string;
+  adjuntoSolicitud?: File | null;
 };
 
 const INITIAL_FORM_DATA: FormData = {
@@ -65,6 +66,7 @@ const INITIAL_FORM_DATA: FormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
+  adjuntoSolicitud: null,
 };
 
 const STEPS = [

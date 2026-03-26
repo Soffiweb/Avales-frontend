@@ -150,6 +150,16 @@ export type Historial = {
   createdAt: string;
 };
 
+export type AdjuntoSolicitud = {
+  id: number;
+  nombreOriginal: string;
+  nombreArchivo: string;
+  mimeType: string;
+  tamanoBytes: number;
+  url: string;
+  createdAt: string;
+};
+
 export type Aval = {
   id: number;
   descripcion?: string | null;
@@ -160,6 +170,7 @@ export type Aval = {
   dtmUrl?: string | null;
   pdaUrl?: string | null;
   solicitudUrl?: string | null;
+  adjuntosSolicitud: AdjuntoSolicitud[];
   aval?: string | null;
   numeroColeccion?: string | null;
   pda?: {

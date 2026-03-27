@@ -155,14 +155,16 @@ export default function EventoDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!evento?.id || !evento.tieneReformaPendiente) {
+    const eventoId = evento?.id;
+
+    if (!eventoId || !evento?.tieneReformaPendiente) {
       setPendingReformId(null);
       return;
     }
 
     async function fetchPendingReform() {
       try {
-        const response = await listReformsByEvento(evento.id, "PENDIENTE");
+        const response = await listReformsByEvento(eventoId, "PENDIENTE");
         setPendingReformId(response.data?.[0]?.id ?? null);
       } catch {
         setPendingReformId(null);

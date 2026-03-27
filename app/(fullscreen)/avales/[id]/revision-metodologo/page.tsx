@@ -161,6 +161,14 @@ const SECTION_LABELS: Record<ReviewSection, string> = {
   HOJAS_EXCEL: "Hojas de excel",
 };
 
+function getTodayLocalDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function RevisionMetodologoPage() {
   const params = useParams();
   const router = useRouter();
@@ -192,7 +200,7 @@ export default function RevisionMetodologoPage() {
     dirigidoA: "",
     cargoDirigidoA: "",
     descripcionEncabezado: "",
-    fechaRevision: new Date().toISOString().slice(0, 10),
+    fechaRevision: getTodayLocalDate(),
     observacionFechaTramite: "",
   });
   const [revisionFooter, setRevisionFooter] = useState({
@@ -214,7 +222,7 @@ export default function RevisionMetodologoPage() {
       dirigidoA: "",
       cargoDirigidoA: "",
       descripcionEncabezado: "",
-      fechaRevision: new Date().toISOString().slice(0, 10),
+      fechaRevision: getTodayLocalDate(),
       observacionFechaTramite: "",
     });
     setRevisionFooter({

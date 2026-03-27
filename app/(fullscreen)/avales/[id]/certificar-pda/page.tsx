@@ -57,6 +57,7 @@ type BudgetDraftItem = {
   cantidad: number;
   dias: number;
   valorUnitario: number;
+  valor: number;
 };
 
 
@@ -171,7 +172,7 @@ function roundCurrency(value: number) {
 }
 
 function getDraftItemTotal(item: BudgetDraftItem) {
-  return roundCurrency(item.cantidad * item.dias * item.valorUnitario);
+  return roundCurrency(item.valor);
 }
 
 function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
@@ -202,6 +203,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       cantidad,
       dias,
       valorUnitario,
+      valor: totalOriginal,
     };
   });
 }
@@ -399,14 +401,18 @@ export default function CertificarAvalPage() {
   }, [aval, user?.id, approvalEtapa, loadAval, draft, isEditable, budgetDraftItems, totalMatches]);
 
   const handleBudgetItemChange = useCallback(
-    (id: number, field: "cantidad" | "dias" | "valorUnitario", value: string) => {
+    (
+      id: number,
+      field: "cantidad" | "dias" | "valorUnitario" | "valor",
+      value: string,
+    ) => {
       setBudgetDraftItems((prev) =>
         prev.map((item) =>
           item.id === id
             ? {
                 ...item,
                 [field]:
-                  field === "valorUnitario"
+                  field === "valorUnitario" || field === "valor"
                     ? roundCurrency(normalizePositiveNumber(value))
                     : normalizePositiveNumber(value),
               }
@@ -514,7 +520,7 @@ export default function CertificarAvalPage() {
       )}
       <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="h-full w-full overflow-y-auto">
-          <div className="max-w-xl mx-auto px-6 sm:px-8 py-8">
+          <div className="max-w-2xl mx-auto px-6 sm:px-8 py-8">
             <button
               onClick={() => router.push("/avales")}
               className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-6"
@@ -524,7 +530,7 @@ export default function CertificarAvalPage() {
             </button>
 
             <div className="space-y-5">
-              <div>
+              <div className="max-w-xl">
                 <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                   Certificacion PDA
                 </h1>
@@ -533,7 +539,7 @@ export default function CertificarAvalPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid max-w-xl grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Descripcion del certificado
@@ -589,7 +595,7 @@ export default function CertificarAvalPage() {
                       Items del presupuesto
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Ajusta cantidades, dias o valor unitario sin cambiar el total general.
+                      Cantidad, dias, valor unitario y valor son campos manuales e independientes.
                     </p>
                   </div>
                   <div className="text-right">
@@ -705,7 +711,18 @@ export default function CertificarAvalPage() {
                               />
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {formatCurrency(getDraftItemTotal(item))}
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                className="form-input w-32 ml-auto text-right"
+                                value={item.valor}
+                                readOnly={!isEditable}
+                                disabled={!isEditable}
+                                onChange={(e) =>
+                                  handleBudgetItemChange(item.id, "valor", e.target.value)
+                                }
+                              />
                             </td>
                           </tr>
                         ))}
@@ -716,7 +733,7 @@ export default function CertificarAvalPage() {
               </div>
 
               {isEditable && (
-                <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
+                <div className="max-w-xl rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       Certificación PDA

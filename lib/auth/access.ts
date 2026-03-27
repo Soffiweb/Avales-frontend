@@ -7,6 +7,19 @@ const hasAnyRole = (userRoles: Role[], required?: Role[]) => {
   return required.some((r) => userRoles.includes(r));
 };
 
+export function canAccessReforms(user: User | null | undefined) {
+  if (!user) return false;
+
+  const roles = (user.roles ?? []) as Role[];
+
+  return (
+    roles.includes("SUPER_ADMIN") ||
+    roles.includes("ADMIN") ||
+    roles.includes("PDA") ||
+    (roles.includes("ENTRENADOR") && Boolean(user.puedeSolicitarReformas))
+  );
+}
+
 export function canCreateReforma(user: User | null | undefined) {
   if (!user) return false;
 
@@ -31,7 +44,12 @@ export function filterSidebarItems(items: SidebarItem[], user: User) {
   const roles = (user.roles ?? []) as Role[];
 
   return items
-    .filter((it) => hasAnyRole(roles, it.roles))
+    .filter((it) => {
+      if (it.type === "link" && it.href === "/reformas") {
+        return canAccessReforms(user);
+      }
+      return hasAnyRole(roles, it.roles);
+    })
     .map((it) => {
       if (it.type === "group") {
         const children = it.children.filter((c) => hasAnyRole(roles, c.roles));

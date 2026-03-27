@@ -28,6 +28,7 @@ import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
 import { canCreateReforma } from "@/lib/auth/access";
+import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -120,6 +121,7 @@ export default function EventoDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [existingAvalId, setExistingAvalId] = useState<number | null>(null);
+  const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -151,6 +153,24 @@ export default function EventoDetailPage() {
 
     void fetchEvento();
   }, [id]);
+
+  useEffect(() => {
+    if (!evento?.id || !evento.tieneReformaPendiente) {
+      setPendingReformId(null);
+      return;
+    }
+
+    async function fetchPendingReform() {
+      try {
+        const response = await listReformsByEvento(evento.id, "PENDIENTE");
+        setPendingReformId(response.data?.[0]?.id ?? null);
+      } catch {
+        setPendingReformId(null);
+      }
+    }
+
+    void fetchPendingReform();
+  }, [evento?.id, evento?.tieneReformaPendiente]);
 
   const handleDelete = async () => {
     if (!evento) return;
@@ -266,6 +286,11 @@ export default function EventoDetailPage() {
           <AlertBanner
             variant="error"
             message="Este evento tiene una reforma pendiente."
+            description={
+              pendingReformId
+                ? "Puedes revisar el detalle de la solicitud registrada."
+                : undefined
+            }
           />
         ) : null}
         {/* Header */}
@@ -331,14 +356,24 @@ export default function EventoDetailPage() {
                         Solicitar reforma
                       </Link>
                     ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
-                      >
-                        <ClipboardEdit className="w-4 h-4 mr-2" />
-                        Reforma no disponible
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
+                        >
+                          <ClipboardEdit className="w-4 h-4 mr-2" />
+                          Reforma no disponible
+                        </button>
+                        {hasPendingReform && pendingReformId ? (
+                          <Link
+                            href={`/reformas/${pendingReformId}`}
+                            className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          >
+                            Ver reforma
+                          </Link>
+                        ) : null}
+                      </>
                     ) : null}
                   </>
                 )}

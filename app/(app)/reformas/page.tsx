@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ClipboardEdit, Clock3, Search } from "lucide-react";
 
+import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
 import { listReforms, type ReformResponse } from "@/lib/api/reforms";
+import { listEventos } from "@/lib/api/eventos";
+import { canAccessReforms } from "@/lib/auth/access";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -28,19 +31,66 @@ function getStatusClasses(status?: string | null) {
 }
 
 export default function ReformasPage() {
+  const { user, loading: authLoading } = useAuth();
   const [reforms, setReforms] = useState<ReformResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
 
+  const userRoles = user?.roles ?? [];
+  const isEntrenador = userRoles.includes("ENTRENADOR");
+  const firstUserDisciplina =
+    Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
+      ? user.disciplinas[0]
+      : undefined;
+  const entrenadorDisciplinaId =
+    user?.disciplinaId ??
+    (typeof firstUserDisciplina === "number"
+      ? firstUserDisciplina
+      : firstUserDisciplina?.id);
+  const canViewReforms = canAccessReforms(user);
+
   useEffect(() => {
+    if (authLoading) return;
+    if (!canViewReforms) {
+      setReforms([]);
+      setLoading(false);
+      setError("No tienes permisos para ver reformas.");
+      return;
+    }
+
     async function fetchReforms() {
       try {
         setLoading(true);
         setError(null);
+
         const response = await listReforms();
-        setReforms(response.data ?? []);
+        let filteredReforms = response.data ?? [];
+
+        if (isEntrenador) {
+          if (!entrenadorDisciplinaId) {
+            setReforms([]);
+            setError(
+              "Tu usuario no tiene una disciplina asignada para consultar reformas.",
+            );
+            return;
+          }
+
+          const eventosResponse = await listEventos({
+            disciplinaId: entrenadorDisciplinaId,
+            limit: 1000,
+          });
+          const allowedEventoIds = new Set(
+            (eventosResponse.data ?? []).map((evento) => evento.id),
+          );
+
+          filteredReforms = filteredReforms.filter((reform) =>
+            allowedEventoIds.has(reform.eventoId),
+          );
+        }
+
+        setReforms(filteredReforms);
       } catch (err: unknown) {
         setError(
           err instanceof Error ? err.message : "No se pudieron cargar las reformas.",
@@ -51,7 +101,35 @@ export default function ReformasPage() {
     }
 
     void fetchReforms();
-  }, []);
+  }, [
+    authLoading,
+    canViewReforms,
+    entrenadorDisciplinaId,
+    isEntrenador,
+  ]);
+
+  if (authLoading) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="animate-pulse rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+              <div className="mb-3 h-4 w-28 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="mb-2 h-5 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="mb-4 h-4 w-1/2 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="space-y-2">
+                <div className="h-3 w-full rounded bg-gray-200 dark:bg-gray-700" />
+                <div className="h-3 w-5/6 rounded bg-gray-200 dark:bg-gray-700" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const filteredReforms = useMemo(() => {
     const term = search.trim().toLowerCase();

@@ -22,6 +22,7 @@ import { useAuth } from "@/app/providers/auth-provider";
 import { canCreateReforma } from "@/lib/auth/access";
 import { getEvento } from "@/lib/api/eventos";
 import { uploadConvocatoria } from "@/lib/api/avales";
+import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import {
@@ -50,6 +51,7 @@ export default function EventoDetailForAvalPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [pendingReformId, setPendingReformId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) {
@@ -75,6 +77,24 @@ export default function EventoDetailForAvalPage() {
 
     void fetchEvento();
   }, [id]);
+
+  useEffect(() => {
+    if (!evento?.id || !evento.tieneReformaPendiente) {
+      setPendingReformId(null);
+      return;
+    }
+
+    async function fetchPendingReform() {
+      try {
+        const response = await listReformsByEvento(evento.id, "PENDIENTE");
+        setPendingReformId(response.data?.[0]?.id ?? null);
+      } catch {
+        setPendingReformId(null);
+      }
+    }
+
+    void fetchPendingReform();
+  }, [evento?.id, evento?.tieneReformaPendiente]);
 
   if (loading) {
     return (
@@ -199,14 +219,24 @@ export default function EventoDetailForAvalPage() {
               Solicitar reforma
             </Link>
           ) : (
-            <button
-              type="button"
-              disabled
-              className="btn bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:text-gray-300"
-            >
-              <ClipboardEdit className="w-4 h-4 mr-2" />
-              Reforma no disponible
-            </button>
+            <>
+              <button
+                type="button"
+                disabled
+                className="btn bg-gray-300 text-gray-600 cursor-not-allowed dark:bg-gray-700 dark:text-gray-300"
+              >
+                <ClipboardEdit className="w-4 h-4 mr-2" />
+                Reforma no disponible
+              </button>
+              {hasPendingReform && pendingReformId ? (
+                <Link
+                  href={`/reformas/${pendingReformId}`}
+                  className="btn border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                >
+                  Ver reforma
+                </Link>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>
@@ -215,7 +245,11 @@ export default function EventoDetailForAvalPage() {
         <AlertBanner
           variant="error"
           message="Este evento tiene una reforma pendiente."
-          description="No se puede crear un aval ni solicitar otra reforma hasta que la actual se apruebe o rechace."
+          description={
+            pendingReformId
+              ? "No se puede crear un aval ni solicitar otra reforma hasta que la actual se apruebe o rechace. Puedes abrir el detalle de la reforma."
+              : "No se puede crear un aval ni solicitar otra reforma hasta que la actual se apruebe o rechace."
+          }
         />
       ) : null}
 

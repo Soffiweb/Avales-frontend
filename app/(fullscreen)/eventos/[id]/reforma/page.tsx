@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CalendarRange,
   CheckCircle2,
   ChevronDown,
-  Circle,
   ClipboardEdit,
   DollarSign,
   FileText,
@@ -32,10 +31,7 @@ import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
 
-type WizardStep = 1 | 2 | 3;
-type EditableSection = "general" | "participants" | "budget";
-
-type SectionSelection = Record<EditableSection, boolean>;
+type WizardStep = 1 | 2;
 
 type GeneralForm = {
   nombre: string;
@@ -151,59 +147,6 @@ function StepBadge({
       <span className="hidden text-sm font-medium text-gray-700 dark:text-gray-200 sm:block">
         {label}
       </span>
-    </button>
-  );
-}
-
-function SectionCard({
-  icon,
-  title,
-  description,
-  checked,
-  onToggle,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`w-full rounded-2xl border p-5 text-left transition ${
-        checked
-          ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
-          : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-      }`}
-    >
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl ${
-            checked
-              ? "bg-white/15 text-white dark:bg-gray-900/10 dark:text-gray-900"
-              : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-          }`}
-        >
-          {icon}
-        </div>
-        {checked ? (
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-        ) : (
-          <Circle className="h-5 w-5 shrink-0 text-gray-300 dark:text-gray-600" />
-        )}
-      </div>
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p
-        className={`mt-2 text-sm ${
-          checked
-            ? "text-gray-100 dark:text-gray-700"
-            : "text-gray-500 dark:text-gray-400"
-        }`}
-      >
-        {description}
-      </p>
     </button>
   );
 }
@@ -328,11 +271,6 @@ export default function EventoReformaPage() {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [evento, setEvento] = useState<Evento | null>(null);
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
-  const [selectedSections, setSelectedSections] = useState<SectionSelection>({
-    general: false,
-    participants: false,
-    budget: false,
-  });
   const [generalForm, setGeneralForm] = useState<GeneralForm | null>(null);
   const [participantsForm, setParticipantsForm] = useState<ParticipantsForm | null>(
     null,
@@ -380,18 +318,12 @@ export default function EventoReformaPage() {
     void loadEvento();
   }, [id]);
 
-  const selectedCount = useMemo(
-    () => Object.values(selectedSections).filter(Boolean).length,
-    [selectedSections],
-  );
-
   const originalBudgetTotal = useMemo(
     () => (evento ? calcularTotalEvento(evento) : 0),
     [evento],
   );
   const proposedBudgetTotal = useMemo(() => getBudgetTotal(budgetRows), [budgetRows]);
 
-  const canContinueFromStep1 = selectedCount > 0;
   const canSubmitReforma = canCreateReforma(user);
 
   const proposedChanges = useMemo(() => {
@@ -399,66 +331,60 @@ export default function EventoReformaPage() {
 
     const payload: Record<string, unknown> = {};
 
-    if (selectedSections.general) {
-      if (generalForm.nombre !== evento.nombre) payload.nombre = generalForm.nombre;
-      if (generalForm.lugar !== evento.lugar) payload.lugar = generalForm.lugar;
-      if (generalForm.ciudad !== evento.ciudad) payload.ciudad = generalForm.ciudad;
-      if (generalForm.provincia !== evento.provincia) {
-        payload.provincia = generalForm.provincia;
-      }
-      if (generalForm.pais !== evento.pais) payload.pais = generalForm.pais;
-      if (generalForm.fechaInicio !== formatDateInput(evento.fechaInicio)) {
-        payload.fechaInicio = new Date(generalForm.fechaInicio).toISOString();
-      }
-      if (generalForm.fechaFin !== formatDateInput(evento.fechaFin)) {
-        payload.fechaFin = new Date(generalForm.fechaFin).toISOString();
-      }
+    if (generalForm.nombre !== evento.nombre) payload.nombre = generalForm.nombre;
+    if (generalForm.lugar !== evento.lugar) payload.lugar = generalForm.lugar;
+    if (generalForm.ciudad !== evento.ciudad) payload.ciudad = generalForm.ciudad;
+    if (generalForm.provincia !== evento.provincia) {
+      payload.provincia = generalForm.provincia;
+    }
+    if (generalForm.pais !== evento.pais) payload.pais = generalForm.pais;
+    if (generalForm.fechaInicio !== formatDateInput(evento.fechaInicio)) {
+      payload.fechaInicio = new Date(generalForm.fechaInicio).toISOString();
+    }
+    if (generalForm.fechaFin !== formatDateInput(evento.fechaFin)) {
+      payload.fechaFin = new Date(generalForm.fechaFin).toISOString();
     }
 
-    if (selectedSections.participants) {
-      if (participantsForm.numAtletasHombres !== evento.numAtletasHombres) {
-        payload.numAtletasHombres = participantsForm.numAtletasHombres;
-      }
-      if (participantsForm.numAtletasMujeres !== evento.numAtletasMujeres) {
-        payload.numAtletasMujeres = participantsForm.numAtletasMujeres;
-      }
-      if (
-        participantsForm.numEntrenadoresHombres !== evento.numEntrenadoresHombres
-      ) {
-        payload.numEntrenadoresHombres = participantsForm.numEntrenadoresHombres;
-      }
-      if (
-        participantsForm.numEntrenadoresMujeres !== evento.numEntrenadoresMujeres
-      ) {
-        payload.numEntrenadoresMujeres = participantsForm.numEntrenadoresMujeres;
-      }
+    if (participantsForm.numAtletasHombres !== evento.numAtletasHombres) {
+      payload.numAtletasHombres = participantsForm.numAtletasHombres;
+    }
+    if (participantsForm.numAtletasMujeres !== evento.numAtletasMujeres) {
+      payload.numAtletasMujeres = participantsForm.numAtletasMujeres;
+    }
+    if (
+      participantsForm.numEntrenadoresHombres !== evento.numEntrenadoresHombres
+    ) {
+      payload.numEntrenadoresHombres = participantsForm.numEntrenadoresHombres;
+    }
+    if (
+      participantsForm.numEntrenadoresMujeres !== evento.numEntrenadoresMujeres
+    ) {
+      payload.numEntrenadoresMujeres = participantsForm.numEntrenadoresMujeres;
     }
 
-    if (selectedSections.budget) {
-      payload.eventoItems = budgetRows
-        .filter((row) => row.status !== "removed")
-        .map((row) => ({
-          itemId: row.itemId,
-          mes: row.mes,
-          presupuesto: Number.parseFloat(row.presupuesto) || 0,
-        }))
-        .filter((item): item is { itemId: number; mes: number; presupuesto: number } =>
-          Number.isFinite(item.itemId),
-        );
-    }
+    payload.eventoItems = budgetRows
+      .filter((row) => row.status !== "removed")
+      .map((row) => ({
+        itemId: row.itemId,
+        mes: row.mes,
+        presupuesto: Number.parseFloat(row.presupuesto) || 0,
+      }))
+      .filter((item): item is { itemId: number; mes: number; presupuesto: number } =>
+        Number.isFinite(item.itemId),
+      );
 
     return payload;
-  }, [budgetRows, evento, generalForm, participantsForm, selectedSections]);
+  }, [budgetRows, evento, generalForm, participantsForm]);
 
   const hasUnresolvableBudgetItems = useMemo(() => {
-    if (!selectedSections.budget || !evento) return false;
+    if (!evento) return false;
 
     return budgetRows.some((row) => {
       if (row.status === "removed") return false;
       if (!row.itemId) return true;
       return false;
     });
-  }, [budgetRows, evento, selectedSections.budget]);
+  }, [budgetRows, evento]);
 
   const handleSubmit = async () => {
     if (!evento || !requestReason.trim()) return;
@@ -478,7 +404,7 @@ export default function EventoReformaPage() {
       setSubmitError(null);
       setSubmitSuccess(null);
 
-      await createReform({
+      const response = await createReform({
         eventoId: evento.id,
         motivo: requestReason.trim(),
         observacion: requestObservation.trim() || undefined,
@@ -487,7 +413,7 @@ export default function EventoReformaPage() {
 
       setSubmitted(true);
       setSubmitSuccess("La solicitud de reforma fue registrada correctamente.");
-      router.push(`/eventos/${evento.id}?status=reform-requested`);
+      router.replace(`/reformas/${response.data.id}`);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
         setSubmitError(
@@ -507,7 +433,7 @@ export default function EventoReformaPage() {
   };
 
   const budgetComparisonRows = useMemo(() => {
-    if (!selectedSections.budget || !evento) return [];
+    if (!evento) return [];
 
     return budgetRows.map((row) => {
       const originalItem = evento.eventoItems?.find((item) => item.id === row.sourceId);
@@ -556,7 +482,7 @@ export default function EventoReformaPage() {
         added: row.status === "new",
       };
     });
-  }, [budgetRows, evento, itemsCatalogo, selectedSections.budget]);
+  }, [budgetRows, evento, itemsCatalogo]);
 
   const handleBudgetChange = (
     localId: string,
@@ -620,7 +546,7 @@ export default function EventoReformaPage() {
   };
 
   const goNext = () => {
-    if (currentStep < 3) {
+    if (currentStep < 2) {
       setCurrentStep((prev) => (prev + 1) as WizardStep);
     }
   };
@@ -784,24 +710,17 @@ export default function EventoReformaPage() {
           <div className="mb-8 flex items-center gap-4">
             <StepBadge
               step={1}
-              label="Secciones"
+              label="Cambios"
               active={currentStep === 1}
               completed={currentStep > 1}
               onClick={() => setCurrentStep(1)}
             />
             <StepBadge
               step={2}
-              label="Cambios"
-              active={currentStep === 2}
-              completed={currentStep > 2}
-              onClick={() => setCurrentStep(2)}
-            />
-            <StepBadge
-              step={3}
               label="Motivo"
-              active={currentStep === 3}
+              active={currentStep === 2}
               completed={false}
-              onClick={() => setCurrentStep(3)}
+              onClick={() => setCurrentStep(2)}
             />
           </div>
 
@@ -822,61 +741,8 @@ export default function EventoReformaPage() {
           ) : null}
 
           {currentStep === 1 ? (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  ¿Qué deseas reformar?
-                </h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Selecciona solo las áreas que el entrenador necesita modificar.
-                </p>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <SectionCard
-                  icon={<FileText className="h-5 w-5" />}
-                  title="Información general"
-                  description="Título, sede, ciudad, provincia, país y fechas del evento."
-                  checked={selectedSections.general}
-                  onToggle={() =>
-                    setSelectedSections((prev) => ({
-                      ...prev,
-                      general: !prev.general,
-                    }))
-                  }
-                />
-                <SectionCard
-                  icon={<Users className="h-5 w-5" />}
-                  title="Participantes"
-                  description="Cantidad de atletas y entrenadores."
-                  checked={selectedSections.participants}
-                  onToggle={() =>
-                    setSelectedSections((prev) => ({
-                      ...prev,
-                      participants: !prev.participants,
-                    }))
-                  }
-                />
-                <SectionCard
-                  icon={<DollarSign className="h-5 w-5" />}
-                  title="Items presupuestarios"
-                  description="Agregar, quitar o reajustar valores del presupuesto."
-                  checked={selectedSections.budget}
-                  onToggle={() =>
-                    setSelectedSections((prev) => ({
-                      ...prev,
-                      budget: !prev.budget,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {currentStep === 2 ? (
             <div className="space-y-8">
-              {selectedSections.general ? (
-                <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+              <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <div className="mb-5 flex items-center gap-3">
                     <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
@@ -992,10 +858,8 @@ export default function EventoReformaPage() {
                     </label>
                   </div>
                 </section>
-              ) : null}
 
-              {selectedSections.participants ? (
-                <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+              <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <div className="mb-5 flex items-center gap-3">
                     <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
@@ -1097,10 +961,8 @@ export default function EventoReformaPage() {
                     </label>
                   </div>
                 </section>
-              ) : null}
 
-              {selectedSections.budget ? (
-                <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+              <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <div className="mb-5 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <DollarSign className="h-5 w-5 text-gray-500 dark:text-gray-400" />
@@ -1256,11 +1118,10 @@ export default function EventoReformaPage() {
                     ))}
                   </div>
                 </section>
-              ) : null}
             </div>
           ) : null}
 
-          {currentStep === 3 ? (
+          {currentStep === 2 ? (
             <div className="space-y-6">
               <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -1315,11 +1176,10 @@ export default function EventoReformaPage() {
               Atrás
             </button>
 
-            {currentStep < 3 ? (
+            {currentStep < 2 ? (
               <button
                 type="button"
                 onClick={goNext}
-                disabled={currentStep === 1 && !canContinueFromStep1}
                 className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
               >
                 Continuar
@@ -1353,7 +1213,7 @@ export default function EventoReformaPage() {
                   <p className="text-xs uppercase tracking-wide text-slate-300">
                     Secciones
                   </p>
-                  <p className="mt-2 text-3xl font-bold">{selectedCount}</p>
+                  <p className="mt-2 text-3xl font-bold">3</p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-300">
@@ -1389,58 +1249,48 @@ export default function EventoReformaPage() {
                   <div>Antes</div>
                   <div>Después</div>
                 </div>
-                {selectedSections.general ? (
-                  <>
-                    <SummaryRow
-                      label="Nombre"
-                      previous={evento.nombre}
-                      next={generalForm.nombre}
-                    />
-                    <SummaryRow
-                      label="Lugar"
-                      previous={evento.lugar}
-                      next={generalForm.lugar}
-                    />
-                    <SummaryRow
-                      label="Ciudad"
-                      previous={evento.ciudad}
-                      next={generalForm.ciudad}
-                    />
-                  </>
-                ) : null}
-
-                {selectedSections.participants ? (
-                  <>
-                    <SummaryRow
-                      label="Atletas H"
-                      previous={evento.numAtletasHombres}
-                      next={participantsForm.numAtletasHombres}
-                    />
-                    <SummaryRow
-                      label="Atletas M"
-                      previous={evento.numAtletasMujeres}
-                      next={participantsForm.numAtletasMujeres}
-                    />
-                    <SummaryRow
-                      label="Entrenadores H"
-                      previous={evento.numEntrenadoresHombres}
-                      next={participantsForm.numEntrenadoresHombres}
-                    />
-                    <SummaryRow
-                      label="Entrenadores M"
-                      previous={evento.numEntrenadoresMujeres}
-                      next={participantsForm.numEntrenadoresMujeres}
-                    />
-                  </>
-                ) : null}
-
-                {selectedSections.budget ? (
+                <>
+                  <SummaryRow
+                    label="Nombre"
+                    previous={evento.nombre}
+                    next={generalForm.nombre}
+                  />
+                  <SummaryRow
+                    label="Lugar"
+                    previous={evento.lugar}
+                    next={generalForm.lugar}
+                  />
+                  <SummaryRow
+                    label="Ciudad"
+                    previous={evento.ciudad}
+                    next={generalForm.ciudad}
+                  />
+                  <SummaryRow
+                    label="Atletas H"
+                    previous={evento.numAtletasHombres}
+                    next={participantsForm.numAtletasHombres}
+                  />
+                  <SummaryRow
+                    label="Atletas M"
+                    previous={evento.numAtletasMujeres}
+                    next={participantsForm.numAtletasMujeres}
+                  />
+                  <SummaryRow
+                    label="Entrenadores H"
+                    previous={evento.numEntrenadoresHombres}
+                    next={participantsForm.numEntrenadoresHombres}
+                  />
+                  <SummaryRow
+                    label="Entrenadores M"
+                    previous={evento.numEntrenadoresMujeres}
+                    next={participantsForm.numEntrenadoresMujeres}
+                  />
                   <SummaryRow
                     label="Presupuesto total"
                     previous={formatCurrency(originalBudgetTotal)}
                     next={formatCurrency(proposedBudgetTotal)}
                   />
-                ) : null}
+                </>
               </div>
             </div>
 
@@ -1453,54 +1303,48 @@ export default function EventoReformaPage() {
               </div>
 
               <div className="space-y-4">
-                {selectedSections.budget ? (
-                  budgetComparisonRows.length > 0 ? (
-                    <>
-                      {budgetComparisonRows.map((row) => (
-                        <BudgetComparisonRow
-                          key={row.id}
-                          beforeLabel={row.beforeLabel}
-                          beforeMonth={row.beforeMonth}
-                          beforeBudget={row.beforeBudget}
-                          afterLabel={row.afterLabel}
-                          afterMonth={row.afterMonth}
-                          afterBudget={row.afterBudget}
-                          labelChanged={row.labelChanged}
-                          monthChanged={row.monthChanged}
-                          budgetChanged={row.budgetChanged}
-                          removed={row.removed}
-                          added={row.added}
-                        />
-                      ))}
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Total antes
-                            </p>
-                            <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">
-                              {formatCurrency(originalBudgetTotal)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Total despues
-                            </p>
-                            <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">
-                              {formatCurrency(proposedBudgetTotal)}
-                            </p>
-                          </div>
+                {budgetComparisonRows.length > 0 ? (
+                  <>
+                    {budgetComparisonRows.map((row) => (
+                      <BudgetComparisonRow
+                        key={row.id}
+                        beforeLabel={row.beforeLabel}
+                        beforeMonth={row.beforeMonth}
+                        beforeBudget={row.beforeBudget}
+                        afterLabel={row.afterLabel}
+                        afterMonth={row.afterMonth}
+                        afterBudget={row.afterBudget}
+                        labelChanged={row.labelChanged}
+                        monthChanged={row.monthChanged}
+                        budgetChanged={row.budgetChanged}
+                        removed={row.removed}
+                        added={row.added}
+                      />
+                    ))}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Total antes
+                          </p>
+                          <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">
+                            {formatCurrency(originalBudgetTotal)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Total despues
+                          </p>
+                          <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">
+                            {formatCurrency(proposedBudgetTotal)}
+                          </p>
                         </div>
                       </div>
-                    </>
-                  ) : (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                      No hay items presupuestarios para comparar.
                     </div>
-                  )
+                  </>
                 ) : (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                    Esta solicitud no incluye cambios en items presupuestarios.
+                    No hay items presupuestarios para comparar.
                   </div>
                 )}
               </div>

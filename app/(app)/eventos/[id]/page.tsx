@@ -161,10 +161,11 @@ export default function EventoDetailPage() {
       setPendingReformId(null);
       return;
     }
+    const safeEventoId = eventoId;
 
     async function fetchPendingReform() {
       try {
-        const response = await listReformsByEvento(eventoId, "PENDIENTE");
+        const response = await listReformsByEvento(safeEventoId, "PENDIENTE");
         setPendingReformId(response.data?.[0]?.id ?? null);
       } catch {
         setPendingReformId(null);

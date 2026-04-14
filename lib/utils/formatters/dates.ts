@@ -1,4 +1,6 @@
 const DEFAULT_LOCALE = "es-EC";
+const DEFAULT_TIME_ZONE = "America/Guayaquil";
+const PLAIN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -21,7 +23,9 @@ type DateFormatOptions = Intl.DateTimeFormatOptions & {
 
 function parseDate(value?: string | null) {
   if (!value) return null;
-  const date = new Date(value);
+  const date = PLAIN_DATE_RE.test(value)
+    ? new Date(`${value}T00:00:00-05:00`)
+    : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date;
 }
@@ -37,15 +41,27 @@ export function formatDateWithOptions(
   } = options;
   const date = parseDate(value);
   if (!date) return fallback;
-  return date.toLocaleDateString(locale, dateOptions);
+  return date.toLocaleDateString(locale, {
+    timeZone: DEFAULT_TIME_ZONE,
+    ...dateOptions,
+  });
 }
 
 export function formatDate(value?: string | null): string {
   const date = parseDate(value);
   if (!date) return "-";
-  const month = date.toLocaleDateString(DEFAULT_LOCALE, { month: "long" });
-  const day = date.getDate();
-  const year = date.getFullYear();
+  const month = date.toLocaleDateString(DEFAULT_LOCALE, {
+    month: "long",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
+  const day = date.toLocaleDateString(DEFAULT_LOCALE, {
+    day: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
+  const year = date.toLocaleDateString(DEFAULT_LOCALE, {
+    year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
   return `${month} ${day} del ${year}`;
 }
 
@@ -73,7 +89,7 @@ export function formatDateLong(value?: string | null): string {
 export function formatDateTime(value?: string | null): string {
   const date = parseDate(value);
   if (!date) return "-";
-  return date.toLocaleString(DEFAULT_LOCALE);
+  return date.toLocaleString(DEFAULT_LOCALE, { timeZone: DEFAULT_TIME_ZONE });
 }
 
 export function formatDateTimeShort(value?: string | null): string {
@@ -85,6 +101,7 @@ export function formatDateTimeShort(value?: string | null): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 }
 
@@ -101,16 +118,21 @@ export function formatDateRange(
   const startStr = startDate.toLocaleDateString(DEFAULT_LOCALE, {
     day: "numeric",
     month: "short",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 
   if (!endDate) {
-    return `${startStr}, ${startDate.getFullYear()}`;
+    return `${startStr}, ${startDate.toLocaleDateString(DEFAULT_LOCALE, {
+      year: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
+    })}`;
   }
 
   const endStr = endDate.toLocaleDateString(DEFAULT_LOCALE, {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 
   return `${startStr} - ${endStr}`;
@@ -125,17 +147,33 @@ export function formatDateInput(value?: string | null): string {
 export function formatDateDMY(value?: string | null): string {
   const date = parseDate(value);
   if (!date) return "-";
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+  const day = date.toLocaleDateString(DEFAULT_LOCALE, {
+    day: "2-digit",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
+  const month = date.toLocaleDateString(DEFAULT_LOCALE, {
+    month: "2-digit",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
+  const year = date.toLocaleDateString(DEFAULT_LOCALE, {
+    year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
   return `${day}-${month}-${year}`;
 }
 
 export function formatTimeCompact(value?: string | null): string {
   const date = parseDate(value);
   if (!date) return "-";
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
+  const hh = date.toLocaleString(DEFAULT_LOCALE, {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
+  const mm = date.toLocaleString(DEFAULT_LOCALE, {
+    minute: "2-digit",
+    timeZone: DEFAULT_TIME_ZONE,
+  });
   return `${hh}H${mm}`;
 }
 
@@ -152,6 +190,7 @@ export function formatDocumentEventDateRange(
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 
   const end = parseDate(fin);
@@ -161,6 +200,7 @@ export function formatDocumentEventDateRange(
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 
   return `${startFormatted} AL ${endFormatted}`.toUpperCase();
@@ -179,6 +219,7 @@ export function formatEventDateRangeForDescripcion(
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
     })}`;
   }
 
@@ -188,28 +229,46 @@ export function formatEventDateRangeForDescripcion(
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
     })}`;
   }
 
   const sameMonth =
-    start.getMonth() === end.getMonth() &&
-    start.getFullYear() === end.getFullYear();
+    start.toLocaleDateString(DEFAULT_LOCALE, {
+      month: "2-digit",
+      year: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
+    }) ===
+    end.toLocaleDateString(DEFAULT_LOCALE, {
+      month: "2-digit",
+      year: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
+    });
 
   if (sameMonth) {
-    return `del ${start.getDate()} al ${end.getDate()} de ${start.toLocaleDateString(
-      DEFAULT_LOCALE,
-      { month: "long", year: "numeric" },
-    )}`;
+    return `del ${start.toLocaleDateString(DEFAULT_LOCALE, {
+      day: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
+    })} al ${end.toLocaleDateString(DEFAULT_LOCALE, {
+      day: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
+    })} de ${start.toLocaleDateString(DEFAULT_LOCALE, {
+      month: "long",
+      year: "numeric",
+      timeZone: DEFAULT_TIME_ZONE,
+    })}`;
   }
 
   return `del ${start.toLocaleDateString(DEFAULT_LOCALE, {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
   })} al ${end.toLocaleDateString(DEFAULT_LOCALE, {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
   })}`;
 }
 
@@ -218,6 +277,7 @@ export function formatCurrentLongDate(): string {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 }
 

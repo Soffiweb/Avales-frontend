@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { format, Locale } from "date-fns";
+import { Locale } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { es } from "date-fns/locale";
 
@@ -13,6 +13,25 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { CaptionYearInput } from "../ui/daypicker-caption-year-input";
+
+const DEFAULT_TIME_ZONE = "America/Guayaquil";
+const PLAIN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDate(value?: string) {
+  if (!value) return undefined;
+  return PLAIN_DATE_RE.test(value)
+    ? new Date(`${value}T00:00:00-05:00`)
+    : new Date(value);
+}
+
+function formatDateLabel(date: Date) {
+  return new Intl.DateTimeFormat("es-EC", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: DEFAULT_TIME_ZONE,
+  }).format(date);
+}
 
 type DatePickerProps = Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -43,7 +62,7 @@ export default function DatePicker({
   const activeLocale = locale ?? es;
   const selectedDate =
     mode === "single" && typeof value === "string" && value
-      ? new Date(value)
+      ? parseDate(value)
       : undefined;
 
   const selectedRange =
@@ -52,23 +71,18 @@ export default function DatePicker({
       : undefined;
 
   const label = React.useMemo(() => {
-    const formatOptions = { locale: activeLocale };
     if (mode === "range") {
       if (selectedRange?.from) {
         if (selectedRange.to) {
-          return `${format(
-            selectedRange.from,
-            "LLL dd, y",
-            formatOptions
-          )} - ${format(selectedRange.to, "LLL dd, y", formatOptions)}`;
+          return `${formatDateLabel(selectedRange.from)} - ${formatDateLabel(selectedRange.to)}`;
         }
-        return format(selectedRange.from, "LLL dd, y", formatOptions);
+        return formatDateLabel(selectedRange.from);
       }
       return placeholder ?? "Selecciona un rango de fechas";
     }
 
     if (selectedDate) {
-      return format(selectedDate, "LLL dd, y", formatOptions);
+      return formatDateLabel(selectedDate);
     }
 
     return placeholder ?? "Selecciona una fecha";

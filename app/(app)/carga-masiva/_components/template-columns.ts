@@ -13,7 +13,7 @@ export const USERS_COLUMNS: ColumnDef[] = [
   { key: "APELLIDOS", label: "Apellidos", required: false },
   { key: "NOMBRES", label: "Nombres", required: false },
   { key: "CARGO", label: "Cargo", required: true },
-  { key: "DISCIPLINA", label: "Disciplina", required: false },
+  { key: "DISCIPLINA", label: "Disciplina", required: true },
   { key: "TELEFONO", label: "Telefono", required: false },
   { key: "CORREO", label: "Correo", required: false },
 ];

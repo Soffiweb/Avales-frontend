@@ -1,6 +1,6 @@
 "use client";
 
-import { UserCheck, UserPlus } from "lucide-react";
+import { AlertTriangle, UserCheck, UserPlus } from "lucide-react";
 import { type ColumnDef } from "./template-columns";
 import type { CheckCedulasResponse } from "@/lib/api/user";
 
@@ -8,6 +8,7 @@ type Props = {
   columns: ColumnDef[];
   rows: Record<string, string>[];
   existingCedulas?: CheckCedulasResponse | null;
+  rowIssues?: Record<number, Record<string, string>>;
   maxRows?: number;
 };
 
@@ -15,6 +16,7 @@ export default function DataPreviewTable({
   columns,
   rows,
   existingCedulas,
+  rowIssues = {},
   maxRows = 50,
 }: Props) {
   const displayRows = rows.slice(0, maxRows);
@@ -104,6 +106,9 @@ export default function DataPreviewTable({
                     )}
                   </th>
                 ))}
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Errores
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -111,15 +116,19 @@ export default function DataPreviewTable({
                 const hasEmptyRequired = columns.some(
                   (col) => col.required && !row[col.key]?.toString().trim()
                 );
+                const currentIssues = rowIssues[idx] ?? {};
+                const hasRowIssues =
+                  hasEmptyRequired || Object.keys(currentIssues).length > 0;
                 const cedula = row["CEDULA"];
                 const isExisting = showStatus && cedula && existingCedulas![cedula];
                 const existingUser = isExisting ? existingCedulas![cedula] : null;
+                const issueSummary = Object.values(currentIssues).flat().join(" | ");
 
                 return (
                   <tr
                     key={idx}
                     className={
-                      hasEmptyRequired
+                      hasRowIssues
                         ? "bg-rose-50/50 dark:bg-rose-900/10"
                         : idx % 2 === 0
                           ? ""
@@ -131,7 +140,15 @@ export default function DataPreviewTable({
                     </td>
                     {showStatus && (
                       <td className="px-3 py-2 whitespace-nowrap">
-                        {isExisting ? (
+                        {hasRowIssues ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                            title={issueSummary || "Fila con errores"}
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            Con error
+                          </span>
+                        ) : isExisting ? (
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
                             title={`Ya existe: ${existingUser!.nombre} ${existingUser!.apellido}`}
@@ -151,6 +168,7 @@ export default function DataPreviewTable({
                       const value = row[col.key] ?? "";
                       const isEmpty =
                         col.required && !value.toString().trim();
+                      const issueMessage = currentIssues[col.key];
 
                       // For budget item columns, show total + unit cost
                       const isBudgetCol = !!col.itemDescription;
@@ -167,17 +185,15 @@ export default function DataPreviewTable({
                         <td
                           key={col.key}
                           className={`px-3 py-2 text-sm whitespace-nowrap ${
-                            isEmpty
+                            issueMessage || isEmpty
                               ? "text-rose-500 dark:text-rose-400 italic"
                               : "text-gray-900 dark:text-gray-100"
                           }`}
-                          title={
-                            unitCost
-                              ? `Total: $${numValue} / ${totalPersonas} personas = $${unitCost} c/u`
-                              : undefined
-                          }
+                          title={issueMessage || (unitCost ? `Total: $${numValue} / ${totalPersonas} personas = $${unitCost} c/u` : undefined)}
                         >
-                          {isEmpty ? (
+                          {issueMessage ? (
+                            value.toString() || "inválido"
+                          ) : isEmpty ? (
                             "vacio"
                           ) : isBudgetCol && numValue > 0 ? (
                             <div className="flex flex-col">
@@ -194,6 +210,28 @@ export default function DataPreviewTable({
                         </td>
                       );
                     })}
+                    <td className="px-3 py-2 align-top">
+                      {Object.keys(currentIssues).length > 0 ? (
+                        <div className="space-y-1">
+                          {Object.entries(currentIssues).map(([field, message]) => (
+                            <div
+                              key={field}
+                              className="inline-flex max-w-full items-start gap-1 rounded-md bg-rose-100 px-2 py-1 text-xs text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                              title={message}
+                            >
+                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                              <span className="break-words">
+                                {field}: {message}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                          Sin errores
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

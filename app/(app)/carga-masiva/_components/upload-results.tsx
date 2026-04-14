@@ -49,12 +49,12 @@ export default function UploadResults({ type, response }: Props) {
             )}
           </p>
           {isUsersResponse(type, response) &&
-            response.disciplinasCreadas.length > 0 && (
+            response.disciplinasCreadas?.length ? (
               <p className="text-sm mt-1">
                 Disciplinas creadas:{" "}
                 <strong>{response.disciplinasCreadas.join(", ")}</strong>
               </p>
-            )}
+            ) : null}
         </div>
       </div>
 

@@ -19,6 +19,9 @@ import {
   type CheckCedulasResponse,
 } from "@/lib/api/user";
 import { uploadEventsExcel, type UploadExcelResponse } from "@/lib/api/eventos";
+import { getCatalog } from "@/lib/api/catalog";
+import { ROLES } from "@/lib/constants";
+import { formatRole } from "@/lib/utils/formatters/text";
 import FileDropzone from "./_components/file-dropzone";
 import DataPreviewTable from "./_components/data-preview-table";
 import UploadResults from "./_components/upload-results";
@@ -30,6 +33,10 @@ import {
   getUploadLabel,
   isBudgetItemCode,
 } from "./_components/template-columns";
+import {
+  validatePreviewRows,
+  type RowIssuesByIndex,
+} from "./_components/row-validation";
 
 type Step = "select-type" | "upload-file" | "preview" | "results";
 
@@ -44,9 +51,14 @@ export default function CargaMasivaPage() {
   const [checking, setChecking] = useState(false);
   const [existingCedulas, setExistingCedulas] =
     useState<CheckCedulasResponse | null>(null);
+  const [disciplinasCatalog, setDisciplinasCatalog] = useState<
+    { id: number; nombre: string; codigo?: string | null }[]
+  >([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [response, setResponse] = useState<
     UploadUsersExcelResponse | UploadExcelResponse | null
   >(null);
+  const [rowIssues, setRowIssues] = useState<RowIssuesByIndex>({});
   // Dynamic columns detected from the Excel (base + budget items)
   const [detectedColumns, setDetectedColumns] = useState<ColumnDef[]>([]);
 
@@ -57,6 +69,28 @@ export default function CargaMasivaPage() {
       ? detectedColumns
       : baseColumns;
 
+  const ensureCatalogLoaded = useCallback(async () => {
+    if (disciplinasCatalog.length > 0) return disciplinasCatalog;
+    if (catalogLoading) return disciplinasCatalog;
+
+    setCatalogLoading(true);
+    try {
+      const result = await getCatalog();
+      const disciplinas = result.data?.disciplinas ?? [];
+      if (disciplinas.length === 0) {
+        throw new Error("No se encontraron disciplinas en el catálogo.");
+      }
+      setDisciplinasCatalog(disciplinas);
+      return disciplinas;
+    } catch (error) {
+      throw error instanceof Error
+        ? error
+        : new Error("No se pudo cargar el catálogo de disciplinas.");
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [catalogLoading, disciplinasCatalog]);
+
   const handleSelectType = (type: UploadType) => {
     setUploadType(type);
     setStep("upload-file");
@@ -66,6 +100,7 @@ export default function CargaMasivaPage() {
     setUploadError(null);
     setResponse(null);
     setExistingCedulas(null);
+    setRowIssues({});
     setDetectedColumns([]);
   };
 
@@ -75,6 +110,7 @@ export default function CargaMasivaPage() {
       setParseError(null);
       setUploadError(null);
       setExistingCedulas(null);
+      setRowIssues({});
       setDetectedColumns([]);
 
       const reader = new FileReader();
@@ -97,6 +133,7 @@ export default function CargaMasivaPage() {
           const rawData = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
             defval: "",
+            raw: false,
           }) as string[][];
 
           if (!rawData || rawData.length < 2) {
@@ -192,7 +229,16 @@ export default function CargaMasivaPage() {
             rows.push(mapped);
           }
 
+          const disciplinas = await ensureCatalogLoaded();
+          const issues = validatePreviewRows(
+            uploadType!,
+            rows,
+            uploadType === "eventos" ? allColumns : currentBaseColumns,
+            disciplinas
+          );
+
           setParsedRows(rows);
+          setRowIssues(issues);
           setStep("preview");
 
           if (uploadType === "usuarios" && rows.length > 0) {
@@ -210,16 +256,19 @@ export default function CargaMasivaPage() {
               }
             }
           }
-        } catch {
+        } catch (error) {
           setParseError(
-            "No se pudo leer el archivo. Verifica que sea un Excel valido."
+            error instanceof Error
+              ? error.message
+              : "No se pudo leer el archivo. Verifica que sea un Excel valido."
           );
           setParsedRows([]);
+          setRowIssues({});
         }
       };
       reader.readAsArrayBuffer(selectedFile);
     },
-    [uploadType]
+    [uploadType, ensureCatalogLoaded]
   );
 
   const handleFileClear = () => {
@@ -227,6 +276,7 @@ export default function CargaMasivaPage() {
     setParsedRows([]);
     setParseError(null);
     setExistingCedulas(null);
+    setRowIssues({});
   };
 
   const handleUpload = async () => {
@@ -262,6 +312,7 @@ export default function CargaMasivaPage() {
     setUploadError(null);
     setResponse(null);
     setExistingCedulas(null);
+    setRowIssues({});
     setDetectedColumns([]);
   };
 
@@ -273,14 +324,14 @@ export default function CargaMasivaPage() {
     setUploadError(null);
     setResponse(null);
     setExistingCedulas(null);
+    setRowIssues({});
     setDetectedColumns([]);
   };
 
-  // Validation summary for preview
-  const requiredColumns = columns.filter((c) => c.required);
-  const rowsWithIssues = parsedRows.filter((row) =>
-    requiredColumns.some((col) => !row[col.key]?.toString().trim())
+  const rowsWithIssues = parsedRows.filter((_, index) =>
+    Boolean(rowIssues[index] && Object.keys(rowIssues[index]).length > 0)
   );
+  const canConfirmUpload = rowsWithIssues.length === 0 && parsedRows.length > 0;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto">
@@ -317,7 +368,7 @@ export default function CargaMasivaPage() {
           {step === "upload-file" &&
             `Sube un archivo Excel con los datos de ${getUploadLabel(uploadType!)}.`}
           {step === "preview" &&
-            "Revisa los datos antes de enviarlos. Las filas con campos obligatorios vacios se muestran resaltadas."}
+            "Revisa los datos antes de enviarlos. Las filas con campos obligatorios vacios o catálogos inválidos se muestran resaltadas."}
           {step === "results" && "Resultado de la carga masiva."}
         </p>
       </div>
@@ -459,6 +510,17 @@ export default function CargaMasivaPage() {
                   Ademas, las columnas con codigos numericos (ej: 530201, 530235...) se detectan automaticamente como items presupuestarios. La fila debajo del encabezado debe tener la descripcion del item.
                 </p>
               )}
+              {uploadType === "usuarios" && (
+                <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p>
+                    Solo se aceptan disciplinas registradas en el catalogo. Puedes enviar el codigo o el nombre exacto.
+                  </p>
+                  <p>
+                    Roles aceptados:{" "}
+                    {ROLES.map((role) => `${role} (${formatRole(role)})`).join(", ")}.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -489,14 +551,13 @@ export default function CargaMasivaPage() {
                 <AlertTriangle className="w-4 h-4" />
                 <span>
                   <strong>{rowsWithIssues.length}</strong> fila
-                  {rowsWithIssues.length !== 1 ? "s" : ""} con campos
-                  obligatorios vacios
+                  {rowsWithIssues.length !== 1 ? "s" : ""} con errores de validacion
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-sm">
                 <CheckCircle className="w-4 h-4" />
-                <span>Todos los campos obligatorios estan completos</span>
+                <span>Todos los datos obligatorios y catálogos están correctos</span>
               </div>
             )}
 
@@ -513,6 +574,7 @@ export default function CargaMasivaPage() {
             columns={columns}
             rows={parsedRows}
             existingCedulas={existingCedulas}
+            rowIssues={rowIssues}
           />
 
           {/* Upload error */}
@@ -542,12 +604,12 @@ export default function CargaMasivaPage() {
             <button
               type="button"
               onClick={handleUpload}
-              disabled={uploading || parsedRows.length === 0}
+              disabled={uploading || !canConfirmUpload}
               className={`
                 flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg
                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
                 ${
-                  uploading || parsedRows.length === 0
+                  uploading || !canConfirmUpload
                     ? "bg-indigo-400 cursor-not-allowed"
                     : "bg-indigo-600 hover:bg-indigo-700"
                 }

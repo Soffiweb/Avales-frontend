@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { uploadUsersExcel, type UploadUsersExcelResponse } from "@/lib/api/user";
+import { ROLES } from "@/lib/constants";
+import { formatRole } from "@/lib/utils/formatters/text";
 
 type UploadUsersExcelModalProps = {
   isOpen: boolean;
@@ -155,6 +157,10 @@ export default function UploadUsersExcelModal({
                     <p className="text-sm text-gray-500 mt-1">
                       Excel con columnas: CEDULA, APELLIDOS, NOMBRES, CARGO, CORREO
                     </p>
+                    <p className="text-xs text-gray-500 mt-2 max-w-md">
+                      Solo se aceptan disciplinas registradas en el catalogo; puedes enviar el codigo o el nombre exacto. Para CARGO se aceptan los roles validos del sistema:{" "}
+                      {ROLES.map((role) => `${role} (${formatRole(role)})`).join(", ")}.
+                    </p>
                   </div>
                 )}
               </div>
@@ -184,11 +190,11 @@ export default function UploadUsersExcelModal({
                       Creados: <strong>{response.creados.length}</strong> |
                       Actualizados: <strong>{response.actualizados.length}</strong>
                     </p>
-                    {response.disciplinasCreadas.length > 0 && (
+                    {response.disciplinasCreadas?.length ? (
                       <p className="text-sm mt-1">
                         Disciplinas creadas: <strong>{response.disciplinasCreadas.join(", ")}</strong>
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 

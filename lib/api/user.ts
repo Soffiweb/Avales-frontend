@@ -165,7 +165,7 @@ export type UploadUsersExcelResponse = {
   creados: string[];
   actualizados: string[];
   errores: { fila: number; error: string }[];
-  disciplinasCreadas: string[];
+  disciplinasCreadas?: string[];
 };
 
 export async function uploadUsersExcel(file: File) {

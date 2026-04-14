@@ -305,13 +305,21 @@ export default function CatalogCrudView({
               key={item.id}
               className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+                <div className="min-w-0">
+                  <h2
+                    className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: 2,
+                      overflow: "hidden",
+                    }}
+                  >
                     {item.nombre}
                   </h2>
                   {item.codigo ? (
-                    <p className="mt-2 text-sm text-violet-600 dark:text-violet-300 font-medium">
+                    <p className="mt-2 text-sm text-violet-600 dark:text-violet-300 font-medium break-all">
                       {item.codigo}
                     </p>
                   ) : (
@@ -327,7 +335,7 @@ export default function CatalogCrudView({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 pt-1">
                   <button
                     type="button"
                     onClick={() => openEdit(item)}

@@ -319,6 +319,12 @@ export default function CatalogCrudView({
                       Sin codigo
                     </p>
                   )}
+                  {typeof item.eventosCount === "number" && (
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      {item.eventosCount} evento
+                      {item.eventosCount === 1 ? "" : "s"}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">

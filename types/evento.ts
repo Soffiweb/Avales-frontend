@@ -54,9 +54,10 @@ export type Evento = {
   updatedAt?: string;
   disciplina?: CatalogItem | null;
   disciplinaId: number;
+  disciplinaCodigo?: string | null;
   categoria?: CatalogItem | null;
   categoriaId: number;
-  disciplinaCodigo?: string | null;
+  categoriaCodigo?: string | null;
   eventoItems?: EventoItem[];
 };
 

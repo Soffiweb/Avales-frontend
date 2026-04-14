@@ -9,6 +9,7 @@ export type Deportista = {
   fechaNacimiento?: string;
   categoria?: CatalogItem;
   categoriaId?: number;
+  categoriaCodigo?: string | null;
   disciplina?: CatalogItem;
   disciplinaId?: number;
   disciplinaCodigo?: string | null;

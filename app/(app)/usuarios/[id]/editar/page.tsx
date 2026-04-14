@@ -54,6 +54,8 @@ export default function EditarUsuario() {
         const disciplinaCodigos = extractDisciplinaCodigos(u.disciplinas);
         const primaryDisciplinaCodigo =
           u.disciplinaCodigo ?? u.disciplina?.codigo ?? (u.disciplinaId ? String(u.disciplinaId) : "");
+        const categoriaCodigo =
+          u.categoriaCodigo ?? u.categoria?.codigo ?? (u.categoriaId ? String(u.categoriaId) : "");
 
         setInitialValues({
           nombre: u.nombre ?? "",
@@ -61,7 +63,7 @@ export default function EditarUsuario() {
           email: u.email ?? "",
           password: "",
           cedula: u.cedula ?? "",
-          categoriaId: u.categoriaId ?? u.categoria?.id ?? 0,
+          categoriaCodigo,
           disciplinas: disciplinaCodigos.length
             ? disciplinaCodigos
             : primaryDisciplinaCodigo

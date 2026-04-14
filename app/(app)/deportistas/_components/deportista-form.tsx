@@ -27,7 +27,7 @@ const EMPTY_FORM_VALUES: DeportistaFormValues = {
   cedula: "",
   genero: undefined as any,
   fechaNacimiento: "",
-  categoriaId: undefined as any,
+  categoriaCodigo: "",
   disciplinaCodigo: "",
   afiliacion: false,
   afiliacionInicio: "",
@@ -42,10 +42,10 @@ const mapDeportistaToFormValues = (
   cedula: deportista.cedula ?? "",
   genero: (deportista.genero ?? undefined) as DeportistaFormValues["genero"],
   fechaNacimiento: deportista.fechaNacimiento ?? "",
-  categoriaId:
-    deportista.categoriaId ??
-    deportista.categoria?.id ??
-    (undefined as unknown as DeportistaFormValues["categoriaId"]),
+  categoriaCodigo:
+    deportista.categoriaCodigo ??
+    deportista.categoria?.codigo ??
+    (deportista.categoriaId ? String(deportista.categoriaId) : ""),
   disciplinaCodigo:
     deportista.disciplinaCodigo ??
     deportista.disciplina?.codigo ??
@@ -101,12 +101,16 @@ export default function DeportistaForm({
     }
     reset({
       ...initialValues,
+      categoriaCodigo: resolveCatalogItemCodeFromList(
+        categorias,
+        initialValues.categoriaCodigo
+      ),
       disciplinaCodigo: resolveCatalogItemCodeFromList(
         disciplinas,
         initialValues.disciplinaCodigo
       ),
     });
-  }, [deportista, initialValues, mode, catalogLoading, reset, disciplinas]);
+  }, [deportista, initialValues, mode, catalogLoading, reset, categorias, disciplinas]);
 
   const afiliacion = watch("afiliacion", false);
   const afiliacionInicio = watch("afiliacionInicio");
@@ -162,7 +166,7 @@ export default function DeportistaForm({
       cedula: values.cedula.trim(),
       genero: values.genero.toUpperCase() as "MASCULINO" | "FEMENINO" | "OTRO",
       fechaNacimiento: new Date(values.fechaNacimiento).toISOString(),
-      categoriaId: values.categoriaId,
+      categoriaCodigo: values.categoriaCodigo,
       disciplinaCodigo: values.disciplinaCodigo,
       afiliacion: values.afiliacion,
       afiliacionInicio: values.afiliacionInicio
@@ -202,10 +206,13 @@ export default function DeportistaForm({
           problem?.detail ?? problem?.title ?? err.message ?? fallback;
         if (problem?.field) {
           const fieldName =
-            problem.field === "disciplinaId" ||
-            problem.field === "disciplinaCodigo"
-              ? ("disciplinaCodigo" as keyof DeportistaFormValues)
-              : (problem.field as keyof DeportistaFormValues);
+            problem.field === "categoriaId" ||
+            problem.field === "categoriaCodigo"
+              ? ("categoriaCodigo" as keyof DeportistaFormValues)
+              : problem.field === "disciplinaId" ||
+                  problem.field === "disciplinaCodigo"
+                ? ("disciplinaCodigo" as keyof DeportistaFormValues)
+                : (problem.field as keyof DeportistaFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
         message = detail;
@@ -346,30 +353,30 @@ export default function DeportistaForm({
           <div>
             <label
               className="block text-sm font-medium mb-1"
-              htmlFor="categoriaId"
-            >
-              Categoria
-            </label>
-            <select
-              id="categoriaId"
-              className="form-select w-full"
-              disabled={catalogLoading || !categorias.length}
-              {...register("categoriaId", {
-                setValueAs: (v) => Number(v),
-              })}
-            >
-              <option value="">Selecciona una opcion</option>
-              {(categorias ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-            {errors.categoriaId && (
-              <p className="mt-1 text-xs text-red-600">
-                {errors.categoriaId.message}
-              </p>
-            )}
+            htmlFor="categoriaCodigo"
+          >
+            Categoria
+          </label>
+          <select
+            id="categoriaCodigo"
+            className="form-select w-full"
+            disabled={catalogLoading || !categorias.length}
+            {...register("categoriaCodigo", {
+              setValueAs: (v) => String(v),
+            })}
+          >
+            <option value="">Selecciona una opcion</option>
+            {(categorias ?? []).map((c) => (
+              <option key={c.id} value={getCatalogItemCode(c)}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+          {errors.categoriaCodigo && (
+            <p className="mt-1 text-xs text-red-600">
+              {errors.categoriaCodigo.message}
+            </p>
+          )}
           </div>
 
           <div>

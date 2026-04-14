@@ -34,7 +34,7 @@ const baseUserSchema = z.object({
     .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
     .optional()
     .or(z.literal("")),
-  categoriaId: z.number().int().positive("Selecciona una categoria"),
+  categoriaCodigo: z.string().min(1, "Selecciona una categoria"),
   disciplinas: z
     .array(z.string().min(1, "Selecciona una disciplina valida"))
     .min(1, "Selecciona al menos una disciplina"),
@@ -49,7 +49,7 @@ export const profileSchema = z.object({
   cedula: z
     .string()
     .regex(/^\d{10}$/, "Cedula invalida: deben ser 10 digitos"),
-  categoriaId: z.number().int().positive("CategoriaId invalido").optional(),
+  categoriaCodigo: z.string().min(1, "Categoria invalida").optional(),
   disciplinaCodigo: z.string().min(1, "Disciplina invalida").optional(),
 });
 

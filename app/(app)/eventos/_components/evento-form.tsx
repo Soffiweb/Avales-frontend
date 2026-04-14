@@ -44,7 +44,7 @@ const EMPTY_FORM_VALUES: EventoFormValues = {
   lugar: "",
   genero: undefined as unknown as EventoFormValues["genero"],
   disciplinaCodigo: "",
-  categoriaId: undefined as unknown as number,
+  categoriaCodigo: "",
   provincia: "",
   ciudad: "",
   pais: "Ecuador",
@@ -69,10 +69,10 @@ const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
     evento.disciplinaCodigo ??
     evento.disciplina?.codigo ??
     (evento.disciplinaId ? String(evento.disciplinaId) : ""),
-  categoriaId:
-    evento.categoriaId ??
-    evento.categoria?.id ??
-    (undefined as unknown as number),
+  categoriaCodigo:
+    evento.categoriaCodigo ??
+    evento.categoria?.codigo ??
+    (evento.categoriaId ? String(evento.categoriaId) : ""),
   provincia: evento.provincia ?? "",
   ciudad: evento.ciudad ?? "",
   pais: evento.pais ?? "Ecuador",
@@ -153,12 +153,16 @@ export default function EventoForm({
     }
     reset({
       ...initialValues,
+      categoriaCodigo: resolveCatalogItemCodeFromList(
+        categorias,
+        initialValues.categoriaCodigo
+      ),
       disciplinaCodigo: resolveCatalogItemCodeFromList(
         disciplinas,
         initialValues.disciplinaCodigo
       ),
     });
-  }, [evento, initialValues, mode, catalogLoading, reset, disciplinas]);
+  }, [evento, initialValues, mode, catalogLoading, reset, categorias, disciplinas]);
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -258,7 +262,7 @@ export default function EventoForm({
       lugar: values.lugar.trim(),
       genero: values.genero,
       disciplinaCodigo: values.disciplinaCodigo,
-      categoriaId: values.categoriaId,
+      categoriaCodigo: values.categoriaCodigo,
       provincia: values.provincia.trim(),
       ciudad: values.ciudad.trim(),
       pais: values.pais.trim(),
@@ -305,10 +309,13 @@ export default function EventoForm({
           problem?.detail ?? problem?.title ?? err.message ?? fallback;
         if (problem?.field) {
           const fieldName =
-            problem.field === "disciplinaId" ||
-            problem.field === "disciplinaCodigo"
-              ? ("disciplinaCodigo" as keyof EventoFormValues)
-              : (problem.field as keyof EventoFormValues);
+            problem.field === "categoriaId" ||
+            problem.field === "categoriaCodigo"
+              ? ("categoriaCodigo" as keyof EventoFormValues)
+              : problem.field === "disciplinaId" ||
+                  problem.field === "disciplinaCodigo"
+                ? ("disciplinaCodigo" as keyof EventoFormValues)
+                : (problem.field as keyof EventoFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
         message = detail;
@@ -472,30 +479,30 @@ export default function EventoForm({
           <div>
             <label
               className="block text-sm font-medium mb-1"
-              htmlFor="categoriaId"
-            >
-              Categoria
-            </label>
-            <select
-              id="categoriaId"
-              className="form-select w-full"
-              disabled={catalogLoading || !categorias.length}
-              {...register("categoriaId", {
-                setValueAs: (v) => (v === "" ? undefined : Number(v)),
-              })}
-            >
-              <option value="">Selecciona una opcion</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-            {errors.categoriaId && (
-              <p className="mt-1 text-xs text-red-600">
-                {errors.categoriaId.message}
-              </p>
-            )}
+            htmlFor="categoriaCodigo"
+          >
+            Categoria
+          </label>
+          <select
+            id="categoriaCodigo"
+            className="form-select w-full"
+            disabled={catalogLoading || !categorias.length}
+            {...register("categoriaCodigo", {
+              setValueAs: (v) => String(v),
+            })}
+          >
+            <option value="">Selecciona una opcion</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={getCatalogItemCode(c)}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+          {errors.categoriaCodigo && (
+            <p className="mt-1 text-xs text-red-600">
+              {errors.categoriaCodigo.message}
+            </p>
+          )}
           </div>
 
           <div>

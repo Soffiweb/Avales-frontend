@@ -27,6 +27,7 @@ export type User = {
   genero?: Genero;
   categoria?: CatalogItem;
   categoriaId?: number;
+  categoriaCodigo?: string | null;
   disciplina?: CatalogItem;
   disciplinaId?: number;
   disciplinaCodigo?: string | null;

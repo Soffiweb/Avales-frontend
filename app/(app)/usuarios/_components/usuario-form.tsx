@@ -120,7 +120,7 @@ export default function UsuarioForm({
       password: "",
       cedula: initialValues?.cedula ?? "",
       genero: initialValues?.genero ?? "",
-      categoriaId: initialValues?.categoriaId,
+      categoriaCodigo: initialValues?.categoriaCodigo ?? "",
       disciplinas: initialValues?.disciplinas ?? [],
       roles: initialValues?.roles ?? defaultRoleSelection,
       puedeSolicitarReformas: initialValues?.puedeSolicitarReformas ?? false,
@@ -137,6 +137,10 @@ export default function UsuarioForm({
     const normalizedDisciplinas = (initialValues.disciplinas ?? []).map((value) =>
       resolveCatalogItemCodeFromList(disciplinas, value),
     );
+    const normalizedCategoria = resolveCatalogItemCodeFromList(
+      categorias,
+      initialValues.categoriaCodigo,
+    );
     reset({
       ...initialValues,
       password: "",
@@ -145,9 +149,10 @@ export default function UsuarioForm({
           ? initialValues.roles
           : defaultRoleSelection,
       puedeSolicitarReformas: initialValues.puedeSolicitarReformas ?? false,
+      categoriaCodigo: normalizedCategoria,
       disciplinas: normalizedDisciplinas,
     });
-  }, [initialValues, catalogLoading, reset, disciplinas]);
+  }, [initialValues, catalogLoading, reset, disciplinas, categorias]);
 
   useEffect(() => {
     if (isEntrenador) return;
@@ -208,18 +213,18 @@ export default function UsuarioForm({
         } as CreateUserFormValues;
 
         await createUser(cleanedForCreate);
-        reset({
-          nombre: "",
-          apellido: "",
-          email: "",
-          password: "",
-          cedula: "",
-          genero: "",
-          categoriaId: undefined,
-          disciplinas: [],
-          roles: defaultRoleSelection,
-          puedeSolicitarReformas: false,
-        });
+      reset({
+        nombre: "",
+        apellido: "",
+        email: "",
+        password: "",
+        cedula: "",
+        genero: "",
+        categoriaCodigo: "",
+        disciplinas: [],
+        roles: defaultRoleSelection,
+        puedeSolicitarReformas: false,
+      });
         if (onCreated) {
           await onCreated();
         }
@@ -236,11 +241,14 @@ export default function UsuarioForm({
           problem?.detail ?? problem?.title ?? err.message ?? fallback;
         if (problem?.field) {
           const fieldName =
-            problem.field === "disciplinaId" ||
-            problem.field === "disciplinaCodigo" ||
-            problem.field === "disciplinaCodigos"
-              ? "disciplinas"
-              : (problem.field as keyof UserFormValues);
+            problem.field === "categoriaId" ||
+            problem.field === "categoriaCodigo"
+              ? "categoriaCodigo"
+              : problem.field === "disciplinaId" ||
+                  problem.field === "disciplinaCodigo" ||
+                  problem.field === "disciplinaCodigos"
+                ? "disciplinas"
+                : (problem.field as keyof UserFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
         message = detail;
@@ -434,28 +442,28 @@ export default function UsuarioForm({
         <div>
           <label
             className="block text-sm font-medium mb-1"
-            htmlFor="categoriaId"
+            htmlFor="categoriaCodigo"
           >
             Categoria
           </label>
           <select
-            id="categoriaId"
+            id="categoriaCodigo"
             className="form-select w-full"
             disabled={catalogLoading || !categorias.length}
-            {...register("categoriaId", {
-              setValueAs: (v) => Number(v),
+            {...register("categoriaCodigo", {
+              setValueAs: (v) => String(v),
             })}
           >
             <option value="">Selecciona una opcion</option>
             {(categorias ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={getCatalogItemCode(c)}>
                 {c.nombre}
               </option>
             ))}
           </select>
-          {errors.categoriaId && (
+          {errors.categoriaCodigo && (
             <p className="mt-1 text-xs text-red-600">
-              {errors.categoriaId.message}
+              {errors.categoriaCodigo.message}
             </p>
           )}
         </div>

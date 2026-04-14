@@ -142,11 +142,12 @@ export default function ProfilePanel({ viewUserId }: Props) {
       apellido: subjectUser.apellido ?? "",
       email: subjectUser.email ?? "",
       cedula: subjectUser.cedula ?? "",
-      categoriaId: categorias.some(
-        (c) => c.id === (subjectUser.categoria?.id ?? subjectUser.categoriaId)
-      )
-        ? subjectUser.categoria?.id ?? subjectUser.categoriaId
-        : categorias[0].id,
+      categoriaCodigo: resolveCatalogItemCodeFromList(
+        categorias,
+        subjectUser.categoriaCodigo ??
+          subjectUser.categoria?.codigo ??
+          subjectUser.categoriaId
+      ),
       disciplinaCodigo: resolveCatalogItemCodeFromList(
         disciplinas,
         getPrimaryDisciplinaCodigo(subjectUser)
@@ -317,30 +318,30 @@ export default function ProfilePanel({ viewUserId }: Props) {
             <div className="sm:w-1/3">
               <label
                 className="block text-sm font-medium mb-1"
-                htmlFor="categoriaId"
+                htmlFor="categoriaCodigo"
               >
                 Categoría
               </label>
 
               <select
-                id="categoriaId"
+                id="categoriaCodigo"
                 className="form-select w-full"
                 disabled={catalogLoading || isReadOnly}
-                {...register("categoriaId", {
-                  setValueAs: (v) => Number(v),
+                {...register("categoriaCodigo", {
+                  setValueAs: (v) => String(v),
                 })}
               >
                 <option value="">Seleccione una categoría</option>
                 {(categorias ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={getCatalogItemCode(c)}>
                     {c.nombre}
                   </option>
                 ))}
               </select>
 
-              {errors.categoriaId && (
+              {errors.categoriaCodigo && (
                 <p className="mt-1 text-xs text-red-600">
-                  {errors.categoriaId.message}
+                  {errors.categoriaCodigo.message}
                 </p>
               )}
             </div>

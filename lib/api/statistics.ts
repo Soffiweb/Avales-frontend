@@ -5,7 +5,7 @@ export type StatisticsQuery = {
   fechaInicio?: string;
   fechaFin?: string;
   disciplinaCodigo?: string;
-  categoriaId?: number;
+  categoriaCodigo?: string;
 };
 
 export type CountItem = {
@@ -58,7 +58,7 @@ export async function getAvalesPorEstado(query?: StatisticsQuery) {
   if (query?.fechaInicio) params.set("fechaInicio", query.fechaInicio);
   if (query?.fechaFin) params.set("fechaFin", query.fechaFin);
   if (query?.disciplinaCodigo) params.set("disciplinaCodigo", query.disciplinaCodigo);
-  if (query?.categoriaId) params.set("categoriaId", String(query.categoriaId));
+  if (query?.categoriaCodigo) params.set("categoriaCodigo", query.categoriaCodigo);
   const qs = params.toString();
   
   return apiFetch<DistributionStats>(qs ? `/statistics/avales/por-estado?${qs}` : "/statistics/avales/por-estado");
@@ -69,7 +69,7 @@ export async function getAvalesPorEtapa(query?: StatisticsQuery) {
   if (query?.fechaInicio) params.set("fechaInicio", query.fechaInicio);
   if (query?.fechaFin) params.set("fechaFin", query.fechaFin);
   if (query?.disciplinaCodigo) params.set("disciplinaCodigo", query.disciplinaCodigo);
-  if (query?.categoriaId) params.set("categoriaId", String(query.categoriaId));
+  if (query?.categoriaCodigo) params.set("categoriaCodigo", query.categoriaCodigo);
   const qs = params.toString();
 
   return apiFetch<DistributionStats>(qs ? `/statistics/avales/por-etapa?${qs}` : "/statistics/avales/por-etapa");
@@ -93,7 +93,7 @@ export async function getAllStatistics(query?: StatisticsQuery) {
   if (query?.fechaInicio) params.set("fechaInicio", query.fechaInicio);
   if (query?.fechaFin) params.set("fechaFin", query.fechaFin);
   if (query?.disciplinaCodigo) params.set("disciplinaCodigo", query.disciplinaCodigo);
-  if (query?.categoriaId) params.set("categoriaId", String(query.categoriaId));
+  if (query?.categoriaCodigo) params.set("categoriaCodigo", query.categoriaCodigo);
   const qs = params.toString();
 
   return apiFetch<AllStatistics>(qs ? `/statistics?${qs}` : "/statistics");

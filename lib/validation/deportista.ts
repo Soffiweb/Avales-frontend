@@ -10,7 +10,7 @@ export const deportistaSchema = z.object({
       message: "Selecciona genero",
     }),
   fechaNacimiento: z.string().min(1, "Fecha de nacimiento requerida"),
-  categoriaId: z.number().int().positive("Selecciona una categoria"),
+  categoriaCodigo: z.string().min(1, "Selecciona una categoria"),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   afiliacion: z.boolean(),
   afiliacionInicio: z.string().optional().or(z.literal("")),
@@ -25,7 +25,7 @@ export type CreateDeportistaPayload = {
   cedula: string;
   genero: "MASCULINO" | "FEMENINO" | "OTRO";
   fechaNacimiento: string;
-  categoriaId: number;
+  categoriaCodigo: string;
   disciplinaCodigo: string;
   afiliacion: boolean;
   afiliacionInicio?: string;

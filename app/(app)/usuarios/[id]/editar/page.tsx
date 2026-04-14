@@ -7,13 +7,16 @@ import { getUser } from "@/lib/api/user";
 import UsuarioForm from "../../_components/usuario-form";
 import { type UpdateUserFormValues } from "@/lib/validation/user";
 import type { Role, UserDisciplina } from "@/types/user";
+import { getCatalogItemCode } from "@/lib/utils/catalog";
 
-function extractDisciplinaIds(disciplinas?: UserDisciplina[]) {
+function extractDisciplinaCodigos(disciplinas?: UserDisciplina[]) {
   return (disciplinas ?? [])
     .map((disciplina) =>
-      typeof disciplina === "number" ? disciplina : disciplina?.id
+      typeof disciplina === "number"
+        ? String(disciplina)
+        : getCatalogItemCode(disciplina)
     )
-    .filter((id): id is number => typeof id === "number" && id > 0);
+    .filter((codigo): codigo is string => Boolean(codigo));
 }
 
 export default function EditarUsuario() {
@@ -48,6 +51,9 @@ export default function EditarUsuario() {
           (u.roles as Role[] | undefined) && u.roles?.length
             ? (u.roles as Role[])
             : [];
+        const disciplinaCodigos = extractDisciplinaCodigos(u.disciplinas);
+        const primaryDisciplinaCodigo =
+          u.disciplinaCodigo ?? u.disciplina?.codigo ?? (u.disciplinaId ? String(u.disciplinaId) : "");
 
         setInitialValues({
           nombre: u.nombre ?? "",
@@ -56,11 +62,11 @@ export default function EditarUsuario() {
           password: "",
           cedula: u.cedula ?? "",
           categoriaId: u.categoriaId ?? u.categoria?.id ?? 0,
-          disciplinas: extractDisciplinaIds(u.disciplinas).length
-            ? extractDisciplinaIds(u.disciplinas)
-            : u.disciplinaId ?? u.disciplina?.id
-            ? [u.disciplinaId ?? u.disciplina?.id ?? 0]
-            : [],
+          disciplinas: disciplinaCodigos.length
+            ? disciplinaCodigos
+            : primaryDisciplinaCodigo
+              ? [primaryDisciplinaCodigo]
+              : [],
           roles: rolesFromUser,
           puedeSolicitarReformas: u.puedeSolicitarReformas ?? false,
         });

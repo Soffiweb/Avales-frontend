@@ -29,6 +29,7 @@ export type User = {
   categoriaId?: number;
   disciplina?: CatalogItem;
   disciplinaId?: number;
+  disciplinaCodigo?: string | null;
   disciplinasDetalle?: CatalogItem[];
   roles?: Role[];
   rolId?: number;

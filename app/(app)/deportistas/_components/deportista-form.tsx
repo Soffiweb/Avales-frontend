@@ -16,6 +16,10 @@ import {
   type CreateDeportistaPayload,
   type DeportistaFormValues,
 } from "@/lib/validation/deportista";
+import {
+  getCatalogItemCode,
+  resolveCatalogItemCodeFromList,
+} from "@/lib/utils/catalog";
 
 const EMPTY_FORM_VALUES: DeportistaFormValues = {
   nombres: "",
@@ -24,7 +28,7 @@ const EMPTY_FORM_VALUES: DeportistaFormValues = {
   genero: undefined as any,
   fechaNacimiento: "",
   categoriaId: undefined as any,
-  disciplinaId: undefined as any,
+  disciplinaCodigo: "",
   afiliacion: false,
   afiliacionInicio: "",
   afiliacionFin: "",
@@ -42,10 +46,10 @@ const mapDeportistaToFormValues = (
     deportista.categoriaId ??
     deportista.categoria?.id ??
     (undefined as unknown as DeportistaFormValues["categoriaId"]),
-  disciplinaId:
-    deportista.disciplinaId ??
-    deportista.disciplina?.id ??
-    (undefined as unknown as DeportistaFormValues["disciplinaId"]),
+  disciplinaCodigo:
+    deportista.disciplinaCodigo ??
+    deportista.disciplina?.codigo ??
+    (deportista.disciplinaId ? String(deportista.disciplinaId) : ""),
   afiliacion: deportista.afiliacion ?? false,
   afiliacionInicio: deportista.afiliacionInicio ?? "",
   afiliacionFin: deportista.afiliacionFin ?? "",
@@ -95,8 +99,14 @@ export default function DeportistaForm({
     if (mode !== "edit" || !deportista || catalogLoading) {
       return;
     }
-    reset(initialValues);
-  }, [deportista, initialValues, mode, catalogLoading, reset]);
+    reset({
+      ...initialValues,
+      disciplinaCodigo: resolveCatalogItemCodeFromList(
+        disciplinas,
+        initialValues.disciplinaCodigo
+      ),
+    });
+  }, [deportista, initialValues, mode, catalogLoading, reset, disciplinas]);
 
   const afiliacion = watch("afiliacion", false);
   const afiliacionInicio = watch("afiliacionInicio");
@@ -153,7 +163,7 @@ export default function DeportistaForm({
       genero: values.genero.toUpperCase() as "MASCULINO" | "FEMENINO" | "OTRO",
       fechaNacimiento: new Date(values.fechaNacimiento).toISOString(),
       categoriaId: values.categoriaId,
-      disciplinaId: values.disciplinaId,
+      disciplinaCodigo: values.disciplinaCodigo,
       afiliacion: values.afiliacion,
       afiliacionInicio: values.afiliacionInicio
         ? new Date(values.afiliacionInicio).toISOString()
@@ -191,7 +201,11 @@ export default function DeportistaForm({
         const detail =
           problem?.detail ?? problem?.title ?? err.message ?? fallback;
         if (problem?.field) {
-          const fieldName = problem.field as keyof DeportistaFormValues;
+          const fieldName =
+            problem.field === "disciplinaId" ||
+            problem.field === "disciplinaCodigo"
+              ? ("disciplinaCodigo" as keyof DeportistaFormValues)
+              : (problem.field as keyof DeportistaFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
         message = detail;
@@ -361,28 +375,28 @@ export default function DeportistaForm({
           <div>
             <label
               className="block text-sm font-medium mb-1"
-              htmlFor="disciplinaId"
+              htmlFor="disciplinaCodigo"
             >
               Disciplina
             </label>
             <select
-              id="disciplinaId"
+              id="disciplinaCodigo"
               className="form-select w-full"
               disabled={catalogLoading || !disciplinas.length}
-              {...register("disciplinaId", {
-                setValueAs: (v) => Number(v),
+              {...register("disciplinaCodigo", {
+                setValueAs: (v) => String(v),
               })}
             >
               <option value="">Selecciona una opcion</option>
               {(disciplinas ?? []).map((d) => (
-                <option key={d.id} value={d.id}>
+                <option key={d.id} value={getCatalogItemCode(d)}>
                   {d.nombre}
                 </option>
               ))}
             </select>
-            {errors.disciplinaId && (
+            {errors.disciplinaCodigo && (
               <p className="mt-1 text-xs text-red-600">
-                {errors.disciplinaId.message}
+                {errors.disciplinaCodigo.message}
               </p>
             )}
           </div>

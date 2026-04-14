@@ -23,6 +23,10 @@ import {
 import { CatalogItem } from "@/types/catalog";
 import type { Role } from "@/types/user";
 import { formatRole } from "@/lib/utils/formatters";
+import {
+  getCatalogItemCode,
+  resolveCatalogItemCodeFromList,
+} from "@/lib/utils/catalog";
 
 const ROLE_OPTIONS: Role[] = [
   "SUPER_ADMIN",
@@ -45,18 +49,21 @@ const formatRoleLabel = (role: Role) => formatRole(role);
 const MAX_SELECTED_DISCIPLINAS = 3;
 
 function buildDisciplinasLabel(
-  selectedIds: number[],
+  selectedCodes: string[],
   options: CatalogItem[],
   maxSelectedLabels = MAX_SELECTED_DISCIPLINAS,
 ) {
-  if (selectedIds.length === 0) return "Selecciona disciplinas";
+  if (selectedCodes.length === 0) return "Selecciona disciplinas";
 
-  const selectedNames = selectedIds
-    .map((id) => options.find((option) => option.id === id)?.nombre)
+  const selectedNames = selectedCodes
+    .map(
+      (code) =>
+        options.find((option) => getCatalogItemCode(option) === code)?.nombre,
+    )
     .filter((name): name is string => Boolean(name));
 
   if (selectedNames.length === 0) {
-    return `${selectedIds.length} seleccionada(s)`;
+    return `${selectedCodes.length} seleccionada(s)`;
   }
 
   if (selectedNames.length <= maxSelectedLabels) {
@@ -127,6 +134,9 @@ export default function UsuarioForm({
   useEffect(() => {
     if (!initialValues) return;
     if (catalogLoading) return;
+    const normalizedDisciplinas = (initialValues.disciplinas ?? []).map((value) =>
+      resolveCatalogItemCodeFromList(disciplinas, value),
+    );
     reset({
       ...initialValues,
       password: "",
@@ -135,8 +145,9 @@ export default function UsuarioForm({
           ? initialValues.roles
           : defaultRoleSelection,
       puedeSolicitarReformas: initialValues.puedeSolicitarReformas ?? false,
+      disciplinas: normalizedDisciplinas,
     });
-  }, [initialValues, catalogLoading, reset]);
+  }, [initialValues, catalogLoading, reset, disciplinas]);
 
   useEffect(() => {
     if (isEntrenador) return;
@@ -226,7 +237,8 @@ export default function UsuarioForm({
         if (problem?.field) {
           const fieldName =
             problem.field === "disciplinaId" ||
-            problem.field === "disciplinaIds"
+            problem.field === "disciplinaCodigo" ||
+            problem.field === "disciplinaCodigos"
               ? "disciplinas"
               : (problem.field as keyof UserFormValues);
           setError(fieldName, { type: "server", message: detail });
@@ -452,17 +464,17 @@ export default function UsuarioForm({
           control={control}
           name="disciplinas"
           render={({ field }) => {
-            const selectedIds = field.value ?? [];
+            const selectedCodes = field.value ?? [];
             const selectedLabel = buildDisciplinasLabel(
-              selectedIds,
+              selectedCodes,
               disciplinas,
             );
-            const allDisciplinaIds = disciplinas.map(
-              (disciplina) => disciplina.id,
+            const allDisciplinaCodes = disciplinas.map(
+              (disciplina) => getCatalogItemCode(disciplina),
             );
             const allSelected =
-              allDisciplinaIds.length > 0 &&
-              allDisciplinaIds.every((id) => selectedIds.includes(id));
+              allDisciplinaCodes.length > 0 &&
+              allDisciplinaCodes.every((code) => selectedCodes.includes(code));
 
             return (
               <div>
@@ -494,7 +506,7 @@ export default function UsuarioForm({
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           Selecciona disciplinas
                         </p>
-                        {selectedIds.length > 0 ? (
+                        {selectedCodes.length > 0 ? (
                           <button
                             type="button"
                             onClick={() => field.onChange([])}
@@ -512,7 +524,7 @@ export default function UsuarioForm({
                         <button
                           type="button"
                           onClick={() => {
-                            field.onChange(allSelected ? [] : allDisciplinaIds);
+                            field.onChange(allSelected ? [] : allDisciplinaCodes);
                           }}
                           className={[
                             "flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-medium transition dark:border-gray-700/60",
@@ -539,7 +551,8 @@ export default function UsuarioForm({
                       ) : null}
 
                       {(disciplinas ?? []).map((disciplina) => {
-                        const isChecked = selectedIds.includes(disciplina.id);
+                        const code = getCatalogItemCode(disciplina);
+                        const isChecked = selectedCodes.includes(code);
 
                         return (
                           <button
@@ -547,10 +560,8 @@ export default function UsuarioForm({
                             type="button"
                             onClick={() => {
                               const nextValue = isChecked
-                                ? selectedIds.filter(
-                                    (id) => id !== disciplina.id,
-                                  )
-                                : [...selectedIds, disciplina.id];
+                                ? selectedCodes.filter((value) => value !== code)
+                                : [...selectedCodes, code];
 
                               field.onChange(nextValue);
                             }}

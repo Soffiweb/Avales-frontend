@@ -4,7 +4,7 @@ import { listDeportistas } from "@/lib/api/deportistas";
 export type StatisticsQuery = {
   fechaInicio?: string;
   fechaFin?: string;
-  disciplinaId?: number;
+  disciplinaCodigo?: string;
   categoriaId?: number;
 };
 
@@ -57,7 +57,7 @@ export async function getAvalesPorEstado(query?: StatisticsQuery) {
   const params = new URLSearchParams();
   if (query?.fechaInicio) params.set("fechaInicio", query.fechaInicio);
   if (query?.fechaFin) params.set("fechaFin", query.fechaFin);
-  if (query?.disciplinaId) params.set("disciplinaId", String(query.disciplinaId));
+  if (query?.disciplinaCodigo) params.set("disciplinaCodigo", query.disciplinaCodigo);
   if (query?.categoriaId) params.set("categoriaId", String(query.categoriaId));
   const qs = params.toString();
   
@@ -68,7 +68,7 @@ export async function getAvalesPorEtapa(query?: StatisticsQuery) {
   const params = new URLSearchParams();
   if (query?.fechaInicio) params.set("fechaInicio", query.fechaInicio);
   if (query?.fechaFin) params.set("fechaFin", query.fechaFin);
-  if (query?.disciplinaId) params.set("disciplinaId", String(query.disciplinaId));
+  if (query?.disciplinaCodigo) params.set("disciplinaCodigo", query.disciplinaCodigo);
   if (query?.categoriaId) params.set("categoriaId", String(query.categoriaId));
   const qs = params.toString();
 
@@ -92,7 +92,7 @@ export async function getAllStatistics(query?: StatisticsQuery) {
   const params = new URLSearchParams();
   if (query?.fechaInicio) params.set("fechaInicio", query.fechaInicio);
   if (query?.fechaFin) params.set("fechaFin", query.fechaFin);
-  if (query?.disciplinaId) params.set("disciplinaId", String(query.disciplinaId));
+  if (query?.disciplinaCodigo) params.set("disciplinaCodigo", query.disciplinaCodigo);
   if (query?.categoriaId) params.set("categoriaId", String(query.categoriaId));
   const qs = params.toString();
 

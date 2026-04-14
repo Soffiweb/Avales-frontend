@@ -12,21 +12,32 @@ import { getCatalog } from "@/lib/api/catalog";
 import { CatalogItem } from "@/types/catalog";
 import type { User } from "@/types/user";
 import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
+import {
+  getCatalogItemCode,
+  resolveCatalogItemCodeFromList,
+} from "@/lib/utils/catalog";
 
 type Props = {
   viewUserId?: number;
 };
 
-function getPrimaryDisciplinaId(user: User | null) {
+function getPrimaryDisciplinaCodigo(user: User | null) {
   if (!user) return undefined;
 
   const fromArray = (user.disciplinas ?? [])
     .map((disciplina) =>
-      typeof disciplina === "number" ? disciplina : disciplina?.id
+      typeof disciplina === "number"
+        ? String(disciplina)
+        : getCatalogItemCode(disciplina)
     )
-    .find((id): id is number => typeof id === "number" && id > 0);
+    .find((codigo): codigo is string => Boolean(codigo));
 
-  return fromArray ?? user.disciplina?.id ?? user.disciplinaId;
+  return (
+    fromArray ??
+    user.disciplinaCodigo ??
+    user.disciplina?.codigo ??
+    (user.disciplinaId ? String(user.disciplinaId) : undefined)
+  );
 }
 
 export default function ProfilePanel({ viewUserId }: Props) {
@@ -136,11 +147,10 @@ export default function ProfilePanel({ viewUserId }: Props) {
       )
         ? subjectUser.categoria?.id ?? subjectUser.categoriaId
         : categorias[0].id,
-      disciplinaId: disciplinas.some(
-        (d) => d.id === getPrimaryDisciplinaId(subjectUser)
-      )
-        ? getPrimaryDisciplinaId(subjectUser)
-        : disciplinas[0].id,
+      disciplinaCodigo: resolveCatalogItemCodeFromList(
+        disciplinas,
+        getPrimaryDisciplinaCodigo(subjectUser)
+      ),
     };
 
     reset(nextValues);
@@ -339,30 +349,30 @@ export default function ProfilePanel({ viewUserId }: Props) {
             <div className="sm:w-1/3">
               <label
                 className="block text-sm font-medium mb-1"
-                htmlFor="disciplinaId"
+                htmlFor="disciplinaCodigo"
               >
                 Disciplina
               </label>
 
               <select
-                id="disciplinaId"
+                id="disciplinaCodigo"
                 className="form-select w-full"
                 disabled={catalogLoading || isReadOnly}
-                {...register("disciplinaId", {
-                  setValueAs: (v) => Number(v),
+                {...register("disciplinaCodigo", {
+                  setValueAs: (v) => String(v),
                 })}
               >
                 <option value="">Seleccione una disciplina</option>
                 {disciplinas.map((d) => (
-                  <option key={d.id} value={d.id}>
+                  <option key={d.id} value={getCatalogItemCode(d)}>
                     {d.nombre}
                   </option>
                 ))}
               </select>
 
-              {errors.disciplinaId && (
+              {errors.disciplinaCodigo && (
                 <p className="mt-1 text-xs text-red-600">
-                  {errors.disciplinaId.message}
+                  {errors.disciplinaCodigo.message}
                 </p>
               )}
             </div>

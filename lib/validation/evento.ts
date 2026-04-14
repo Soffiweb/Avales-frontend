@@ -24,7 +24,7 @@ export const eventoSchema = z.object({
   genero: z.enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"], {
     message: "Selecciona genero",
   }),
-  disciplinaId: z.number().int().positive("Selecciona una disciplina"),
+  disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   categoriaId: z.number().int().positive("Selecciona una categoria"),
   provincia: z.string().min(1, "Provincia requerida").max(100),
   ciudad: z.string().min(1, "Ciudad requerida").max(100),
@@ -60,7 +60,7 @@ export type CreateEventoPayload = {
   nombre: string;
   lugar: string;
   genero: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
-  disciplinaId: number;
+  disciplinaCodigo: string;
   categoriaId: number;
   provincia: string;
   ciudad: string;

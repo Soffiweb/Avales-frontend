@@ -1,6 +1,7 @@
 export type CatalogItem = {
   id: number;
   nombre: string;
+  codigo?: string | null;
 };
 
 export type CatalogItemPresupuestario = {

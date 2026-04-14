@@ -22,6 +22,7 @@ import {
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { getCatalogItemCode, resolveCatalogItemCode } from "@/lib/utils/catalog";
 
 const STATUS_OPTIONS = [
   { label: "Todos los estados", value: "" },
@@ -40,8 +41,8 @@ export default function EventosPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [estado, setEstado] = useState(() => searchParams.get("estado") ?? "");
-  const [disciplinaId, setDisciplinaId] = useState(
-    () => searchParams.get("disciplinaId") ?? "",
+  const [disciplinaCodigo, setDisciplinaCodigo] = useState(
+    () => searchParams.get("disciplinaCodigo") ?? searchParams.get("disciplinaId") ?? "",
   );
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get("page") ?? "1");
@@ -66,11 +67,10 @@ export default function EventosPage() {
     Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
       ? user.disciplinas[0]
       : undefined;
-  const entrenadorDisciplinaId =
-    user?.disciplinaId ??
-    (typeof firstUserDisciplina === "number"
-      ? firstUserDisciplina
-      : firstUserDisciplina?.id);
+  const entrenadorDisciplinaCodigo =
+    user?.disciplinaCodigo ??
+    user?.disciplina?.codigo ??
+    resolveCatalogItemCode(firstUserDisciplina);
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [disciplinasLoading, setDisciplinasLoading] = useState(false);
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);
@@ -114,7 +114,7 @@ export default function EventosPage() {
     try {
       setLoading(true);
       setError(null);
-      if (isEntrenador && !entrenadorDisciplinaId) {
+      if (isEntrenador && !entrenadorDisciplinaCodigo) {
         setEventos([]);
         setPagination({
           page: currentPage,
@@ -129,10 +129,10 @@ export default function EventosPage() {
         limit: DEFAULT_PAGE_SIZE,
         estado: estado || undefined,
         search: search.trim() || undefined,
-        disciplinaId: isEntrenador
-          ? entrenadorDisciplinaId
-          : disciplinaId
-            ? Number(disciplinaId)
+        disciplinaCodigo: isEntrenador
+          ? entrenadorDisciplinaCodigo
+          : disciplinaCodigo
+            ? disciplinaCodigo
             : undefined,
       };
       const res = await listEventos(options);
@@ -181,8 +181,8 @@ export default function EventosPage() {
     estado,
     search,
     isEntrenador,
-    entrenadorDisciplinaId,
-    disciplinaId,
+    entrenadorDisciplinaCodigo,
+    disciplinaCodigo,
   ]);
 
   useEffect(() => {
@@ -193,13 +193,13 @@ export default function EventosPage() {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (estado) params.set("estado", estado);
-    if (disciplinaId) params.set("disciplinaId", disciplinaId);
+    if (disciplinaCodigo) params.set("disciplinaCodigo", disciplinaCodigo);
     if (currentPage > 1) params.set("page", String(currentPage));
 
     router.replace(params.toString() ? `/eventos?${params}` : "/eventos", {
       scroll: false,
     });
-  }, [search, estado, disciplinaId, currentPage, router]);
+  }, [search, estado, disciplinaCodigo, currentPage, router]);
 
   // mostrar toast cuando viene status desde la creacion/edicion
   useEffect(() => {
@@ -330,16 +330,16 @@ export default function EventosPage() {
             {canManageEvents && (
               <select
                 className="form-select w-full sm:w-56"
-                value={disciplinaId}
+                value={disciplinaCodigo}
                 onChange={(e) => {
                   setPage(1);
-                  setDisciplinaId(e.target.value);
+                  setDisciplinaCodigo(e.target.value);
                 }}
                 disabled={disciplinasLoading}
               >
                 <option value="">Todas las disciplinas</option>
                 {disciplinas.map((disciplina) => (
-                  <option key={disciplina.id} value={String(disciplina.id)}>
+                  <option key={disciplina.id} value={getCatalogItemCode(disciplina)}>
                     {disciplina.nombre}
                   </option>
                 ))}

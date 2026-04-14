@@ -16,6 +16,10 @@ import {
   type CreateEventoPayload,
   type EventoFormValues,
 } from "@/lib/validation/evento";
+import {
+  getCatalogItemCode,
+  resolveCatalogItemCodeFromList,
+} from "@/lib/utils/catalog";
 
 const MESES = [
   { value: 1, label: "Enero" },
@@ -39,7 +43,7 @@ const EMPTY_FORM_VALUES: EventoFormValues = {
   nombre: "",
   lugar: "",
   genero: undefined as unknown as EventoFormValues["genero"],
-  disciplinaId: undefined as unknown as number,
+  disciplinaCodigo: "",
   categoriaId: undefined as unknown as number,
   provincia: "",
   ciudad: "",
@@ -61,10 +65,10 @@ const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
   nombre: evento.nombre ?? "",
   lugar: evento.lugar ?? "",
   genero: evento.genero ?? (undefined as unknown as EventoFormValues["genero"]),
-  disciplinaId:
-    evento.disciplinaId ??
-    evento.disciplina?.id ??
-    (undefined as unknown as number),
+  disciplinaCodigo:
+    evento.disciplinaCodigo ??
+    evento.disciplina?.codigo ??
+    (evento.disciplinaId ? String(evento.disciplinaId) : ""),
   categoriaId:
     evento.categoriaId ??
     evento.categoria?.id ??
@@ -147,8 +151,14 @@ export default function EventoForm({
     if (mode !== "edit" || !evento || catalogLoading) {
       return;
     }
-    reset(initialValues);
-  }, [evento, initialValues, mode, catalogLoading, reset]);
+    reset({
+      ...initialValues,
+      disciplinaCodigo: resolveCatalogItemCodeFromList(
+        disciplinas,
+        initialValues.disciplinaCodigo
+      ),
+    });
+  }, [evento, initialValues, mode, catalogLoading, reset, disciplinas]);
 
   useEffect(() => {
     const loadCatalog = async () => {
@@ -247,7 +257,7 @@ export default function EventoForm({
       nombre: values.nombre.trim(),
       lugar: values.lugar.trim(),
       genero: values.genero,
-      disciplinaId: values.disciplinaId,
+      disciplinaCodigo: values.disciplinaCodigo,
       categoriaId: values.categoriaId,
       provincia: values.provincia.trim(),
       ciudad: values.ciudad.trim(),
@@ -294,7 +304,11 @@ export default function EventoForm({
         const detail =
           problem?.detail ?? problem?.title ?? err.message ?? fallback;
         if (problem?.field) {
-          const fieldName = problem.field as keyof EventoFormValues;
+          const fieldName =
+            problem.field === "disciplinaId" ||
+            problem.field === "disciplinaCodigo"
+              ? ("disciplinaCodigo" as keyof EventoFormValues)
+              : (problem.field as keyof EventoFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
         message = detail;
@@ -487,28 +501,28 @@ export default function EventoForm({
           <div>
             <label
               className="block text-sm font-medium mb-1"
-              htmlFor="disciplinaId"
+              htmlFor="disciplinaCodigo"
             >
               Disciplina
             </label>
             <select
-              id="disciplinaId"
+              id="disciplinaCodigo"
               className="form-select w-full"
               disabled={catalogLoading || !disciplinas.length}
-              {...register("disciplinaId", {
-                setValueAs: (v) => (v === "" ? undefined : Number(v)),
+              {...register("disciplinaCodigo", {
+                setValueAs: (v) => String(v),
               })}
             >
               <option value="">Selecciona una opcion</option>
               {disciplinas.map((d) => (
-                <option key={d.id} value={d.id}>
+                <option key={d.id} value={getCatalogItemCode(d)}>
                   {d.nombre}
                 </option>
               ))}
             </select>
-            {errors.disciplinaId && (
+            {errors.disciplinaCodigo && (
               <p className="mt-1 text-xs text-red-600">
-                {errors.disciplinaId.message}
+                {errors.disciplinaCodigo.message}
               </p>
             )}
           </div>

@@ -74,6 +74,7 @@ export default function AvalesPage() {
   const showing = avales.length;
 
   const hasDisciplina =
+    Boolean(user?.disciplinaCodigo) ||
     user?.disciplinaId != null ||
     Boolean(user?.disciplinas && user.disciplinas.length > 0);
   const isAdmin =

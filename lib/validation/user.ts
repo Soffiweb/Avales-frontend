@@ -36,7 +36,7 @@ const baseUserSchema = z.object({
     .or(z.literal("")),
   categoriaId: z.number().int().positive("Selecciona una categoria"),
   disciplinas: z
-    .array(z.number().int().positive("Selecciona una disciplina valida"))
+    .array(z.string().min(1, "Selecciona una disciplina valida"))
     .min(1, "Selecciona al menos una disciplina"),
   roles: rolesSchema,
   puedeSolicitarReformas: z.boolean().default(false),
@@ -50,7 +50,7 @@ export const profileSchema = z.object({
     .string()
     .regex(/^\d{10}$/, "Cedula invalida: deben ser 10 digitos"),
   categoriaId: z.number().int().positive("CategoriaId invalido").optional(),
-  disciplinaId: z.number().int().positive("DisciplinaId invalido").optional(),
+  disciplinaCodigo: z.string().min(1, "Disciplina invalida").optional(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;

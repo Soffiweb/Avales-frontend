@@ -11,6 +11,7 @@ export type Deportista = {
   categoriaId?: number;
   disciplina?: CatalogItem;
   disciplinaId?: number;
+  disciplinaCodigo?: string | null;
   genero?: string;
   club?: string;
   afiliacion: boolean;

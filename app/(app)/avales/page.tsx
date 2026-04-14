@@ -11,10 +11,9 @@ import Pagination from "@/components/ui/pagination";
 import { listAvales, type ListAvalesOptions } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
+import { isAdminUser } from "@/lib/auth/access";
 import AvalListCard from "./_components/aval-list-card";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
-
-const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
 
 const STATUS_OPTIONS = [
   { label: "Todos los estados", value: "" },
@@ -77,8 +76,7 @@ export default function AvalesPage() {
     Boolean(user?.disciplinaCodigo) ||
     user?.disciplinaId != null ||
     Boolean(user?.disciplinas && user.disciplinas.length > 0);
-  const isAdmin =
-    user?.roles?.some((role) => ADMIN_ROLES.includes(role)) ?? false;
+  const isAdmin = isAdminUser(user);
   const isDTM = user?.roles?.some((role) => role === "DTM") ?? false;
   const isMetodologo =
     user?.roles?.some((role) => role === "METODOLOGO") ?? false;

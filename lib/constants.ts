@@ -17,7 +17,9 @@ export const CONFIRM_CLEANUP_DELAY = 180;
 /** Roles disponibles en el sistema */
 export const ROLES = [
   "SUPER_ADMIN",
+  "SUPERADMIN",
   "ADMIN",
+  "ADMINISTRADOR",
   "SECRETARIA",
   "DTM",
   "METODOLOGO",
@@ -143,7 +145,9 @@ export function getAvalStatusClasses(status?: string | null): {
 
 export const AVAL_APPROVAL_REVIEWER_ROLES = [
   "SUPER_ADMIN",
+  "SUPERADMIN",
   "ADMIN",
+  "ADMINISTRADOR",
   "METODOLOGO",
   "DTM",
   "PDA",

@@ -4,7 +4,9 @@ const rolesSchema = z
   .array(
     z.enum([
       "SUPER_ADMIN",
+      "SUPERADMIN",
       "ADMIN",
+      "ADMINISTRADOR",
       "SECRETARIA",
       "DTM",
       "METODOLOGO",

@@ -11,6 +11,7 @@ import { uploadConvocatoria } from "@/lib/api/avales";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
 import type { Evento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
+import { isAdminUser } from "@/lib/auth/access";
 import {
   formatDateRange,
   formatLocationWithProvince,
@@ -52,10 +53,7 @@ export default function NuevoAvalPage() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
 
-  const isEntrenador =
-    user?.roles?.includes("ENTRENADOR") &&
-    !user?.roles?.includes("SUPER_ADMIN") &&
-    !user?.roles?.includes("ADMIN");
+  const isEntrenador = user?.roles?.includes("ENTRENADOR") && !isAdminUser(user);
   const isComprasPublicas = user?.roles?.includes("COMPRAS_PUBLICAS");
   const firstUserDisciplina =
     Array.isArray(user?.disciplinas) && user.disciplinas.length > 0

@@ -13,6 +13,7 @@ import EventoCard from "./_components/evento-card";
 import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
+import { isAdminUser } from "@/lib/auth/access";
 import { getDisciplinas } from "@/lib/api/catalog";
 import {
   listEventos,
@@ -60,8 +61,7 @@ export default function EventosPage() {
   } | null>(null);
   const { user } = useAuth();
   const userRoles = user?.roles ?? [];
-  const canManageEvents =
-    userRoles.includes("SUPER_ADMIN") || userRoles.includes("ADMIN");
+  const canManageEvents = isAdminUser(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
   const firstUserDisciplina =
     Array.isArray(user?.disciplinas) && user.disciplinas.length > 0

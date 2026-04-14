@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
+import { isAdminUser } from "@/lib/auth/access";
 import {
   getAllStatistics,
   getAvalesTimeline,
@@ -45,6 +46,7 @@ import {
   type PresupuestoStats,
 } from "@/lib/api/statistics";
 import AlertBanner from "@/components/ui/alert-banner";
+import { formatRoles } from "@/lib/utils/formatters/text";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
 
@@ -86,8 +88,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    const isAdmin =
-      user.roles?.includes("ADMIN") || user.roles?.includes("SUPER_ADMIN");
+    const isAdmin = isAdminUser(user);
     if (!isAdmin) {
       setLoading(false);
       return;
@@ -155,8 +156,7 @@ export default function Dashboard() {
 
   if (!user) return null;
 
-  const isAdmin =
-    user.roles?.includes("ADMIN") || user.roles?.includes("SUPER_ADMIN");
+  const isAdmin = isAdminUser(user);
 
   if (!isAdmin) {
     const isEntrenador = user.roles?.includes("ENTRENADOR");
@@ -211,7 +211,7 @@ export default function Dashboard() {
               : "Gestiona tus avales y eventos deportivos."}
           </p>
           <p className="text-xs text-gray-400 mt-2">
-            Rol: {user.roles?.join(", ") || "Ninguno"}
+            Rol: {user.roles?.length ? formatRoles(user.roles) : "Ninguno"}
           </p>
         </div>
 

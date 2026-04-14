@@ -13,6 +13,7 @@ import UserAvatar from "@/public/images/user-avatar-32.png";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { logout } from "@/lib/api/auth";
+import { formatRoles } from "@/lib/utils/formatters/text";
 
 export default function DropdownProfile({
   align,
@@ -28,7 +29,7 @@ export default function DropdownProfile({
   // Roles seguros
   const roles =
     !loading && user?.roles && user.roles.length > 0
-      ? user.roles.join(", ")
+      ? formatRoles(user.roles)
       : "Sin rol";
 
   const handleLogout = async () => {

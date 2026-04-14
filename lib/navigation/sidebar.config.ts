@@ -1,6 +1,7 @@
 // lib/navigation/nav.config.ts
 import type { Role } from "@/types/user";
 import { SidebarIconKey } from "@/components/icons/sidebar-icons";
+import { ADMIN_ACCESS_ROLES } from "@/lib/auth/access";
 
 export type SidebarItem =
   | {
@@ -106,5 +107,24 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     segment: "carga-masiva",
     icon: "cargaMasiva",
     roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    type: "group",
+    label: "Catálogos",
+    segment: "catalogos",
+    icon: "catalogos",
+    roles: ADMIN_ACCESS_ROLES,
+    children: [
+      {
+        label: "Categorías",
+        href: "/catalogos/categorias",
+        segment: "categorias",
+      },
+      {
+        label: "Disciplinas",
+        href: "/catalogos/disciplinas",
+        segment: "disciplinas",
+      },
+    ],
   },
 ];

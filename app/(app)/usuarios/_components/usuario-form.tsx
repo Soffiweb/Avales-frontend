@@ -30,7 +30,9 @@ import {
 
 const ROLE_OPTIONS: Role[] = [
   "SUPER_ADMIN",
+  "SUPERADMIN",
   "ADMIN",
+  "ADMINISTRADOR",
   "SECRETARIA",
   "DTM",
   "METODOLOGO",

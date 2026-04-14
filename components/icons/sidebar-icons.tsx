@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardEdit,
   UploadCloud,
+  FolderKanban,
 } from "lucide-react";
 
 export const SidebarIcons = {
@@ -16,6 +17,7 @@ export const SidebarIcons = {
   eventos: CalendarDays,
   reformas: ClipboardEdit,
   cargaMasiva: UploadCloud,
+  catalogos: FolderKanban,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

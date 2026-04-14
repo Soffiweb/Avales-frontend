@@ -40,6 +40,8 @@ export function formatEnumLabel(
 
 export function formatRole(role?: string | null): string {
   if (!role) return "-";
+  if (role === "SUPERADMIN") return "Super Admin";
+  if (role === "ADMINISTRADOR") return "Administrador";
   return role
     .toLowerCase()
     .split("_")

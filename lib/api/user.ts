@@ -31,7 +31,9 @@ export type DirigidoRole =
   | "METODOLOGO"
   | "DTM"
   | "ADMIN"
-  | "SUPER_ADMIN";
+  | "ADMINISTRADOR"
+  | "SUPER_ADMIN"
+  | "SUPERADMIN";
 
 export type DirigidoResponse = {
   nombre: string;

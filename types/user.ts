@@ -2,7 +2,9 @@ import type { CatalogItem } from "@/types/catalog";
 
 export type Role =
   | "SUPER_ADMIN"
+  | "SUPERADMIN"
   | "ADMIN"
+  | "ADMINISTRADOR"
   | "SECRETARIA"
   | "DTM"
   | "METODOLOGO"

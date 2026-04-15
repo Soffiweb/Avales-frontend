@@ -1,6 +1,13 @@
 "use client";
 
-import { AlertTriangle, UserCheck, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  UserCheck,
+  UserPlus,
+} from "lucide-react";
 import { type ColumnDef } from "./template-columns";
 import type { CheckCedulasResponse } from "@/lib/api/user";
 
@@ -9,7 +16,7 @@ type Props = {
   rows: Record<string, string>[];
   existingCedulas?: CheckCedulasResponse | null;
   rowIssues?: Record<number, Record<string, string>>;
-  maxRows?: number;
+  pageSize?: number;
 };
 
 export default function DataPreviewTable({
@@ -17,11 +24,19 @@ export default function DataPreviewTable({
   rows,
   existingCedulas,
   rowIssues = {},
-  maxRows = 50,
+  pageSize = 50,
 }: Props) {
-  const displayRows = rows.slice(0, maxRows);
-  const hasMore = rows.length > maxRows;
+  const [page, setPage] = useState(1);
   const showStatus = !!existingCedulas;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const end = Math.min(start + pageSize, rows.length);
+  const displayRows = rows.slice(start, end);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length, pageSize]);
 
   // Count new vs existing
   const newCount = showStatus
@@ -59,11 +74,36 @@ export default function DataPreviewTable({
           </div>
         )}
 
-        {hasMore && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            Mostrando las primeras {maxRows} filas
-          </p>
-        )}
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            Mostrando {start + 1}-{end} de {rows.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={safePage === 1}
+              className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Página anterior"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="min-w-[72px] text-center font-medium text-gray-700 dark:text-gray-200">
+              {safePage}/{totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
+              disabled={safePage === totalPages}
+              className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Página siguiente"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -113,10 +153,11 @@ export default function DataPreviewTable({
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
               {displayRows.map((row, idx) => {
+                const rowIndex = start + idx;
                 const hasEmptyRequired = columns.some(
                   (col) => col.required && !row[col.key]?.toString().trim()
                 );
-                const currentIssues = rowIssues[idx] ?? {};
+                const currentIssues = rowIssues[rowIndex] ?? {};
                 const hasRowIssues =
                   hasEmptyRequired || Object.keys(currentIssues).length > 0;
                 const cedula = row["CEDULA"];
@@ -126,7 +167,7 @@ export default function DataPreviewTable({
 
                 return (
                   <tr
-                    key={idx}
+                    key={rowIndex}
                     className={
                       hasRowIssues
                         ? "bg-rose-50/50 dark:bg-rose-900/10"
@@ -134,9 +175,9 @@ export default function DataPreviewTable({
                           ? ""
                           : "bg-gray-50/50 dark:bg-gray-800/30"
                     }
-                  >
+                    >
                     <td className="px-3 py-2 text-xs text-gray-400 font-mono">
-                      {idx + 1}
+                      {rowIndex + 1}
                     </td>
                     {showStatus && (
                       <td className="px-3 py-2 whitespace-nowrap">

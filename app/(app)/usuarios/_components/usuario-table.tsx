@@ -139,8 +139,15 @@ export default function UsuarioTable({
                         {user.categoria?.nombre ?? "-"}
                       </div>
                     </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
-                      <div className="text-gray-700 dark:text-gray-300">
+                    <td className="px-2 first:pl-5 last:pr-5 py-2 w-[260px] max-w-[260px]">
+                      <div
+                        className="block w-full truncate text-gray-700 dark:text-gray-300"
+                        title={
+                          getDisciplinaNames(user).length > 0
+                            ? getDisciplinaNames(user).join(", ")
+                            : undefined
+                        }
+                      >
                         {getDisciplinaNames(user).length > 0
                           ? getDisciplinaNames(user).join(", ")
                           : Array.isArray(user.disciplinas) &&

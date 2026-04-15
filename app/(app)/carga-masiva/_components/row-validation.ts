@@ -19,6 +19,11 @@ const normalizeComparable = (value: string) =>
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "");
 
+const disciplineAliases: Record<string, string> = {
+  KARATE: "KARATE_DO",
+  KARATEDO: "KARATE_DO",
+};
+
 const roleValues = new Set(ROLES.map((role) => normalizeComparable(role)));
 
 const roleAliases: Record<string, string> = {
@@ -58,7 +63,7 @@ function isValidRole(value: string) {
 }
 
 function isValidDiscipline(value: string, disciplines: CatalogItem[]) {
-  const normalized = normalizeComparable(value);
+  const normalized = disciplineAliases[normalizeComparable(value)] ?? normalizeComparable(value);
   if (!normalized) return false;
   if (normalized === "TODAS") return true;
 
@@ -66,13 +71,19 @@ function isValidDiscipline(value: string, disciplines: CatalogItem[]) {
   if (candidates.length === 0) return false;
 
   return candidates.every((candidate) => {
-    const candidateNormalized = normalizeComparable(candidate);
+    const candidateNormalized =
+      disciplineAliases[normalizeComparable(candidate)] ?? normalizeComparable(candidate);
     return disciplines.some((item) => {
       const code = item.codigo?.trim() ?? "";
       const itemName = item.nombre?.trim() ?? "";
+      const codeNormalized =
+        disciplineAliases[normalizeComparable(code)] ?? normalizeComparable(code);
+      const nameNormalized =
+        disciplineAliases[normalizeComparable(itemName)] ??
+        normalizeComparable(itemName);
       return (
-        normalizeComparable(itemName) === candidateNormalized ||
-        normalizeComparable(code) === candidateNormalized ||
+        nameNormalized === candidateNormalized ||
+        codeNormalized === candidateNormalized ||
         String(item.id) === candidateNormalized
       );
     });
@@ -87,17 +98,118 @@ function getInvalidDisciplines(value: string, disciplines: CatalogItem[]) {
   if (candidates.length === 0) return [value.trim()].filter(Boolean);
 
   return candidates.filter((candidate) => {
-    const candidateNormalized = normalizeComparable(candidate);
+    const candidateNormalized =
+      disciplineAliases[normalizeComparable(candidate)] ?? normalizeComparable(candidate);
     return !disciplines.some((item) => {
       const code = item.codigo?.trim() ?? "";
       const itemName = item.nombre?.trim() ?? "";
+      const codeNormalized =
+        disciplineAliases[normalizeComparable(code)] ?? normalizeComparable(code);
+      const nameNormalized =
+        disciplineAliases[normalizeComparable(itemName)] ??
+        normalizeComparable(itemName);
       return (
-        normalizeComparable(itemName) === candidateNormalized ||
-        normalizeComparable(code) === candidateNormalized ||
+        nameNormalized === candidateNormalized ||
+        codeNormalized === candidateNormalized ||
         String(item.id) === candidateNormalized
       );
     });
   });
+}
+
+function parseExcelNumber(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const cleaned = raw
+    .replace(/\$/g, "")
+    .replace(/\s+/g, "")
+    .replace(/[^\d,.-]/g, "");
+
+  if (!cleaned) return null;
+
+  if (/^-?\d+(?:\.\d+)?$/.test(cleaned)) {
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+
+  if (lastComma > -1 && lastDot === -1) {
+    const parts = cleaned.split(",");
+    const normalized =
+      parts.length === 2 && parts[1].length <= 2
+        ? cleaned.replace(",", ".")
+        : cleaned.replace(/,/g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  if (lastDot > -1 && lastComma === -1) {
+    const parts = cleaned.split(".");
+    const normalized =
+      parts.length === 2 && parts[1].length <= 2
+        ? cleaned
+        : cleaned.replace(/\./g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  if (lastComma > lastDot) {
+    const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const normalized = cleaned.replace(/,/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseMonthValue(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const numericMonth = Number(raw);
+  if (
+    Number.isFinite(numericMonth) &&
+    numericMonth >= 1 &&
+    numericMonth <= 12
+  ) {
+    return Math.trunc(numericMonth);
+  }
+
+  const mes = raw
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const mesesMap: Record<string, number> = {
+    ENERO: 1,
+    FEBRERO: 2,
+    MARZO: 3,
+    ABRIL: 4,
+    MAYO: 5,
+    JUNIO: 6,
+    JULIO: 7,
+    AGOSTO: 8,
+    SEPTIEMBRE: 9,
+    SETIEMBRE: 9,
+    OCTUBRE: 10,
+    OCTBRE: 10,
+    NOVIEMBRE: 11,
+    NOVEIMBRE: 11,
+    DICIEMBRE: 12,
+  };
+
+  if (mesesMap[mes]) return mesesMap[mes];
+
+  for (const [nombre, num] of Object.entries(mesesMap)) {
+    if (mes.startsWith(nombre.substring(0, 3))) return num;
+  }
+
+  return null;
 }
 
 function pushIssue(issues: RowIssues, key: string, message: string) {
@@ -117,8 +229,8 @@ function validateNumericField(
     return;
   }
 
-  const num = Number(value);
-  if (Number.isNaN(num)) {
+  const num = parseExcelNumber(value);
+  if (num === null) {
     pushIssue(issues, key, `${label} debe ser numérico`);
     return;
   }
@@ -194,12 +306,11 @@ export function validatePreviewRows(
         pushIssue(issues, "Deporte", "Disciplina inválida");
       }
 
-      validateNumericField(issues, row, "Mes", "Mes", {
-        required: true,
-        integer: true,
-        min: 1,
-        max: 12,
-      });
+      const monthValue = parseMonthValue(row.Mes?.trim() ?? "");
+      if (monthValue === null) {
+        pushIssue(issues, "Mes", "Mes debe ser numérico");
+      }
+
       validateNumericField(issues, row, "Entrenadores", "Entrenadores", {
         integer: true,
         min: 0,
@@ -214,8 +325,8 @@ export function validatePreviewRows(
         .forEach((col) => {
           const value = row[col.key]?.trim() ?? "";
           if (!value) return;
-          const num = Number(value);
-          if (Number.isNaN(num)) {
+          const num = parseExcelNumber(value);
+          if (num === null) {
             pushIssue(issues, col.key, "Presupuesto debe ser numérico");
             return;
           }

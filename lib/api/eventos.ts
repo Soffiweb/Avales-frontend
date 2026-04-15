@@ -92,18 +92,29 @@ export async function getEvento(id: number) {
   return apiFetch<Evento>(`/events/${id}`, { method: "GET" });
 }
 
-export async function createEvento(
-  values: CreateEventoPayload,
-  archivo?: File
+function appendEventoFormData(
+  formData: FormData,
+  values: CreateEventoPayload | UpdateEventoPayload,
+  options: { includeEmptyEventoItems?: boolean } = {}
 ) {
-  const formData = new FormData();
-
   Object.entries(values).forEach(([key, value]) => {
+    if (key === "eventoItems") return;
     if (value !== undefined && value !== null) {
       formData.append(key, String(value));
     }
   });
 
+  if (values.eventoItems !== undefined) {
+    const hasItems = values.eventoItems.length > 0;
+    if (hasItems || options.includeEmptyEventoItems) {
+      formData.append("eventoItems", JSON.stringify(values.eventoItems));
+    }
+  }
+}
+
+export async function createEvento(values: CreateEventoPayload, archivo?: File) {
+  const formData = new FormData();
+  appendEventoFormData(formData, values);
   if (archivo) {
     formData.append("archivo", archivo);
   }
@@ -124,38 +135,23 @@ export async function updateEvento(
   values: UpdateEventoPayload,
   archivo?: File
 ) {
-  if (archivo) {
-    // Si hay archivo, usar FormData (no incluye eventoItems)
-    const { eventoItems, ...rest } = values;
+  if (archivo || values.eventoItems !== undefined) {
     const formData = new FormData();
-
-    Object.entries(rest).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
+    appendEventoFormData(formData, values, {
+      includeEmptyEventoItems: true,
     });
 
-    formData.append("archivo", archivo);
+    if (archivo) {
+      formData.append("archivo", archivo);
+    }
 
-    // Primero subir archivo
-    await apiFetch<Evento>(`/events/${id}`, {
+    return apiFetch<Evento>(`/events/${id}`, {
       method: "PATCH",
       body: formData,
       headers: {},
     });
-
-    // Luego actualizar items si existen
-    if (eventoItems) {
-      return apiFetch<Evento>(`/events/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ eventoItems }),
-      });
-    }
-
-    return apiFetch<Evento>(`/events/${id}`, { method: "GET" });
   }
 
-  // Sin archivo: enviar todo como JSON
   return apiFetch<Evento>(`/events/${id}`, {
     method: "PATCH",
     body: JSON.stringify(values),

@@ -1,3 +1,4 @@
+import { EVENTO_TIPO_PARTICIPACION_OPTIONS, type EventoTipoParticipacion } from "@/lib/constants";
 import { z } from "zod";
 
 export const eventoItemSchema = z.object({
@@ -11,10 +12,15 @@ export const eventoSchema = z.object({
     .string()
     .min(1, "Codigo requerido")
     .max(50, "Codigo: maximo 50 caracteres"),
-  tipoParticipacion: z
-    .string()
-    .min(1, "Tipo de participacion requerido")
-    .max(100),
+  tipoParticipacion: z.enum(
+    EVENTO_TIPO_PARTICIPACION_OPTIONS.map((option) => option.value) as [
+      EventoTipoParticipacion,
+      ...EventoTipoParticipacion[],
+    ],
+    {
+      message: "Selecciona un tipo de participacion",
+    }
+  ),
   tipoEvento: z.string().min(1, "Tipo de evento requerido").max(100),
   nombre: z
     .string()
@@ -55,7 +61,7 @@ export type EventoItemPayload = {
 
 export type CreateEventoPayload = {
   codigo: string;
-  tipoParticipacion: string;
+  tipoParticipacion: EventoTipoParticipacion;
   tipoEvento: string;
   nombre: string;
   lugar: string;
@@ -72,4 +78,5 @@ export type CreateEventoPayload = {
   numEntrenadoresMujeres: number;
   numAtletasHombres: number;
   numAtletasMujeres: number;
+  eventoItems?: EventoItemPayload[];
 };

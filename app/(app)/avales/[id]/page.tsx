@@ -27,6 +27,7 @@ import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
 import { formatDate, formatGenero } from "@/lib/utils/formatters";
 import {
+  getEventoTipoParticipacionLabel,
   getApprovalStageLabel,
   getNextApprovalStage,
   getPreviousApprovalStages,
@@ -367,7 +368,7 @@ export default function AvalDetailPage() {
   const eventBadges = evento
     ? [
         evento.tipoEvento,
-        evento.tipoParticipacion,
+        getEventoTipoParticipacionLabel(evento.tipoParticipacion),
         evento.disciplina?.nombre,
         evento.categoria?.nombre,
         evento.alcance,
@@ -560,7 +561,12 @@ export default function AvalDetailPage() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm text-gray-700 dark:text-gray-300">
                   {[
                     { label: "Tipo de evento", value: evento.tipoEvento },
-                    { label: "Participación", value: evento.tipoParticipacion },
+                    {
+                      label: "Participación",
+                      value:
+                        getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
+                        "-",
+                    },
                     { label: "Disciplina", value: evento.disciplina?.nombre },
                     { label: "Categoría", value: evento.categoria?.nombre },
                     { label: "Alcance", value: evento.alcance },

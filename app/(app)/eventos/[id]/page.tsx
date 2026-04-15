@@ -38,6 +38,7 @@ import {
   formatGenero,
   formatMonth,
 } from "@/lib/utils/formatters";
+import { getEventoTipoParticipacionLabel } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   {
@@ -438,7 +439,7 @@ export default function EventoDetailPage() {
           {evento.tipoParticipacion && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-sm">
               <UserCheck className="w-3.5 h-3.5" />
-              {evento.tipoParticipacion}
+              {getEventoTipoParticipacionLabel(evento.tipoParticipacion) ?? evento.tipoParticipacion}
             </span>
           )}
         </div>

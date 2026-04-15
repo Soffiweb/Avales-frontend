@@ -40,6 +40,59 @@ export const GENERO_OPTIONS = [
   { value: "otro", label: "Otro" },
 ] as const;
 
+export const EVENTO_TIPO_PARTICIPACION_OPTIONS = [
+  { value: "participación", label: "Participación" },
+  { value: "organización", label: "Organización" },
+  { value: "ejecución", label: "Ejecución" },
+  { value: "adquisición", label: "Adquisición" },
+] as const;
+
+export type EventoTipoParticipacion =
+  (typeof EVENTO_TIPO_PARTICIPACION_OPTIONS)[number]["value"];
+
+const EVENTO_TIPO_PARTICIPACION_ALIASES: Record<string, EventoTipoParticipacion> = {
+  PARTICIPACION: "participación",
+  PARTICIPACIÓN: "participación",
+  ORGANIZACION: "organización",
+  ORGANIZACIÓN: "organización",
+  EJECUCION: "ejecución",
+  EJECUCIÓN: "ejecución",
+  ADQUISICION: "adquisición",
+  ADQUISICIÓN: "adquisición",
+};
+
+export function normalizeEventoTipoParticipacion(
+  value?: string | null
+): EventoTipoParticipacion | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+
+  const aliasKey = normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  return (
+    EVENTO_TIPO_PARTICIPACION_ALIASES[aliasKey] ??
+    (EVENTO_TIPO_PARTICIPACION_OPTIONS.some((option) => option.value === normalized)
+      ? (normalized as EventoTipoParticipacion)
+    : undefined)
+  );
+}
+
+export function getEventoTipoParticipacionLabel(
+  value?: string | null
+): string | undefined {
+  const normalized = normalizeEventoTipoParticipacion(value);
+  if (!normalized) return value?.trim() || undefined;
+  return (
+    EVENTO_TIPO_PARTICIPACION_OPTIONS.find(
+      (option) => option.value === normalized,
+    )?.label ?? normalized
+  );
+}
+
 /** Estados de eventos */
 export const EVENTO_ESTADOS = [
   "DISPONIBLE",

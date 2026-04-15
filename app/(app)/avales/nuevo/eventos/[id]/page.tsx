@@ -30,6 +30,7 @@ import {
   formatLocationWithProvince,
   formatCurrency,
 } from "@/lib/utils/formatters";
+import { getEventoTipoParticipacionLabel } from "@/lib/constants";
 
 function getTotalParticipants(evento: Evento) {
   return (
@@ -278,7 +279,9 @@ export default function EventoDetailForAvalPage() {
             <Users className="w-4 h-4 text-gray-400" />
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Participación</p>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-300">{evento.tipoParticipacion || "-"}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {getEventoTipoParticipacionLabel(evento.tipoParticipacion) ?? "-"}
+          </p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">

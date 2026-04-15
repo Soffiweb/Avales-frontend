@@ -1,5 +1,8 @@
 import type { Aval } from "@/types/aval";
-import { formatDateRange, formatDecimal } from "@/lib/utils/formatters";
+import {
+  formatDecimal,
+  formatEventScheduleLabel,
+} from "@/lib/utils/formatters";
 
 export type PresupuestoSalidaPreviewItem = {
   id: number;
@@ -75,7 +78,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
               <td className="border border-slate-400 px-2 py-1">
-                {formatDateRange(evento?.fechaInicio, evento?.fechaFin)}
+                {formatEventScheduleLabel(evento)}
               </td>
             </tr>
             <tr>

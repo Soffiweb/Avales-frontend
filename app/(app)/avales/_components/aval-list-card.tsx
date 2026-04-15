@@ -21,7 +21,7 @@ import {
 } from "@/lib/constants";
 import {
   formatDate,
-  formatDateRange,
+  formatEventScheduleLabel,
   formatLocation,
 } from "@/lib/utils/formatters";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
@@ -174,10 +174,7 @@ export default function AvalListCard({
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
                   <span>
-                    {formatDateRange(
-                      aval.evento?.fechaInicio,
-                      aval.evento?.fechaFin
-                    )}
+                    {formatEventScheduleLabel(aval.evento)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -190,6 +187,11 @@ export default function AvalListCard({
 
               {/* Fecha de creación */}
               <div className="pt-3 border-t border-gray-100 dark:border-gray-700/60">
+                {aval.fechaEmision && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Emitido el {formatDate(aval.fechaEmision)}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Creado el {formatDate(aval.createdAt)}
                 </p>

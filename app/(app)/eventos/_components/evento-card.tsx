@@ -6,7 +6,11 @@ import { Calendar, CalendarDays, MapPin, Users, Pencil, Trash2, DollarSign } fro
 
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
-import { formatCurrency, formatDateRange, formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatCurrency,
+  formatEventScheduleLabel,
+  formatLocationWithProvince,
+} from "@/lib/utils/formatters";
 
 type Props = {
   eventos: Evento[];
@@ -155,7 +159,7 @@ export default function EventoCard({
             <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span>{formatDateRange(evento.fechaInicio, evento.fechaFin)}</span>
+                <span>{formatEventScheduleLabel(evento)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />

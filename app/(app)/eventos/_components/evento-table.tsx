@@ -4,7 +4,10 @@ import Link from "next/link";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 
 import type { Evento } from "@/types/evento";
-import { formatDateNumeric, formatLocationWithProvince } from "@/lib/utils/formatters";
+import {
+  formatEventScheduleLabel,
+  formatLocationWithProvince,
+} from "@/lib/utils/formatters";
 
 type Props = {
   eventos: Evento[];
@@ -13,7 +16,7 @@ type Props = {
   onDelete?: (evento: Evento) => void;
 };
 
-const COLUMN_COUNT = 10;
+const COLUMN_COUNT = 8;
 
 const STATUS_STYLES: Record<string, string> = {
   DISPONIBLE:
@@ -64,10 +67,7 @@ export default function EventoTable({
                   <div className="font-semibold text-left">Lugar</div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Fecha inicio</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Fecha fin</div>
+                  <div className="font-semibold text-left">Programación</div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <div className="font-semibold text-left">Estado</div>
@@ -147,12 +147,7 @@ export default function EventoTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {formatDateNumeric(evento.fechaInicio)}
-                      </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {formatDateNumeric(evento.fechaFin)}
+                        {formatEventScheduleLabel(evento)}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">

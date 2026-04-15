@@ -34,8 +34,8 @@ import { calcularTotalEvento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   formatCurrency,
-  formatDateLong,
   formatGenero,
+  formatEventScheduleLabel,
   formatMonth,
 } from "@/lib/utils/formatters";
 import { getEventoTipoParticipacionLabel } from "@/lib/constants";
@@ -241,8 +241,11 @@ export default function EventoDetailPage() {
   }
 
   const statusStyles = getStatusStyles(evento.estado);
-  const daysUntil = getDaysUntilEvent(evento.fechaInicio);
-  const duration = getEventDuration(evento.fechaInicio, evento.fechaFin);
+  const hasRealDates = Boolean(evento.fechaInicio && evento.fechaFin);
+  const daysUntil = hasRealDates ? getDaysUntilEvent(evento.fechaInicio) : null;
+  const duration = hasRealDates
+    ? getEventDuration(evento.fechaInicio, evento.fechaFin)
+    : null;
 
   const totalAtletas =
     (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0);
@@ -459,15 +462,9 @@ export default function EventoDetailPage() {
                 </div>
                 <div className="space-y-3 text-sm">
                   <div>
-                    <p className="text-gray-500 dark:text-gray-400">Inicio</p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium capitalize">
-                    {formatDateLong(evento.fechaInicio)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">Fin</p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium capitalize">
-                    {formatDateLong(evento.fechaFin)}
+                    <p className="text-gray-500 dark:text-gray-400">Programación</p>
+                    <p className="text-gray-900 dark:text-gray-100 font-medium">
+                      {formatEventScheduleLabel(evento)}
                     </p>
                   </div>
                   {duration && (

@@ -9,7 +9,7 @@ import { aprobarAval, createPda, getAval, rechazarAval } from "@/lib/api/avales"
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   formatCurrency,
-  formatDate,
+  formatEventScheduleSentence,
   formatRoles,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
@@ -128,9 +128,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 function buildDefaultDescripcion(aval: Aval) {
   const evento = aval.evento;
   const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
-  const fecha = evento?.fechaInicio
-    ? formatDate(evento.fechaInicio)
-    : "[FECHA EVENTO]";
+  const fecha = formatEventScheduleSentence(evento);
   const eventoNombre = evento?.nombre ?? "[NOMBRE EVENTO]";
   const categoria = evento?.categoria?.nombre;
   const entrenadorResponsable = getResponsibleTrainerName(

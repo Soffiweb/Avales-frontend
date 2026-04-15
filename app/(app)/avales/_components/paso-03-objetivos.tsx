@@ -16,6 +16,7 @@ type FormData = {
     rol?: string;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
+  fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
   lugarSalida: string;

@@ -7,6 +7,8 @@ export const eventoItemSchema = z.object({
   presupuesto: z.number().min(0, "Presupuesto no puede ser negativo"),
 });
 
+const optionalDateSchema = z.string().optional().or(z.literal(""));
+
 export const eventoSchema = z.object({
   codigo: z
     .string()
@@ -32,12 +34,13 @@ export const eventoSchema = z.object({
   }),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   categoriaCodigo: z.string().min(1, "Selecciona una categoria"),
+  mesProgramado: z.number().int().min(1, "Selecciona un mes programado").max(12, "Selecciona un mes programado"),
   provincia: z.string().min(1, "Provincia requerida").max(100),
   ciudad: z.string().min(1, "Ciudad requerida").max(100),
   pais: z.string().min(1, "Pais requerido").max(100),
   alcance: z.string().min(1, "Alcance requerido").max(100),
-  fechaInicio: z.string().min(1, "Fecha de inicio requerida"),
-  fechaFin: z.string().min(1, "Fecha de fin requerida"),
+  fechaInicio: optionalDateSchema,
+  fechaFin: optionalDateSchema,
   numEntrenadoresHombres: z
     .number()
     .int()
@@ -49,6 +52,24 @@ export const eventoSchema = z.object({
   numAtletasHombres: z.number().int().min(0, "Numero de atletas hombres invalido"),
   numAtletasMujeres: z.number().int().min(0, "Numero de atletas mujeres invalido"),
   eventoItems: z.array(eventoItemSchema).optional(),
+}).superRefine((values, ctx) => {
+  const hasInicio = Boolean(values.fechaInicio && values.fechaInicio.trim());
+  const hasFin = Boolean(values.fechaFin && values.fechaFin.trim());
+
+  if (hasInicio !== hasFin) {
+    const message =
+      "Debes registrar fecha de inicio y fecha de fin, o dejar ambas vacías.";
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["fechaInicio"],
+      message,
+    });
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["fechaFin"],
+      message,
+    });
+  }
 });
 
 export type EventoFormValues = z.infer<typeof eventoSchema>;
@@ -68,12 +89,13 @@ export type CreateEventoPayload = {
   genero: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
   disciplinaCodigo: string;
   categoriaCodigo: string;
+  mesProgramado: number;
   provincia: string;
   ciudad: string;
   pais: string;
   alcance: string;
-  fechaInicio: string;
-  fechaFin: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
   numEntrenadoresHombres: number;
   numEntrenadoresMujeres: number;
   numAtletasHombres: number;

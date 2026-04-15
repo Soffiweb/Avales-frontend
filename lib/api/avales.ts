@@ -174,6 +174,8 @@ export type CreateRevisionDtmPayload = {
   descripcion: string;
   observacion?: string;
   fechaPresentacion: string;
+  firmanteNombre?: string;
+  firmanteCargo?: string;
 };
 
 export async function createRevisionDtm(
@@ -206,6 +208,8 @@ export type ApproveRevisionDtmPayload = {
   descripcion: string;
   observacion?: string;
   fechaPresentacion: string;
+  firmanteNombre?: string;
+  firmanteCargo?: string;
   items: Array<{
     key: string;
     cumple: boolean;

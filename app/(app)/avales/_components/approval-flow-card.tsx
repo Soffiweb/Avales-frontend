@@ -46,15 +46,15 @@ export default function ApprovalFlowCard({
         {title}
       </h3>
 
-      <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+      {/* <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
         <span>{currentStageLabel}</span>
         <ArrowRight className="w-4 h-4 text-gray-400" />
         <span>{nextStageLabel}</span>
-      </div>
+      </div> */}
 
       <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
         <p>{`El aval pasará de "${currentStageLabel}" a "${nextStageLabel}".`}</p>
-        <p>{`Al aprobarlo quedará en "${nextStageLabel}".`}</p>
+        {/* <p>{`Al aprobarlo quedará en "${nextStageLabel}".`}</p> */}
       </div>
 
       <div className="space-y-2">
@@ -74,32 +74,35 @@ export default function ApprovalFlowCard({
         />
       </div>
 
-      {etapaDestinoOptions && etapaDestinoOptions.length > 0 && onEtapaDestinoChange && (
-        <div className="space-y-2">
-          <label
-            htmlFor="etapaDestino"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Regresar a etapa (opcional)
-          </label>
-          <select
-            id="etapaDestino"
-            value={etapaDestinoValue ?? ""}
-            onChange={(e) => onEtapaDestinoChange(e.target.value)}
-            className="form-select w-full text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md"
-          >
-            <option value="">Etapa anterior (por defecto)</option>
-            {etapaDestinoOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Si no seleccionas una etapa, el aval regresará a la etapa inmediatamente anterior.
-          </p>
-        </div>
-      )}
+      {etapaDestinoOptions &&
+        etapaDestinoOptions.length > 0 &&
+        onEtapaDestinoChange && (
+          <div className="space-y-2">
+            <label
+              htmlFor="etapaDestino"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Regresar a etapa (opcional)
+            </label>
+            <select
+              id="etapaDestino"
+              value={etapaDestinoValue ?? ""}
+              onChange={(e) => onEtapaDestinoChange(e.target.value)}
+              className="form-select w-full text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md"
+            >
+              <option value="">Etapa anterior (por defecto)</option>
+              {etapaDestinoOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Si no seleccionas una etapa, el aval regresará a la etapa
+              inmediatamente anterior.
+            </p>
+          </div>
+        )}
 
       {actionError && <p className="text-sm text-rose-500">{actionError}</p>}
 

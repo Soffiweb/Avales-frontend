@@ -16,6 +16,12 @@ const MONTHS = [
   "Diciembre",
 ];
 
+type EventScheduleLike = {
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  mesProgramado?: number | null;
+};
+
 type DateFormatOptions = Intl.DateTimeFormatOptions & {
   fallback?: string;
   locale?: string;
@@ -138,10 +144,26 @@ export function formatDateRange(
   return `${startStr} - ${endStr}`;
 }
 
+export function formatMonthYear(
+  month?: number | null,
+  year = new Date().getFullYear(),
+): string {
+  if (!month || month < 1 || month > 12) return "-";
+  return `${MONTHS[month - 1]} ${year}`;
+}
+
 export function formatDateInput(value?: string | null): string {
   const date = parseDate(value);
   if (!date) return "";
   return date.toISOString().slice(0, 10);
+}
+
+export function getTodayDateInputValue(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function formatDateDMY(value?: string | null): string {
@@ -204,6 +226,55 @@ export function formatDocumentEventDateRange(
   });
 
   return `${startFormatted} AL ${endFormatted}`.toUpperCase();
+}
+
+export function formatEventScheduleLabel(
+  evento?: EventScheduleLike | null,
+  options: { year?: number; fallback?: string } = {},
+): string {
+  const { year = new Date().getFullYear(), fallback = "-" } = options;
+  if (evento?.fechaInicio && evento?.fechaFin) {
+    return formatDateRange(evento.fechaInicio, evento.fechaFin);
+  }
+
+  return formatMonthYear(evento?.mesProgramado, year) || fallback;
+}
+
+export function formatEventScheduleDocumentLabel(
+  evento?: EventScheduleLike | null,
+  options: { year?: number; fallback?: string } = {},
+): string {
+  const { year = new Date().getFullYear(), fallback = "-" } = options;
+  if (evento?.fechaInicio && evento?.fechaFin) {
+    return formatDocumentEventDateRange(evento.fechaInicio, evento.fechaFin);
+  }
+
+  const label = formatMonthYear(evento?.mesProgramado, year);
+  return label === "-" ? fallback : label.toUpperCase();
+}
+
+export function formatEventScheduleSentence(
+  evento?: EventScheduleLike | null,
+  options: { year?: number; fallback?: string } = {},
+): string {
+  const { year = new Date().getFullYear(), fallback = "en fecha por definir" } =
+    options;
+
+  if (evento?.fechaInicio && evento?.fechaFin) {
+    return `del ${formatDateWithOptions(evento.fechaInicio, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })} al ${formatDateWithOptions(evento.fechaFin, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })}`;
+  }
+
+  const label = formatMonthYear(evento?.mesProgramado, year);
+  if (label === "-") return fallback;
+  return `en ${label.toLowerCase()}`;
 }
 
 export function formatEventDateRangeForDescripcion(

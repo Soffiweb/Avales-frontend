@@ -55,8 +55,9 @@ export type EventoSimple = {
   ciudad: string;
   pais: string;
   alcance: string;
-  fechaInicio: string;
-  fechaFin: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  mesProgramado?: number | null;
   numEntrenadoresHombres: number;
   numEntrenadoresMujeres: number;
   numAtletasHombres: number;
@@ -134,6 +135,18 @@ export type AvalTecnico = {
   deportistasAval: DeportistaAval[];
 };
 
+export type RevisionDtm = {
+  id: number;
+  numeroRevision?: string | null;
+  descripcion?: string | null;
+  observacion?: string | null;
+  fechaPresentacion?: string | null;
+  firmanteNombre?: string | null;
+  firmanteCargo?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type UsuarioSimple = {
   id: number;
   nombre: string;
@@ -163,6 +176,7 @@ export type AdjuntoSolicitud = {
 export type Aval = {
   id: number;
   descripcion?: string | null;
+  fechaEmision?: string | null;
   estado: Estado;
   etapaActual?: EtapaFlujo;
   comentario?: string | null;
@@ -190,6 +204,7 @@ export type Aval = {
     cargoFirmante?: string | null;
     fechaEmision?: string | null;
   } | null;
+  revisionDtm?: RevisionDtm | null;
   revisionMetodologo?: {
     numeroRevision?: string | null;
     dirigidoA?: string | null;
@@ -260,6 +275,7 @@ export type EntrenadorAvalDto = {
 
 export type CreateAvalPayload = {
   coleccionAvalId: number;
+  fechaEmision?: string | null;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
   lugarSalida: string;

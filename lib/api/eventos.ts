@@ -101,9 +101,8 @@ function appendEventoFormData(
 ) {
   Object.entries(values).forEach(([key, value]) => {
     if (key === "eventoItems") return;
-    if (value !== undefined && value !== null) {
-      formData.append(key, String(value));
-    }
+    if (value === undefined) return;
+    formData.append(key, value === null ? "" : String(value));
   });
 
   if (values.eventoItems !== undefined) {

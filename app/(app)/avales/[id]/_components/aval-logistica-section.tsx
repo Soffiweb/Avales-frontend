@@ -1,20 +1,30 @@
 "use client";
 
 import type { AvalTecnico } from "@/types/aval";
-import { formatDateTime } from "@/lib/utils/formatters";
+import { formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
 
 type AvalLogisticaSectionProps = {
   avalTecnico: AvalTecnico;
+  fechaEmision?: string | null;
 };
 
 export default function AvalLogisticaSection({
   avalTecnico,
+  fechaEmision,
 }: AvalLogisticaSectionProps) {
   return (
     <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
       <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-2">
         Informacion de viaje
       </p>
+      <div className="mb-4">
+        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+          Fecha de emisión
+        </p>
+        <p className="font-semibold text-gray-900 dark:text-gray-100">
+          {fechaEmision ? formatDateDMY(fechaEmision) : "-"}
+        </p>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-gray-500">

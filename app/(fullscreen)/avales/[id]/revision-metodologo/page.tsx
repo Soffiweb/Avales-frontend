@@ -15,8 +15,8 @@ import { getDirigido } from "@/lib/api/user";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
-  formatDate,
   formatRoles,
+  formatEventScheduleSentence,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import {
@@ -143,7 +143,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 function buildDefaultDescripcion(aval: Aval) {
   const evento = aval.evento;
   const disciplina = evento?.disciplina?.nombre ?? "la disciplina";
-  const fecha = evento?.fechaInicio ? formatDate(evento.fechaInicio) : "-";
+  const fecha = formatEventScheduleSentence(evento);
   const eventoNombre = evento?.nombre ?? "el evento";
   const entrenadorResponsable = getResponsibleTrainerName(
     aval,

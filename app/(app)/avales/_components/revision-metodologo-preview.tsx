@@ -2,8 +2,8 @@ import { Fragment } from "react";
 
 import type { Aval } from "@/types/aval";
 import {
-  formatDateRange,
   formatEnumLabel,
+  formatEventScheduleSentence,
   formatLocationWithProvince,
   formatTramiteDate,
   getResponsibleTrainerName,
@@ -60,9 +60,7 @@ function buildDefaultObservations(aval: Aval) {
   const categoria = evento?.categoria?.nombre ?? "SIN CATEGORIA";
   const genero = formatEnumLabel(evento?.genero, " ", "POR DEFINIR");
   const lugar = formatLocationWithProvince(evento) || "POR DEFINIR";
-  const fechas = formatDateRange(evento?.fechaInicio, evento?.fechaFin)
-    .toUpperCase()
-    .trim();
+  const fechas = formatEventScheduleSentence(evento).toUpperCase().trim();
   const entrenadorResponsable = getResponsibleTrainerName(aval);
   const objetivos = aval.avalTecnico?.objetivos
     ?.map((item) => item.descripcion)
@@ -114,7 +112,7 @@ function buildDefaultDescripcion(aval: Aval, header: RevisionHeader) {
   const evento = aval.evento;
   const eventoNombre = (evento?.nombre ?? "EL EVENTO").toUpperCase();
   const lugar = formatLocationWithProvince(evento) || "LUGAR POR DEFINIR";
-  const fechas = formatDateRange(evento?.fechaInicio, evento?.fechaFin);
+  const fechas = formatEventScheduleSentence(evento);
   const entrenadorResponsable = getResponsibleTrainerName(aval);
   const disciplina = evento?.disciplina?.nombre ?? "LA DISCIPLINA";
 

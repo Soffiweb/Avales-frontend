@@ -1,7 +1,7 @@
 import type { Aval } from "@/types/aval";
 import {
-  formatDateRange,
   formatEnumLabel,
+  formatEventScheduleSentence,
   formatLocationWithProvince,
   formatTramiteDate,
   getResponsibleTrainerName,
@@ -22,8 +22,8 @@ type RevisionHeader = {
 
 type RevisionFooter = {
   observacionesFinales: string;
-  firmanteNombre: string;
-  firmanteCargo: string;
+  firmanteNombre?: string;
+  firmanteCargo?: string;
 };
 
 type Props = {
@@ -67,7 +67,9 @@ function buildDtmRows(
   const entrenadorResponsable = getResponsibleTrainerName(aval);
   const eventoNombre = evento?.nombre?.toUpperCase() ?? "SIN EVENTO";
   const sedeFechas = `${formatLocationWithProvince(evento) || "POR DEFINIR"}${
-    evento?.fechaInicio ? `, ${formatDateRange(evento.fechaInicio, evento.fechaFin)}` : ""
+    evento?.fechaInicio || evento?.mesProgramado
+      ? `, ${formatEventScheduleSentence(evento)}`
+      : ""
   }`.trim();
 
   const objetivos = tecnico?.objetivos?.length
@@ -86,7 +88,8 @@ function buildDtmRows(
     : "-";
 
   const totalEntrenadores =
-    (evento?.numEntrenadoresHombres || 0) + (evento?.numEntrenadoresMujeres || 0);
+    (evento?.numEntrenadoresHombres || 0) +
+    (evento?.numEntrenadoresMujeres || 0);
   const totalAtletas =
     (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
   const conformacion = joinBulletLines([
@@ -94,13 +97,14 @@ function buildDtmRows(
     `• ${totalAtletas} deportistas`,
   ]);
 
-  const anexos = [
-    aval.dtmUrl ? "Hoja Excel DTM" : "",
-    aval.convocatoriaUrl ? "Convocatoria del evento" : "",
-    aval.solicitudUrl ? "Aval tecnico / solicitud" : "",
-  ]
-    .filter(Boolean)
-    .join(", ") || "-";
+  const anexos =
+    [
+      aval.dtmUrl ? "Hoja Excel DTM" : "",
+      aval.convocatoriaUrl ? "Convocatoria del evento" : "",
+      aval.solicitudUrl ? "Aval tecnico / solicitud" : "",
+    ]
+      .filter(Boolean)
+      .join(", ") || "-";
 
   const presupuestoItems = evento?.presupuesto ?? [];
   const requerimientos = presupuestoItems.length
@@ -112,7 +116,8 @@ function buildDtmRows(
       )
     : "Sin requerimientos presupuestarios registrados.";
 
-  const metodologoNombre = aval.revisionMetodologo?.firmanteNombre || "POR DEFINIR";
+  const metodologoNombre =
+    aval.revisionMetodologo?.firmanteNombre || "POR DEFINIR";
 
   const fechaPresentacion = formatTramiteDate(header.fechaRevision);
   const fechaTramite = header.observacionFechaTramite?.trim() || "-";
@@ -137,12 +142,27 @@ function buildDtmRows(
     row("1", "Deporte", "DEPORTE", deporte),
     row("2", "Categorias", "CATEGORIA", categoria),
     row("3", "Genero", "GENERO", genero),
-    row("4", "Entrenador Responsable", "ENTRENADOR_RESPONSABLE", entrenadorResponsable),
+    row(
+      "4",
+      "Entrenador Responsable",
+      "ENTRENADOR_RESPONSABLE",
+      entrenadorResponsable,
+    ),
     row("5", "Evento", "EVENTO", eventoNombre),
     row("6", "Sede, Fechas", "FECHAS", sedeFechas),
-    row("7", "Objetivos de participación", "OBJETIVOS_PARTICIPACION", objetivos),
+    row(
+      "7",
+      "Objetivos de participación",
+      "OBJETIVOS_PARTICIPACION",
+      objetivos,
+    ),
     row("8", "Criterios de selección", "CRITERIOS_SELECCION", criterios),
-    row("9", "Conformación de la delegación", "CONFORMACION_DELEGACION", conformacion),
+    row(
+      "9",
+      "Conformación de la delegación",
+      "CONFORMACION_DELEGACION",
+      conformacion,
+    ),
     row("10", "Anexos (Resultados de test, topes, etc.)", null, anexos, true),
     row("11", "Requerimientos DTM-FDPL", "REQUERIMIENTOS", requerimientos),
     row(
@@ -161,9 +181,24 @@ function buildDtmRows(
       "DATOS_DEPORTISTAS",
       "Hoja Excel adjunta.",
     ),
-    row("13", "Afiliación", "AFILIACION", "Con fecha registrada en afiliación."),
-    row("14", "Certificación Médica", "CERTIFICACION_MEDICA", "Con certificación médica adjunta."),
-    row("15", "Certificación PDA", "CERT_MET_PDA", aval.pda ? "SI CONSTA ESTE EVENTO EN EL PDA" : "-"),
+    row(
+      "13",
+      "Afiliación",
+      "AFILIACION",
+      "Con fecha registrada en afiliación.",
+    ),
+    row(
+      "14",
+      "Certificación Médica",
+      "CERTIFICACION_MEDICA",
+      "Con certificación médica adjunta.",
+    ),
+    row(
+      "15",
+      "Certificación PDA",
+      "CERT_MET_PDA",
+      aval.pda ? "SI CONSTA ESTE EVENTO EN EL PDA" : "-",
+    ),
     row(
       "16",
       "Aval técnico para competencia con presupuesto PDA",
@@ -178,8 +213,20 @@ function buildDtmRows(
       "-",
       false,
     ),
-    row("18", "Fecha de presentación", null, fechaPresentacion, Boolean(header.fechaRevision)),
-    row("19", "Fecha de tramite", null, fechaTramite, Boolean(header.observacionFechaTramite?.trim())),
+    row(
+      "18",
+      "Fecha de presentación",
+      null,
+      fechaPresentacion,
+      Boolean(header.fechaRevision),
+    ),
+    row(
+      "19",
+      "Fecha de tramite",
+      null,
+      fechaTramite,
+      Boolean(header.observacionFechaTramite?.trim()),
+    ),
   ];
 
   return { topRows, annexRows };
@@ -211,15 +258,23 @@ export default function RevisionDtmPreview({
   const cargoDirigidoA = header.cargoDirigidoA || "[CARGO]";
   const descripcion =
     header.descripcionEncabezado.trim() || "Sin descripción de revisión.";
-  const { topRows, annexRows } = buildDtmRows(aval, reviewState, header, footer);
+  const { topRows, annexRows } = buildDtmRows(
+    aval,
+    reviewState,
+    header,
+    footer,
+  );
 
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-3">
       <div className="space-y-0.5">
         <p className="text-[12px] uppercase font-semibold tracking-wide">
-          Revision metodologica para otorgacion del aval tecnico #{numeroRevision}
+          Revision metodologica para otorgacion del aval tecnico #
+          {numeroRevision}
         </p>
-        <p className="text-[10px] uppercase">N{String.fromCharCode(176)} {numeroRevision}</p>
+        <p className="text-[10px] uppercase">
+          N{String.fromCharCode(176)} {numeroRevision}
+        </p>
       </div>
 
       <div className="text-[10px] leading-4">
@@ -233,12 +288,18 @@ export default function RevisionDtmPreview({
         <table className="w-full border-collapse text-[9px]">
           <thead>
             <tr className="bg-slate-200">
-              <th className="border border-slate-400 px-2 py-1 text-center w-[6%]">N°</th>
+              <th className="border border-slate-400 px-2 py-1 text-center w-[6%]">
+                N°
+              </th>
               <th className="border border-slate-400 px-2 py-1 text-left w-[38%]">
                 PARAMETROS
               </th>
-              <th className="border border-slate-400 px-2 py-1 text-center w-[7%]">SI</th>
-              <th className="border border-slate-400 px-2 py-1 text-center w-[7%]">NO</th>
+              <th className="border border-slate-400 px-2 py-1 text-center w-[7%]">
+                SI
+              </th>
+              <th className="border border-slate-400 px-2 py-1 text-center w-[7%]">
+                NO
+              </th>
               <th className="border border-slate-400 px-2 py-1 text-left w-[42%]">
                 DATOS INFORMATIVOS
               </th>
@@ -304,8 +365,10 @@ export default function RevisionDtmPreview({
           <p>Atentamente,</p>
           <div className="mt-6">
             <p className="text-slate-400">____________________________</p>
-            <p className="font-semibold uppercase">{footer.firmanteNombre || "-"}</p>
-            <p className="uppercase">{footer.firmanteCargo || "-"}</p>
+            <p className="font-semibold uppercase">
+              {footer.firmanteNombre?.trim() || "-"}
+            </p>
+            <p className="uppercase">{footer.firmanteCargo?.trim() || "-"}</p>
           </div>
         </div>
       </div>

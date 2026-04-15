@@ -17,7 +17,9 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
+import PdaPreview, {
+  type PdaDraft,
+} from "@/app/(app)/avales/_components/pda-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
@@ -31,12 +33,9 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
+import { getApprovalStageLabel, getNextApprovalStage } from "@/lib/constants";
 import {
-  getApprovalStageLabel,
-  getNextApprovalStage,
-} from "@/lib/constants";
-import {
-  formatEventDateRangeForDescripcion,
+  formatEventScheduleSentence,
   formatLocationWithProvince,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
@@ -99,7 +98,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -110,8 +111,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 
       const nombre = (
         [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
@@ -153,7 +158,10 @@ function getTodayLocalDate() {
 
 function buildDefaultDtmDescripcion(aval: Aval) {
   const evento = aval.evento;
-  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
+  const entrenador = getResponsibleTrainerName(
+    aval,
+    "[ENTRENADOR RESPONSABLE]",
+  );
   const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
   const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
   const numeroSolicitud =
@@ -165,10 +173,7 @@ function buildDefaultDtmDescripcion(aval: Aval) {
     [evento?.provincia, evento?.ciudad].filter(Boolean).join("-") ||
     formatLocationWithProvince(evento) ||
     "[LUGAR]";
-  const rangoFechas = formatEventDateRangeForDescripcion(
-    evento?.fechaInicio,
-    evento?.fechaFin,
-  );
+  const rangoFechas = formatEventScheduleSentence(evento);
 
   return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
 }
@@ -189,15 +194,13 @@ export default function RevisionControlPrevioPage() {
     variant: "success" | "error";
     message: string;
   } | null>(null);
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(
-    DEFAULT_REVIEW_ITEMS,
-  );
-  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>(
-    {},
-  );
+  const [reviewItems, setReviewItems] =
+    useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
+  const [reviewState, setReviewState] = useState<
+    Record<string, ReviewStateItem>
+  >({});
 
-  const isControlPrevio =
-    user?.roles?.includes("CONTROL_PREVIO") ?? false;
+  const isControlPrevio = user?.roles?.includes("CONTROL_PREVIO") ?? false;
 
   useEffect(() => {
     setActionError(null);
@@ -319,17 +322,22 @@ export default function RevisionControlPrevioPage() {
   const dtmPreviewHeader = useMemo(
     () => ({
       ...revisionHeader,
-      descripcionEncabezado: aval ? buildDefaultDtmDescripcion(aval) : "",
-      fechaRevision: getTodayLocalDate(),
+      descripcionEncabezado:
+        aval?.revisionDtm?.descripcion ??
+        (aval ? buildDefaultDtmDescripcion(aval) : ""),
+      fechaRevision:
+        aval?.revisionDtm?.fechaPresentacion ?? getTodayLocalDate(),
       observacionFechaTramite: "",
     }),
     [aval, revisionHeader],
   );
   const dtmPreviewFooter = useMemo(
     () => ({
-      ...revisionFooter,
+      observacionesFinales: aval?.revisionDtm?.observacion ?? "",
+      firmanteNombre: aval?.revisionDtm?.firmanteNombre ?? "",
+      firmanteCargo: aval?.revisionDtm?.firmanteCargo ?? "",
     }),
-    [revisionFooter],
+    [aval],
   );
 
   const etapaActualResponse = aval?.etapaActual;
@@ -338,8 +346,7 @@ export default function RevisionControlPrevioPage() {
     etapaActualHistorial ??
     "SOLICITUD") as EtapaFlujo;
   const isEditable =
-    aval?.estado === "SOLICITADO" &&
-    currentEtapa === "REVISION_DTM";
+    aval?.estado === "SOLICITADO" && currentEtapa === "REVISION_DTM";
   const approvalEtapa = getNextApprovalStage(currentEtapa) ?? currentEtapa;
   const showApprovalPanel = isControlPrevio && isEditable;
 
@@ -387,12 +394,7 @@ export default function RevisionControlPrevioPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await rechazarAval(
-        aval.id,
-        user.id,
-        currentEtapa,
-        rechazoMotivo.trim(),
-      );
+      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
       setToast({
         variant: "success",
         message: "Aval rechazado correctamente.",
@@ -551,7 +553,10 @@ export default function RevisionControlPrevioPage() {
                 useDefaultObservations={false}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview presupuesto de salida" defaultOpen>
+            <PreviewCollapsible
+              title="Preview presupuesto de salida"
+              defaultOpen
+            >
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
                 draft={{ notas: [] }}

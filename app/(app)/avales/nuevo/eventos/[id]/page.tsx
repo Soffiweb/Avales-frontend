@@ -26,7 +26,7 @@ import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
 import {
-  formatDateRange,
+  formatEventScheduleLabel,
   formatLocationWithProvince,
   formatCurrency,
 } from "@/lib/utils/formatters";
@@ -298,7 +298,7 @@ export default function EventoDetailForAvalPage() {
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Fechas</p>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            {formatDateRange(evento.fechaInicio, evento.fechaFin)}
+            {formatEventScheduleLabel(evento)}
           </p>
         </div>
 

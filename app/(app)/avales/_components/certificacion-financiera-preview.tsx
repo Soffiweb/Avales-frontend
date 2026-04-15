@@ -2,7 +2,7 @@ import type { Aval } from "@/types/aval";
 import {
   formatCurrency,
   formatDate,
-  formatDateRange,
+  formatEventScheduleLabel,
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
 
@@ -31,7 +31,7 @@ function InfoTable({ aval, year }: { aval: Aval; year: number }) {
     ["EVENTO", evento?.nombre?.toUpperCase() || "-"],
     ["# PARTICIPANTES", participantesText],
     ["LUGAR DE COMPETENCIA", (formatLocationWithProvince(evento) || "-").toUpperCase()],
-    ["FECHA DE SALIDA", formatDateRange(evento?.fechaInicio, evento?.fechaFin)],
+    ["FECHA DE SALIDA", formatEventScheduleLabel(evento)],
     ["RESPONSABLE ANTICIPO", "-"],
     ["C. I. RESPON. ANTICIPO", "-"],
     [`ACTIVIDADES POA ${year}`, "005 EVENTOS DE PREPARACION Y COMPETENCIA"],

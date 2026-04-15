@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { FileText, DollarSign, Paperclip, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
 import { createAval, uploadAdjuntosSolicitud } from "@/lib/api/avales";
 import type { Aval } from "@/types/aval";
@@ -20,6 +21,7 @@ type FormData = {
     rol?: string;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
+  fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
   lugarSalida: string;
@@ -98,6 +100,7 @@ export default function Paso04Presupuesto({
       // Preparar el payload según la estructura esperada por la API
       const payload = {
         coleccionAvalId: avalId,
+        fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
         fechaHoraSalida: formData.fechaHoraSalida,
         fechaHoraRetorno: formData.fechaHoraRetorno,
         lugarSalida: formData.lugarSalida,

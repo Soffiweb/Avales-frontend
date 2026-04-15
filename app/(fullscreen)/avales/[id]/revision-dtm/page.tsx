@@ -36,8 +36,9 @@ import {
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
 import {
-  formatEventDateRangeForDescripcion,
+  formatEventScheduleSentence,
   formatLocationWithProvince,
+  formatRoles,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 
@@ -74,12 +75,43 @@ const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
   fechaEmision: "",
 };
 
-const INITIAL_DTM_DRAFT = {
+type DtmDraft = {
+  descripcion: string;
+  observacion: string;
+  observacionFechaTramite: string;
+  fechaPresentacion: string;
+  firmanteNombre: string;
+  firmanteCargo: string;
+};
+
+const INITIAL_DTM_DRAFT: DtmDraft = {
   descripcion: "",
   observacion: "",
   observacionFechaTramite: "",
   fechaPresentacion: new Date().toISOString().slice(0, 10),
+  firmanteNombre: "",
+  firmanteCargo: "",
 };
+
+function buildDtmDraft(
+  aval?: Aval | null,
+  defaults: Pick<DtmDraft, "firmanteNombre" | "firmanteCargo"> = {
+    firmanteNombre: "",
+    firmanteCargo: "",
+  },
+): DtmDraft {
+  const revisionDtm = aval?.revisionDtm;
+
+  return {
+    descripcion: revisionDtm?.descripcion ?? "",
+    observacion: revisionDtm?.observacion ?? "",
+    observacionFechaTramite: "",
+    fechaPresentacion:
+      revisionDtm?.fechaPresentacion ?? new Date().toISOString().slice(0, 10),
+    firmanteNombre: revisionDtm?.firmanteNombre ?? defaults.firmanteNombre,
+    firmanteCargo: revisionDtm?.firmanteCargo ?? defaults.firmanteCargo,
+  };
+}
 
 function buildDefaultDtmDescripcion(aval: Aval) {
   const evento = aval.evento;
@@ -95,10 +127,7 @@ function buildDefaultDtmDescripcion(aval: Aval) {
     [evento?.provincia, evento?.ciudad].filter(Boolean).join("-") ||
     formatLocationWithProvince(evento) ||
     "[LUGAR]";
-  const rangoFechas = formatEventDateRangeForDescripcion(
-    evento?.fechaInicio,
-    evento?.fechaFin,
-  );
+  const rangoFechas = formatEventScheduleSentence(evento);
 
   return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
 }
@@ -183,7 +212,7 @@ export default function RevisionDtmPage() {
     variant: "success" | "error";
     message: string;
   } | null>(null);
-  const [draft, setDraft] = useState(INITIAL_DTM_DRAFT);
+  const [draft, setDraft] = useState<DtmDraft>(INITIAL_DTM_DRAFT);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(
     DEFAULT_REVIEW_ITEMS,
   );
@@ -192,9 +221,16 @@ export default function RevisionDtmPage() {
   );
 
   const isDtm = user?.roles?.includes("DTM") ?? false;
+  const defaultSignerName = useMemo(() => {
+    if (!user) return "";
+    return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
+  }, [user]);
+  const defaultSignerCargo = useMemo(
+    () => (user?.roles?.length ? formatRoles(user.roles) : ""),
+    [user],
+  );
 
   useEffect(() => {
-    setDraft(INITIAL_DTM_DRAFT);
     setActionError(null);
     setRechazoMotivo("");
   }, [avalId]);
@@ -246,6 +282,15 @@ export default function RevisionDtmPage() {
   useEffect(() => {
     void loadAval();
   }, [loadAval]);
+
+  useEffect(() => {
+    setDraft(
+      buildDtmDraft(aval, {
+        firmanteNombre: defaultSignerName,
+        firmanteCargo: defaultSignerCargo,
+      }),
+    );
+  }, [aval, defaultSignerName, defaultSignerCargo]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -338,10 +383,17 @@ export default function RevisionDtmPage() {
 
   const dtmPreviewFooter = useMemo(
     () => ({
-      ...revisionFooter,
       observacionesFinales: draft.observacion,
+      firmanteNombre: draft.firmanteNombre || defaultSignerName,
+      firmanteCargo: draft.firmanteCargo || defaultSignerCargo,
     }),
-    [revisionFooter, draft.observacion],
+    [
+      draft.observacion,
+      draft.firmanteNombre,
+      draft.firmanteCargo,
+      defaultSignerName,
+      defaultSignerCargo,
+    ],
   );
 
   const etapaActualResponse = aval?.etapaActual;
@@ -397,6 +449,8 @@ export default function RevisionDtmPage() {
           descripcion: draft.descripcion.trim(),
           observacion: draft.observacion.trim() || undefined,
           fechaPresentacion: draft.fechaPresentacion,
+          firmanteNombre: draft.firmanteNombre.trim() || undefined,
+          firmanteCargo: draft.firmanteCargo.trim() || undefined,
           items,
         },
       );
@@ -595,6 +649,46 @@ export default function RevisionDtmPage() {
                       }))
                     }
                     placeholder="Describe la revisión DTM..."
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Firmante nombre
+                  </span>
+                  <input
+                    type="text"
+                    className="form-input w-full mt-1"
+                    value={draft.firmanteNombre}
+                    readOnly={!isEditable}
+                    disabled={!isEditable}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        firmanteNombre: e.target.value,
+                      }))
+                    }
+                    placeholder="Nombre del firmante"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Firmante cargo
+                  </span>
+                  <input
+                    type="text"
+                    className="form-input w-full mt-1"
+                    value={draft.firmanteCargo}
+                    readOnly={!isEditable}
+                    disabled={!isEditable}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        firmanteCargo: e.target.value,
+                      }))
+                    }
+                    placeholder="Cargo del firmante"
                   />
                 </label>
 

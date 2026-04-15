@@ -40,6 +40,17 @@ const MESES = [
   { value: 12, label: "Diciembre" },
 ];
 
+function getDefaultMesProgramado(evento?: Evento | null) {
+  if (evento?.mesProgramado) return evento.mesProgramado;
+  if (evento?.fechaInicio) {
+    const start = new Date(evento.fechaInicio);
+    if (!Number.isNaN(start.getTime())) {
+      return start.getMonth() + 1;
+    }
+  }
+  return new Date().getMonth() + 1;
+}
+
 const EMPTY_FORM_VALUES: EventoFormValues = {
   codigo: "",
   tipoParticipacion: "",
@@ -49,6 +60,7 @@ const EMPTY_FORM_VALUES: EventoFormValues = {
   genero: undefined as unknown as EventoFormValues["genero"],
   disciplinaCodigo: "",
   categoriaCodigo: "",
+  mesProgramado: new Date().getMonth() + 1,
   provincia: "",
   ciudad: "",
   pais: "Ecuador",
@@ -78,6 +90,7 @@ const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
     evento.categoriaCodigo ??
     evento.categoria?.codigo ??
     (evento.categoriaId ? String(evento.categoriaId) : ""),
+  mesProgramado: getDefaultMesProgramado(evento),
   provincia: evento.provincia ?? "",
   ciudad: evento.ciudad ?? "",
   pais: evento.pais ?? "Ecuador",
@@ -166,6 +179,7 @@ export default function EventoForm({
         disciplinas,
         initialValues.disciplinaCodigo
       ),
+      mesProgramado: initialValues.mesProgramado ?? getDefaultMesProgramado(evento),
     });
   }, [evento, initialValues, mode, catalogLoading, reset, categorias, disciplinas]);
 
@@ -270,12 +284,17 @@ export default function EventoForm({
       genero: values.genero,
       disciplinaCodigo: values.disciplinaCodigo,
       categoriaCodigo: values.categoriaCodigo,
+      mesProgramado: values.mesProgramado,
       provincia: values.provincia.trim(),
       ciudad: values.ciudad.trim(),
       pais: values.pais.trim(),
       alcance: values.alcance.trim(),
-      fechaInicio: new Date(values.fechaInicio).toISOString(),
-      fechaFin: new Date(values.fechaFin).toISOString(),
+      fechaInicio: values.fechaInicio?.trim()
+        ? new Date(values.fechaInicio).toISOString()
+        : null,
+      fechaFin: values.fechaFin?.trim()
+        ? new Date(values.fechaFin).toISOString()
+        : null,
       numEntrenadoresHombres: values.numEntrenadoresHombres,
       numEntrenadoresMujeres: values.numEntrenadoresMujeres,
       numAtletasHombres: values.numAtletasHombres,
@@ -323,6 +342,8 @@ export default function EventoForm({
               : problem.field === "disciplinaId" ||
                   problem.field === "disciplinaCodigo"
                 ? ("disciplinaCodigo" as keyof EventoFormValues)
+                : problem.field === "mesProgramado"
+                  ? ("mesProgramado" as keyof EventoFormValues)
                 : (problem.field as keyof EventoFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
@@ -643,6 +664,38 @@ export default function EventoForm({
 
       <div className="p-5 space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label
+              className="block text-sm font-medium mb-1"
+              htmlFor="mesProgramado"
+            >
+              Mes programado
+            </label>
+            <select
+              id="mesProgramado"
+              className="form-select w-full"
+              {...register("mesProgramado", {
+                setValueAs: (v) => {
+                  if (v === "" || v === null || v === undefined) return undefined;
+                  const parsed = Number(v);
+                  return Number.isFinite(parsed) ? parsed : undefined;
+                },
+              })}
+            >
+              <option value="">Selecciona un mes</option>
+              {MESES.map((mes) => (
+                <option key={mes.value} value={String(mes.value)}>
+                  {mes.label}
+                </option>
+              ))}
+            </select>
+            {errors.mesProgramado && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.mesProgramado.message}
+              </p>
+            )}
+          </div>
+
           <Controller
             control={control}
             name="fechaInicio"
@@ -657,8 +710,9 @@ export default function EventoForm({
                 <DatePicker
                   id="fechaInicio"
                   value={field.value ?? ""}
-                  onChange={field.onChange}
+                  onChange={(value) => field.onChange(value ?? "")}
                   mode="single"
+                  placeholder="Opcional"
                 />
                 {errors.fechaInicio && (
                   <p className="mt-1 text-xs text-red-600">
@@ -683,8 +737,9 @@ export default function EventoForm({
                 <DatePicker
                   id="fechaFin"
                   value={field.value ?? ""}
-                  onChange={field.onChange}
+                  onChange={(value) => field.onChange(value ?? "")}
                   mode="single"
+                  placeholder="Opcional"
                 />
                 {errors.fechaFin && (
                   <p className="mt-1 text-xs text-red-600">

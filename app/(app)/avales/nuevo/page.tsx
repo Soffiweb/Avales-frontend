@@ -13,7 +13,7 @@ import type { Evento } from "@/types/evento";
 import { useAuth } from "@/app/providers/auth-provider";
 import { isAdminUser } from "@/lib/auth/access";
 import {
-  formatDateRange,
+  formatEventScheduleLabel,
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
 
@@ -34,6 +34,9 @@ function getEventSortTimestamp(evento: Evento) {
   if (!Number.isNaN(start)) return start;
   const end = evento.fechaFin ? new Date(evento.fechaFin).getTime() : NaN;
   if (!Number.isNaN(end)) return end;
+  if (evento.mesProgramado) {
+    return new Date(new Date().getFullYear(), evento.mesProgramado - 1, 1).getTime();
+  }
   return 0;
 }
 
@@ -320,7 +323,7 @@ export default function NuevoAvalPage() {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
                     <span>
-                      {formatDateRange(evento.fechaInicio, evento.fechaFin)}
+                      {formatEventScheduleLabel(evento)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

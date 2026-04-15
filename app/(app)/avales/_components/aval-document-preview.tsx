@@ -2,8 +2,8 @@ import type { Aval } from "@/types/aval";
 import {
   formatCurrencyFromString,
   formatDateDMY,
-  formatDocumentEventDateRange,
   formatEnumLabel,
+  formatEventScheduleDocumentLabel,
   formatLocationWithProvince,
   formatTimeCompact,
   formatTransport,
@@ -24,6 +24,7 @@ type FormData = {
     rol?: string;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
+  fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
   lugarSalida: string;
@@ -63,7 +64,9 @@ export default function AvalDocumentPreview({
     aval.aval ??
     aval.numeroColeccion ??
     String(aval.id ?? "S/N");
+  const fechaEmision = formData.fechaEmision || aval.fechaEmision || null;
   const showDetallePage =
+    Boolean(formData.fechaEmision) ||
     Boolean(formData.fechaHoraSalida) ||
     Boolean(formData.fechaHoraRetorno) ||
     Boolean(formData.lugarSalida) ||
@@ -131,6 +134,14 @@ export default function AvalDocumentPreview({
               </tr>
               <tr>
                 <td className="border border-slate-400 px-2 py-1 font-semibold">
+                  FECHA DE EMISION
+                </td>
+                <td className="border border-slate-400 px-2 py-1">
+                  {fechaEmision ? formatDateDMY(fechaEmision) : "-"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-slate-400 px-2 py-1 font-semibold">
                   GENERO
                 </td>
                 <td className="border border-slate-400 px-2 py-1">{genero}</td>
@@ -141,7 +152,7 @@ export default function AvalDocumentPreview({
                 </td>
                 <td className="border border-slate-400 px-2 py-1">
                   {(formatLocationWithProvince(evento) || "-").toUpperCase()} /{" "}
-                  {formatDocumentEventDateRange(evento?.fechaInicio, evento?.fechaFin)}
+                  {formatEventScheduleDocumentLabel(evento)}
                 </td>
               </tr>
               <tr>
@@ -288,7 +299,7 @@ export default function AvalDocumentPreview({
                 </td>
                 <td className="border border-slate-400 px-2 py-1">
                   {(formatLocationWithProvince(evento) || "-").toUpperCase()} /{" "}
-                  {formatDocumentEventDateRange(evento?.fechaInicio, evento?.fechaFin)}
+                  {formatEventScheduleDocumentLabel(evento)}
                 </td>
               </tr>
               <tr>

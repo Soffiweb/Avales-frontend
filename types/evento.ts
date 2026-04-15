@@ -39,8 +39,9 @@ export type Evento = {
   pais: string;
   genero: EventoGenero;
   alcance: string;
-  fechaInicio: string;
-  fechaFin: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  mesProgramado?: number | null;
   numEntrenadoresHombres: number;
   numEntrenadoresMujeres: number;
   numAtletasHombres: number;
@@ -58,6 +59,7 @@ export type Evento = {
   categoria?: CatalogItem | null;
   categoriaId: number;
   categoriaCodigo?: string | null;
+  mesProgramado?: number | null;
   eventoItems?: EventoItem[];
 };
 

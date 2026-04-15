@@ -25,7 +25,11 @@ import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
-import { formatDate, formatGenero } from "@/lib/utils/formatters";
+import {
+  formatDate,
+  formatEventScheduleLabel,
+  formatGenero,
+} from "@/lib/utils/formatters";
 import {
   getEventoTipoParticipacionLabel,
   getApprovalStageLabel,
@@ -375,13 +379,19 @@ export default function AvalDetailPage() {
         generoEtiqueta,
       ].filter(Boolean)
     : [];
-  const daysUntil = evento ? getDaysUntilEvent(evento.fechaInicio) : null;
-  const duration = evento
-    ? getEventDuration(evento.fechaInicio, evento.fechaFin)
-    : null;
+  const hasRealDates = Boolean(evento?.fechaInicio && evento?.fechaFin);
+  const daysUntil =
+    evento && hasRealDates ? getDaysUntilEvent(evento.fechaInicio) : null;
+  const duration =
+    evento && hasRealDates
+      ? getEventDuration(evento.fechaInicio, evento.fechaFin)
+      : null;
   const summaryLines = [
     evento?.codigo ? `Evento ${evento.codigo}.` : null,
     aval.numeroColeccion ? `Colección ${aval.numeroColeccion}.` : null,
+    !hasRealDates && evento
+      ? `Programación: ${formatEventScheduleLabel(evento)}.`
+      : null,
     duration
       ? `Duración estimada: ${duration} ${duration === 1 ? "día" : "días"}.`
       : null,
@@ -585,46 +595,59 @@ export default function AvalDetailPage() {
                     </div>
                   ))}
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em]">Inicio</p>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatDate(evento.fechaInicio)}
-                    </p>
+                {hasRealDates ? (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em]">Inicio</p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        {formatDate(evento.fechaInicio)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em]">Fin</p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        {formatDate(evento.fechaFin)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em]">
+                        Duración
+                      </p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        {duration
+                          ? `${duration} ${duration === 1 ? "día" : "días"}`
+                          : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em]">
+                        Tiempo restante
+                      </p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        {daysUntil === null
+                          ? "-"
+                          : daysUntil < 0
+                            ? "Evento pasado"
+                            : daysUntil === 0
+                              ? "Hoy"
+                              : daysUntil === 1
+                                ? "Mañana"
+                                : `Faltan ${daysUntil} días`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em]">Fin</p>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatDate(evento.fechaFin)}
-                    </p>
+                ) : (
+                  <div className="grid gap-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em]">
+                        Programación
+                      </p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        {formatEventScheduleLabel(evento)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em]">
-                      Duración
-                    </p>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {duration
-                        ? `${duration} ${duration === 1 ? "día" : "días"}`
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em]">
-                      Tiempo restante
-                    </p>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">
-                      {daysUntil === null
-                        ? "-"
-                        : daysUntil < 0
-                          ? "Evento pasado"
-                          : daysUntil === 0
-                            ? "Hoy"
-                            : daysUntil === 1
-                              ? "Mañana"
-                              : `Faltan ${daysUntil} días`}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </section>
             <section className="space-y-4">
@@ -741,7 +764,10 @@ export default function AvalDetailPage() {
                   description="Logística, objetivos y deportistas organizados como en el PDF impreso."
                 />
                 <div className="space-y-4">
-                  <AvalLogisticaSection avalTecnico={aval.avalTecnico} />
+                  <AvalLogisticaSection
+                    avalTecnico={aval.avalTecnico}
+                    fechaEmision={aval.fechaEmision}
+                  />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {aval.avalTecnico.objetivos &&
                       aval.avalTecnico.objetivos.length > 0 && (

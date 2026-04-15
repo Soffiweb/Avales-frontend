@@ -11,6 +11,7 @@ import type { Deportista } from "@/types/deportista";
 import type { User } from "@/types/user";
 import type { Aval } from "@/types/aval";
 import { formatGenero } from "@/lib/utils/formatters";
+import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useAuth } from "@/app/providers/auth-provider";
 import { isAdminUser } from "@/lib/auth/access";
 
@@ -32,6 +33,7 @@ type FormData = {
     rol?: string;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
+  fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
   lugarSalida: string;
@@ -83,6 +85,7 @@ function sortDeportistasByApellido<T extends Pick<Deportista, "nombres" | "apell
 }
 
 export default function Paso01Deportistas({
+  formData,
   aval,
   onComplete,
   onPreviewChange,
@@ -90,6 +93,9 @@ export default function Paso01Deportistas({
 }: Paso01DeportistasProps) {
   const evento = aval.evento;
   const { user } = useAuth();
+  const [fechaEmision, setFechaEmision] = useState(
+    formData.fechaEmision || getTodayDateInputValue(),
+  );
 
   const [searchDeportistas, setSearchDeportistas] = useState("");
   const [deportistas, setDeportistas] = useState<Deportista[]>([]);
@@ -155,8 +161,14 @@ export default function Paso01Deportistas({
         id: e.id,
         nombre: `${e.nombre} ${e.apellido}`.trim(),
       })),
+      fechaEmision,
     };
-  }, [principalEntrenadorId, selectedDeportistas, selectedEntrenadores]);
+  }, [
+    fechaEmision,
+    principalEntrenadorId,
+    selectedDeportistas,
+    selectedEntrenadores,
+  ]);
 
   useEffect(() => {
     onPreviewChange?.(buildSelectedData());
@@ -644,6 +656,24 @@ export default function Paso01Deportistas({
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Fecha de emisión
+            </h2>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Se puede editar al inicio para cargar avales históricos.
+            </p>
+          </div>
+          <input
+            type="date"
+            value={fechaEmision}
+            onChange={(e) => setFechaEmision(e.target.value)}
+            className="form-input w-full max-w-xs"
+            required
+          />
+        </section>
+
         <section className="space-y-4 rounded-xl border border-indigo-200/70 dark:border-indigo-800/70 bg-indigo-50/30 dark:bg-indigo-900/10 p-4">
           <div className="pb-2 border-b border-indigo-200 dark:border-indigo-800">
             <h2 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">

@@ -23,7 +23,6 @@ import {
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
-import { getCatalogItemCode, resolveCatalogItemCode } from "@/lib/utils/catalog";
 
 const STATUS_OPTIONS = [
   { label: "Todos los estados", value: "" },
@@ -42,8 +41,8 @@ export default function EventosPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [estado, setEstado] = useState(() => searchParams.get("estado") ?? "");
-  const [disciplinaCodigo, setDisciplinaCodigo] = useState(
-    () => searchParams.get("disciplinaCodigo") ?? searchParams.get("disciplinaId") ?? "",
+  const [disciplinaId, setDisciplinaId] = useState(
+    () => searchParams.get("disciplinaId") ?? searchParams.get("disciplinaCodigo") ?? "",
   );
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get("page") ?? "1");
@@ -63,20 +62,18 @@ export default function EventosPage() {
   const userRoles = user?.roles ?? [];
   const canManageEvents = isAdminUser(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
-  const firstUserDisciplina =
-    Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
-      ? user.disciplinas[0]
-      : undefined;
-  const entrenadorDisciplinaCodigo =
-    user?.disciplinaCodigo ??
-    user?.disciplina?.codigo ??
-    resolveCatalogItemCode(firstUserDisciplina);
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [disciplinasLoading, setDisciplinasLoading] = useState(false);
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const selectedDisciplinaId = disciplinaId ? Number(disciplinaId) : undefined;
+  const disciplinaIdFilter =
+    typeof selectedDisciplinaId === "number" &&
+    Number.isFinite(selectedDisciplinaId)
+      ? selectedDisciplinaId
+      : undefined;
 
   const pageSize = pagination.limit || DEFAULT_PAGE_SIZE;
   const totalPages = useMemo(
@@ -114,26 +111,12 @@ export default function EventosPage() {
     try {
       setLoading(true);
       setError(null);
-      if (isEntrenador && !entrenadorDisciplinaCodigo) {
-        setEventos([]);
-        setPagination({
-          page: currentPage,
-          limit: DEFAULT_PAGE_SIZE,
-          total: 0,
-        });
-        setError("Tu usuario no tiene una disciplina asignada.");
-        return;
-      }
       const options: ListEventosOptions = {
         page: currentPage,
         limit: DEFAULT_PAGE_SIZE,
         estado: estado || undefined,
         search: search.trim() || undefined,
-        disciplinaCodigo: isEntrenador
-          ? entrenadorDisciplinaCodigo
-          : disciplinaCodigo
-            ? disciplinaCodigo
-            : undefined,
+        disciplinaId: !isEntrenador ? disciplinaIdFilter : undefined,
       };
       const res = await listEventos(options);
       const items = res.data ?? [];
@@ -181,8 +164,7 @@ export default function EventosPage() {
     estado,
     search,
     isEntrenador,
-    entrenadorDisciplinaCodigo,
-    disciplinaCodigo,
+    disciplinaIdFilter,
   ]);
 
   useEffect(() => {
@@ -193,13 +175,15 @@ export default function EventosPage() {
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (estado) params.set("estado", estado);
-    if (disciplinaCodigo) params.set("disciplinaCodigo", disciplinaCodigo);
+    if (!isEntrenador && disciplinaIdFilter !== undefined) {
+      params.set("disciplinaId", String(disciplinaIdFilter));
+    }
     if (currentPage > 1) params.set("page", String(currentPage));
 
     router.replace(params.toString() ? `/eventos?${params}` : "/eventos", {
       scroll: false,
     });
-  }, [search, estado, disciplinaCodigo, currentPage, router]);
+  }, [search, estado, disciplinaIdFilter, currentPage, router, isEntrenador]);
 
   // mostrar toast cuando viene status desde la creacion/edicion
   useEffect(() => {
@@ -330,16 +314,16 @@ export default function EventosPage() {
             {canManageEvents && (
               <select
                 className="form-select w-full sm:w-56"
-                value={disciplinaCodigo}
+                value={disciplinaId}
                 onChange={(e) => {
                   setPage(1);
-                  setDisciplinaCodigo(e.target.value);
+                  setDisciplinaId(e.target.value);
                 }}
                 disabled={disciplinasLoading}
               >
                 <option value="">Todas las disciplinas</option>
                 {disciplinas.map((disciplina) => (
-                  <option key={disciplina.id} value={getCatalogItemCode(disciplina)}>
+                  <option key={disciplina.id} value={String(disciplina.id)}>
                     {disciplina.nombre}
                   </option>
                 ))}

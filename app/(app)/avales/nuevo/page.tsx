@@ -16,7 +16,6 @@ import {
   formatDateRange,
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
-import { getCatalogItemCode, resolveCatalogItemCode } from "@/lib/utils/catalog";
 
 const PAGE_SIZE = 6;
 const FETCH_LIMIT = 20;
@@ -55,14 +54,7 @@ export default function NuevoAvalPage() {
 
   const isEntrenador = user?.roles?.includes("ENTRENADOR") && !isAdminUser(user);
   const isComprasPublicas = user?.roles?.includes("COMPRAS_PUBLICAS");
-  const firstUserDisciplina =
-    Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
-      ? user.disciplinas[0]
-      : undefined;
-  const primaryDisciplinaCodigo =
-    user?.disciplinaCodigo ??
-    user?.disciplina?.codigo ??
-    resolveCatalogItemCode(firstUserDisciplina);
+  const primaryDisciplinaId = user?.disciplinaId ?? undefined;
 
   useEffect(() => {
     if (isComprasPublicas) {
@@ -79,7 +71,7 @@ export default function NuevoAvalPage() {
         estado: "DISPONIBLE",
         sinAval: true,
         search: search.trim() || undefined,
-        disciplinaCodigo: primaryDisciplinaCodigo ?? undefined,
+        disciplinaId: isEntrenador ? undefined : primaryDisciplinaId,
       };
 
       const collected = new Map<number, Evento>();
@@ -122,7 +114,7 @@ export default function NuevoAvalPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, primaryDisciplinaCodigo]);
+  }, [search, isEntrenador, primaryDisciplinaId]);
 
   useEffect(() => {
     void fetchEventos();

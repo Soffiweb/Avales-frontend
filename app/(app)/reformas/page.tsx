@@ -10,7 +10,6 @@ import { listReforms, type ReformResponse } from "@/lib/api/reforms";
 import { listEventos } from "@/lib/api/eventos";
 import { canAccessReforms } from "@/lib/auth/access";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
-import { getCatalogItemCode, resolveCatalogItemCode } from "@/lib/utils/catalog";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDIENTE:
@@ -41,14 +40,6 @@ export default function ReformasPage() {
 
   const userRoles = user?.roles ?? [];
   const isEntrenador = userRoles.includes("ENTRENADOR");
-  const firstUserDisciplina =
-    Array.isArray(user?.disciplinas) && user.disciplinas.length > 0
-      ? user.disciplinas[0]
-      : undefined;
-  const entrenadorDisciplinaCodigo =
-    user?.disciplinaCodigo ??
-    user?.disciplina?.codigo ??
-    resolveCatalogItemCode(firstUserDisciplina);
   const canViewReforms = canAccessReforms(user);
 
   useEffect(() => {
@@ -69,18 +60,7 @@ export default function ReformasPage() {
         let filteredReforms = response.data ?? [];
 
         if (isEntrenador) {
-          if (!entrenadorDisciplinaCodigo) {
-            setReforms([]);
-            setError(
-              "Tu usuario no tiene una disciplina asignada para consultar reformas.",
-            );
-            return;
-          }
-
-          const eventosResponse = await listEventos({
-            disciplinaCodigo: entrenadorDisciplinaCodigo,
-            limit: 1000,
-          });
+          const eventosResponse = await listEventos({ limit: 1000 });
           const allowedEventoIds = new Set(
             (eventosResponse.data ?? []).map((evento) => evento.id),
           );
@@ -104,7 +84,6 @@ export default function ReformasPage() {
   }, [
     authLoading,
     canViewReforms,
-    entrenadorDisciplinaCodigo,
     isEntrenador,
   ]);
 

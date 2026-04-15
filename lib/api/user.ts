@@ -17,6 +17,15 @@ function withDisciplinaCodigos<T extends { disciplinas?: string[] }>(values: T) 
   };
 }
 
+function withProfileDisciplinaCodigos(values: ProfileFormValues) {
+  const { disciplinaCodigo, ...rest } = values;
+
+  return {
+    ...rest,
+    disciplinaCodigos: disciplinaCodigo ? [disciplinaCodigo] : [],
+  };
+}
+
 export type ListUsersOptions = {
   query?: string;
   page?: number;
@@ -137,7 +146,7 @@ export async function listDeletedUsers() {
 export async function updateProfile(values: ProfileFormValues) {
   return apiFetch<User>("/users/profile", {
     method: "PATCH",
-    body: JSON.stringify(values),
+    body: JSON.stringify(withProfileDisciplinaCodigos(values)),
   });
 }
 

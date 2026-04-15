@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import { profileSchema, type ProfileFormValues } from "@/lib/validation/user";
-import { getUser, updateUser } from "@/lib/api/user";
+import { getUser, updateProfile } from "@/lib/api/user";
 import { getCatalog } from "@/lib/api/catalog";
 import { CatalogItem } from "@/types/catalog";
 import type { User } from "@/types/user";
@@ -170,7 +170,7 @@ export default function ProfilePanel({ viewUserId }: Props) {
     setSaveMsg("");
 
     try {
-      await updateUser(user.id, values);
+      await updateProfile(values);
       await refreshUser();
       reset(values);
       setInitialValues(values);

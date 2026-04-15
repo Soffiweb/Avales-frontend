@@ -43,8 +43,7 @@ export const GENERO_OPTIONS = [
 export const EVENTO_TIPO_PARTICIPACION_OPTIONS = [
   { value: "participación", label: "Participación" },
   { value: "organización", label: "Organización" },
-  { value: "ejecución", label: "Ejecución" },
-  { value: "adquisición", label: "Adquisición" },
+  { value: "ejecución y adquisición", label: "Ejecución y adquisición" },
 ] as const;
 
 export type EventoTipoParticipacion =
@@ -55,10 +54,12 @@ const EVENTO_TIPO_PARTICIPACION_ALIASES: Record<string, EventoTipoParticipacion>
   PARTICIPACIÓN: "participación",
   ORGANIZACION: "organización",
   ORGANIZACIÓN: "organización",
-  EJECUCION: "ejecución",
-  EJECUCIÓN: "ejecución",
-  ADQUISICION: "adquisición",
-  ADQUISICIÓN: "adquisición",
+  EJECUCION: "ejecución y adquisición",
+  EJECUCIÓN: "ejecución y adquisición",
+  ADQUISICION: "ejecución y adquisición",
+  ADQUISICIÓN: "ejecución y adquisición",
+  "EJECUCION Y ADQUISICION": "ejecución y adquisición",
+  "EJECUCIÓN Y ADQUISICIÓN": "ejecución y adquisición",
 };
 
 export function normalizeEventoTipoParticipacion(

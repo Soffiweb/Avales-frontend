@@ -36,6 +36,10 @@ export function isAdminUser(user: User | null | undefined) {
   );
 }
 
+export function isTrainerUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("ENTRENADOR");
+}
+
 export function canManageCatalogs(user: User | null | undefined) {
   return isAdminUser(user);
 }

@@ -24,6 +24,14 @@ export type DashboardStats = {
   totalEntrenadores: number;
 };
 
+export type TrainerDashboardStats = {
+  totalAvales: number;
+  borradores: number;
+  solicitados: number;
+  aprobados: number;
+  rechazados: number;
+};
+
 export type DistributionStats = {
   total: number;
   items: CountItem[];
@@ -51,6 +59,10 @@ export type AllStatistics = {
 
 export async function getDashboardStats() {
   return apiFetch<DashboardStats>("/statistics/dashboard");
+}
+
+export async function getTrainerDashboardStats() {
+  return apiFetch<TrainerDashboardStats>("/statistics/trainer-dashboard");
 }
 
 export async function getAvalesPorEstado(query?: StatisticsQuery) {

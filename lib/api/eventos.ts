@@ -9,7 +9,7 @@ export type ListEventosOptions = {
   estado?: string;
   search?: string;
   sinAval?: boolean;
-  disciplinaCodigo?: string;
+  disciplinaId?: number;
 };
 
 export type EventsPagination = {
@@ -56,7 +56,9 @@ export async function listEventos(options: ListEventosOptions = {}) {
   if (options.estado) params.set("estado", options.estado);
   if (options.search) params.set("search", options.search);
   if (options.sinAval !== undefined) params.set("sinAval", String(options.sinAval));
-  if (options.disciplinaCodigo) params.set("disciplinaCodigo", options.disciplinaCodigo);
+  if (options.disciplinaId !== undefined) {
+    params.set("disciplinaId", String(options.disciplinaId));
+  }
 
   const qs = params.toString();
   const url = qs ? `/events?${qs}` : "/events";

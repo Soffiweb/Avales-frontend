@@ -59,7 +59,6 @@ export type Evento = {
   categoria?: CatalogItem | null;
   categoriaId: number;
   categoriaCodigo?: string | null;
-  mesProgramado?: number | null;
   eventoItems?: EventoItem[];
 };
 

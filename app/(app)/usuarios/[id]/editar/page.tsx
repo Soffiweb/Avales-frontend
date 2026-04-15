@@ -53,7 +53,10 @@ export default function EditarUsuario() {
         const disciplinaIds = extractDisciplinaIds(u.disciplinas);
         const primaryDisciplinaId =
           u.disciplinaId ?? u.disciplina?.id ?? undefined;
-        const categoriaId = u.categoriaId ?? u.categoria?.id ?? undefined;
+        const categoriaId = u.categoriaId ?? u.categoria?.id;
+        if (!categoriaId) {
+          throw new Error("El usuario no tiene categoria asignada.");
+        }
 
         setInitialUser(u);
         setInitialValues({

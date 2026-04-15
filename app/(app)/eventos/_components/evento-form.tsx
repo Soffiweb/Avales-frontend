@@ -53,7 +53,7 @@ function getDefaultMesProgramado(evento?: Evento | null) {
 
 const EMPTY_FORM_VALUES: EventoFormValues = {
   codigo: "",
-  tipoParticipacion: "",
+  tipoParticipacion: EVENTO_TIPO_PARTICIPACION_OPTIONS[0].value,
   tipoEvento: "",
   nombre: "",
   lugar: "",
@@ -77,7 +77,8 @@ const EMPTY_FORM_VALUES: EventoFormValues = {
 const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
   codigo: evento.codigo ?? "",
   tipoParticipacion:
-    normalizeEventoTipoParticipacion(evento.tipoParticipacion) ?? "",
+    normalizeEventoTipoParticipacion(evento.tipoParticipacion) ??
+    EVENTO_TIPO_PARTICIPACION_OPTIONS[0].value,
   tipoEvento: evento.tipoEvento ?? "",
   nombre: evento.nombre ?? "",
   lugar: evento.lugar ?? "",

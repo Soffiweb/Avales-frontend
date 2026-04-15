@@ -265,6 +265,24 @@ export function validatePreviewRows(
     });
 
     if (type === "usuarios") {
+      const categoria = row.CATEGORIA?.trim() ?? "";
+      if (
+        categoria &&
+        disciplines.length > 0 &&
+        !isValidDiscipline(categoria, disciplines)
+      ) {
+        const invalidCategories = getInvalidDisciplines(categoria, disciplines);
+        const detail =
+          invalidCategories.length > 0
+            ? invalidCategories.map((item) => `"${item}"`).join(", ")
+            : `"${categoria}"`;
+        pushIssue(
+          issues,
+          "CATEGORIA",
+          `Categoría no encontrada: ${detail}`,
+        );
+      }
+
       const cedula = row.CEDULA?.trim() ?? "";
       if (cedula && !CEDULA_REGEX.test(cedula)) {
         pushIssue(issues, "CEDULA", "Cédula inválida: deben ser 10 dígitos");
@@ -302,7 +320,11 @@ export function validatePreviewRows(
 
     if (type === "eventos") {
       const deporte = row.Deporte?.trim() ?? "";
-      if (deporte && disciplines.length > 0 && !isValidDiscipline(deporte, disciplines)) {
+      if (
+        deporte &&
+        disciplines.length > 0 &&
+        !isValidDiscipline(deporte, disciplines)
+      ) {
         pushIssue(issues, "Deporte", "Disciplina inválida");
       }
 

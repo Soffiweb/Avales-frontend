@@ -31,6 +31,7 @@ import {
   type ColumnDef,
   getColumnsForType,
   getUploadLabel,
+  USERS_OPTIONAL_COLUMNS,
   isBudgetItemCode,
 } from "./_components/template-columns";
 import {
@@ -514,6 +515,12 @@ export default function CargaMasivaPage() {
                 <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
                   <p>
                     Solo se aceptan disciplinas registradas en el catalogo. Puedes enviar el codigo o el nombre exacto.
+                  </p>
+                  <p>
+                    CATEGORIA es opcional. Si la dejas vacia, se usara TODOS.
+                  </p>
+                  <p>
+                    Campos opcionales: {USERS_OPTIONAL_COLUMNS.join(", ")}.
                   </p>
                   <p>
                     Roles aceptados:{" "}

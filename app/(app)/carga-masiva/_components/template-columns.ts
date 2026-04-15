@@ -13,10 +13,13 @@ export const USERS_COLUMNS: ColumnDef[] = [
   { key: "APELLIDOS", label: "Apellidos", required: false },
   { key: "NOMBRES", label: "Nombres", required: false },
   { key: "CARGO", label: "Cargo", required: true },
+  { key: "CATEGORIA", label: "Categoria", required: false },
   { key: "DISCIPLINA", label: "Disciplina", required: true },
   { key: "TELEFONO", label: "Telefono", required: false },
   { key: "CORREO", label: "Correo", required: false },
 ];
+
+export const USERS_OPTIONAL_COLUMNS = ["CATEGORIA"] as const;
 
 export const EVENTS_BASE_COLUMNS: ColumnDef[] = [
   { key: "Actividad", label: "Actividad", required: true },

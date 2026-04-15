@@ -42,7 +42,7 @@ export default function EventosPage() {
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [estado, setEstado] = useState(() => searchParams.get("estado") ?? "");
   const [disciplinaId, setDisciplinaId] = useState(
-    () => searchParams.get("disciplinaId") ?? searchParams.get("disciplinaCodigo") ?? "",
+    () => searchParams.get("disciplinaId") ?? "",
   );
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get("page") ?? "1");

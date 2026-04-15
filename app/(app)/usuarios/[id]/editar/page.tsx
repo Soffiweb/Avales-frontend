@@ -6,17 +6,15 @@ import { useParams, useRouter } from "next/navigation";
 import { getUser } from "@/lib/api/user";
 import UsuarioForm from "../../_components/usuario-form";
 import { type UpdateUserFormValues } from "@/lib/validation/user";
-import type { Role, UserDisciplina } from "@/types/user";
-import { getCatalogItemCode } from "@/lib/utils/catalog";
+import type { Role, User, UserDisciplina } from "@/types/user";
+import { getCatalogItemId } from "@/lib/utils/catalog";
 
-function extractDisciplinaCodigos(disciplinas?: UserDisciplina[]) {
+function extractDisciplinaIds(disciplinas?: UserDisciplina[]) {
   return (disciplinas ?? [])
     .map((disciplina) =>
-      typeof disciplina === "number"
-        ? String(disciplina)
-        : getCatalogItemCode(disciplina)
+      typeof disciplina === "number" ? disciplina : getCatalogItemId(disciplina)
     )
-    .filter((codigo): codigo is string => Boolean(codigo));
+    .filter((id): id is number => typeof id === "number");
 }
 
 export default function EditarUsuario() {
@@ -27,6 +25,7 @@ export default function EditarUsuario() {
 
   const [initialValues, setInitialValues] =
     useState<UpdateUserFormValues | null>(null);
+  const [initialUser, setInitialUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,29 +50,30 @@ export default function EditarUsuario() {
           (u.roles as Role[] | undefined) && u.roles?.length
             ? (u.roles as Role[])
             : [];
-        const disciplinaCodigos = extractDisciplinaCodigos(u.disciplinas);
-        const primaryDisciplinaCodigo =
-          u.disciplinaCodigo ?? u.disciplina?.codigo ?? (u.disciplinaId ? String(u.disciplinaId) : "");
-        const categoriaCodigo =
-          u.categoriaCodigo ?? u.categoria?.codigo ?? (u.categoriaId ? String(u.categoriaId) : "");
+        const disciplinaIds = extractDisciplinaIds(u.disciplinas);
+        const primaryDisciplinaId =
+          u.disciplinaId ?? u.disciplina?.id ?? undefined;
+        const categoriaId = u.categoriaId ?? u.categoria?.id ?? undefined;
 
+        setInitialUser(u);
         setInitialValues({
           nombre: u.nombre ?? "",
           apellido: u.apellido ?? "",
           email: u.email ?? "",
           password: "",
           cedula: u.cedula ?? "",
-          categoriaCodigo,
-          disciplinas: disciplinaCodigos.length
-            ? disciplinaCodigos
-            : primaryDisciplinaCodigo
-              ? [primaryDisciplinaCodigo]
+          categoriaId,
+          disciplinaIds: disciplinaIds.length
+            ? disciplinaIds
+            : primaryDisciplinaId
+              ? [primaryDisciplinaId]
               : [],
           roles: rolesFromUser,
           puedeSolicitarReformas: u.puedeSolicitarReformas ?? false,
         });
       } catch (err: any) {
         setError(err?.message ?? "No se pudo cargar el usuario.");
+        setInitialUser(null);
       } finally {
         setLoading(false);
       }
@@ -111,6 +111,7 @@ export default function EditarUsuario() {
           mode="edit"
           userId={userId}
           initialValues={initialValues}
+          initialUser={initialUser}
           onUpdated={handleUpdated}
         />
       )}

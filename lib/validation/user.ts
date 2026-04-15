@@ -36,9 +36,9 @@ const baseUserSchema = z.object({
     .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
     .optional()
     .or(z.literal("")),
-  categoriaCodigo: z.string().min(1, "Selecciona una categoria"),
-  disciplinas: z
-    .array(z.string().min(1, "Selecciona una disciplina valida"))
+  categoriaId: z.number().int().positive("Selecciona una categoria"),
+  disciplinaIds: z
+    .array(z.number().int().positive("Selecciona una disciplina valida"))
     .min(1, "Selecciona al menos una disciplina"),
   roles: rolesSchema,
   puedeSolicitarReformas: z.boolean().default(false),
@@ -51,8 +51,8 @@ export const profileSchema = z.object({
   cedula: z
     .string()
     .regex(/^\d{10}$/, "Cedula invalida: deben ser 10 digitos"),
-  categoriaCodigo: z.string().min(1, "Categoria invalida").optional(),
-  disciplinaCodigo: z.string().min(1, "Disciplina invalida").optional(),
+  categoriaId: z.number().int().positive("Categoria invalida").optional(),
+  disciplinaId: z.number().int().positive("Disciplina invalida").optional(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;

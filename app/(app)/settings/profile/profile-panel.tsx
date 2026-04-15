@@ -13,30 +13,47 @@ import { CatalogItem } from "@/types/catalog";
 import type { User } from "@/types/user";
 import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
 import {
-  getCatalogItemCode,
-  resolveCatalogItemCodeFromList,
+  getCatalogItemId,
+  resolveCatalogItemIdFromList,
 } from "@/lib/utils/catalog";
 
 type Props = {
   viewUserId?: number;
 };
 
-function getPrimaryDisciplinaCodigo(user: User | null) {
+function getPrimaryCategoriaId(user: User | null, categorias: CatalogItem[]) {
   if (!user) return undefined;
 
-  const fromArray = (user.disciplinas ?? [])
-    .map((disciplina) =>
-      typeof disciplina === "number"
-        ? String(disciplina)
-        : getCatalogItemCode(disciplina)
-    )
-    .find((codigo): codigo is string => Boolean(codigo));
-
   return (
-    fromArray ??
-    user.disciplinaCodigo ??
-    user.disciplina?.codigo ??
-    (user.disciplinaId ? String(user.disciplinaId) : undefined)
+    user.categoriaId ??
+    user.categoria?.id ??
+    resolveCatalogItemIdFromList(
+      categorias,
+      user.categoriaCodigo ?? user.categoria?.codigo,
+    )
+  );
+}
+
+function getPrimaryDisciplinaId(user: User | null, disciplinas: CatalogItem[]) {
+  if (!user) return undefined;
+
+  const fromArray = (user.disciplinasDetalle ?? [])
+    .map((disciplina) => getCatalogItemId(disciplina))
+    .find((id): id is number => typeof id === "number");
+
+  if (fromArray !== undefined) return fromArray;
+
+  const fromLegacyArray = (user.disciplinas ?? [])
+    .map((disciplina) =>
+      typeof disciplina === "number" ? disciplina : getCatalogItemId(disciplina),
+    )
+    .find((id): id is number => typeof id === "number");
+
+  if (fromLegacyArray !== undefined) return fromLegacyArray;
+
+  return resolveCatalogItemIdFromList(
+    disciplinas,
+    user.disciplinaId ?? user.disciplina?.id ?? user.disciplinaCodigo ?? user.disciplina?.codigo,
   );
 }
 
@@ -142,16 +159,8 @@ export default function ProfilePanel({ viewUserId }: Props) {
       apellido: subjectUser.apellido ?? "",
       email: subjectUser.email ?? "",
       cedula: subjectUser.cedula ?? "",
-      categoriaCodigo: resolveCatalogItemCodeFromList(
-        categorias,
-        subjectUser.categoriaCodigo ??
-          subjectUser.categoria?.codigo ??
-          subjectUser.categoriaId
-      ),
-      disciplinaCodigo: resolveCatalogItemCodeFromList(
-        disciplinas,
-        getPrimaryDisciplinaCodigo(subjectUser)
-      ),
+      categoriaId: getPrimaryCategoriaId(subjectUser, categorias),
+      disciplinaId: getPrimaryDisciplinaId(subjectUser, disciplinas),
     };
 
     reset(nextValues);
@@ -318,30 +327,34 @@ export default function ProfilePanel({ viewUserId }: Props) {
             <div className="sm:w-1/3">
               <label
                 className="block text-sm font-medium mb-1"
-                htmlFor="categoriaCodigo"
+                htmlFor="categoriaId"
               >
                 Categoría
               </label>
 
               <select
-                id="categoriaCodigo"
+                id="categoriaId"
                 className="form-select w-full"
                 disabled={catalogLoading || isReadOnly}
-                {...register("categoriaCodigo", {
-                  setValueAs: (v) => String(v),
+                {...register("categoriaId", {
+                  setValueAs: (v) => {
+                    if (v === "" || v === null || v === undefined) return undefined;
+                    const parsed = Number(v);
+                    return Number.isFinite(parsed) ? parsed : undefined;
+                  },
                 })}
               >
                 <option value="">Seleccione una categoría</option>
                 {(categorias ?? []).map((c) => (
-                  <option key={c.id} value={getCatalogItemCode(c)}>
+                  <option key={c.id} value={String(c.id)}>
                     {c.nombre}
                   </option>
                 ))}
               </select>
 
-              {errors.categoriaCodigo && (
+              {errors.categoriaId && (
                 <p className="mt-1 text-xs text-red-600">
-                  {errors.categoriaCodigo.message}
+                  {errors.categoriaId.message}
                 </p>
               )}
             </div>
@@ -350,30 +363,34 @@ export default function ProfilePanel({ viewUserId }: Props) {
             <div className="sm:w-1/3">
               <label
                 className="block text-sm font-medium mb-1"
-                htmlFor="disciplinaCodigo"
+                htmlFor="disciplinaId"
               >
                 Disciplina
               </label>
 
               <select
-                id="disciplinaCodigo"
+                id="disciplinaId"
                 className="form-select w-full"
                 disabled={catalogLoading || isReadOnly}
-                {...register("disciplinaCodigo", {
-                  setValueAs: (v) => String(v),
+                {...register("disciplinaId", {
+                  setValueAs: (v) => {
+                    if (v === "" || v === null || v === undefined) return undefined;
+                    const parsed = Number(v);
+                    return Number.isFinite(parsed) ? parsed : undefined;
+                  },
                 })}
               >
                 <option value="">Seleccione una disciplina</option>
                 {disciplinas.map((d) => (
-                  <option key={d.id} value={getCatalogItemCode(d)}>
+                  <option key={d.id} value={String(d.id)}>
                     {d.nombre}
                   </option>
                 ))}
               </select>
 
-              {errors.disciplinaCodigo && (
+              {errors.disciplinaId && (
                 <p className="mt-1 text-xs text-red-600">
-                  {errors.disciplinaCodigo.message}
+                  {errors.disciplinaId.message}
                 </p>
               )}
             </div>

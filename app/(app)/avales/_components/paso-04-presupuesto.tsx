@@ -157,10 +157,10 @@ export default function Paso04Presupuesto({
   return (
     <div>
       <h1 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-2">
-        Presupuesto del Evento
+        Requerimientos del Evento
       </h1>
       <p className="text-gray-600 dark:text-gray-400 mb-6">
-        Revisa el presupuesto registrado para este evento.
+        Revisa los requerimientos registrados para este evento.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -187,10 +187,10 @@ export default function Paso04Presupuesto({
             </div>
             <div>
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Presupuesto del evento
+                Requerimientos del evento
               </h2>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Revisa los items presupuestarios registrados para esta
+                Revisa los requerimientos registrados para esta
                 solicitud.
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function Paso04Presupuesto({
               <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {presupuestoItems.length}{" "}
-                  {presupuestoItems.length === 1 ? "item presupuestario" : "items presupuestarios"}
+                  {presupuestoItems.length === 1 ? "requerimiento" : "requerimientos"}
                 </p>
               </div>
 
@@ -216,15 +216,6 @@ export default function Paso04Presupuesto({
                           <p className="font-semibold text-gray-900 dark:text-gray-100">
                             {presupuestoItem.item.nombre}
                           </p>
-                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            Item #{presupuestoItem.item.numero}
-                          </p>
-                          <div className="mt-2 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            <span>Mes: {presupuestoItem.mes}</span>
-                            <span>
-                              Actividad: {presupuestoItem.item.actividad.nombre}
-                            </span>
-                          </div>
                         </div>
                         <div className="text-right">
                           <p className="whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100">
@@ -250,7 +241,7 @@ export default function Paso04Presupuesto({
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800">
               <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-400" />
               <p className="text-gray-600 dark:text-gray-400">
-                No hay items presupuestarios asociados a este evento.
+                No hay requerimientos asociados a este evento.
               </p>
             </div>
           )}

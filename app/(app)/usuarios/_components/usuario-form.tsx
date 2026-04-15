@@ -21,11 +21,11 @@ import {
   type UserFormValues,
 } from "@/lib/validation/user";
 import { CatalogItem } from "@/types/catalog";
-import type { Role } from "@/types/user";
+import type { Role, User } from "@/types/user";
 import { formatRole } from "@/lib/utils/formatters";
 import {
-  getCatalogItemCode,
-  resolveCatalogItemCodeFromList,
+  getCatalogItemId,
+  resolveCatalogItemIdFromList,
 } from "@/lib/utils/catalog";
 
 const ROLE_OPTIONS: Role[] = [
@@ -51,21 +51,18 @@ const formatRoleLabel = (role: Role) => formatRole(role);
 const MAX_SELECTED_DISCIPLINAS = 3;
 
 function buildDisciplinasLabel(
-  selectedCodes: string[],
+  selectedIds: number[],
   options: CatalogItem[],
   maxSelectedLabels = MAX_SELECTED_DISCIPLINAS,
 ) {
-  if (selectedCodes.length === 0) return "Selecciona disciplinas";
+  if (selectedIds.length === 0) return "Selecciona disciplinas";
 
-  const selectedNames = selectedCodes
-    .map(
-      (code) =>
-        options.find((option) => getCatalogItemCode(option) === code)?.nombre,
-    )
+  const selectedNames = selectedIds
+    .map((id) => options.find((option) => getCatalogItemId(option) === id)?.nombre)
     .filter((name): name is string => Boolean(name));
 
   if (selectedNames.length === 0) {
-    return `${selectedCodes.length} seleccionada(s)`;
+    return `${selectedIds.length} seleccionada(s)`;
   }
 
   if (selectedNames.length <= maxSelectedLabels) {
@@ -77,10 +74,57 @@ function buildDisciplinasLabel(
   }`;
 }
 
+function resolveInitialCategoriaId(
+  user: User | null | undefined,
+  categorias: CatalogItem[],
+  fallback?: number,
+) {
+  if (fallback !== undefined) return fallback;
+  if (!user) return undefined;
+
+  return (
+    user.categoriaId ??
+    user.categoria?.id ??
+    resolveCatalogItemIdFromList(
+      categorias,
+      user.categoriaCodigo ?? user.categoria?.codigo,
+    )
+  );
+}
+
+function resolveInitialDisciplinaIds(
+  user: User | null | undefined,
+  disciplinas: CatalogItem[],
+  fallback?: number[],
+) {
+  if (fallback && fallback.length > 0) return fallback;
+  if (!user) return [];
+
+  const fromDetalle = (user.disciplinasDetalle ?? [])
+    .map((disciplina) => getCatalogItemId(disciplina))
+    .filter((id): id is number => typeof id === "number");
+  if (fromDetalle.length > 0) return fromDetalle;
+
+  const fromArray = (user.disciplinas ?? [])
+    .map((disciplina) =>
+      typeof disciplina === "number" ? disciplina : getCatalogItemId(disciplina)
+    )
+    .filter((id): id is number => typeof id === "number");
+  if (fromArray.length > 0) return fromArray;
+
+  const primaryId = resolveCatalogItemIdFromList(
+    disciplinas,
+    user.disciplinaId ?? user.disciplina?.id ?? user.disciplinaCodigo ?? user.disciplina?.codigo,
+  );
+
+  return primaryId !== undefined ? [primaryId] : [];
+}
+
 type Props = {
   mode?: "create" | "edit";
   userId?: number;
   initialValues?: UpdateUserFormValues;
+  initialUser?: User | null;
   onCreated?: () => Promise<void>;
   onUpdated?: () => Promise<void>;
 };
@@ -89,6 +133,7 @@ export default function UsuarioForm({
   mode = "create",
   userId,
   initialValues,
+  initialUser,
   onCreated,
   onUpdated,
 }: Props) {
@@ -122,8 +167,8 @@ export default function UsuarioForm({
       password: "",
       cedula: initialValues?.cedula ?? "",
       genero: initialValues?.genero ?? "",
-      categoriaCodigo: initialValues?.categoriaCodigo ?? "",
-      disciplinas: initialValues?.disciplinas ?? [],
+      categoriaId: initialValues?.categoriaId,
+      disciplinaIds: initialValues?.disciplinaIds ?? [],
       roles: initialValues?.roles ?? defaultRoleSelection,
       puedeSolicitarReformas: initialValues?.puedeSolicitarReformas ?? false,
     },
@@ -136,12 +181,15 @@ export default function UsuarioForm({
   useEffect(() => {
     if (!initialValues) return;
     if (catalogLoading) return;
-    const normalizedDisciplinas = (initialValues.disciplinas ?? []).map((value) =>
-      resolveCatalogItemCodeFromList(disciplinas, value),
-    );
-    const normalizedCategoria = resolveCatalogItemCodeFromList(
+    const normalizedCategoria = resolveInitialCategoriaId(
+      initialUser,
       categorias,
-      initialValues.categoriaCodigo,
+      initialValues.categoriaId,
+    );
+    const normalizedDisciplinaIds = resolveInitialDisciplinaIds(
+      initialUser,
+      disciplinas,
+      initialValues.disciplinaIds,
     );
     reset({
       ...initialValues,
@@ -151,10 +199,10 @@ export default function UsuarioForm({
           ? initialValues.roles
           : defaultRoleSelection,
       puedeSolicitarReformas: initialValues.puedeSolicitarReformas ?? false,
-      categoriaCodigo: normalizedCategoria,
-      disciplinas: normalizedDisciplinas,
+      categoriaId: normalizedCategoria,
+      disciplinaIds: normalizedDisciplinaIds,
     });
-  }, [initialValues, catalogLoading, reset, disciplinas, categorias]);
+  }, [initialValues, initialUser, catalogLoading, reset, disciplinas, categorias]);
 
   useEffect(() => {
     if (isEntrenador) return;
@@ -199,9 +247,7 @@ export default function UsuarioForm({
         }
         const cleaned: UpdateUserFormValues = {
           ...values,
-          password: values.password?.trim()
-            ? values.password.trim()
-            : undefined,
+          password: values.password?.trim() || undefined,
         };
 
         await updateUser(userId, cleaned);
@@ -222,8 +268,8 @@ export default function UsuarioForm({
         password: "",
         cedula: "",
         genero: "",
-        categoriaCodigo: "",
-        disciplinas: [],
+        categoriaId: undefined,
+        disciplinaIds: [],
         roles: defaultRoleSelection,
         puedeSolicitarReformas: false,
       });
@@ -245,11 +291,12 @@ export default function UsuarioForm({
           const fieldName =
             problem.field === "categoriaId" ||
             problem.field === "categoriaCodigo"
-              ? "categoriaCodigo"
+              ? "categoriaId"
               : problem.field === "disciplinaId" ||
+                  problem.field === "disciplinaIds" ||
                   problem.field === "disciplinaCodigo" ||
                   problem.field === "disciplinaCodigos"
-                ? "disciplinas"
+                ? "disciplinaIds"
                 : (problem.field as keyof UserFormValues);
           setError(fieldName, { type: "server", message: detail });
         }
@@ -444,47 +491,49 @@ export default function UsuarioForm({
         <div>
           <label
             className="block text-sm font-medium mb-1"
-            htmlFor="categoriaCodigo"
+            htmlFor="categoriaId"
           >
             Categoria
           </label>
           <select
-            id="categoriaCodigo"
+            id="categoriaId"
             className="form-select w-full"
             disabled={catalogLoading || !categorias.length}
-            {...register("categoriaCodigo", {
-              setValueAs: (v) => String(v),
+            {...register("categoriaId", {
+              setValueAs: (v) => {
+                if (v === "" || v === null || v === undefined) return undefined;
+                const parsed = Number(v);
+                return Number.isFinite(parsed) ? parsed : undefined;
+              },
             })}
           >
             <option value="">Selecciona una opcion</option>
             {(categorias ?? []).map((c) => (
-              <option key={c.id} value={getCatalogItemCode(c)}>
+              <option key={c.id} value={String(c.id)}>
                 {c.nombre}
               </option>
             ))}
           </select>
-          {errors.categoriaCodigo && (
+          {errors.categoriaId && (
             <p className="mt-1 text-xs text-red-600">
-              {errors.categoriaCodigo.message}
+              {errors.categoriaId.message}
             </p>
           )}
         </div>
 
         <Controller
           control={control}
-          name="disciplinas"
+          name="disciplinaIds"
           render={({ field }) => {
-            const selectedCodes = field.value ?? [];
+            const selectedIds = field.value ?? [];
             const selectedLabel = buildDisciplinasLabel(
-              selectedCodes,
+              selectedIds,
               disciplinas,
             );
-            const allDisciplinaCodes = disciplinas.map(
-              (disciplina) => getCatalogItemCode(disciplina),
-            );
+            const allDisciplinaIds = disciplinas.map((disciplina) => disciplina.id);
             const allSelected =
-              allDisciplinaCodes.length > 0 &&
-              allDisciplinaCodes.every((code) => selectedCodes.includes(code));
+              allDisciplinaIds.length > 0 &&
+              allDisciplinaIds.every((id) => selectedIds.includes(id));
 
             return (
               <div>
@@ -516,7 +565,7 @@ export default function UsuarioForm({
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           Selecciona disciplinas
                         </p>
-                        {selectedCodes.length > 0 ? (
+                        {selectedIds.length > 0 ? (
                           <button
                             type="button"
                             onClick={() => field.onChange([])}
@@ -534,7 +583,7 @@ export default function UsuarioForm({
                         <button
                           type="button"
                           onClick={() => {
-                            field.onChange(allSelected ? [] : allDisciplinaCodes);
+                            field.onChange(allSelected ? [] : allDisciplinaIds);
                           }}
                           className={[
                             "flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-medium transition dark:border-gray-700/60",
@@ -561,8 +610,7 @@ export default function UsuarioForm({
                       ) : null}
 
                       {(disciplinas ?? []).map((disciplina) => {
-                        const code = getCatalogItemCode(disciplina);
-                        const isChecked = selectedCodes.includes(code);
+                        const isChecked = selectedIds.includes(disciplina.id);
 
                         return (
                           <button
@@ -570,8 +618,8 @@ export default function UsuarioForm({
                             type="button"
                             onClick={() => {
                               const nextValue = isChecked
-                                ? selectedCodes.filter((value) => value !== code)
-                                : [...selectedCodes, code];
+                                ? selectedIds.filter((value) => value !== disciplina.id)
+                                : [...selectedIds, disciplina.id];
 
                               field.onChange(nextValue);
                             }}
@@ -605,9 +653,9 @@ export default function UsuarioForm({
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Selecciona una o varias disciplinas para este usuario.
                 </p>
-                {errors.disciplinas && (
+                {errors.disciplinaIds && (
                   <p className="mt-1 text-xs text-red-600">
-                    {errors.disciplinas.message}
+                    {errors.disciplinaIds.message}
                   </p>
                 )}
               </div>

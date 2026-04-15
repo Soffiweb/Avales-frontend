@@ -7,23 +7,45 @@ import type {
   UpdateUserFormValues,
 } from "@/lib/validation/user";
 
-function withDisciplinaCodigos<T extends { disciplinas?: string[] }>(values: T) {
-  const { disciplinas, ...rest } = values;
+type UserMutationValues = {
+  categoriaId?: number;
+  disciplinaId?: number;
+  disciplinaIds?: number[];
+  password?: string;
+};
 
-  return {
-    ...rest,
-    disciplinaCodigos: disciplinas ?? [],
-    disciplinaCodigo: disciplinas?.[0],
+function normalizeUserPayload(values: UserMutationValues) {
+  const payload: Record<string, unknown> = {
+    ...values,
   };
-}
 
-function withProfileDisciplinaCodigos(values: ProfileFormValues) {
-  const { disciplinaCodigo, ...rest } = values;
+  if (typeof payload.password === "string") {
+    const password = payload.password.trim();
+    if (password) {
+      payload.password = password;
+    } else {
+      delete payload.password;
+    }
+  }
 
-  return {
-    ...rest,
-    disciplinaCodigos: disciplinaCodigo ? [disciplinaCodigo] : [],
-  };
+  const disciplinaIds = Array.isArray(values.disciplinaIds)
+    ? values.disciplinaIds.filter((value) => Number.isFinite(value))
+    : [];
+
+  if (disciplinaIds.length === 1 && values.disciplinaId == null) {
+    payload.disciplinaId = disciplinaIds[0];
+    delete payload.disciplinaIds;
+  } else if (disciplinaIds.length > 1) {
+    payload.disciplinaIds = disciplinaIds;
+    delete payload.disciplinaId;
+  } else {
+    delete payload.disciplinaIds;
+    if (values.disciplinaId == null) {
+      delete payload.disciplinaId;
+    }
+  }
+
+  return payload;
 }
 
 export type ListUsersOptions = {
@@ -115,19 +137,17 @@ export async function getUser(id: number) {
 export async function createUser(values: CreateUserFormValues) {
   return apiFetch<User>("/users/create", {
     method: "POST",
-    body: JSON.stringify(withDisciplinaCodigos(values)),
+    body: JSON.stringify(normalizeUserPayload(values)),
   });
 }
 
 export async function updateUser(
   id: number,
-  values: UpdateUserFormValues | ProfileFormValues
+  values: UpdateUserFormValues
 ) {
   return apiFetch<User>(`/users/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(
-      "disciplinas" in values ? withDisciplinaCodigos(values) : values
-    ),
+    body: JSON.stringify(normalizeUserPayload(values)),
   });
 }
 
@@ -146,7 +166,7 @@ export async function listDeletedUsers() {
 export async function updateProfile(values: ProfileFormValues) {
   return apiFetch<User>("/users/profile", {
     method: "PATCH",
-    body: JSON.stringify(withProfileDisciplinaCodigos(values)),
+    body: JSON.stringify(normalizeUserPayload(values)),
   });
 }
 

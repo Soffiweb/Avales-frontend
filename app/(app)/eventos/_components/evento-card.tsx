@@ -115,7 +115,16 @@ export default function EventoCard({
                   </span>
                 )}
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate" title={evento.nombre}>
+              <h3
+                className="font-semibold leading-snug text-gray-900 dark:text-gray-100"
+                style={{
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: 2,
+                  overflow: "hidden",
+                }}
+                title={evento.nombre}
+              >
                 {evento.nombre || "Sin nombre"}
               </h3>
               {evento.codigo && (

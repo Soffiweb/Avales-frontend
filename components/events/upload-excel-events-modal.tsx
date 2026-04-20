@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { uploadEventsExcel, type UploadExcelResponse } from "@/lib/api/eventos";
+import UploadInstructions from "@/components/ui/upload-instructions";
 
 type UploadEventsExcelModalProps = {
   isOpen: boolean;
@@ -169,6 +170,10 @@ export default function UploadEventsExcelModal({
                   </div>
                 )}
               </div>
+            )}
+
+            {!response && (
+              <UploadInstructions type="eventos" compact />
             )}
 
             {/* Error Message (Pre-upload or Catch) */}

@@ -5,6 +5,7 @@ import { X, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertTriangle } from 
 import { uploadUsersExcel, type UploadUsersExcelResponse } from "@/lib/api/user";
 import { ROLES } from "@/lib/constants";
 import { formatRole } from "@/lib/utils/formatters/text";
+import UploadInstructions from "@/components/ui/upload-instructions";
 
 type UploadUsersExcelModalProps = {
   isOpen: boolean;
@@ -164,6 +165,10 @@ export default function UploadUsersExcelModal({
                   </div>
                 )}
               </div>
+            )}
+
+            {!response && (
+              <UploadInstructions type="usuarios" compact />
             )}
 
             {error && (

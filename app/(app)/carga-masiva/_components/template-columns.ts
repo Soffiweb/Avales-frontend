@@ -26,6 +26,7 @@ export const EVENTS_BASE_COLUMNS: ColumnDef[] = [
   { key: "Tarea", label: "Tarea", required: false },
   { key: "Evento", label: "Evento", required: true },
   { key: "Provincia", label: "Provincia", required: false },
+  { key: "Ciudad", label: "Ciudad", required: false },
   { key: "País", label: "Pais", required: false },
   { key: "Deporte", label: "Deporte", required: false },
   { key: "Sector", label: "Sector", required: false },

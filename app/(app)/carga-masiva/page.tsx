@@ -26,6 +26,7 @@ import FileDropzone from "./_components/file-dropzone";
 import DataPreviewTable from "./_components/data-preview-table";
 import UploadResults from "./_components/upload-results";
 import TemplateDownload from "./_components/template-download";
+import UploadInstructions from "@/components/ui/upload-instructions";
 import {
   type UploadType,
   type ColumnDef,
@@ -528,6 +529,10 @@ export default function CargaMasivaPage() {
                   </p>
                 </div>
               )}
+
+              <div className="mt-4">
+                <UploadInstructions type={uploadType} />
+              </div>
             </div>
           </div>
 

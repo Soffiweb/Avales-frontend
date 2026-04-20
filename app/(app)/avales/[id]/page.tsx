@@ -7,6 +7,7 @@ import type React from "react";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
   MapPin,
   Users,
   Trophy,
@@ -65,30 +66,79 @@ function getEventDuration(
   return diff;
 }
 
-type SectionHeaderProps = {
-  title: string;
-  description?: string;
-  icon?: React.ReactNode;
+type FactItem = {
+  label: string;
+  value: string | number | null | undefined;
 };
 
-function SectionHeader({ title, description, icon }: SectionHeaderProps) {
+function isEmptyValue(value: FactItem["value"]) {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "number") return false;
+  return value.trim().length === 0;
+}
+
+function FactGrid({ items }: { items: FactItem[] }) {
+  const visible = items.filter((item) => !isEmptyValue(item.value));
+  if (visible.length === 0) return null;
+
   return (
-    <div className="space-y-1">
-      <p className="text-[0.65rem] uppercase tracking-[0.4em] text-gray-400 dark:text-gray-500">
-        Sección
-      </p>
-      <div className="flex items-center gap-2">
-        {icon}
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          {title}
-        </h2>
-      </div>
-      {description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          {description}
-        </p>
-      )}
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {visible.map((item) => (
+        <div key={item.label} className="min-w-0">
+          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 dark:text-gray-500">
+            {item.label}
+          </p>
+          <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+            {String(item.value)}
+          </p>
+        </div>
+      ))}
     </div>
+  );
+}
+
+type CollapsibleSectionProps = {
+  title: string;
+  icon?: React.ReactNode;
+  defaultOpen?: boolean;
+  meta?: React.ReactNode;
+  children: React.ReactNode;
+};
+
+function CollapsibleSection({
+  title,
+  icon,
+  defaultOpen = false,
+  meta,
+  children,
+}: CollapsibleSectionProps) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 shadow-sm transition-colors group-open:border-indigo-300 dark:group-open:border-indigo-500"
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-4 py-3 bg-gray-50 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {icon}
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {title}
+            </h2>
+          </div>
+          {meta ? <div className="mt-1">{meta}</div> : null}
+        </div>
+        <div className="flex items-center gap-2 shrink-0 mt-1">
+          <span className="text-[0.7rem] text-gray-400 dark:text-gray-500 group-open:hidden">
+            Desplegar
+          </span>
+          <span className="hidden text-[0.7rem] text-gray-400 dark:text-gray-500 group-open:inline">
+            Ocultar
+          </span>
+          <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 transition-transform group-open:rotate-180" />
+        </div>
+      </summary>
+      <div className="px-4 pb-4 pt-1">{children}</div>
+    </details>
   );
 }
 
@@ -424,6 +474,12 @@ export default function AvalDetailPage() {
 
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
   const adjuntosSolicitud = aval.adjuntosSolicitud ?? [];
+  const solicitudAttachments = [
+    { label: "Convocatoria", url: aval.convocatoriaUrl },
+    { label: "Certificado médico", url: aval.solicitudUrl },
+  ].filter((item): item is { label: string; url: string } => Boolean(item.url));
+  const canShowPresupuestoSalida =
+    isAvalCompleto && Boolean(evento?.presupuesto?.length);
 
   return (
     <>
@@ -496,356 +552,373 @@ export default function AvalDetailPage() {
           </div> */}
         </div>
 
-        {adjuntosSolicitud.length > 0 && (
-          <section className="space-y-4">
-            <SectionHeader
-              icon={
-                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              }
-              title="Documentos de la solicitud"
-              description="Archivos adjuntos de respaldo cargados en la solicitud."
-            />
-            <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-2 shadow-sm">
-              {adjuntosSolicitud.map((adjunto) => (
-                <a
-                  key={adjunto.id}
-                  href={adjunto.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 hover:border-indigo-400 dark:hover:border-indigo-500"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {adjunto.nombreOriginal || adjunto.nombreArchivo}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            {evento && (
+              <CollapsibleSection
+                title="Datos del evento"
+                defaultOpen
+                icon={
+                  <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                }
+                meta={
+                  evento.codigo ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      Código: {evento.codigo}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {adjunto.mimeType || "Archivo"} · {adjunto.tamanoBytes.toLocaleString("es-EC")} bytes
-                      {" · "}
-                      {formatDate(adjunto.createdAt)}
-                    </p>
+                  ) : null
+                }
+              >
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        {evento.nombre}
+                      </p>
+                      {evento.codigo ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Evento {evento.codigo}
+                        </p>
+                      ) : null}
+                    </div>
+                    {eventBadges.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                        {eventBadges.slice(0, 6).map((badge, index) => (
+                          <span
+                            key={`${badge}-${index}`}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40"
+                          >
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  <Download className="w-4 h-4 shrink-0 text-gray-400" />
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
 
-        {/* Información del evento */}
-        {evento && (
-          <>
-            <section className="space-y-4">
-              <SectionHeader
-                icon={
-                  <Trophy className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                }
-                title="Información del evento"
-                description="Datos esenciales para ubicar el aval de forma rápida, tal como en un PDF."
-              />
-              <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-gray-400 dark:text-gray-500">
-                      Evento
-                    </p>
-                    <h3 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                      {evento.nombre}
-                    </h3>
-                    {evento.codigo && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Código: {evento.codigo}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-gray-600 dark:text-gray-300">
-                    {eventBadges.map((badge, index) => (
-                      <span
-                        key={`${badge}-${index}`}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-gray-300 bg-gray-50 dark:bg-gray-900/40"
-                      >
-                        {badge}
+                  <FactGrid
+                    items={[
+                      { label: "Tipo", value: evento.tipoEvento },
+                      {
+                        label: "Participación",
+                        value:
+                          getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
+                          "",
+                      },
+                      { label: "Disciplina", value: evento.disciplina?.nombre },
+                      { label: "Categoría", value: evento.categoria?.nombre },
+                      { label: "Alcance", value: evento.alcance },
+                      {
+                        label: "Género",
+                        value: evento.genero ? formatGenero(evento.genero) : "",
+                      },
+                    ]}
+                  />
+
+                  {hasRealDates ? (
+                    <FactGrid
+                      items={[
+                        {
+                          label: "Inicio",
+                          value: evento.fechaInicio ? formatDate(evento.fechaInicio) : "",
+                        },
+                        {
+                          label: "Fin",
+                          value: evento.fechaFin ? formatDate(evento.fechaFin) : "",
+                        },
+                        {
+                          label: "Duración",
+                          value: duration ? `${duration} día${duration === 1 ? "" : "s"}` : "",
+                        },
+                        {
+                          label: "Tiempo",
+                          value:
+                            daysUntil === null
+                              ? ""
+                              : daysUntil < 0
+                                ? "Evento pasado"
+                                : daysUntil === 0
+                                  ? "Hoy"
+                                  : daysUntil === 1
+                                    ? "Mañana"
+                                    : `Faltan ${daysUntil} días`,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <FactGrid
+                      items={[
+                        {
+                          label: "Programación",
+                          value: formatEventScheduleLabel(evento),
+                        },
+                      ]}
+                    />
+                  )}
+
+                  {[evento.ciudad, evento.provincia, evento.pais].some(Boolean) ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <MapPin className="w-4 h-4" />
+                      <span className="truncate">
+                        {[evento.ciudad, evento.provincia, evento.pais]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
-                    ))}
-                  </div>
+                    </div>
+                  ) : null}
+
+                  <FactGrid
+                    items={[
+                      { label: "Lugar", value: evento.lugar },
+                      { label: "Ciudad", value: evento.ciudad },
+                      { label: "Provincia", value: evento.provincia },
+                      { label: "País", value: evento.pais },
+                    ]}
+                  />
+
+                  <FactGrid
+                    items={[
+                      { label: "Total entrenadores", value: totalEntrenadores },
+                      {
+                        label: "Deportistas seleccionados",
+                        value: deportistasList.length ? deportistasList.length : null,
+                      },
+                    ]}
+                  />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm text-gray-700 dark:text-gray-300">
-                  {[
-                    { label: "Tipo de evento", value: evento.tipoEvento },
+              </CollapsibleSection>
+            )}
+
+            <CollapsibleSection
+              title="Solicitud del aval"
+              defaultOpen
+              icon={
+                <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              }
+              meta={
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {stageDescription}
+                </p>
+              }
+            >
+              <div className="space-y-4">
+                <FactGrid
+                  items={[
+                    { label: "ID", value: aval.id },
+                    { label: "Estado", value: aval.estado },
+                    { label: "Etapa", value: currentStageLabel },
                     {
-                      label: "Participación",
-                      value:
-                        getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
-                        "-",
+                      label: "Emisión",
+                      value: aval.fechaEmision ? formatDate(aval.fechaEmision) : "",
                     },
-                    { label: "Disciplina", value: evento.disciplina?.nombre },
-                    { label: "Categoría", value: evento.categoria?.nombre },
-                    { label: "Alcance", value: evento.alcance },
-                    {
-                      label: "Género",
-                      value: evento.genero ? formatGenero(evento.genero) : "-",
-                    },
-                  ].map((fact) => (
-                    <div key={fact.label}>
-                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500 dark:text-gray-500">
-                        {fact.label}
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {fact.value || "-"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                {hasRealDates ? (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em]">Inicio</p>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {formatDate(evento.fechaInicio)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em]">Fin</p>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {formatDate(evento.fechaFin)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em]">
-                        Duración
-                      </p>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {duration
-                          ? `${duration} ${duration === 1 ? "día" : "días"}`
-                          : "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em]">
-                        Tiempo restante
-                      </p>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {daysUntil === null
-                          ? "-"
-                          : daysUntil < 0
-                            ? "Evento pasado"
-                            : daysUntil === 0
-                              ? "Hoy"
-                              : daysUntil === 1
-                                ? "Mañana"
-                                : `Faltan ${daysUntil} días`}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em]">
-                        Programación
-                      </p>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {formatEventScheduleLabel(evento)}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-            <section className="space-y-4">
-              <SectionHeader
-                icon={
-                  <MapPin className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                }
-                title="Ubicación"
-                description="Dirección exacta y jurisdicción para los documentos."
-              />
-              <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 text-sm text-gray-700 dark:text-gray-300 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    { label: "Lugar", value: evento.lugar },
-                    { label: "Ciudad", value: evento.ciudad },
-                    { label: "Provincia", value: evento.provincia },
-                    { label: "País", value: evento.pais },
-                  ].map((field) => (
-                    <div key={field.label}>
-                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                        {field.label}
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {field.value || "-"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-            <section className="space-y-4">
-              <SectionHeader
-                icon={
-                  <Users className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                }
-                title="Participantes"
-                description="Distribución por género y totales como lo verías en la planilla PDF."
-              />
-              <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    {
-                      label: "Atletas (H)",
-                      value: evento.numAtletasHombres || 0,
-                    },
-                    {
-                      label: "Atletas (M)",
-                      value: evento.numAtletasMujeres || 0,
-                    },
-                    {
-                      label: "Entrenadores (H)",
-                      value: evento.numEntrenadoresHombres || 0,
-                    },
-                    {
-                      label: "Entrenadores (M)",
-                      value: evento.numEntrenadoresMujeres || 0,
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 px-3 py-3 text-center text-gray-700 dark:text-gray-200"
-                    >
-                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                        {item.label}
-                      </p>
-                      <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-3 border-t border-gray-200 dark:border-gray-700 pt-4 text-center">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                      Total atletas
-                    </p>
-                    <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      {totalAtletas}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                      Total entrenadores
-                    </p>
-                    <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      {totalEntrenadores}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-            {evento.presupuesto && evento.presupuesto.length > 0 && (
-              <section className="space-y-4">
-                <SectionHeader
-                  icon={
-                    <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  }
-                  title="Presupuesto del evento"
-                  description="Lista de partidas y montos para cotejar con los anexos del PDF."
+                    { label: "Creado", value: aval.createdAt ? formatDate(aval.createdAt) : "" },
+                    { label: "Actualizado", value: aval.updatedAt ? formatDate(aval.updatedAt) : "" },
+                    { label: "Colección", value: aval.numeroColeccion },
+                    { label: "Número aval", value: aval.aval },
+                  ]}
                 />
+
+                {aval.descripcion ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
+                    <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500">
+                      Descripción
+                    </p>
+                    <p className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                      {aval.descripcion}
+                    </p>
+                  </div>
+                ) : null}
+
+                {aval.comentario ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
+                    <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500">
+                      Comentario
+                    </p>
+                    <p className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                      {aval.comentario}
+                    </p>
+                  </div>
+                ) : null}
+
+                {solicitudAttachments.length > 0 || adjuntosSolicitud.length > 0 ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/30">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                      <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500">
+                        Archivos adjuntos
+                      </p>
+                    </div>
+                    <div className="p-2 space-y-1">
+                      {solicitudAttachments.map((item) => (
+                        <a
+                          key={item.label}
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {item.label}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Documento del evento
+                            </p>
+                          </div>
+                          <Download className="w-4 h-4 shrink-0 text-gray-400 mt-1" />
+                        </a>
+                      ))}
+
+                      {adjuntosSolicitud.map((adjunto) => (
+                        <a
+                          key={adjunto.id}
+                          href={adjunto.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {adjunto.nombreOriginal || adjunto.nombreArchivo}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Archivo adjunto del entrenador · {formatDate(adjunto.createdAt)}
+                            </p>
+                          </div>
+                          <Download className="w-4 h-4 shrink-0 text-gray-400 mt-1" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {aval.avalTecnico ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        Aval técnico
+                      </p>
+                    </div>
+
+                    <AvalLogisticaSection
+                      avalTecnico={aval.avalTecnico}
+                      fechaEmision={aval.fechaEmision}
+                    />
+
+                    {(aval.avalTecnico.objetivos?.length ||
+                      aval.avalTecnico.criterios?.length) && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {aval.avalTecnico.objetivos?.length ? (
+                          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 p-4">
+                            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 mb-2">
+                              Objetivos
+                            </p>
+                            <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                              {aval.avalTecnico.objetivos
+                                .slice()
+                                .sort((a, b) => a.orden - b.orden)
+                                .map((objetivo) => (
+                                  <li key={objetivo.id} className="flex gap-2">
+                                    <span className="w-5 h-5 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-900 dark:text-gray-100 shrink-0">
+                                      {objetivo.orden}
+                                    </span>
+                                    <span className="flex-1">
+                                      {objetivo.descripcion}
+                                    </span>
+                                  </li>
+                                ))}
+                            </ol>
+                          </div>
+                        ) : null}
+                        {aval.avalTecnico.criterios?.length ? (
+                          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 p-4">
+                            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 mb-2">
+                              Criterios
+                            </p>
+                            <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                              {aval.avalTecnico.criterios
+                                .slice()
+                                .sort((a, b) => a.orden - b.orden)
+                                .map((criterio) => (
+                                  <li key={criterio.id} className="flex gap-2">
+                                    <span className="w-5 h-5 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-900 dark:text-gray-100 shrink-0">
+                                      {criterio.orden}
+                                    </span>
+                                    <span className="flex-1">
+                                      {criterio.descripcion}
+                                    </span>
+                                  </li>
+                                ))}
+                            </ol>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {deportistasList.length > 0 ? (
+                      <AvalDeportistasSection deportistas={deportistasList} />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            {canShowPresupuestoSalida ? (
+              <CollapsibleSection
+                title="Presupuesto de salida"
+                icon={
+                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                }
+                meta={
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Visible cuando finaliza aprobación financiera.
+                  </p>
+                }
+              >
                 <AvalPresupuestoSection
-                  presupuesto={evento.presupuesto}
+                  presupuesto={evento!.presupuesto}
                   totalPresupuesto={totalPresupuesto}
                 />
-              </section>
-            )}
-            {aval.avalTecnico && (
-              <section className="space-y-4">
-                <SectionHeader
-                  icon={
-                    <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  }
-                  title="Aval técnico"
-                  description="Logística, objetivos y deportistas organizados como en el PDF impreso."
-                />
-                <div className="space-y-4">
-                  <AvalLogisticaSection
-                    avalTecnico={aval.avalTecnico}
-                    fechaEmision={aval.fechaEmision}
-                  />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {aval.avalTecnico.objetivos &&
-                      aval.avalTecnico.objetivos.length > 0 && (
-                        <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                          <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">
-                            Objetivos
-                          </p>
-                          <ol className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                            {aval.avalTecnico.objetivos
-                              .sort((a, b) => a.orden - b.orden)
-                              .map((objetivo) => (
-                                <li
-                                  key={objetivo.id}
-                                  className="flex gap-3 text-sm text-gray-700 dark:text-gray-300"
-                                >
-                                  <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-xs font-semibold">
-                                    {objetivo.orden}
-                                  </span>
-                                  <span className="flex-1">
-                                    {objetivo.descripcion}
-                                  </span>
-                                </li>
-                              ))}
-                          </ol>
-                        </div>
-                      )}
-                    {aval.avalTecnico.criterios &&
-                      aval.avalTecnico.criterios.length > 0 && (
-                        <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                          <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">
-                            Criterios de selección
-                          </p>
-                          <ol className="space-y-3">
-                            {aval.avalTecnico.criterios
-                              .sort((a, b) => a.orden - b.orden)
-                              .map((criterio) => (
-                                <li
-                                  key={criterio.id}
-                                  className="flex gap-3 text-sm text-gray-700 dark:text-gray-300"
-                                >
-                                  <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-xs font-semibold">
-                                    {criterio.orden}
-                                  </span>
-                                  <span className="flex-1">
-                                    {criterio.descripcion}
-                                  </span>
-                                </li>
-                              ))}
-                          </ol>
-                        </div>
-                      )}
-                  </div>
-                  {deportistasList.length > 0 && (
-                    <AvalDeportistasSection deportistas={deportistasList} />
-                  )}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-        {showApprovalPanel && (
-          <ApprovalFlowCard
-            title="Este aval necesita aprobación"
-            currentStageLabel={arrowCurrentLabel}
-            nextStageLabel={arrowNextLabel}
-            reasonValue={rechazoMotivo}
-            onReasonChange={setRechazoMotivo}
-            actionError={actionError}
-            actionLoading={actionLoading}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
-              (e) => ({ value: e, label: getApprovalStageLabel(e) }),
-            )}
-            etapaDestinoValue={etapaDestino}
-            onEtapaDestinoChange={setEtapaDestino}
-          />
-        )}
+              </CollapsibleSection>
+            ) : null}
+          </div>
+
+          <div className="space-y-4 lg:sticky lg:top-6 self-start">
+            {summaryLines.length > 0 ? (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
+                <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 mb-2">
+                  Resumen
+                </p>
+                <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                  {summaryLines.slice(0, 5).map((line) => (
+                    <li key={line} className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />
+                      <span className="flex-1">{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {showApprovalPanel ? (
+              <ApprovalFlowCard
+                title="Este aval necesita aprobación"
+                currentStageLabel={arrowCurrentLabel}
+                nextStageLabel={arrowNextLabel}
+                reasonValue={rechazoMotivo}
+                onReasonChange={setRechazoMotivo}
+                actionError={actionError}
+                actionLoading={actionLoading}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
+                  (e) => ({ value: e, label: getApprovalStageLabel(e) }),
+                )}
+                etapaDestinoValue={etapaDestino}
+                onEtapaDestinoChange={setEtapaDestino}
+              />
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <ConfirmModal

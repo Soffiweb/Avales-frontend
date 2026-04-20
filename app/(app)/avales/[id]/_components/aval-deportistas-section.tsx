@@ -5,11 +5,45 @@ import type { DeportistaAval } from "@/types/aval";
 
 type DeportistasList = DeportistaAval[];
 
-type GroupedDeportistas = {
-  hombres: DeportistasList;
-  mujeres: DeportistasList;
-  otros: DeportistasList;
-};
+function normalizeSortKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+function splitFullName(fullName: string) {
+  const cleaned = fullName.replace(/\s+/g, " ").trim();
+  if (!cleaned) return { first: "", last: "" };
+  const parts = cleaned.split(" ");
+  if (parts.length === 1) return { first: cleaned, last: "" };
+  const last = parts[parts.length - 1] ?? "";
+  const first = parts.slice(0, -1).join(" ");
+  return { first, last };
+}
+
+function getLastNameForSort(item: DeportistaAval) {
+  const last =
+    item.deportista?.apellido?.trim() ||
+    item.deportista?.apellidos?.trim() ||
+    "";
+  if (last) return last;
+
+  const fullName = item.deportista?.nombre?.trim() ?? "";
+  if (fullName) return splitFullName(fullName).last;
+
+  const composed = `${item.deportista?.nombres ?? ""} ${item.deportista?.apellidos ?? ""}`.trim();
+  if (composed) return splitFullName(composed).last;
+
+  return "";
+}
+
+function getFirstNameForSort(item: DeportistaAval) {
+  const first = item.deportista?.nombre?.trim() || item.deportista?.nombres?.trim() || "";
+  if (first) return first;
+  return "";
+}
 
 function formatDeportistaName(item: DeportistaAval) {
   const nombreCompleto = item.deportista?.nombre?.trim();
@@ -25,52 +59,37 @@ function getDeportistaCedula(item: DeportistaAval) {
   return item.deportista?.cedula ?? "Cedula no disponible";
 }
 
-function groupDeportistas(deportistas: DeportistasList): GroupedDeportistas {
-  return deportistas.reduce(
-    (acc, item) => {
-      const genero = item.deportista?.genero?.toUpperCase();
-      if (genero === "FEMENINO") {
-        acc.mujeres.push(item);
-      } else if (genero === "MASCULINO") {
-        acc.hombres.push(item);
-      } else {
-        acc.otros.push(item);
-      }
-      return acc;
-    },
-    {
-      hombres: [] as DeportistasList,
-      mujeres: [] as DeportistasList,
-      otros: [] as DeportistasList,
-    },
-  );
-}
+type AvalDeportistasSectionProps = {
+  deportistas: DeportistasList;
+};
 
-function DeportistasGroup({
-  title,
-  list,
-  showEmpty = false,
-  emptyMessage,
-}: {
-  title: string;
-  list: DeportistasList;
-  showEmpty?: boolean;
-  emptyMessage?: string;
-}) {
-  if (!list.length && !showEmpty) return null;
+export default function AvalDeportistasSection({
+  deportistas,
+}: AvalDeportistasSectionProps) {
+  const sorted = deportistas
+    .slice()
+    .sort((a, b) => {
+      const lastA = normalizeSortKey(getLastNameForSort(a));
+      const lastB = normalizeSortKey(getLastNameForSort(b));
+      const lastCmp = lastA.localeCompare(lastB, "es", { sensitivity: "base" });
+      if (lastCmp !== 0) return lastCmp;
+
+      const firstA = normalizeSortKey(getFirstNameForSort(a));
+      const firstB = normalizeSortKey(getFirstNameForSort(b));
+      const firstCmp = firstA.localeCompare(firstB, "es", { sensitivity: "base" });
+      if (firstCmp !== 0) return firstCmp;
+
+      return String(a.id).localeCompare(String(b.id));
+    });
+
   return (
-    <section className="space-y-3 px-4 py-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          {title}
-        </p>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {list.length} {list.length === 1 ? "registro" : "registros"}
-        </span>
-      </div>
+    <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+      <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">
+        Deportistas seleccionados ({deportistas.length})
+      </p>
       <div className="space-y-3">
-        {list.length > 0 ? (
-          list.map((deportista) => (
+        {sorted.length > 0 ? (
+          sorted.map((deportista) => (
             <div
               key={deportista.id}
               className="flex items-center gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 px-3 py-2"
@@ -92,41 +111,7 @@ function DeportistasGroup({
           ))
         ) : (
           <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-gray-900/40 px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-            {emptyMessage ?? `No hay ${title.toLowerCase()} registrados aun.`}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-type AvalDeportistasSectionProps = {
-  deportistas: DeportistasList;
-};
-
-export default function AvalDeportistasSection({
-  deportistas,
-}: AvalDeportistasSectionProps) {
-  const grouped = groupDeportistas(deportistas);
-
-  return (
-    <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">
-        Deportistas seleccionados ({deportistas.length})
-      </p>
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-6 rounded-3xl bg-gray-50/60 dark:bg-gray-900/40 p-1 divide-y divide-gray-200 dark:divide-gray-700 lg:grid-cols-2 lg:divide-y-0 lg:divide-x">
-          <DeportistasGroup title="Hombres" list={grouped.hombres} />
-          <DeportistasGroup
-            title="Mujeres"
-            list={grouped.mujeres}
-            showEmpty
-            emptyMessage="No hay deportistas mujeres registradas."
-          />
-        </div>
-        {grouped.otros.length > 0 && (
-          <div className="pt-6 border-t border-dashed border-gray-200 dark:border-gray-700/60">
-            <DeportistasGroup title="Otros generos" list={grouped.otros} />
+            No hay deportistas registrados.
           </div>
         )}
       </div>

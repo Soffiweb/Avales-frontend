@@ -508,10 +508,10 @@ Telefono: 72570734`;
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Preview certificacion financiera" defaultOpen>
+            <PreviewCollapsible title="Certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview presupuesto salida anticipo">
+            <PreviewCollapsible title="Presupuesto salida anticipo">
               <PresupuestoSalidaAnticipoPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
           </div>

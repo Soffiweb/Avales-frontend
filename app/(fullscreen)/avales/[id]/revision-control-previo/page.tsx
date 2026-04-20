@@ -518,22 +518,22 @@ export default function RevisionControlPrevioPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Preview lista deportistas" defaultOpen>
+            <PreviewCollapsible title="Lista deportistas" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview solicitud aval" defaultOpen>
+            <PreviewCollapsible title="Solicitud aval" defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview certificacion PDA" defaultOpen>
+            <PreviewCollapsible title="Certificacion PDA" defaultOpen>
               <PdaPreview aval={aval} draft={pdaDraft} />
             </PreviewCollapsible>
             <PreviewCollapsible
-              title="Preview certificacion compras publicas"
+              title="Certificacion compras publicas"
               defaultOpen
             >
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview revision metodologo" defaultOpen>
+            <PreviewCollapsible title="Revision metodologo" defaultOpen>
               <RevisionMetodologoPreview
                 aval={aval}
                 header={revisionHeader}
@@ -543,7 +543,7 @@ export default function RevisionControlPrevioPage() {
                 useDefaultObservations={false}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview revision DTM" defaultOpen>
+            <PreviewCollapsible title="Revision DTM" defaultOpen>
               <RevisionDtmPreview
                 aval={aval}
                 header={dtmPreviewHeader}
@@ -554,7 +554,7 @@ export default function RevisionControlPrevioPage() {
               />
             </PreviewCollapsible>
             <PreviewCollapsible
-              title="Preview presupuesto de salida"
+              title="Presupuesto de salida"
               defaultOpen
             >
               <PresupuestoSalidaAnticipoPreview

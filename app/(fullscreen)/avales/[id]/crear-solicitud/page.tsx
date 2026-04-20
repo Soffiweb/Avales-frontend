@@ -258,10 +258,10 @@ export default function CrearSolicitudPage() {
       <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Preview escuela de iniciacion" defaultOpen>
+            <PreviewCollapsible title="Escuela de iniciacion" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview solicitud de aval" defaultOpen>
+            <PreviewCollapsible title="Solicitud de aval" defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
           </div>

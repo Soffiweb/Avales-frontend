@@ -776,19 +776,19 @@ export default function RevisionDtmPage() {
       <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Preview solicitud aval">
+            <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview lista deportistas">
+            <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview certificacion PDA">
+            <PreviewCollapsible title="Certificacion PDA">
               <PdaPreview aval={aval} draft={pdaDraft} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview certificacion compras publicas">
+            <PreviewCollapsible title="Certificacion compras publicas">
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview revision Metodologo">
+            <PreviewCollapsible title="Revision metodologo">
               <RevisionMetodologoPreview
                 aval={aval}
                 header={revisionHeader}
@@ -798,7 +798,7 @@ export default function RevisionDtmPage() {
                 useDefaultObservations={false}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview revision DTM" defaultOpen>
+            <PreviewCollapsible title="Revision DTM" defaultOpen>
               <RevisionDtmPreview
                 aval={aval}
                 header={dtmPreviewHeader}

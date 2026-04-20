@@ -671,17 +671,17 @@ export default function CertificarComprasPublicasPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Preview lista deportistas">
+            <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview solicitud aval">
+            <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview certificacion PDA">
+            <PreviewCollapsible title="Certificacion PDA">
               <PdaPreview aval={aval} draft={pdaDraft} />
             </PreviewCollapsible>
             <PreviewCollapsible
-              title="Preview certificacion compras publicas"
+              title="Certificacion compras publicas"
               defaultOpen
             >
               <ComprasPublicasPreview aval={aval} draft={draft} />

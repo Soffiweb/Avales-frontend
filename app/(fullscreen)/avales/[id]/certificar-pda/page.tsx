@@ -808,13 +808,13 @@ export default function CertificarAvalPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Preview lista deportistas">
+            <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview solicitud aval">
+            <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview certificacion PDA" defaultOpen>
+            <PreviewCollapsible title="Certificacion PDA" defaultOpen>
               <PdaPreview
                 aval={{
                   ...aval,
@@ -834,7 +834,7 @@ export default function CertificarAvalPage() {
                 draft={draft}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Preview presupuesto de salida" defaultOpen>
+            <PreviewCollapsible title="Presupuesto de salida" defaultOpen>
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
                 items={budgetPreviewItems}

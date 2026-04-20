@@ -39,12 +39,12 @@ export default function PdaPreview({ aval, draft }: Props) {
   return (
     <div className="bg-white border border-slate-300 p-6 text-slate-900">
       <div className="text-right text-sm leading-5">
-        <p>FDPL-METODOLOGO PDA - {draft.numeroPda || "S/N"} - 2026</p>
+        <p>FDPL-METODOLOGO PDA - 2026</p>
         <p>{formatCurrentLongDate()}</p>
       </div>
 
       <h2 className="text-center text-xl font-bold mt-4 mb-6">
-        CERTIFICACION EVENTOS PDA 2026 - {aval.pda?.numeroPda || draft.numeroPda || "POR DEFINIR"}
+        CERTIFICACION EVENTOS PDA 2026
       </h2>
 
       <div className="mb-4 text-[13px] leading-5">

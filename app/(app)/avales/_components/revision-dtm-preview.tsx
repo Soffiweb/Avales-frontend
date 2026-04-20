@@ -253,7 +253,6 @@ export default function RevisionDtmPreview({
   header,
   footer,
 }: Props) {
-  const numeroRevision = header.numeroRevision?.trim() || "014";
   const dirigidoA = header.dirigidoA || "[NOMBRE DESTINATARIO]";
   const cargoDirigidoA = header.cargoDirigidoA || "[CARGO]";
   const descripcion =
@@ -269,11 +268,7 @@ export default function RevisionDtmPreview({
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-3">
       <div className="space-y-0.5">
         <p className="text-[12px] uppercase font-semibold tracking-wide">
-          Revision metodologica para otorgacion del aval tecnico #
-          {numeroRevision}
-        </p>
-        <p className="text-[10px] uppercase">
-          N{String.fromCharCode(176)} {numeroRevision}
+          Revision metodologica para otorgacion del aval tecnico
         </p>
       </div>
 
@@ -288,9 +283,6 @@ export default function RevisionDtmPreview({
         <table className="w-full border-collapse text-[9px]">
           <thead>
             <tr className="bg-slate-200">
-              <th className="border border-slate-400 px-2 py-1 text-center w-[6%]">
-                N°
-              </th>
               <th className="border border-slate-400 px-2 py-1 text-left w-[38%]">
                 PARAMETROS
               </th>
@@ -308,9 +300,6 @@ export default function RevisionDtmPreview({
           <tbody>
             {topRows.map((item) => (
               <tr key={item.number}>
-                <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
-                  {item.number}
-                </td>
                 <td className="border border-slate-400 px-2 py-0.5 align-top">
                   {item.label}
                 </td>
@@ -328,16 +317,13 @@ export default function RevisionDtmPreview({
             <tr className="bg-slate-50">
               <td
                 className="border border-slate-400 px-2 py-1 text-center font-semibold uppercase"
-                colSpan={5}
+                colSpan={4}
               >
                 Hoja Excel-Anexos
               </td>
             </tr>
             {annexRows.map((item) => (
               <tr key={item.number}>
-                <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
-                  {item.number}
-                </td>
                 <td className="border border-slate-400 px-2 py-0.5 align-top">
                   {item.label}
                 </td>

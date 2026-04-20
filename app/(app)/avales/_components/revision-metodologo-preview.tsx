@@ -132,7 +132,6 @@ export default function RevisionMetodologoPreview({
   const descripcion = buildDefaultDescripcion(aval, header);
   const dirigidoA = header.dirigidoA || "[NOMBRE DESTINATARIO]";
   const cargoDirigidoA = header.cargoDirigidoA || "[CARGO]";
-  const numeroRevision = header.numeroRevision?.trim() || "014";
 
   const sortedItems = [...reviewItems].sort((a, b) => a.order - b.order);
 
@@ -140,10 +139,8 @@ export default function RevisionMetodologoPreview({
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-3">
       <div className="space-y-0.5">
         <p className="text-[12px] uppercase font-semibold tracking-wide">
-          Informe de revision del aval tecnico LG-METODOLOGA DTM-FDPL-2024-AI-R{String.fromCharCode(176)}{" "}
-          {numeroRevision}
+          Informe de revision del aval tecnico LG-METODOLOGA DTM-FDPL-2024-AI-R{String.fromCharCode(176)}
         </p>
-        <p className="text-[10px] uppercase">N{String.fromCharCode(176)} {numeroRevision}</p>
       </div>
 
       <div className="text-[10px] leading-4">
@@ -198,7 +195,7 @@ export default function RevisionMetodologoPreview({
                     return (
                       <tr key={item.key}>
                         <td className="border border-slate-400 px-2 py-0.5 align-top">
-                          {item.order}. {item.label}
+                          {item.label}
                         </td>
                         <td className="border border-slate-400 px-2 py-0.5 text-center align-top">
                           {cumple ? "X" : ""}

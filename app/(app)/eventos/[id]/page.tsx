@@ -256,8 +256,7 @@ export default function EventoDetailPage() {
   const canManageReforms = canCreateReforma(user);
   const canStartAval =
     canCreateAval && evento.estado === "DISPONIBLE" && !hasAval && !hasPendingReform;
-  const canRequestReforma =
-    canManageReforms && evento.estado === "DISPONIBLE" && !hasPendingReform;
+  const canRequestReforma = canManageReforms && !hasPendingReform;
 
   return (
     <>

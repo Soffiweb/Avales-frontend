@@ -24,7 +24,9 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
+import PdaPreview, {
+  type PdaDraft,
+} from "@/app/(app)/avales/_components/pda-preview";
 import RevisionMetodologoPreview, {
   type ReviewItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
@@ -33,7 +35,11 @@ import ComprasPublicasPreview, {
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
-import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
+import {
+  getApprovalStageLabel,
+  getNextApprovalStage,
+  getPreviousApprovalStages,
+} from "@/lib/constants";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
@@ -96,7 +102,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -107,8 +115,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 
       const nombre = (
         [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
@@ -179,9 +191,8 @@ export default function RevisionMetodologoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(
-    DEFAULT_REVIEW_ITEMS,
-  );
+  const [reviewItems, setReviewItems] =
+    useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
   const [reviewState, setReviewState] = useState(() =>
     buildInitialReviewState(DEFAULT_REVIEW_ITEMS),
   );
@@ -314,7 +325,8 @@ export default function RevisionMetodologoPage() {
     if (!aval.revisionMetodologo) return;
     setRevisionHeader((prev) => ({
       ...prev,
-      numeroRevision: aval.revisionMetodologo?.numeroRevision ?? prev.numeroRevision,
+      numeroRevision:
+        aval.revisionMetodologo?.numeroRevision ?? prev.numeroRevision,
       dirigidoA: aval.revisionMetodologo?.dirigidoA ?? prev.dirigidoA,
       cargoDirigidoA:
         aval.revisionMetodologo?.cargoDirigidoA ?? prev.cargoDirigidoA,
@@ -368,7 +380,10 @@ export default function RevisionMetodologoPage() {
 
   useEffect(() => {
     if (!user) return;
-    const nombre = [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
+    const nombre = [user.nombre, user.apellido]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     const cargo = user.roles?.length ? formatRoles(user.roles) : "";
     setRevisionFooter((prev) => ({
       ...prev,
@@ -396,7 +411,10 @@ export default function RevisionMetodologoPage() {
   }, [aval, reviewItems]);
   useEffect(() => {
     if (!user) return;
-    const nombre = [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
+    const nombre = [user.nombre, user.apellido]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     const cargo = user.roles?.length ? formatRoles(user.roles) : "";
     setRevisionFooter((prev) => ({
       ...prev,
@@ -413,7 +431,15 @@ export default function RevisionMetodologoPage() {
   const etapaActualHistorial = getCurrentEtapa(aval?.historial);
   const currentEtapa = (etapaActualResponse ??
     etapaActualHistorial ??
-    "SOLICITUD") as "SOLICITUD" | "REVISION_METODOLOGO" | "REVISION_DTM" | "PDA" | "COMPRAS_PUBLICAS" | "CONTROL_PREVIO" | "SECRETARIA" | "FINANCIERO";
+    "SOLICITUD") as
+    | "SOLICITUD"
+    | "REVISION_METODOLOGO"
+    | "REVISION_DTM"
+    | "PDA"
+    | "COMPRAS_PUBLICAS"
+    | "CONTROL_PREVIO"
+    | "SECRETARIA"
+    | "FINANCIERO";
   const nextEtapa = getNextApprovalStage(currentEtapa);
   const approvalEtapa = nextEtapa ?? currentEtapa;
   const currentStageLabel = getApprovalStageLabel(currentEtapa);
@@ -542,6 +568,11 @@ export default function RevisionMetodologoPage() {
     }),
     [draft, revisionHeader.descripcionEncabezado, revisionFooter],
   );
+  const totalReviewItems = reviewItems.length;
+  const noCumpleCount = reviewItems.filter((item) => {
+    const state = reviewState[item.key];
+    return !(state?.cumple ?? item.defaultCumple);
+  }).length;
 
   if (loading) {
     return (
@@ -567,7 +598,7 @@ export default function RevisionMetodologoPage() {
   }
 
   return (
-    <div className="h-screen flex">
+    <div className="h-screen flex bg-gray-50 dark:bg-slate-950">
       {toast && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
           <AlertBanner
@@ -578,9 +609,9 @@ export default function RevisionMetodologoPage() {
         </div>
       )}
       {/* Left Panel */}
-      <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900 flex flex-col">
+      <div className="w-full lg:w-[45%] bg-white dark:bg-gray-900 flex flex-col">
         <div className="h-full overflow-y-auto">
-          <div className="max-w-xl mx-auto px-6 sm:px-8 py-8">
+          <div className="max-w-2xl mx-auto px-6 sm:px-10 py-6">
             <div className="mb-6">
               <button
                 onClick={() => router.push("/avales")}
@@ -590,10 +621,10 @@ export default function RevisionMetodologoPage() {
                 Volver
               </button>
             </div>
-            <div className="space-y-8">
+            <div className="space-y-5">
               <div className="space-y-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4">
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                     Revisión del metodólogo
                   </h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -717,91 +748,119 @@ export default function RevisionMetodologoPage() {
                   </label>
                 </div>
               </div>
-              {(["CHECKLIST", "DATOS_INFORMATIVOS", "HOJAS_EXCEL"] as const).map(
-                (section) => {
-                  const sectionItems = reviewItems.filter(
-                  (item) => item.section === section,
-                  ).sort((a, b) => a.order - b.order);
+              {(
+                ["CHECKLIST", "DATOS_INFORMATIVOS", "HOJAS_EXCEL"] as const
+              ).map((section) => {
+                const sectionItems = reviewItems
+                  .filter((item) => item.section === section)
+                  .sort((a, b) => a.order - b.order);
+                const sectionNoCumple = sectionItems.filter((item) => {
+                  const state = reviewState[item.key];
+                  return !(state?.cumple ?? item.defaultCumple);
+                }).length;
 
-                  if (!sectionItems.length) return null;
+                if (!sectionItems.length) return null;
 
-                  return (
-                    <div key={section} className="space-y-3">
-                      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                        {SECTION_LABELS[section]}
-                      </h2>
-                      <div className="space-y-2">
-                        {sectionItems.map((item) => (
+                return (
+                  <details
+                    key={section}
+                    open={section === "CHECKLIST"}
+                    className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 overflow-hidden"
+                  >
+                    <summary className="cursor-pointer list-none px-4 py-3 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                          {SECTION_LABELS[section]}
+                        </h2>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="rounded-full px-2 py-0.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300">
+                            {sectionItems.length} items
+                          </span>
+                          <span className="rounded-full px-2 py-0.5 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400">
+                            {sectionNoCumple} no cumple
+                          </span>
+                        </div>
+                      </div>
+                    </summary>
+                    <div className="p-3 space-y-2">
+                      {sectionItems.map((item) => {
+                        const itemState = reviewState[item.key];
+                        const cumple = itemState?.cumple ?? item.defaultCumple;
+                        const observacion = itemState?.observacion ?? "";
+
+                        return (
                           <div
                             key={item.key}
-                            className="grid grid-cols-1 sm:grid-cols-[1fr_90px_170px] gap-2 items-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 px-3 py-2"
+                            className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 px-3 py-3"
                           >
-                            <div className="text-sm text-gray-800 dark:text-gray-100">
-                              {item.order}. {item.label}
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                              <p className="text-sm text-gray-800 dark:text-gray-100 sm:max-w-[70%]">
+                                {item.order}. {item.label}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs">
+                                <label className="inline-flex items-center gap-1 text-emerald-600">
+                                  <input
+                                    type="radio"
+                                    name={`cumple-${item.key}`}
+                                    className="form-radio"
+                                    checked={cumple}
+                                    onChange={() =>
+                                      setReviewState((prev) => ({
+                                        ...prev,
+                                        [item.key]: {
+                                          ...prev[item.key],
+                                          cumple: true,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                  Sí
+                                </label>
+                                <label className="inline-flex items-center gap-1 text-rose-600">
+                                  <input
+                                    type="radio"
+                                    name={`cumple-${item.key}`}
+                                    className="form-radio"
+                                    checked={!cumple}
+                                    onChange={() =>
+                                      setReviewState((prev) => ({
+                                        ...prev,
+                                        [item.key]: {
+                                          ...prev[item.key],
+                                          cumple: false,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                  No
+                                </label>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-xs justify-start sm:justify-center">
-                              <label className="inline-flex items-center gap-1 text-emerald-600">
-                                <input
-                                  type="radio"
-                                  name={`cumple-${item.key}`}
-                                  className="form-radio"
-                                  checked={reviewState[item.key]?.cumple ?? true}
-                                  onChange={() =>
+                            {!cumple || observacion.trim() ? (
+                              <div className="mt-3">
+                                <textarea
+                                  className="form-textarea w-full text-xs min-h-[60px]"
+                                  placeholder="Observación"
+                                  value={observacion}
+                                  onChange={(e) =>
                                     setReviewState((prev) => ({
                                       ...prev,
                                       [item.key]: {
                                         ...prev[item.key],
-                                        cumple: true,
+                                        observacion: e.target.value,
                                       },
                                     }))
                                   }
                                 />
-                                Sí
-                              </label>
-                              <label className="inline-flex items-center gap-1 text-rose-600">
-                                <input
-                                  type="radio"
-                                  name={`cumple-${item.key}`}
-                                  className="form-radio"
-                                  checked={
-                                    !(reviewState[item.key]?.cumple ?? true)
-                                  }
-                                  onChange={() =>
-                                    setReviewState((prev) => ({
-                                      ...prev,
-                                      [item.key]: {
-                                        ...prev[item.key],
-                                        cumple: false,
-                                      },
-                                    }))
-                                  }
-                                />
-                                No
-                              </label>
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              <textarea
-                                className="form-textarea w-full text-xs min-h-[60px]"
-                                placeholder="Observación"
-                                value={reviewState[item.key]?.observacion ?? ""}
-                                onChange={(e) =>
-                                  setReviewState((prev) => ({
-                                    ...prev,
-                                    [item.key]: {
-                                      ...prev[item.key],
-                                      observacion: e.target.value,
-                                    },
-                                  }))
-                                }
-                              />
-                            </div>
+                              </div>
+                            ) : null}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  );
-                },
-              )}
+                  </details>
+                );
+              })}
               <div className="space-y-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -842,25 +901,26 @@ export default function RevisionMetodologoPage() {
                   actionLoading={actionLoading}
                   onApprove={handleApprove}
                   onReject={handleReject}
-                  etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
-                    (e) => ({ value: e, label: getApprovalStageLabel(e) }),
-                  )}
+                  etapaDestinoOptions={getPreviousApprovalStages(
+                    currentEtapa,
+                  ).map((e) => ({ value: e, label: getApprovalStageLabel(e) }))}
                   etapaDestinoValue={etapaDestino}
                   onEtapaDestinoChange={setEtapaDestino}
                 />
               )}
-              {!showApprovalPanel && aval?.revisionMetodologo?.numeroRevision && (
-                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-                  Revisión del metodólogo generada correctamente.
-                </div>
-              )}
+              {!showApprovalPanel &&
+                aval?.revisionMetodologo?.numeroRevision && (
+                  <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+                    Revisión del metodólogo generada correctamente.
+                  </div>
+                )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Panel */}
-      <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
+      <div className="hidden lg:block lg:w-[55%] bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
             <PreviewCollapsible title="Solicitud aval">
@@ -885,8 +945,8 @@ export default function RevisionMetodologoPage() {
               />
             </PreviewCollapsible>
           </div>
-          </div>
         </div>
       </div>
+    </div>
   );
 }

@@ -325,6 +325,7 @@ export default function EventoReformaPage() {
   const proposedBudgetTotal = useMemo(() => getBudgetTotal(budgetRows), [budgetRows]);
 
   const canSubmitReforma = canCreateReforma(user);
+  const hasPendingReform = Boolean(evento?.tieneReformaPendiente);
 
   const proposedChanges = useMemo(() => {
     if (!evento || !generalForm || !participantsForm) return {};
@@ -390,6 +391,12 @@ export default function EventoReformaPage() {
     if (!evento || !requestReason.trim()) return;
     if (!canSubmitReforma) {
       setSubmitError("Tu usuario no tiene permiso para solicitar reformas.");
+      return;
+    }
+    if (hasPendingReform) {
+      setSubmitError(
+        "Este evento ya tiene una reforma pendiente. No se puede solicitar otra reforma hasta que la actual se apruebe o rechace.",
+      );
       return;
     }
     if (hasUnresolvableBudgetItems) {
@@ -607,31 +614,6 @@ export default function EventoReformaPage() {
       </div>
     );
   }
-
-  if (evento.estado !== "DISPONIBLE") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white px-4 dark:bg-gray-950">
-        <div className="w-full max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
-          <p className="text-lg font-semibold">Reforma no disponible</p>
-          <p className="mt-2 text-sm">
-            Solo los eventos en estado DISPONIBLE pueden solicitar reforma.
-          </p>
-          <p className="mt-1 text-sm">
-            Estado actual del evento: {evento.estado || "Sin estado"}.
-          </p>
-          <Link
-            href={`/eventos/${evento.id}`}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium underline"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Volver al evento
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const hasPendingReform = Boolean(evento.tieneReformaPendiente);
 
   if (hasPendingReform) {
     return (

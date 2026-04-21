@@ -153,8 +153,7 @@ export default function EventoDetailForAvalPage() {
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const canCreateAval = isAvailable && !hasPendingReform;
   const canManageReforms = canCreateReforma(user);
-  const canRequestReforma =
-    canManageReforms && isAvailable && !hasPendingReform;
+  const canRequestReforma = canManageReforms && !hasPendingReform;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto space-y-6">

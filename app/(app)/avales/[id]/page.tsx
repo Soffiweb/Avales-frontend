@@ -66,6 +66,15 @@ function getEventDuration(
   return diff;
 }
 
+function formatSolicitudNumber(value?: string | number | null) {
+  if (value === null || value === undefined) return "";
+  const raw = String(value).trim();
+  if (raw.length === 0) return "";
+  const numeric = Number.parseInt(raw, 10);
+  if (Number.isNaN(numeric)) return raw;
+  return String(numeric).padStart(3, "0");
+}
+
 type FactItem = {
   label: string;
   value: string | number | null | undefined;
@@ -438,7 +447,9 @@ export default function AvalDetailPage() {
       : null;
   const summaryLines = [
     evento?.codigo ? `Evento ${evento.codigo}.` : null,
-    aval.numeroColeccion ? `Colección ${aval.numeroColeccion}.` : null,
+    aval.numeroColeccion
+      ? `Solicitud ${formatSolicitudNumber(aval.numeroColeccion)}.`
+      : null,
     !hasRealDates && evento
       ? `Programación: ${formatEventScheduleLabel(evento)}.`
       : null,
@@ -703,7 +714,6 @@ export default function AvalDetailPage() {
               <div className="space-y-4">
                 <FactGrid
                   items={[
-                    { label: "ID", value: aval.id },
                     { label: "Estado", value: aval.estado },
                     { label: "Etapa", value: currentStageLabel },
                     {
@@ -712,8 +722,11 @@ export default function AvalDetailPage() {
                     },
                     { label: "Creado", value: aval.createdAt ? formatDate(aval.createdAt) : "" },
                     { label: "Actualizado", value: aval.updatedAt ? formatDate(aval.updatedAt) : "" },
-                    { label: "Colección", value: aval.numeroColeccion },
-                    { label: "Número aval", value: aval.aval },
+                    {
+                      label: "N° solicitud",
+                      value: formatSolicitudNumber(aval.numeroColeccion),
+                    },
+                    { label: "N° aval", value: aval.avalTecnico?.numeroAval ?? "-" },
                   ]}
                 />
 

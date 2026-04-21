@@ -88,6 +88,12 @@ export function canCreateReforma(user: User | null | undefined) {
   );
 }
 
+export function canReviewReforms(user: User | null | undefined) {
+  if (!user) return false;
+  const roles = getNormalizedRoles(user);
+  return isAdminUser(user) || roles.includes("PDA");
+}
+
 export function canSeeSidebar(
   user: User | null | undefined,
   noSidebar: Role[]

@@ -167,6 +167,52 @@ export async function restoreEvento(id: number) {
   return apiFetch<Evento>(`/events/${id}/restore`, { method: "PATCH" });
 }
 
+export type EventoReformaListItem = {
+  id: number;
+  estado: "PENDIENTE" | "APROBADA" | "RECHAZADA" | string;
+  motivo: string;
+  observacion?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+  solicitante?: {
+    id: number;
+    nombre?: string | null;
+    apellido?: string | null;
+    email?: string | null;
+  } | null;
+  aprobador?: {
+    id: number;
+    nombre?: string | null;
+    apellido?: string | null;
+    email?: string | null;
+  } | null;
+  versionBaseId?: number | null;
+  versionAprobadaId?: number | null;
+};
+
+export async function listEventoReforms(eventoId: number) {
+  return apiFetch<EventoReformaListItem[]>(`/events/${eventoId}/reforms`, {
+    method: "GET",
+  });
+}
+
+export type EventoVersionListItem = {
+  id: number;
+  eventoId: number;
+  version: number;
+  createdAt: string;
+  motivo?: string | null;
+  estado?: string | null;
+  data?: unknown;
+  items?: unknown;
+};
+
+export async function listEventoVersions(eventoId: number) {
+  return apiFetch<EventoVersionListItem[]>(`/events/${eventoId}/versions`, {
+    method: "GET",
+  });
+}
+
 export type UploadExcelResponse = {
   procesados: number;
   creados: string[];

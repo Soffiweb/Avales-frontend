@@ -79,7 +79,7 @@ function resolveInitialCategoriaId(
   categorias: CatalogItem[],
   fallback?: number,
 ) {
-  if (fallback !== undefined) return fallback;
+  if (fallback !== undefined && fallback > 0) return fallback;
   if (!user) return undefined;
 
   return (
@@ -176,6 +176,11 @@ export default function UsuarioForm({
 
   const selectedRoles = watch("roles");
   const isEntrenador = selectedRoles.includes("ENTRENADOR");
+  const categoriaOptions = useMemo(() => {
+    if (!initialUser?.categoria?.id) return categorias;
+    const exists = categorias.some((c) => c.id === initialUser.categoria?.id);
+    return exists ? categorias : [initialUser.categoria, ...categorias];
+  }, [categorias, initialUser]);
 
   // sincronizar valores iniciales cuando llegan (edicion)
   useEffect(() => {
@@ -498,7 +503,7 @@ export default function UsuarioForm({
           <select
             id="categoriaId"
             className="form-select w-full"
-            disabled={catalogLoading || !categorias.length}
+            disabled={catalogLoading || !categoriaOptions.length}
             {...register("categoriaId", {
               setValueAs: (v) => {
                 if (v === "" || v === null || v === undefined) return undefined;
@@ -508,7 +513,7 @@ export default function UsuarioForm({
             })}
           >
             <option value="">Selecciona una opcion</option>
-            {(categorias ?? []).map((c) => (
+            {categoriaOptions.map((c) => (
               <option key={c.id} value={String(c.id)}>
                 {c.nombre}
               </option>

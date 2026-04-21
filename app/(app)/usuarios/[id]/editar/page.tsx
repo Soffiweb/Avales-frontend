@@ -55,7 +55,7 @@ export default function EditarUsuario() {
         const disciplinaIds = extractDisciplinaIds(u.disciplinas);
         const primaryDisciplinaId =
           u.disciplinaId ?? u.disciplina?.id ?? undefined;
-        const categoriaId = u.categoriaId ?? u.categoria?.id ?? undefined;
+        const categoriaId = u.categoriaId ?? u.categoria?.id ?? 0;
 
         setInitialUser(u);
         setInitialValues({
@@ -64,6 +64,7 @@ export default function EditarUsuario() {
           email: u.email ?? "",
           password: "",
           cedula: u.cedula ?? "",
+          genero: u.genero ?? "",
           categoriaId,
           disciplinaIds: disciplinaIds.length
             ? disciplinaIds

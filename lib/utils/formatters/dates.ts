@@ -153,7 +153,13 @@ export function formatMonthYear(
 }
 
 export function formatDateInput(value?: string | null): string {
-  const date = parseDate(value);
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (PLAIN_DATE_RE.test(trimmed)) return trimmed;
+  const maybePlain = trimmed.slice(0, 10);
+  if (PLAIN_DATE_RE.test(maybePlain)) return maybePlain;
+  const date = parseDate(trimmed);
   if (!date) return "";
   return date.toISOString().slice(0, 10);
 }

@@ -19,6 +19,7 @@ import {
   DollarSign,
   Upload,
   ClipboardEdit,
+  History,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
@@ -27,7 +28,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
-import { canCreateReforma, isAdminUser } from "@/lib/auth/access";
+import { canAccessReforms, canCreateReforma, isAdminUser } from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
@@ -254,6 +255,7 @@ export default function EventoDetailPage() {
   const hasAval = existingAvalId !== null;
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const canManageReforms = canCreateReforma(user);
+  const canViewReforms = canAccessReforms(user);
   const canStartAval =
     canCreateAval && evento.estado === "DISPONIBLE" && !hasAval && !hasPendingReform;
   const canRequestReforma = canManageReforms && !hasPendingReform;
@@ -379,6 +381,15 @@ export default function EventoDetailPage() {
                           </Link>
                         ) : null}
                       </>
+                    ) : null}
+                    {canViewReforms ? (
+                      <Link
+                        href={`/eventos/${evento.id}/historial`}
+                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <History className="w-4 h-4 mr-2" />
+                        Historial
+                      </Link>
                     ) : null}
                   </>
                 )}

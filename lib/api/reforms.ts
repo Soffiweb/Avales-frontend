@@ -66,6 +66,7 @@ export type ReformResponse = {
   estado: string;
   eventoId: number;
   versionBaseId?: number | null;
+  versionAprobadaId?: number | null;
   motivo: string;
   observacion?: string | null;
   cambiosPropuestos: Record<string, unknown>;
@@ -78,12 +79,33 @@ export type ReformResponse = {
     estado?: EventoEstado | null;
   };
   createdAt?: string;
+  reviewedAt?: string | null;
 };
 
 export async function createReform(payload: CreateReformPayload) {
   return apiFetch<ReformResponse>("/reforms", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function aprobarReform(
+  id: number,
+  payload?: { usuarioId?: number },
+) {
+  return apiFetch<ReformResponse>(`/reforms/${id}/aprobar`, {
+    method: "PATCH",
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+}
+
+export async function rechazarReform(
+  id: number,
+  observacion: string,
+) {
+  return apiFetch<ReformResponse>(`/reforms/${id}/rechazar`, {
+    method: "PATCH",
+    body: JSON.stringify({ observacion }),
   });
 }
 

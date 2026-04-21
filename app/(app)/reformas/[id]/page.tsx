@@ -14,9 +14,12 @@ import {
   Tag,
 } from "lucide-react";
 
+import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
-import { getReform, type ReformResponse } from "@/lib/api/reforms";
-import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
+import { aprobarReform, getReform, rechazarReform, type ReformResponse } from "@/lib/api/reforms";
+import { canReviewReforms } from "@/lib/auth/access";
+import { formatCurrency, formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
+import ReformReviewCard from "../_components/reform-review-card";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDIENTE:
@@ -50,17 +53,28 @@ function formatFallbackValue(value: unknown) {
   if (value === null || value === undefined) return "-";
   if (typeof value === "boolean") return value ? "Sí" : "No";
   if (typeof value === "number") return value.toLocaleString("es-EC");
-  if (typeof value === "string") return value || "-";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "-";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return formatDateDMY(trimmed);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed))
+      return formatDateDMY(trimmed);
+    return trimmed;
+  }
   return JSON.stringify(value);
 }
 
 export default function ReformaDetailPage() {
   const params = useParams();
   const id = Number(params.id);
+  const { user } = useAuth();
 
   const [reform, setReform] = useState<ReformResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) {
@@ -87,6 +101,51 @@ export default function ReformaDetailPage() {
 
     void fetchReform();
   }, [id]);
+
+  const canReview = canReviewReforms(user);
+
+  const reloadReform = async () => {
+    const response = await getReform(id);
+    setReform(response.data);
+  };
+
+  const handleApprove = async () => {
+    if (!reform) return;
+    if (reform.estado !== "PENDIENTE") return;
+
+    setActionError(null);
+    setActionSuccess(null);
+    setActionLoading(true);
+    try {
+      await aprobarReform(reform.id);
+      setActionSuccess("Reforma aprobada correctamente.");
+      await reloadReform();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "No se pudo aprobar la reforma.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (observacion: string) => {
+    if (!reform) return;
+    if (reform.estado !== "PENDIENTE") return;
+    const trimmed = observacion.trim();
+    if (!trimmed) return;
+
+    setActionError(null);
+    setActionSuccess(null);
+    setActionLoading(true);
+    try {
+      await rechazarReform(reform.id, trimmed);
+      setActionSuccess("Reforma rechazada correctamente.");
+      await reloadReform();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "No se pudo rechazar la reforma.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const fieldComparisons = useMemo(() => {
     if (reform?.comparacion?.campos?.length) {
@@ -192,6 +251,20 @@ export default function ReformaDetailPage() {
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
+        {actionSuccess ? (
+          <AlertBanner
+            variant="success"
+            message={actionSuccess}
+            onClose={() => setActionSuccess(null)}
+          />
+        ) : null}
+        {actionError ? (
+          <AlertBanner
+            variant="error"
+            message={actionError}
+            onClose={() => setActionError(null)}
+          />
+        ) : null}
         <div>
           <Link
             href="/reformas"
@@ -354,7 +427,9 @@ export default function ReformaDetailPage() {
                         Antes
                       </p>
                       <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                        {hasComparisonData ? field.antes ?? "-" : "No disponible"}
+                        {hasComparisonData
+                          ? formatFallbackValue(field.antes)
+                          : "No disponible"}
                       </p>
                     </div>
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-900/10">
@@ -362,7 +437,7 @@ export default function ReformaDetailPage() {
                         Después
                       </p>
                       <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                        {field.despues ?? "-"}
+                        {formatFallbackValue(field.despues)}
                       </p>
                     </div>
                   </div>
@@ -493,6 +568,14 @@ export default function ReformaDetailPage() {
             </div>
           )}
         </section>
+
+        <ReformReviewCard
+          visible={canReview}
+          status={reform.estado}
+          loading={actionLoading}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
       </div>
     </div>
   );

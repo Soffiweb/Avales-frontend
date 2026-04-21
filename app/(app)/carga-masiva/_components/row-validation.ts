@@ -319,19 +319,11 @@ export function validatePreviewRows(
     }
 
     if (type === "eventos") {
-      const provincia = row.Provincia?.trim() ?? "";
       const ciudad = row.Ciudad?.trim() ?? "";
-      if (!provincia && !ciudad) {
-        pushIssue(
-          issues,
-          "Provincia",
-          "Provincia o Ciudad: llena al menos una",
-        );
-        pushIssue(
-          issues,
-          "Ciudad",
-          "Provincia o Ciudad: llena al menos una",
-        );
+      const provincia = row.Provincia?.trim() ?? "";
+      if (!ciudad && !provincia) {
+        pushIssue(issues, "Ciudad", "Ciudad o Provincia: llena al menos una");
+        pushIssue(issues, "Provincia", "Ciudad o Provincia: llena al menos una");
       }
 
       const deporte = row.Deporte?.trim() ?? "";

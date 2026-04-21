@@ -20,7 +20,8 @@ const EVENTS_INSTRUCTIONS = [
   "Usa la plantilla y no cambies los nombres de las columnas.",
   "Formato: .xlsx (recomendado) o .csv.",
   'La hoja de datos debe ser la que contiene los encabezados "Evento" y "Actividad" (en la plantilla suele ser la hoja Aux).',
-  "Provincia y Ciudad son opcionales, pero debes llenar al menos una.",
+  "Lugar es opcional.",
+  "Ciudad o Provincia: llena al menos una.",
   "Los ítems presupuestarios (códigos numéricos, ej: 530201) se detectan por columna; la fila debajo del encabezado debe tener la descripción del ítem.",
 ];
 
@@ -57,4 +58,3 @@ export default function UploadInstructions({
     </div>
   );
 }
-

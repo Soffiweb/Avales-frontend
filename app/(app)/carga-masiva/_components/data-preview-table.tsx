@@ -107,7 +107,7 @@ export default function DataPreviewTable({
       </div>
 
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto max-h-96">
+        <div className="overflow-auto max-h-[70vh] min-h-[320px]">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
               <tr>

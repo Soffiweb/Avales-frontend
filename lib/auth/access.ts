@@ -17,8 +17,29 @@ export function normalizeRole(role: Role): Role {
   return ROLE_ALIASES[role] ?? role;
 }
 
+/**
+ * Devuelve los roles efectivos del usuario para checks de autorización en UI.
+ *
+ * - Si hay `rolActivo` (usuario eligió un rol en login o hizo switch-role) → solo ese.
+ *   Esto refleja exactamente lo que el backend autoriza (el JWT lleva un solo rolActivo).
+ * - Si no hay `rolActivo` → todos los roles del user (fallback para sesiones antes del
+ *   flujo multi-rol; el backend rechazará estas sesiones).
+ */
 export function getNormalizedRoles(user: User | null | undefined): Role[] {
+  if (user?.rolActivo) {
+    return [normalizeRole(user.rolActivo)];
+  }
   return (user?.roles ?? []).map((role) => normalizeRole(role));
+}
+
+/** Roles que el usuario podría seleccionar (todos los asignados). */
+export function getAllUserRoles(user: User | null | undefined): Role[] {
+  return (user?.roles ?? []).map((role) => normalizeRole(role));
+}
+
+/** True si el usuario tiene 2+ roles y por tanto puede cambiar de rol activo. */
+export function canSwitchRole(user: User | null | undefined): boolean {
+  return (user?.roles?.length ?? 0) > 1;
 }
 
 export function hasAnyRole(userRoles: Role[], required?: Role[]) {

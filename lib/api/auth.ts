@@ -1,11 +1,32 @@
 import { apiFetch } from "./client";
-import type { User } from "@/types/user";
+import type { LoginResult, Role, User } from "@/types/user";
 
+/**
+ * Login del usuario. El backend devuelve:
+ * - Si tiene 1 rol → sesión lista (cookie `token` HttpOnly + data del user con rolActivo).
+ * - Si tiene 2+ roles → `{ requiresRoleSelection: true, roles, selectionToken }`
+ *   (cookie `selection_token` HttpOnly de 10 min). El frontend debe llamar `selectRole()`.
+ */
 export async function login(email: string, password: string) {
-  // Tu backend devuelve el token en cookie HttpOnly, el body puede traer data también
-  return apiFetch<User>("/auth/login", {
+  return apiFetch<LoginResult>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
+  });
+}
+
+/** Elige el rol de trabajo de la sesión cuando el login requirió selección. */
+export async function selectRole(rol: Role) {
+  return apiFetch<User>("/auth/select-role", {
+    method: "POST",
+    body: JSON.stringify({ rol }),
+  });
+}
+
+/** Cambia el rol activo de una sesión ya autenticada. El backend emite un JWT nuevo. */
+export async function switchRole(rol: Role) {
+  return apiFetch<User>("/auth/switch-role", {
+    method: "POST",
+    body: JSON.stringify({ rol }),
   });
 }
 

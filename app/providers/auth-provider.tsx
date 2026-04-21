@@ -10,8 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
-import { AuthContextType, User } from "../../types/user";
-import { getProfile } from "@/lib/api/auth";
+import { AuthContextType, Role, User } from "../../types/user";
+import { getProfile, switchRole as apiSwitchRole } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("DEBUG: ApiError status:", err.status);
         console.error("DEBUG: ApiError problem:", err.problem);
       }
-      
+
       if (
         err instanceof ApiError &&
         (err.status === 401 || err.status === 403)
@@ -55,6 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const switchRole = useCallback(async (rol: Role) => {
+    const { data } = await apiSwitchRole(rol);
+    setUser(data);
+  }, []);
+
   useEffect(() => {
     void fetchUser();
   }, [fetchUser]);
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         error,
         refreshUser: fetchUser,
+        switchRole,
       }}
     >
       {children}

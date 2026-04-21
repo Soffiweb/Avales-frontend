@@ -7,6 +7,7 @@ import AuthImage from "../_components/aut-image";
 import LogoFedeLoja from "@/public/images/LogoFedeLoja.png";
 import { useAuth } from "@/app/providers/auth-provider";
 import { login } from "@/lib/api/auth";
+import { loginRequiresSelection } from "@/types/user";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
@@ -24,12 +25,27 @@ export default function SignIn() {
 
     try {
       console.log('1. Iniciando login...');
-      await login(email, password); // setea cookie HttpOnly
-      console.log('2. Login exitoso (cookie recibida?), refrescando usuario...');
-      
-      await refreshUser(); // carga profile y lo pone global
+      const { data } = await login(email, password);
+
+      // Usuario con 2+ roles: backend dejó selection_token en cookie.
+      // Redirigimos a la pantalla de selección sin refrescar el usuario
+      // (todavía no hay sesión válida).
+      if (loginRequiresSelection(data)) {
+        console.log('2. Login requiere selección de rol →', data.roles);
+        // Guardamos los roles disponibles para que /select-role los muestre
+        // (se limpia al completar la selección o cerrar el tab).
+        sessionStorage.setItem(
+          "avales:rolesToSelect",
+          JSON.stringify(data.roles),
+        );
+        router.push("/select-role");
+        return;
+      }
+
+      console.log('2. Login exitoso (cookie recibida), refrescando usuario...');
+      await refreshUser();
       console.log('3. Usuario refrescado correctamente.');
-      
+
       router.push("/dashboard");
     } catch (err: any) {
       console.error('ERROR en flujo de login:', err);

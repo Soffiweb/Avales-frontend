@@ -12,7 +12,9 @@ import { getCatalogItemId } from "@/lib/utils/catalog";
 function extractDisciplinaIds(disciplinas?: UserDisciplina[]) {
   return (disciplinas ?? [])
     .map((disciplina) =>
-      typeof disciplina === "number" ? disciplina : getCatalogItemId(disciplina)
+      typeof disciplina === "number"
+        ? disciplina
+        : getCatalogItemId(disciplina),
     )
     .filter((id): id is number => typeof id === "number");
 }
@@ -53,10 +55,7 @@ export default function EditarUsuario() {
         const disciplinaIds = extractDisciplinaIds(u.disciplinas);
         const primaryDisciplinaId =
           u.disciplinaId ?? u.disciplina?.id ?? undefined;
-        const categoriaId = u.categoriaId ?? u.categoria?.id;
-        if (!categoriaId) {
-          throw new Error("El usuario no tiene categoria asignada.");
-        }
+        const categoriaId = u.categoriaId ?? u.categoria?.id ?? undefined;
 
         setInitialUser(u);
         setInitialValues({

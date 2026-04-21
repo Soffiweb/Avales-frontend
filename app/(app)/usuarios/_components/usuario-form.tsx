@@ -23,6 +23,7 @@ import {
 import { CatalogItem } from "@/types/catalog";
 import type { Role, User } from "@/types/user";
 import { formatRole } from "@/lib/utils/formatters";
+import { normalizeRoleCode } from "@/lib/auth/roles";
 import {
   getCatalogItemId,
   resolveCatalogItemIdFromList,
@@ -30,9 +31,7 @@ import {
 
 const ROLE_OPTIONS: Role[] = [
   "SUPER_ADMIN",
-  "SUPERADMIN",
   "ADMIN",
-  "ADMINISTRADOR",
   "SECRETARIA",
   "DTM",
   "METODOLOGO",
@@ -40,8 +39,9 @@ const ROLE_OPTIONS: Role[] = [
   "USUARIO",
   "DEPORTISTA",
   "PDA",
-  "COMPRAS_PUBLICAS",
+  "CONTROL_PREVIO",
   "FINANCIERO",
+  "COMPRAS_PUBLICAS",
 ];
 
 const defaultRoleSelection: Role[] = [];
@@ -49,6 +49,7 @@ const defaultRoleSelection: Role[] = [];
 const formatRoleLabel = (role: Role) => formatRole(role);
 
 const MAX_SELECTED_DISCIPLINAS = 3;
+const MAX_SELECTED_ROLES = 3;
 
 function buildDisciplinasLabel(
   selectedIds: number[],
@@ -71,6 +72,16 @@ function buildDisciplinasLabel(
 
   return `${selectedNames.slice(0, maxSelectedLabels).join(", ")} +${
     selectedNames.length - maxSelectedLabels
+  }`;
+}
+
+function buildRolesLabel(selected: Role[], maxSelectedLabels = MAX_SELECTED_ROLES) {
+  if (!selected || selected.length === 0) return "Selecciona roles";
+  if (selected.length <= maxSelectedLabels) {
+    return selected.map((r) => formatRoleLabel(r)).join(", ");
+  }
+  return `${selected.slice(0, maxSelectedLabels).map((r) => formatRoleLabel(r)).join(", ")} +${
+    selected.length - maxSelectedLabels
   }`;
 }
 
@@ -143,6 +154,7 @@ export default function UsuarioForm({
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [disciplinasOpen, setDisciplinasOpen] = useState(false);
+  const [rolesOpen, setRolesOpen] = useState(false);
 
   const schema = useMemo(
     () => (mode === "edit" ? updateUserSchema : createUserSchema),
@@ -175,7 +187,9 @@ export default function UsuarioForm({
   });
 
   const selectedRoles = watch("roles");
-  const isEntrenador = selectedRoles.includes("ENTRENADOR");
+  const isEntrenador = selectedRoles.some(
+    (role) => normalizeRoleCode(role) === "ENTRENADOR",
+  );
   const categoriaOptions = useMemo(() => {
     if (!initialUser?.categoria?.id) return categorias;
     const exists = categorias.some((c) => c.id === initialUser.categoria?.id);
@@ -266,18 +280,18 @@ export default function UsuarioForm({
         } as CreateUserFormValues;
 
         await createUser(cleanedForCreate);
-      reset({
-        nombre: "",
-        apellido: "",
-        email: "",
-        password: "",
-        cedula: "",
-        genero: "",
-        categoriaId: undefined,
-        disciplinaIds: [],
-        roles: defaultRoleSelection,
-        puedeSolicitarReformas: false,
-      });
+        reset({
+          nombre: "",
+          apellido: "",
+          email: "",
+          password: "",
+          cedula: "",
+          genero: "",
+          categoriaId: undefined,
+          disciplinaIds: [],
+          roles: defaultRoleSelection,
+          puedeSolicitarReformas: false,
+        });
         if (onCreated) {
           await onCreated();
         }
@@ -436,29 +450,85 @@ export default function UsuarioForm({
               <label className="block text-sm font-medium mb-1" htmlFor="roles">
                 Roles
               </label>
-              <select
-                id="roles"
-                className="form-select w-full"
-                value={field.value[0] ?? ""}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value ? ([e.target.value] as Role[]) : [],
-                  )
-                }
-              >
-                <option value="">Selecciona una opcion</option>
-                {ROLE_OPTIONS.map((role) => (
-                  <option key={role} value={role}>
-                    {formatRoleLabel(role)}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Selecciona una opcion para asignar rol. No puede quedar sin
-                  rol.
-                </p>
-              </div>
+              <Popover open={rolesOpen} onOpenChange={setRolesOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    id="roles"
+                    type="button"
+                    className="form-select flex w-full items-center justify-between px-3 py-2 text-left"
+                  >
+                    <span className="truncate text-sm">
+                      {buildRolesLabel((field.value ?? []) as Role[])}
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                >
+                  <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700/60">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        Selecciona roles
+                      </p>
+                      {(field.value?.length ?? 0) > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => field.onChange([])}
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 transition hover:text-violet-600 dark:text-gray-400 dark:hover:text-violet-300"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Limpiar
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto py-1">
+                    {ROLE_OPTIONS.map((role) => {
+                      const selected = (field.value ?? []) as Role[];
+                      const isChecked = selected.includes(role);
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => {
+                            const next = isChecked
+                              ? selected.filter((r) => r !== role)
+                              : [...selected, role];
+                            field.onChange(next);
+                          }}
+                          className={[
+                            "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition",
+                            isChecked
+                              ? "bg-violet-50 text-violet-900 dark:bg-violet-500/10 dark:text-violet-100"
+                              : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/40",
+                          ].join(" ")}
+                        >
+                          <span
+                            className={[
+                              "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                              isChecked
+                                ? "border-violet-500 bg-violet-500 text-white dark:border-violet-400 dark:bg-violet-400"
+                                : "border-gray-300 bg-white text-transparent dark:border-gray-600 dark:bg-gray-800",
+                            ].join(" ")}
+                            aria-hidden="true"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="truncate">{formatRoleLabel(role)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Asigna uno o varios roles. No puede quedar sin rol.
+              </p>
               {errors.roles && (
                 <p className="mt-1 text-xs text-red-600">
                   {errors.roles.message}

@@ -7,63 +7,65 @@ import Image from "next/image";
 import AuthImage from "../_components/aut-image";
 import LogoFedeLoja from "@/public/images/LogoFedeLoja.png";
 import { useAuth } from "@/app/providers/auth-provider";
-import { selectRole } from "@/lib/api/auth";
-import type { Role } from "@/types/user";
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super administrador",
-  SUPERADMIN: "Super administrador",
-  ADMIN: "Administrador",
-  ADMINISTRADOR: "Administrador",
-  SECRETARIA: "Secretaría",
-  DTM: "DTM",
-  METODOLOGO: "Metodólogo",
-  ENTRENADOR: "Entrenador/a",
-  USUARIO: "Usuario",
-  DEPORTISTA: "Deportista",
-  PDA: "PDA",
-  CONTROL_PREVIO: "Control previo",
-  COMPRAS_PUBLICAS: "Compras públicas",
-  FINANCIERO: "Financiero",
-};
-
-function roleLabel(rol: Role): string {
-  return ROLE_LABELS[rol] ?? rol;
-}
+import { getProfile, selectRole } from "@/lib/api/auth";
+import type { RoleLike } from "@/types/user";
+import { getRoleCode, getRoleName } from "@/lib/auth/roles";
 
 export default function SelectRolePage() {
   const router = useRouter();
   const { refreshUser } = useAuth();
 
-  const [roles, setRoles] = useState<Role[] | null>(null);
-  const [submitting, setSubmitting] = useState<Role | null>(null);
+  const [roles, setRoles] = useState<RoleLike[] | null>(null);
+  const [selectionToken, setSelectionToken] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("avales:rolesToSelect");
-    if (!raw) {
-      // No hay contexto de selección → volver al login
-      router.replace("/signin");
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw) as Role[];
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        router.replace("/signin");
-        return;
+    const token = sessionStorage.getItem("avales:selectionToken");
+    if (token) setSelectionToken(token);
+
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as RoleLike[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRoles(parsed);
+          return;
+        }
+      } catch {
+        // ignore
       }
-      setRoles(parsed);
-    } catch {
-      router.replace("/signin");
     }
+
+    const loadFromProfile = async () => {
+      try {
+        const profile = await getProfile();
+        const u = profile.data;
+        if (u?.rolActivo) {
+          router.replace("/dashboard");
+          return;
+        }
+        const profileRoles = (u?.roles ?? []) as RoleLike[];
+        if (profileRoles.length > 0) {
+          setRoles(profileRoles);
+          return;
+        }
+        router.replace("/signin");
+      } catch {
+        router.replace("/signin");
+      }
+    };
+
+    void loadFromProfile();
   }, [router]);
 
-  const handleSelect = async (rol: Role) => {
-    setSubmitting(rol);
+  const handleSelect = async (rol: RoleLike) => {
+    setSubmitting(getRoleCode(rol));
     setError(null);
     try {
-      await selectRole(rol);
+      await selectRole(rol, selectionToken ?? undefined);
       sessionStorage.removeItem("avales:rolesToSelect");
+      sessionStorage.removeItem("avales:selectionToken");
       await refreshUser();
       router.push("/dashboard");
     } catch (err: any) {
@@ -74,6 +76,7 @@ export default function SelectRolePage() {
 
   const handleCancel = () => {
     sessionStorage.removeItem("avales:rolesToSelect");
+    sessionStorage.removeItem("avales:selectionToken");
     router.replace("/signin");
   };
 
@@ -98,11 +101,12 @@ export default function SelectRolePage() {
 
         <div className="space-y-3">
           {roles.map((rol) => {
-            const isSubmitting = submitting === rol;
+            const code = getRoleCode(rol);
+            const isSubmitting = submitting === code;
             const disabled = submitting !== null;
             return (
               <button
-                key={rol}
+                key={code}
                 type="button"
                 onClick={() => handleSelect(rol)}
                 disabled={disabled}
@@ -112,9 +116,9 @@ export default function SelectRolePage() {
                     : "bg-white hover:bg-indigo-50 border-slate-300 text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"}
                   ${disabled && !isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                <span className="font-medium">{roleLabel(rol)}</span>
+                <span className="font-medium">{getRoleName(rol)}</span>
                 <span className="text-xs uppercase tracking-wider opacity-70">
-                  {isSubmitting ? "Entrando..." : rol}
+                  {isSubmitting ? "Entrando..." : code}
                 </span>
               </button>
             );

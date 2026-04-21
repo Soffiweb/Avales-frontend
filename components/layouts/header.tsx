@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppProvider } from "@/app/providers/app-provider";
 
 import ThemeToggle from "@/components/theme-toggle";
 import DropdownProfile from "@/components/dropdown-profile";
 import { useAuth } from "@/app/providers/auth-provider";
+import type { RoleLike } from "@/types/user";
+import { getRoleCode, getRoleName } from "@/lib/auth/roles";
 
 export default function Header({
   variant = "default",
@@ -13,7 +15,12 @@ export default function Header({
   variant?: "default" | "v2" | "v3";
 }) {
   const { sidebarOpen, setSidebarOpen } = useAppProvider();
-  const [searchModalOpen, setSearchModalOpen] = useState<boolean>(false);
+  const { user, switchRole } = useAuth();
+  const [switching, setSwitching] = useState(false);
+
+  const roles = useMemo(() => (user?.roles ?? []) as RoleLike[], [user?.roles]);
+  const showRoleSwitcher = roles.length > 1 && Boolean(user?.rolActivo);
+  const activeCode = user?.rolActivo ? getRoleCode(user.rolActivo) : "";
 
   return (
     <header
@@ -59,6 +66,29 @@ export default function Header({
 
           {/* Header: Right side */}
           <div className="flex items-center space-x-3">
+            {showRoleSwitcher ? (
+              <select
+                className="form-select h-9 text-sm"
+                value={activeCode}
+                disabled={switching}
+                onChange={async (e) => {
+                  const nextCode = e.target.value;
+                  if (!nextCode || nextCode === activeCode) return;
+                  try {
+                    setSwitching(true);
+                    await switchRole(nextCode);
+                  } finally {
+                    setSwitching(false);
+                  }
+                }}
+              >
+                {roles.map((role) => (
+                  <option key={getRoleCode(role)} value={getRoleCode(role)}>
+                    {getRoleName(role)}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <ThemeToggle />
             {/*  Divider */}
             <hr className="w-px h-6 bg-gray-200 dark:bg-gray-700/60 border-none" />

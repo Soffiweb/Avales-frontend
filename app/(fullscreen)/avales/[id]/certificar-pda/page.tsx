@@ -24,6 +24,7 @@ import AlertBanner from "@/components/ui/alert-banner";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
+import { getNormalizedRoles } from "@/lib/auth/access";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -226,7 +227,7 @@ export default function CertificarAvalPage() {
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
   const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
 
-  const isPda = user?.roles?.includes("PDA") ?? false;
+  const isPda = getNormalizedRoles(user).includes("PDA");
   const defaultSignerName = useMemo(() => {
     if (!user) return "";
     return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();

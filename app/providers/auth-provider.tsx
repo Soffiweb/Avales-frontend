@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { AuthContextType, Role, User } from "../../types/user";
+import { AuthContextType, RoleLike, User } from "../../types/user";
 import { getProfile, switchRole as apiSwitchRole } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const switchRole = useCallback(async (rol: Role) => {
+  const switchRole = useCallback(async (rol: RoleLike) => {
     const { data } = await apiSwitchRole(rol);
     setUser(data);
   }, []);

@@ -34,6 +34,7 @@ import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card"
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { getApprovalStageLabel, getNextApprovalStage } from "@/lib/constants";
+import { getNormalizedRoles } from "@/lib/auth/access";
 import {
   formatEventScheduleSentence,
   formatLocationWithProvince,
@@ -200,7 +201,7 @@ export default function RevisionControlPrevioPage() {
     Record<string, ReviewStateItem>
   >({});
 
-  const isControlPrevio = user?.roles?.includes("CONTROL_PREVIO") ?? false;
+  const isControlPrevio = getNormalizedRoles(user).includes("CONTROL_PREVIO");
 
   useEffect(() => {
     setActionError(null);

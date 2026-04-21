@@ -40,18 +40,52 @@ export function formatEnumLabel(
 
 export function formatRole(role?: string | null): string {
   if (!role) return "-";
-  if (role === "SUPERADMIN") return "Super Admin";
-  if (role === "ADMINISTRADOR") return "Administrador";
-  return role
+  const key = role
+    .trim()
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_")
+    .toUpperCase();
+
+  const map: Record<string, string> = {
+    SUPER_ADMIN: "Super administrador",
+    SUPERADMIN: "Super administrador",
+    ADMIN: "Administrador",
+    ADMINISTRADOR: "Administrador",
+    SECRETARIA: "Secretaría",
+    DTM: "Director técnico metodológico",
+    METODOLOGO: "Metodólogo",
+    ENTRENADOR: "Entrenador",
+    USUARIO: "Usuario",
+    DEPORTISTA: "Deportista",
+    PDA: "PDA",
+    CONTROL_PREVIO: "Control previo",
+    COMPRAS_PUBLICAS: "Compras públicas",
+    FINANCIERO: "Financiero",
+  };
+  if (map[key]) return map[key];
+
+  return key
     .toLowerCase()
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
 
-export function formatRoles(roles?: string[] | null): string {
+export function formatRoles(
+  roles?:
+    | Array<string | { codigo?: string | null; nombre?: string | null }>
+    | null,
+): string {
   if (!roles || roles.length === 0) return "-";
-  return roles.map(formatRole).join(", ");
+  return roles
+    .map((role) => {
+      if (typeof role === "string") return formatRole(role);
+      const name = role?.nombre?.trim();
+      if (name) return name;
+      const code = role?.codigo?.trim();
+      return formatRole(code ?? "");
+    })
+    .join(", ");
 }
 
 export function truncate(text?: string | null, maxLength = 50): string {

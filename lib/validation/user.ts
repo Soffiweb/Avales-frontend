@@ -1,24 +1,7 @@
 import { z } from "zod";
 
 const rolesSchema = z
-  .array(
-    z.enum([
-      "SUPER_ADMIN",
-      "SUPERADMIN",
-      "ADMIN",
-      "ADMINISTRADOR",
-      "SECRETARIA",
-      "DTM",
-      "METODOLOGO",
-      "ENTRENADOR",
-      "USUARIO",
-      "DEPORTISTA",
-      "PDA",
-      "CONTROL_PREVIO",
-      "COMPRAS_PUBLICAS",
-      "FINANCIERO",
-    ])
-  )
+  .array(z.string().trim().min(1))
   .min(1, "Asigna al menos un rol");
 
 const baseUserSchema = z.object({

@@ -21,7 +21,17 @@ export default function DefaultLayout({
     router.replace("/signin");
   }, [loading, router, user]);
 
+  useEffect(() => {
+    if (loading || !user) return;
+    const roles = user.roles ?? [];
+    if (roles.length > 1 && !user.rolActivo) {
+      sessionStorage.setItem("avales:rolesToSelect", JSON.stringify(roles));
+      router.replace("/select-role");
+    }
+  }, [loading, router, user]);
+
   if (loading || !user) return null;
+  if ((user.roles?.length ?? 0) > 1 && !user.rolActivo) return null;
 
   const showSidebar = canSeeSidebar(user, ROLES_WITHOUT_SIDEBAR);
 

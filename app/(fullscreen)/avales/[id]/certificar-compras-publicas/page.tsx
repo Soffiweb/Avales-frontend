@@ -26,6 +26,7 @@ import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { formatRoles } from "@/lib/utils/formatters";
 import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
+import { getNormalizedRoles } from "@/lib/auth/access";
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
@@ -150,7 +151,7 @@ export default function CertificarComprasPublicasPage() {
   } | null>(null);
   const [draft, setDraft] = useState<ComprasPublicasDraft>(INITIAL_DRAFT);
 
-  const isComprasPublicas = user?.roles?.includes("COMPRAS_PUBLICAS") ?? false;
+  const isComprasPublicas = getNormalizedRoles(user).includes("COMPRAS_PUBLICAS");
   const defaultSignerName = useMemo(() => {
     if (!user) return "";
     return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();

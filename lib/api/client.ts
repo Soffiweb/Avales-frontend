@@ -90,6 +90,20 @@ export async function apiFetch<T>(
           : undefined
         : undefined) ?? `Error (${res.status})`;
     const msg = problem?.detail ?? problem?.title ?? fallbackMessage;
+
+    if (typeof window !== "undefined" && res.status === 401) {
+      const text = `${problem?.detail ?? ""} ${problem?.title ?? ""} ${fallbackMessage ?? ""}`
+        .toLowerCase()
+        .trim();
+      const missingActiveRole =
+        /ses[ií]on sin rol activo/.test(text) ||
+        /sin rol activo/.test(text) ||
+        /session without active role/.test(text);
+      if (missingActiveRole && window.location.pathname !== "/select-role") {
+        window.location.assign("/select-role");
+      }
+    }
+
     throw new ApiError(msg, res.status, problem);
   }
 

@@ -8,7 +8,7 @@ import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
 import { listReforms, type ReformResponse } from "@/lib/api/reforms";
 import { listEventos } from "@/lib/api/eventos";
-import { canAccessReforms } from "@/lib/auth/access";
+import { canAccessReforms, getNormalizedRoles } from "@/lib/auth/access";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -38,7 +38,7 @@ export default function ReformasPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
 
-  const userRoles = user?.roles ?? [];
+  const userRoles = getNormalizedRoles(user);
   const isEntrenador = userRoles.includes("ENTRENADOR");
   const canViewReforms = canAccessReforms(user);
 

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Eye, Pencil, Trash2, Users } from "lucide-react";
 
-import { User, type UserDisciplina } from "@/types/user";
+import { User, type RoleLike, type UserDisciplina } from "@/types/user";
 import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
+import { getRoleCode, normalizeRoleCode } from "@/lib/auth/roles";
 
 type Props = {
   users: User[];
@@ -163,7 +164,11 @@ export default function UsuarioTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {user.roles?.includes("ENTRENADOR")
+                        {(user.roles ?? []).some(
+                          (role) =>
+                            normalizeRoleCode(getRoleCode(role as RoleLike)) ===
+                            "ENTRENADOR",
+                        )
                           ? formatBoolean(user.puedeSolicitarReformas)
                           : "No aplica"}
                       </div>

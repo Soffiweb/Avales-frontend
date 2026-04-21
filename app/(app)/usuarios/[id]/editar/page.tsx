@@ -6,8 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import { getUser } from "@/lib/api/user";
 import UsuarioForm from "../../_components/usuario-form";
 import { type UpdateUserFormValues } from "@/lib/validation/user";
-import type { Role, User, UserDisciplina } from "@/types/user";
+import type { Role, RoleLike, User, UserDisciplina } from "@/types/user";
 import { getCatalogItemId } from "@/lib/utils/catalog";
+import { canonicalizeRoleCode, getRoleCode } from "@/lib/auth/roles";
 
 function extractDisciplinaIds(disciplinas?: UserDisciplina[]) {
   return (disciplinas ?? [])
@@ -48,10 +49,9 @@ export default function EditarUsuario() {
           throw new Error("Usuario no encontrado.");
         }
 
-        const rolesFromUser: Role[] =
-          (u.roles as Role[] | undefined) && u.roles?.length
-            ? (u.roles as Role[])
-            : [];
+        const rolesFromUser: Role[] = (u.roles ?? []).map((role) =>
+          canonicalizeRoleCode(getRoleCode(role as RoleLike)),
+        );
         const disciplinaIds = extractDisciplinaIds(u.disciplinas);
         const primaryDisciplinaId =
           u.disciplinaId ?? u.disciplina?.id ?? undefined;

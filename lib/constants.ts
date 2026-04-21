@@ -16,19 +16,19 @@ export const CONFIRM_CLEANUP_DELAY = 180;
 
 /** Roles disponibles en el sistema */
 export const ROLES = [
-  "SUPER_ADMIN",
-  "ADMIN",
-  "ADMINISTRADOR",
-  "SECRETARIA",
-  "DTM",
-  "METODOLOGO",
-  "ENTRENADOR",
-  "USUARIO",
-  "DEPORTISTA",
-  "PDA",
-  "CONTROL_PREVIO",
-  "COMPRAS_PUBLICAS",
-  "FINANCIERO",
+  "super_admin",
+  "admin",
+  "administrador",
+  "secretaria",
+  "dtm",
+  "metodologo",
+  "entrenador",
+  "usuario",
+  "deportista",
+  "pda",
+  "control_previo",
+  "compras_publicas",
+  "financiero",
 ] as const;
 
 export type Role = (typeof ROLES)[number];

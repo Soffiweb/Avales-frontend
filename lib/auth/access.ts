@@ -1,5 +1,6 @@
-import type { User, Role } from "@/types/user";
+import type { User, Role, RoleLike } from "@/types/user";
 import type { SidebarItem } from "@/lib/navigation/sidebar.config";
+import { getRoleCode, normalizeRoleCode } from "@/lib/auth/roles";
 
 const ROLE_ALIASES: Partial<Record<Role, Role>> = {
   ADMINISTRADOR: "ADMIN",
@@ -17,6 +18,11 @@ export function normalizeRole(role: Role): Role {
   return ROLE_ALIASES[role] ?? role;
 }
 
+function normalizeRoleLike(role: RoleLike): string {
+  const code = normalizeRoleCode(getRoleCode(role));
+  return normalizeRole(code);
+}
+
 /**
  * Devuelve los roles efectivos del usuario para checks de autorización en UI.
  *
@@ -27,14 +33,14 @@ export function normalizeRole(role: Role): Role {
  */
 export function getNormalizedRoles(user: User | null | undefined): Role[] {
   if (user?.rolActivo) {
-    return [normalizeRole(user.rolActivo)];
+    return [normalizeRoleLike(user.rolActivo)];
   }
-  return (user?.roles ?? []).map((role) => normalizeRole(role));
+  return (user?.roles ?? []).map((role) => normalizeRoleLike(role));
 }
 
 /** Roles que el usuario podría seleccionar (todos los asignados). */
 export function getAllUserRoles(user: User | null | undefined): Role[] {
-  return (user?.roles ?? []).map((role) => normalizeRole(role));
+  return (user?.roles ?? []).map((role) => normalizeRoleLike(role));
 }
 
 /** True si el usuario tiene 2+ roles y por tanto puede cambiar de rol activo. */

@@ -28,7 +28,12 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
-import { canAccessReforms, canCreateReforma, isAdminUser } from "@/lib/auth/access";
+import {
+  canAccessReforms,
+  canCreateReforma,
+  getNormalizedRoles,
+  isAdminUser,
+} from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
@@ -111,7 +116,7 @@ export default function EventoDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const userRoles = user?.roles ?? [];
+  const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
   const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS");
   const id = Number(params.id);

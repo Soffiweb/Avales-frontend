@@ -9,6 +9,7 @@ export function proxy(req: NextRequest) {
 
   const isPublic =
     pathname.startsWith("/signin") ||
+    pathname.startsWith("/select-role") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
 

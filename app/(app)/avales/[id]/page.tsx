@@ -38,6 +38,7 @@ import {
   getPreviousApprovalStages,
   APPROVAL_STAGE_FLOW,
 } from "@/lib/constants";
+import { getNormalizedRoles } from "@/lib/auth/access";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
@@ -253,7 +254,7 @@ export default function AvalDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  const userRoles = user?.roles ?? [];
+  const userRoles = getNormalizedRoles(user);
   const etapaActualResponse = aval?.etapaActual;
   const etapaActualHistorial = getCurrentEtapa(aval?.historial);
   const currentEtapa = (etapaActualResponse ??

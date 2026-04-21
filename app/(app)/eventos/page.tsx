@@ -13,7 +13,7 @@ import EventoCard from "./_components/evento-card";
 import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
-import { isAdminUser } from "@/lib/auth/access";
+import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import { getDisciplinas } from "@/lib/api/catalog";
 import {
   listEventos,
@@ -59,7 +59,7 @@ export default function EventosPage() {
     description?: string;
   } | null>(null);
   const { user } = useAuth();
-  const userRoles = user?.roles ?? [];
+  const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);

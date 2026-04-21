@@ -1,5 +1,6 @@
 import { apiFetch } from "./client";
-import type { LoginResult, Role, User } from "@/types/user";
+import type { LoginResult, RoleLike, User } from "@/types/user";
+import { canonicalizeRoleCode, getRoleCode } from "@/lib/auth/roles";
 
 /**
  * Login del usuario. El backend devuelve:
@@ -15,18 +16,24 @@ export async function login(email: string, password: string) {
 }
 
 /** Elige el rol de trabajo de la sesión cuando el login requirió selección. */
-export async function selectRole(rol: Role) {
+export async function selectRole(rol: RoleLike, selectionToken?: string) {
   return apiFetch<User>("/auth/select-role", {
     method: "POST",
-    body: JSON.stringify({ rol }),
+    body: JSON.stringify({ rol: canonicalizeRoleCode(getRoleCode(rol)) }),
+    headers: selectionToken
+      ? {
+          "X-Selection-Token": selectionToken,
+          Authorization: `Bearer ${selectionToken}`,
+        }
+      : undefined,
   });
 }
 
 /** Cambia el rol activo de una sesión ya autenticada. El backend emite un JWT nuevo. */
-export async function switchRole(rol: Role) {
+export async function switchRole(rol: RoleLike) {
   return apiFetch<User>("/auth/switch-role", {
     method: "POST",
-    body: JSON.stringify({ rol }),
+    body: JSON.stringify({ rol: canonicalizeRoleCode(getRoleCode(rol)) }),
   });
 }
 

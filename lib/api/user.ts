@@ -6,6 +6,7 @@ import type {
   CreateUserFormValues,
   UpdateUserFormValues,
 } from "@/lib/validation/user";
+import { canonicalizeRoleCode } from "@/lib/auth/roles";
 
 type UserMutationValues = {
   categoriaId?: number;
@@ -43,6 +44,15 @@ function normalizeUserPayload(values: UserMutationValues) {
     if (values.disciplinaId == null) {
       delete payload.disciplinaId;
     }
+  }
+
+  const roles = (payload as { roles?: unknown }).roles;
+  if (Array.isArray(roles)) {
+    (payload as { roles: unknown[] }).roles = roles
+      .map((role) =>
+        typeof role === "string" ? canonicalizeRoleCode(role) : role,
+      )
+      .filter((role) => (typeof role === "string" ? Boolean(role) : true));
   }
 
   return payload;

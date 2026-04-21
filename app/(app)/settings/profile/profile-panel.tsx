@@ -11,6 +11,7 @@ import { getUser, updateProfile } from "@/lib/api/user";
 import { getCatalog } from "@/lib/api/catalog";
 import { CatalogItem } from "@/types/catalog";
 import type { User } from "@/types/user";
+import { getNormalizedRoles } from "@/lib/auth/access";
 import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
 import {
   getCatalogItemId,
@@ -417,7 +418,7 @@ export default function ProfilePanel({ viewUserId }: Props) {
                 Puede solicitar reformas
               </p>
               <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                {subjectUser?.roles?.includes("ENTRENADOR")
+                {getNormalizedRoles(subjectUser).includes("ENTRENADOR")
                   ? formatBoolean(subjectUser.puedeSolicitarReformas)
                   : "No aplica"}
               </p>

@@ -13,7 +13,7 @@ import type { Aval } from "@/types/aval";
 import { formatGenero } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useAuth } from "@/app/providers/auth-provider";
-import { isAdminUser } from "@/lib/auth/access";
+import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 
 type FormData = {
   deportistas: Array<{
@@ -177,7 +177,8 @@ export default function Paso01Deportistas({
   useEffect(() => {
     if (autoSelectEntrenadorRef.current) return;
     if (!user?.id) return;
-    const isEntrenador = user.roles?.includes("ENTRENADOR") && !isAdminUser(user);
+    const isEntrenador =
+      getNormalizedRoles(user).includes("ENTRENADOR") && !isAdminUser(user);
     if (!isEntrenador) return;
     if (totalEntrenadoresRequeridos <= 0) return;
 

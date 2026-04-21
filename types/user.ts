@@ -1,20 +1,15 @@
 import type { CatalogItem } from "@/types/catalog";
 
-export type Role =
-  | "SUPER_ADMIN"
-  | "SUPERADMIN"
-  | "ADMIN"
-  | "ADMINISTRADOR"
-  | "SECRETARIA"
-  | "DTM"
-  | "METODOLOGO"
-  | "ENTRENADOR"
-  | "USUARIO"
-  | "DEPORTISTA"
-  | "PDA"
-  | "CONTROL_PREVIO"
-  | "COMPRAS_PUBLICAS"
-  | "FINANCIERO";
+export type Role = string;
+
+export type RoleDto = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  descripcion?: string | null;
+};
+
+export type RoleLike = Role | RoleDto;
 
 export type Genero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
 
@@ -34,9 +29,9 @@ export type User = {
   disciplinaId?: number;
   disciplinaCodigo?: string | null;
   disciplinasDetalle?: CatalogItem[];
-  roles?: Role[];
+  roles?: RoleLike[];
   /** Rol con el que el usuario está operando en esta sesión (elegido en /auth/select-role). */
-  rolActivo?: Role;
+  rolActivo?: RoleLike;
   rolId?: number;
   disciplinas?: UserDisciplina[];
   categorias?: number[];
@@ -51,7 +46,7 @@ export type UserListResponse = User[];
 /** Respuesta del login cuando el usuario tiene 2+ roles y debe elegir. */
 export type RoleSelectionRequired = {
   requiresRoleSelection: true;
-  roles: Role[];
+  roles: RoleLike[];
   selectionToken: string;
 };
 
@@ -73,5 +68,5 @@ export type AuthContextType = {
   loading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
-  switchRole: (rol: Role) => Promise<void>;
+  switchRole: (rol: RoleLike) => Promise<void>;
 };

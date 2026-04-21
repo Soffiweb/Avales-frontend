@@ -14,6 +14,7 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { getApprovalStageLabel } from "@/lib/constants";
+import { getNormalizedRoles } from "@/lib/auth/access";
 import { formatRoles } from "@/lib/utils/formatters";
 
 type FinancieroDraft = {
@@ -63,7 +64,7 @@ export default function CertificacionFinancieraPage() {
   ]);
   const [notesInitialized, setNotesInitialized] = useState(false);
 
-  const isFinanciero = user?.roles?.includes("FINANCIERO") ?? false;
+  const isFinanciero = getNormalizedRoles(user).includes("FINANCIERO");
 
   useEffect(() => {
     setDraft(INITIAL_DRAFT);

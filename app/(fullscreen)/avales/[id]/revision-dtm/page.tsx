@@ -35,6 +35,7 @@ import {
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
+import { getNormalizedRoles } from "@/lib/auth/access";
 import {
   formatEventScheduleSentence,
   formatLocationWithProvince,
@@ -220,7 +221,7 @@ export default function RevisionDtmPage() {
     {},
   );
 
-  const isDtm = user?.roles?.includes("DTM") ?? false;
+  const isDtm = getNormalizedRoles(user).includes("DTM");
   const defaultSignerName = useMemo(() => {
     if (!user) return "";
     return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();

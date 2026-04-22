@@ -86,6 +86,22 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
   {
     type: "link",
+    label: "Mi Historial",
+    href: "/mi-historial",
+    segment: "mi-historial",
+    icon: "miHistorial",
+    roles: [
+      "METODOLOGO",
+      "DTM",
+      "PDA",
+      "CONTROL_PREVIO",
+      "FINANCIERO",
+      "SECRETARIA",
+      "COMPRAS_PUBLICAS",
+    ],
+  },
+  {
+    type: "link",
     label: "Eventos",
     href: "/eventos",
     segment: "eventos",

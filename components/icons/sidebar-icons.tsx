@@ -7,6 +7,7 @@ import {
   ClipboardEdit,
   UploadCloud,
   FolderKanban,
+  History,
 } from "lucide-react";
 
 export const SidebarIcons = {
@@ -18,6 +19,7 @@ export const SidebarIcons = {
   reformas: ClipboardEdit,
   cargaMasiva: UploadCloud,
   catalogos: FolderKanban,
+  miHistorial: History,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

@@ -467,6 +467,7 @@ export default function AvalDetailPage() {
   ].filter((line): line is string => Boolean(line));
   const isAvalCompleto =
     aval.estado === "ACEPTADO" || currentEtapa === "FINANCIERO";
+  const canDownloadAvalCompleto = Boolean(aval.aval);
   const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-pdf`;
 
   const totalAtletas = evento
@@ -534,7 +535,7 @@ export default function AvalDetailPage() {
             )}
           </div>
 
-          {isAvalCompleto && (
+          {canDownloadAvalCompleto && (
             <a
               href={avalCompletoPdfUrl}
               target="_blank"
@@ -542,7 +543,7 @@ export default function AvalDetailPage() {
               className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
             >
               <Download className="w-4 h-4 mr-2" />
-              Descargar aval
+              Descargar aval completo
             </a>
           )}
         </div>

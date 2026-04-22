@@ -8,6 +8,8 @@ import type {
   Historial,
 } from "@/types/aval";
 
+export type EstadoHistorial = "ACEPTADO" | "RECHAZADO";
+
 export type ListAvalesOptions = {
   page?: number;
   limit?: number;
@@ -15,6 +17,9 @@ export type ListAvalesOptions = {
   etapa?: EtapaFlujo;
   eventoId?: number;
   search?: string;
+  procesadosPorUsuarioId?: number;
+  estadoHistorial?: EstadoHistorial;
+  etapaHistorial?: EtapaFlujo;
 };
 
 export async function listAvales(options: ListAvalesOptions = {}) {
@@ -26,6 +31,12 @@ export async function listAvales(options: ListAvalesOptions = {}) {
   if (options.etapa) params.set("etapa", options.etapa);
   if (options.eventoId) params.set("eventoId", String(options.eventoId));
   if (options.search) params.set("search", options.search);
+  if (options.procesadosPorUsuarioId)
+    params.set("procesadosPorUsuarioId", String(options.procesadosPorUsuarioId));
+  if (options.estadoHistorial)
+    params.set("estadoHistorial", options.estadoHistorial);
+  if (options.etapaHistorial)
+    params.set("etapaHistorial", options.etapaHistorial);
 
   const qs = params.toString();
   const url = qs ? `/avales?${qs}` : "/avales";

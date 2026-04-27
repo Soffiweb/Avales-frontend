@@ -9,7 +9,6 @@ import {
   ClipboardEdit,
   Coins,
   FileText,
-  Info,
   Layers3,
   Tag,
 } from "lucide-react";
@@ -62,6 +61,40 @@ function formatFallbackValue(value: unknown) {
     return trimmed;
   }
   return JSON.stringify(value);
+}
+
+type ReformFieldComparison = NonNullable<ReformResponse["comparacion"]>["campos"] extends Array<
+  infer T
+>
+  ? T
+  : never;
+
+type ReformItemComparison = NonNullable<ReformResponse["comparacion"]>["eventoItems"] extends Array<
+  infer T
+>
+  ? T
+  : never;
+
+function hasMeaningfulDifference(a: unknown, b: unknown) {
+  const left = a === null || a === undefined ? null : String(a).trim();
+  const right = b === null || b === undefined ? null : String(b).trim();
+  return left !== right;
+}
+
+function isChangedField(field: ReformFieldComparison) {
+  return hasMeaningfulDifference(field.antes, field.despues);
+}
+
+function isChangedItem(item: ReformItemComparison) {
+  if (item.tipoCambio === "AGREGADO" || item.tipoCambio === "ELIMINADO") return true;
+  if (typeof item.diferencia === "number") return item.diferencia !== 0;
+  if (
+    typeof item.antesPresupuesto === "number" &&
+    typeof item.despuesPresupuesto === "number"
+  ) {
+    return item.antesPresupuesto !== item.despuesPresupuesto;
+  }
+  return hasMeaningfulDifference(item.antesPresupuesto, item.despuesPresupuesto);
 }
 
 export default function ReformaDetailPage() {
@@ -149,7 +182,7 @@ export default function ReformaDetailPage() {
 
   const fieldComparisons = useMemo(() => {
     if (reform?.comparacion?.campos?.length) {
-      return reform.comparacion.campos;
+      return reform.comparacion.campos.filter(isChangedField);
     }
 
     const readableFields = reform?.cambiosPropuestosLegibles?.campos ?? [];
@@ -175,7 +208,7 @@ export default function ReformaDetailPage() {
 
   const itemComparisons = useMemo(() => {
     if (reform?.comparacion?.eventoItems?.length) {
-      return reform.comparacion.eventoItems;
+      return reform.comparacion.eventoItems.filter(isChangedItem);
     }
 
     const readableItems = reform?.cambiosPropuestosLegibles?.eventoItems ?? [];
@@ -285,6 +318,14 @@ export default function ReformaDetailPage() {
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 Evento: {reform.evento?.nombre || "Sin evento asociado"}
               </p>
+              {reform.eventoId ? (
+                <Link
+                  href={`/eventos/${reform.eventoId}`}
+                  className="mt-3 inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900/60"
+                >
+                  Ver evento
+                </Link>
+              ) : null}
             </div>
 
             <span
@@ -359,38 +400,6 @@ export default function ReformaDetailPage() {
             </dl>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-4 flex items-center gap-2">
-              <Info className="h-5 w-5 text-gray-400" />
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-                Resumen técnico
-              </h2>
-            </div>
-            <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Evento ID</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.eventoId}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">
-                  Versión base
-                </dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.versionBaseId ?? "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">
-                  Campos modificados
-                </dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {fieldComparisons.length + itemComparisons.length}
-                </dd>
-              </div>
-            </dl>
-          </section>
         </div>
 
         <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">

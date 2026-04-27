@@ -73,10 +73,11 @@ export default function ReformReviewCard({
     <>
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          Revisión de reforma (PDA / Admin)
+          Revisión de reforma
         </h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          El evento siempre muestra la versión vigente; el historial y cambios se ven aquí.
+          El evento siempre muestra la versión vigente; el historial y cambios
+          se ven aquí.
         </p>
 
         <div className="mt-4 flex flex-wrap justify-end gap-3">

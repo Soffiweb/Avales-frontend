@@ -419,7 +419,7 @@ export default function ProfilePanel({ viewUserId }: Props) {
               </p>
               <p className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
                 {getNormalizedRoles(subjectUser).includes("ENTRENADOR")
-                  ? formatBoolean(subjectUser.puedeSolicitarReformas)
+                  ? formatBoolean(subjectUser?.puedeSolicitarReformas)
                   : "No aplica"}
               </p>
             </div>

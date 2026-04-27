@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
-import { isAdminUser, isTrainerUser } from "@/lib/auth/access";
+import { getNormalizedRoles, isAdminUser, isTrainerUser } from "@/lib/auth/access";
 import {
   getAllStatistics,
   getAvalesTimeline,
@@ -175,18 +175,18 @@ export default function Dashboard() {
 
   if (!isAdmin) {
     const isEntrenador = isTrainerUser(user);
-    const isReviewer =
-      user.roles?.some((r) =>
-        [
-          "DTM",
-          "METODOLOGO",
-          "PDA",
-          "CONTROL_PREVIO",
-          "FINANCIERO",
-          "COMPRAS_PUBLICAS",
-          "SECRETARIA",
-        ].includes(r),
-      ) ?? false;
+    const roles = getNormalizedRoles(user);
+    const isReviewer = roles.some((r) =>
+      [
+        "DTM",
+        "METODOLOGO",
+        "PDA",
+        "CONTROL_PREVIO",
+        "FINANCIERO",
+        "COMPRAS_PUBLICAS",
+        "SECRETARIA",
+      ].includes(r),
+    );
 
     const quickLinks = [
       isEntrenador && {

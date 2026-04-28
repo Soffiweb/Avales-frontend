@@ -33,6 +33,7 @@ import {
   canCreateReforma,
   getNormalizedRoles,
   isAdminUser,
+  isDTMUser,
 } from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
@@ -118,7 +119,8 @@ export default function EventoDetailPage() {
   const { user } = useAuth();
   const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
-  const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS");
+  const isDTM = isDTMUser(user);
+  const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS") && !isDTM;
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);
@@ -259,8 +261,8 @@ export default function EventoDetailPage() {
     (evento.numEntrenadoresHombres || 0) + (evento.numEntrenadoresMujeres || 0);
   const hasAval = existingAvalId !== null;
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
-  const canManageReforms = canCreateReforma(user);
-  const canViewReforms = canAccessReforms(user);
+  const canManageReforms = canCreateReforma(user) && !isDTM;
+  const canViewReforms = canAccessReforms(user) || isDTM;
   const canStartAval =
     canCreateAval && evento.estado === "DISPONIBLE" && !hasAval && !hasPendingReform;
   const canRequestReforma = canManageReforms && !hasPendingReform;

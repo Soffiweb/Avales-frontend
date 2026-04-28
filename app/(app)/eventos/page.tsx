@@ -13,7 +13,7 @@ import EventoCard from "./_components/evento-card";
 import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
-import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
+import { getNormalizedRoles, isAdminUser, isDTMUser } from "@/lib/auth/access";
 import { getDisciplinas } from "@/lib/api/catalog";
 import {
   listEventos,
@@ -61,6 +61,7 @@ export default function EventosPage() {
   const { user } = useAuth();
   const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
+  const isDTM = isDTMUser(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [disciplinasLoading, setDisciplinasLoading] = useState(false);
@@ -311,7 +312,7 @@ export default function EventosPage() {
                 </option>
               ))}
             </select>
-            {canManageEvents && (
+            {canManageEvents && !isDTM && (
               <select
                 className="form-select w-full sm:w-56"
                 value={disciplinaId}
@@ -329,7 +330,7 @@ export default function EventosPage() {
                 ))}
               </select>
             )}
-            {canManageEvents && (
+            {canManageEvents && !isDTM && (
               <>
                 <button
                   onClick={() => setUploadModalOpen(true)}
@@ -353,8 +354,8 @@ export default function EventosPage() {
           eventos={eventos}
           loading={loading}
           error={error}
-          onDelete={canManageEvents ? handleDelete : undefined}
-          canManageEvents={canManageEvents}
+          onDelete={canManageEvents && !isDTM ? handleDelete : undefined}
+          canManageEvents={canManageEvents && !isDTM}
         />
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-6">

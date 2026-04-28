@@ -79,6 +79,7 @@ export function canAccessReforms(user: User | null | undefined) {
   return (
     isAdminUser(user) ||
     roles.includes("PDA") ||
+    isDTMUser(user) ||
     (roles.includes("ENTRENADOR") && Boolean(user.puedeSolicitarReformas))
   );
 }
@@ -98,6 +99,11 @@ export function canReviewReforms(user: User | null | undefined) {
   if (!user) return false;
   const roles = getNormalizedRoles(user);
   return isAdminUser(user) || roles.includes("PDA");
+}
+
+export function isDTMUser(user: User | null | undefined) {
+  const roles = getNormalizedRoles(user);
+  return roles.includes("DTM") || roles.includes("DTM_EIDE");
 }
 
 export function canSeeSidebar(

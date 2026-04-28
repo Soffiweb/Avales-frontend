@@ -55,7 +55,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/deportistas",
     segment: "deportistas",
     icon: "deportistas",
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN", "DTM", "DTM_EIDE"],
   },
   {
     type: "link",
@@ -106,7 +106,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/eventos",
     segment: "eventos",
     icon: "eventos",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR", "PDA"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE"],
   },
   {
     type: "link",
@@ -114,7 +114,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/reformas",
     segment: "reformas",
     icon: "reformas",
-    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR"],
+    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE"],
   },
   {
     type: "link",

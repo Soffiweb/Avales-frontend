@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ChangeEvent } from "react";
-import { FileText, DollarSign, Paperclip, X } from "lucide-react";
+import { FileText, DollarSign, Paperclip, X, Hash } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
@@ -51,6 +51,7 @@ export default function Paso04Presupuesto({
   aval,
 }: Paso04PresupuestoProps) {
   const router = useRouter();
+  const [numeroAval, setNumeroAval] = useState("");
   const [observaciones, setObservaciones] = useState(
     formData.observaciones || "",
   );
@@ -101,6 +102,7 @@ export default function Paso04Presupuesto({
       const payload = {
         coleccionAvalId: avalId,
         fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
+        numeroAval: numeroAval.trim() || undefined,
         fechaHoraSalida: formData.fechaHoraSalida,
         fechaHoraRetorno: formData.fechaHoraRetorno,
         lugarSalida: formData.lugarSalida,
@@ -294,6 +296,30 @@ export default function Paso04Presupuesto({
               </button>
             </div>
           )}
+        </section>
+
+        {/* Número de Aval */}
+        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-3 flex items-start gap-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              <Hash className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Número de la solicitud
+              </h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Número identificador de la solicitud (ej: 001, 002, etc.)
+              </p>
+            </div>
+          </div>
+          <input
+            type="text"
+            value={numeroAval}
+            onChange={(e) => setNumeroAval(e.target.value)}
+            placeholder="001"
+            className="form-input w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+          />
         </section>
 
         {/* Observaciones generales */}

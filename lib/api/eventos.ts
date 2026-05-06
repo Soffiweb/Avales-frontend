@@ -127,7 +127,26 @@ export async function createEvento(values: CreateEventoPayload, archivo?: File) 
   });
 }
 
-export type UpdateEventoPayload = Partial<CreateEventoPayload> & {
+export type UpdateEventoPayload = {
+  codigo?: string;
+  tipoParticipacion?: string;
+  tipoEvento?: string;
+  nombre?: string;
+  lugar?: string;
+  genero?: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
+  disciplinaId?: number;
+  categoriaId?: number;
+  mesProgramado?: number;
+  provincia?: string;
+  ciudad?: string;
+  pais?: string;
+  alcance?: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  numEntrenadoresHombres?: number;
+  numEntrenadoresMujeres?: number;
+  numAtletasHombres?: number;
+  numAtletasMujeres?: number;
   eventoItems?: EventoItemPayload[];
 };
 
@@ -136,15 +155,30 @@ export async function updateEvento(
   values: UpdateEventoPayload,
   archivo?: File
 ) {
-  if (archivo || values.eventoItems !== undefined) {
-    const formData = new FormData();
-    appendEventoFormData(formData, values, {
-      includeEmptyEventoItems: true,
-    });
+  const cleanPayload = Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== undefined)
+  );
 
-    if (archivo) {
-      formData.append("archivo", archivo);
-    }
+  if (!Object.keys(cleanPayload).length) {
+    throw new Error("Debes cambiar al menos un campo para actualizar el evento.");
+  }
+
+  console.log("[API] updateEvento payload JSON:", {
+    eventoId: id,
+    payload: cleanPayload,
+    archivoIncluido: !!archivo,
+  });
+
+  if (archivo) {
+    const formData = new FormData();
+    Object.entries(cleanPayload).forEach(([key, value]) => {
+      if (key === "eventoItems") {
+        formData.append(key, JSON.stringify(value));
+      } else {
+        formData.append(key, value === null ? "" : String(value));
+      }
+    });
+    formData.append("archivo", archivo);
 
     return apiFetch<Evento>(`/events/${id}`, {
       method: "PATCH",
@@ -155,7 +189,7 @@ export async function updateEvento(
 
   return apiFetch<Evento>(`/events/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(values),
+    body: JSON.stringify(cleanPayload),
   });
 }
 

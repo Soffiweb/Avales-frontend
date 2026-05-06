@@ -87,7 +87,7 @@ function buildDefaultObservations(aval: Aval) {
     CERT_COMPRAS_PUBLICAS: "",
     FECHA_INGRESO_DTM: "",
     FECHA_RECIBIDO_METODOLOGO: "",
-    NUM_AVAL_TECNICO: aval.aval ?? String(aval.id),
+    NUM_AVAL_TECNICO: aval.avalTecnico?.numeroAval ?? aval.aval ?? String(aval.id),
     DEPORTE: disciplina,
     CATEGORIA: categoria,
     GENERO: genero,

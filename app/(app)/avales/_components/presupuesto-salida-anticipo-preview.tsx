@@ -95,7 +95,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">AVAL TECNICO NUMERO</td>
-              <td className="border border-slate-400 px-2 py-1">{aval.aval || aval.numeroColeccion || aval.id}</td>
+              <td className="border border-slate-400 px-2 py-1">{aval.avalTecnico?.numeroAval || aval.aval || aval.numeroColeccion || aval.id}</td>
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FONDOS</td>

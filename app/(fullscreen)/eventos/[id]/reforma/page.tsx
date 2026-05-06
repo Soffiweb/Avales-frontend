@@ -860,19 +860,20 @@ export default function EventoReformaPage() {
                         Atletas hombres
                       </span>
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         value={participantsForm.numAtletasHombres}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
                           setParticipantsForm((prev) =>
                             prev
                               ? {
                                   ...prev,
-                                  numAtletasHombres: Number(e.target.value) || 0,
+                                  numAtletasHombres: Number(value) || 0,
                                 }
                               : prev,
-                          )
-                        }
+                          );
+                        }}
                         className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
@@ -881,19 +882,20 @@ export default function EventoReformaPage() {
                         Atletas mujeres
                       </span>
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         value={participantsForm.numAtletasMujeres}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
                           setParticipantsForm((prev) =>
                             prev
                               ? {
                                   ...prev,
-                                  numAtletasMujeres: Number(e.target.value) || 0,
+                                  numAtletasMujeres: Number(value) || 0,
                                 }
                               : prev,
-                          )
-                        }
+                          );
+                        }}
                         className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
@@ -902,20 +904,21 @@ export default function EventoReformaPage() {
                         Entrenadores hombres
                       </span>
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         value={participantsForm.numEntrenadoresHombres}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
                           setParticipantsForm((prev) =>
                             prev
                               ? {
                                   ...prev,
                                   numEntrenadoresHombres:
-                                    Number(e.target.value) || 0,
+                                    Number(value) || 0,
                                 }
                               : prev,
-                          )
-                        }
+                          );
+                        }}
                         className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
@@ -924,20 +927,21 @@ export default function EventoReformaPage() {
                         Entrenadores mujeres
                       </span>
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         value={participantsForm.numEntrenadoresMujeres}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
                           setParticipantsForm((prev) =>
                             prev
                               ? {
                                   ...prev,
                                   numEntrenadoresMujeres:
-                                    Number(e.target.value) || 0,
+                                    Number(value) || 0,
                                 }
                               : prev,
-                          )
-                        }
+                          );
+                        }}
                         className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
@@ -1079,17 +1083,18 @@ export default function EventoReformaPage() {
                                 Presupuesto
                               </span>
                               <input
-                                type="number"
-                                min={0}
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 value={row.presupuesto}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^\d.]/g, '');
+                                  const cleanValue = value.replace(/\.(?=.*\.)/g, '');
                                   handleBudgetChange(
                                     row.localId,
                                     "presupuesto",
-                                    e.target.value,
-                                  )
-                                }
+                                    cleanValue,
+                                  );
+                                }}
                                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300"
                                 disabled={row.status === "removed"}
                               />

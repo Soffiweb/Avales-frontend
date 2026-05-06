@@ -123,7 +123,7 @@ export default function CertificacionFinancieraPage() {
 
   const defaultDescripcionCertificacion = useMemo(() => {
     if (!aval) return "";
-    return `De acuerdo a la sumilla Aval Nro. ${aval.numeroColeccion || aval.aval || aval.id}, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`;
+    return `De acuerdo a la sumilla Aval Nro. ${aval.avalTecnico?.numeroAval || aval.numeroColeccion || aval.aval || aval.id}, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`;
   }, [aval]);
 
   useEffect(() => {

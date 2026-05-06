@@ -35,7 +35,7 @@ function InfoTable({ aval, year }: { aval: Aval; year: number }) {
     ["RESPONSABLE ANTICIPO", "-"],
     ["C. I. RESPON. ANTICIPO", "-"],
     [`ACTIVIDADES POA ${year}`, "005 EVENTOS DE PREPARACION Y COMPETENCIA"],
-    ["AVAL TECNICO NUMERO", aval.aval || aval.numeroColeccion || String(aval.id)],
+    ["AVAL TECNICO NUMERO", aval.avalTecnico?.numeroAval || aval.aval || aval.numeroColeccion || String(aval.id)],
     ["FONDOS", "PUBLICOS"],
   ];
 
@@ -159,7 +159,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
         <p className="text-[11px] leading-5">
           {draft.descripcionCertificacion.trim() ||
             `De acuerdo a la sumilla Aval Nro. ${
-              aval.numeroColeccion || aval.aval || aval.id
+              aval.avalTecnico?.numeroAval || aval.numeroColeccion || aval.aval || aval.id
             }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`}
         </p>
 

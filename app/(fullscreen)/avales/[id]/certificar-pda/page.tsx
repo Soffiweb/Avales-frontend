@@ -406,17 +406,22 @@ export default function CertificarAvalPage() {
       value: string,
     ) => {
       setBudgetDraftItems((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                [field]:
-                  field === "valorUnitario" || field === "valor"
-                    ? roundCurrency(normalizePositiveNumber(value))
-                    : normalizePositiveNumber(value),
-              }
-            : item,
-        ),
+        prev.map((item) => {
+          if (item.id !== id) return item;
+
+          const updated = { ...item };
+          const numValue = field === "valorUnitario" || field === "valor"
+            ? roundCurrency(normalizePositiveNumber(value))
+            : normalizePositiveNumber(value);
+
+          updated[field] = numValue;
+
+          if (field === "cantidad" || field === "dias" || field === "valorUnitario") {
+            updated.valor = roundCurrency(updated.cantidad * updated.dias * updated.valorUnitario);
+          }
+
+          return updated;
+        }),
       );
     },
     [],
@@ -658,30 +663,30 @@ export default function CertificarAvalPage() {
                           <tr key={item.id}>
                             <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
                               <input
-                                type="number"
-                                min="1"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
                                 className="form-input w-20"
                                 value={item.cantidad}
                                 readOnly={!isEditable}
                                 disabled={!isEditable}
-                                onChange={(e) =>
-                                  handleBudgetItemChange(item.id, "cantidad", e.target.value)
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^0-9]/g, "");
+                                  handleBudgetItemChange(item.id, "cantidad", value);
+                                }}
                               />
                             </td>
                             <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
                               <input
-                                type="number"
-                                min="1"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
                                 className="form-input w-20"
                                 value={item.dias}
                                 readOnly={!isEditable}
                                 disabled={!isEditable}
-                                onChange={(e) =>
-                                  handleBudgetItemChange(item.id, "dias", e.target.value)
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^0-9]/g, "");
+                                  handleBudgetItemChange(item.id, "dias", value);
+                                }}
                               />
                             </td>
                             <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
@@ -697,30 +702,30 @@ export default function CertificarAvalPage() {
                             </td>
                             <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100">
                               <input
-                                type="number"
-                                min="0.01"
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 className="form-input w-28 ml-auto text-right"
                                 value={item.valorUnitario}
                                 readOnly={!isEditable}
                                 disabled={!isEditable}
-                                onChange={(e) =>
-                                  handleBudgetItemChange(item.id, "valorUnitario", e.target.value)
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^0-9.]/g, "");
+                                  handleBudgetItemChange(item.id, "valorUnitario", value);
+                                }}
                               />
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                               <input
-                                type="number"
-                                min="0.01"
-                                step="0.01"
+                                type="text"
+                                inputMode="decimal"
                                 className="form-input w-32 ml-auto text-right"
                                 value={item.valor}
                                 readOnly={!isEditable}
                                 disabled={!isEditable}
-                                onChange={(e) =>
-                                  handleBudgetItemChange(item.id, "valor", e.target.value)
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value.replace(/[^0-9.]/g, "");
+                                  handleBudgetItemChange(item.id, "valor", value);
+                                }}
                               />
                             </td>
                           </tr>

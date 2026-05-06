@@ -167,7 +167,7 @@ export default function EventoForm({
   );
 
   useEffect(() => {
-    if (mode !== "edit" || !evento || catalogLoading) {
+    if (mode !== "edit" || !evento || catalogLoading || !initialValues) {
       return;
     }
     reset({
@@ -274,6 +274,9 @@ export default function EventoForm({
   const onSubmit = async (values: EventoFormValues) => {
     setSubmitError(null);
 
+    const disciplina = disciplinas.find((d) => getCatalogItemCode(d) === values.disciplinaCodigo);
+    const categoria = categorias.find((c) => getCatalogItemCode(c) === values.categoriaCodigo);
+
     const payload: CreateEventoPayload = {
       codigo: values.codigo.trim(),
       tipoParticipacion:
@@ -308,9 +311,36 @@ export default function EventoForm({
         if (!evento?.id) {
           throw new Error("No se pudo identificar el evento a editar.");
         }
+        const updatePayload = {
+          codigo: payload.codigo,
+          tipoParticipacion: payload.tipoParticipacion,
+          tipoEvento: payload.tipoEvento,
+          nombre: payload.nombre,
+          lugar: payload.lugar,
+          genero: payload.genero,
+          disciplinaId: disciplina?.id,
+          categoriaId: categoria?.id,
+          mesProgramado: payload.mesProgramado,
+          provincia: payload.provincia,
+          ciudad: payload.ciudad,
+          pais: payload.pais,
+          alcance: payload.alcance,
+          fechaInicio: payload.fechaInicio,
+          fechaFin: payload.fechaFin,
+          numEntrenadoresHombres: payload.numEntrenadoresHombres,
+          numEntrenadoresMujeres: payload.numEntrenadoresMujeres,
+          numAtletasHombres: payload.numAtletasHombres,
+          numAtletasMujeres: payload.numAtletasMujeres,
+          eventoItems: payload.eventoItems,
+        };
+        console.log("[EVENTO EDIT] Payload enviado:", {
+          eventoId: evento.id,
+          updatePayload,
+          archivoNombre: archivo?.name,
+        });
         await updateEvento(
           evento.id,
-          { ...payload, eventoItems: values.eventoItems ?? [] },
+          updatePayload,
           archivo ?? undefined
         );
         if (onUpdated) {
@@ -775,9 +805,11 @@ export default function EventoForm({
             <input
               id="numEntrenadoresHombres"
               className="form-input w-full"
-              type="number"
-              min="0"
-              {...register("numEntrenadoresHombres", { valueAsNumber: true })}
+              type="text"
+              inputMode="numeric"
+              {...register("numEntrenadoresHombres", {
+                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+              })}
             />
             {errors.numEntrenadoresHombres && (
               <p className="mt-1 text-xs text-red-600">
@@ -796,9 +828,11 @@ export default function EventoForm({
             <input
               id="numEntrenadoresMujeres"
               className="form-input w-full"
-              type="number"
-              min="0"
-              {...register("numEntrenadoresMujeres", { valueAsNumber: true })}
+              type="text"
+              inputMode="numeric"
+              {...register("numEntrenadoresMujeres", {
+                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+              })}
             />
             {errors.numEntrenadoresMujeres && (
               <p className="mt-1 text-xs text-red-600">
@@ -817,9 +851,11 @@ export default function EventoForm({
             <input
               id="numAtletasHombres"
               className="form-input w-full"
-              type="number"
-              min="0"
-              {...register("numAtletasHombres", { valueAsNumber: true })}
+              type="text"
+              inputMode="numeric"
+              {...register("numAtletasHombres", {
+                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+              })}
             />
             {errors.numAtletasHombres && (
               <p className="mt-1 text-xs text-red-600">
@@ -838,9 +874,11 @@ export default function EventoForm({
             <input
               id="numAtletasMujeres"
               className="form-input w-full"
-              type="number"
-              min="0"
-              {...register("numAtletasMujeres", { valueAsNumber: true })}
+              type="text"
+              inputMode="numeric"
+              {...register("numAtletasMujeres", {
+                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+              })}
             />
             {errors.numAtletasMujeres && (
               <p className="mt-1 text-xs text-red-600">
@@ -943,12 +981,15 @@ export default function EventoForm({
               )}
               <input
                 className="form-input w-full text-sm"
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 {...register(`eventoItems.${index}.presupuesto`, {
-                  valueAsNumber: true,
+                  setValueAs: (v) => {
+                    const clean = String(v).replace(/[^\d.]/g, '');
+                    const noMultipleDots = clean.replace(/\.(?=.*\.)/g, '');
+                    return Number(noMultipleDots) || 0;
+                  },
                 })}
               />
               {errors.eventoItems?.[index]?.presupuesto && (

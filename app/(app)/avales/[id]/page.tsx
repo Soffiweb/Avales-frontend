@@ -448,8 +448,8 @@ export default function AvalDetailPage() {
       : null;
   const summaryLines = [
     evento?.codigo ? `Evento ${evento.codigo}.` : null,
-    aval.numeroColeccion
-      ? `Solicitud ${formatSolicitudNumber(aval.numeroColeccion)}.`
+    (aval.avalTecnico?.numeroAval || aval.numeroColeccion)
+      ? `Solicitud ${formatSolicitudNumber(aval.avalTecnico?.numeroAval ?? aval.numeroColeccion)}.`
       : null,
     !hasRealDates && evento
       ? `Programación: ${formatEventScheduleLabel(evento)}.`
@@ -726,9 +726,8 @@ export default function AvalDetailPage() {
                     { label: "Actualizado", value: aval.updatedAt ? formatDate(aval.updatedAt) : "" },
                     {
                       label: "N° solicitud",
-                      value: formatSolicitudNumber(aval.numeroColeccion),
+                      value: formatSolicitudNumber(aval.avalTecnico?.numeroAval ?? aval.numeroColeccion),
                     },
-                    { label: "N° aval", value: aval.avalTecnico?.numeroAval ?? "-" },
                   ]}
                 />
 

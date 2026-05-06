@@ -15,7 +15,14 @@ import {
 
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
-import { aprobarReform, getReform, rechazarReform, type ReformResponse } from "@/lib/api/reforms";
+import {
+  aprobarReform,
+  getReform,
+  rechazarReform,
+  type ReformResponse,
+  type ReformFieldComparison,
+  type ReformItemComparison,
+} from "@/lib/api/reforms";
 import { canReviewReforms } from "@/lib/auth/access";
 import { formatCurrency, formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
 import ReformReviewCard from "../_components/reform-review-card";
@@ -62,18 +69,6 @@ function formatFallbackValue(value: unknown) {
   }
   return JSON.stringify(value);
 }
-
-type ReformFieldComparison = NonNullable<ReformResponse["comparacion"]>["campos"] extends Array<
-  infer T
->
-  ? T
-  : never;
-
-type ReformItemComparison = NonNullable<ReformResponse["comparacion"]>["eventoItems"] extends Array<
-  infer T
->
-  ? T
-  : never;
 
 function hasMeaningfulDifference(a: unknown, b: unknown) {
   const left = a === null || a === undefined ? null : String(a).trim();

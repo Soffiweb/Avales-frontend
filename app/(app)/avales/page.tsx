@@ -97,6 +97,13 @@ export default function AvalesPage() {
     isComprasPublicas ||
     isFinanciero;
 
+  const isReviewerWithDefaults =
+    isMetodologo ||
+    isPda ||
+    isControlPrevio ||
+    isComprasPublicas ||
+    isFinanciero;
+
   useEffect(() => {
     if (page === currentPage) return;
     setPage(currentPage);
@@ -107,14 +114,12 @@ export default function AvalesPage() {
       setLoading(true);
       setError(null);
 
-      // Determinar los filtros efectivos (aplicar filtros por defecto para revisores)
-      const defaultEstado = isReviewer ? "SOLICITADO" : undefined;
+      // Determinar los filtros efectivos (DTM ve todos, otros revisores tienen filtros por defecto)
+      const defaultEstado = isReviewerWithDefaults ? "SOLICITADO" : undefined;
       const defaultEtapa: EtapaFlujo | undefined = isPda
         ? "SOLICITUD"
         : isMetodologo
           ? "COMPRAS_PUBLICAS"
-          : isDTM
-          ? "REVISION_METODOLOGO"
           : isControlPrevio
             ? "REVISION_DTM"
             : isFinanciero
@@ -162,7 +167,7 @@ export default function AvalesPage() {
     estado,
     etapa,
     search,
-    isReviewer,
+    isReviewerWithDefaults,
     isControlPrevio,
     isMetodologo,
     isDTM,

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Calendar,
-  MapPin,
   Eye,
   Clock,
   CheckCircle,
@@ -12,6 +11,8 @@ import {
   FileEdit,
   FileText,
   Stamp,
+  Trophy,
+  Users,
 } from "lucide-react";
 
 import type { Aval, EtapaFlujo } from "@/types/aval";
@@ -21,8 +22,7 @@ import {
 } from "@/lib/constants";
 import {
   formatDate,
-  formatEventScheduleLabel,
-  formatLocation,
+  formatMonthYear,
 } from "@/lib/utils/formatters";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 
@@ -121,6 +121,13 @@ export default function AvalListCard({
         );
         const StatusIcon = getStatusIcon(aval.estado);
         const stageLabel = getApprovalStageLabel(etapaParaMostrar);
+        const evento = aval.evento;
+        const totalDeportistas =
+          (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
+        const totalEntrenadores =
+          (evento?.numEntrenadoresHombres || 0) +
+          (evento?.numEntrenadoresMujeres || 0);
+        const mesProgramado = formatMonthYear(evento?.mesProgramado);
 
         return (
           <div
@@ -137,6 +144,18 @@ export default function AvalListCard({
                     <StatusIcon className="w-3 h-3" />
                     {stageLabel}
                   </span>
+                  {!isAdmin && aval.estado === "BORRADOR" && (
+                    <span className="relative inline-flex">
+                      <AlertCircle
+                        className="peer h-4 w-4 cursor-help text-amber-500"
+                        aria-label="Aval incompleto"
+                      />
+                      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-lg peer-hover:block dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                        Aval incompleto: solo se subió la convocatoria y el
+                        certificado médico.
+                      </span>
+                    </span>
+                  )}
                 </div>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate" title={aval.evento?.nombre}>
                   {aval.evento?.nombre || "Sin evento"}
@@ -146,60 +165,47 @@ export default function AvalListCard({
                     Código: {aval.evento.codigo}
                   </p>
                 )}
+                <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                  <Trophy className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {evento?.disciplina?.nombre || "Sin disciplina"}
+                  </span>
+                </p>
               </div>
             </div>
 
             {/* Info del evento */}
             <div className="px-5 pb-4 flex-1 space-y-3">
-              {/* Alerta de BORRADOR - solo para entrenadores */}
-              {!isAdmin && aval.estado === "BORRADOR" && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                        Aval incompleto
-                      </p>
-                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
-                        La convocatoria fue subida. Completa el aval técnico
-                        para solicitar aprobación.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Fechas del evento */}
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
-                  <span>
-                    {formatEventScheduleLabel(aval.evento)}
-                  </span>
+                  <span>Emisión: {aval.fechaEmision ? formatDate(aval.fechaEmision) : "-"}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
-                  <span className="truncate">
-                    {formatLocation(aval.evento)}
-                  </span>
+                  <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                  <span>Mes programado: {mesProgramado}</span>
                 </div>
               </div>
 
-              {/* Fecha de creación */}
-              <div className="pt-3 border-t border-gray-100 dark:border-gray-700/60">
-                {aval.fechaEmision && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Emitido el {formatDate(aval.fechaEmision)}
+              <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-sm dark:border-gray-700/60">
+                <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                  <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                    <Users className="h-3.5 w-3.5" />
+                    <span className="text-xs">Deportistas</span>
+                  </div>
+                  <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
+                    {totalDeportistas}
                   </p>
-                )}
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Creado el {formatDate(aval.createdAt)}
-                </p>
-                {aval.updatedAt && aval.createdAt !== aval.updatedAt && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Actualizado el {formatDate(aval.updatedAt)}
+                </div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                  <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                    <Users className="h-3.5 w-3.5" />
+                    <span className="text-xs">Entrenadores</span>
+                  </div>
+                  <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
+                    {totalEntrenadores}
                   </p>
-                )}
+                </div>
               </div>
             </div>
 

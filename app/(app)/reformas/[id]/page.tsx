@@ -19,9 +19,11 @@ import {
   aprobarReform,
   getReform,
   rechazarReform,
+  TIPO_REFORMA_LABELS,
   type ReformResponse,
   type ReformFieldComparison,
   type ReformItemComparison,
+  type TipoReforma,
 } from "@/lib/api/reforms";
 import { canReviewReforms } from "@/lib/auth/access";
 import { formatCurrency, formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
@@ -45,6 +47,31 @@ function getStatusClasses(status?: string | null) {
     "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
   );
 }
+
+const TIPO_REFORMA_STYLES: Record<TipoReforma, string> = {
+  DATOS_INFORMATIVOS:
+    "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  PRESUPUESTO:
+    "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
+  MIXTA:
+    "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-200",
+};
+
+const MES_NOMBRES = [
+  "",
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 const ITEM_CHANGE_STYLES: Record<string, string> = {
   AGREGADO:
@@ -323,13 +350,26 @@ export default function ReformaDetailPage() {
               ) : null}
             </div>
 
-            <span
-              className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium ${getStatusClasses(
-                reform.estado,
-              )}`}
-            >
-              {reform.estado}
-            </span>
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              <span
+                className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium ${getStatusClasses(
+                  reform.estado,
+                )}`}
+              >
+                {reform.estado}
+              </span>
+              {reform.tipo ? (
+                <span
+                  className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                    TIPO_REFORMA_STYLES[reform.tipo] ??
+                    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  }`}
+                  title="Tipo derivado según los campos editados"
+                >
+                  {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -352,6 +392,17 @@ export default function ReformaDetailPage() {
                 <dt className="text-gray-500 dark:text-gray-400">Observación</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">
                   {reform.observacion || "-"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500 dark:text-gray-400">
+                  Mes de ejecución
+                </dt>
+                <dd className="mt-1 inline-flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  {reform.mesEjecucion
+                    ? MES_NOMBRES[reform.mesEjecucion] ?? `Mes ${reform.mesEjecucion}`
+                    : "-"}
                 </dd>
               </div>
               <div>

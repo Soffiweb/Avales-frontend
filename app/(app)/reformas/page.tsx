@@ -2,11 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardEdit, Clock3, Search } from "lucide-react";
+import { Calendar, ClipboardEdit, Clock3, Search } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
-import { listReforms, type ReformResponse } from "@/lib/api/reforms";
+import {
+  listReforms,
+  TIPO_REFORMA_LABELS,
+  TIPO_REFORMA_OPTIONS,
+  type ReformResponse,
+  type TipoReforma,
+} from "@/lib/api/reforms";
 import { listEventos } from "@/lib/api/eventos";
 import { canAccessReforms, getNormalizedRoles } from "@/lib/auth/access";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
@@ -30,12 +36,38 @@ function getStatusClasses(status?: string | null) {
   );
 }
 
+const TIPO_REFORMA_STYLES: Record<TipoReforma, string> = {
+  DATOS_INFORMATIVOS:
+    "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  PRESUPUESTO:
+    "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
+  MIXTA:
+    "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-200",
+};
+
+const MES_NOMBRES_CORTOS = [
+  "",
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
 export default function ReformasPage() {
   const { user, loading: authLoading } = useAuth();
   const [reforms, setReforms] = useState<ReformResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [tipoFilter, setTipoFilter] = useState<TipoReforma | "">("");
   const [search, setSearch] = useState("");
 
   const userRoles = getNormalizedRoles(user);
@@ -56,7 +88,9 @@ export default function ReformasPage() {
         setLoading(true);
         setError(null);
 
-        const response = await listReforms();
+        const response = await listReforms(
+          tipoFilter ? { tipo: tipoFilter } : undefined,
+        );
         let filteredReforms = response.data ?? [];
 
         if (isEntrenador) {
@@ -85,6 +119,7 @@ export default function ReformasPage() {
     authLoading,
     canViewReforms,
     isEntrenador,
+    tipoFilter,
   ]);
 
   if (authLoading) {
@@ -174,6 +209,21 @@ export default function ReformasPage() {
               <option value="APROBADA">Aprobada</option>
               <option value="RECHAZADA">Rechazada</option>
             </select>
+
+            <select
+              value={tipoFilter}
+              onChange={(e) =>
+                setTipoFilter((e.target.value as TipoReforma) || "")
+              }
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-gray-300"
+            >
+              <option value="">Todos los tipos</option>
+              {TIPO_REFORMA_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -225,13 +275,26 @@ export default function ReformasPage() {
                       {reform.evento?.codigo || "Sin código"}
                     </p>
                   </div>
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(
-                      reform.estado,
-                    )}`}
-                  >
-                    {reform.estado}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${getStatusClasses(
+                        reform.estado,
+                      )}`}
+                    >
+                      {reform.estado}
+                    </span>
+                    {reform.tipo ? (
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                          TIPO_REFORMA_STYLES[reform.tipo] ??
+                          "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                        }`}
+                        title="Tipo derivado según los campos editados"
+                      >
+                        {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
 
                 <dl className="space-y-3 text-sm">
@@ -252,6 +315,18 @@ export default function ReformasPage() {
                       </dd>
                     </div>
                     <div>
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        Mes de ejecución
+                      </dt>
+                      <dd className="mt-1 inline-flex items-center gap-1.5 text-gray-900 dark:text-gray-100">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                        {reform.mesEjecucion
+                          ? MES_NOMBRES_CORTOS[reform.mesEjecucion] ??
+                            `Mes ${reform.mesEjecucion}`
+                          : "-"}
+                      </dd>
+                    </div>
+                    <div className="col-span-2">
                       <dt className="text-gray-500 dark:text-gray-400">
                         Fecha de solicitud
                       </dt>

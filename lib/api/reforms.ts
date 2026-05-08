@@ -1,6 +1,8 @@
 import { apiFetch } from "@/lib/api/client";
 import type { EventoEstado } from "@/types/evento";
 
+export type TipoReforma = "DATOS_INFORMATIVOS" | "PRESUPUESTO" | "MIXTA";
+
 export type ReformEventoItemPayload = {
   itemId: number;
   mes: number;
@@ -12,6 +14,7 @@ export type CreateReformPayload = {
   versionBaseId?: number;
   motivo: string;
   observacion?: string;
+  mesEjecucion: number;
   cambiosPropuestos: Record<string, unknown> & {
     eventoItems?: ReformEventoItemPayload[];
   };
@@ -69,6 +72,8 @@ export type ReformResponse = {
   versionAprobadaId?: number | null;
   motivo: string;
   observacion?: string | null;
+  mesEjecucion: number;
+  tipo: TipoReforma;
   cambiosPropuestos: Record<string, unknown>;
   cambiosPropuestosLegibles?: ReformReadableChanges;
   comparacion?: ReformComparison;
@@ -80,6 +85,10 @@ export type ReformResponse = {
   };
   createdAt?: string;
   reviewedAt?: string | null;
+};
+
+export type ListReformsOptions = {
+  tipo?: TipoReforma;
 };
 
 export async function createReform(payload: CreateReformPayload) {
@@ -119,11 +128,29 @@ export async function listReformsByEvento(eventoId: number, estado?: string) {
   });
 }
 
-export async function listReforms() {
-  return apiFetch<ReformResponse[]>("/reforms", {
+export async function listReforms(options: ListReformsOptions = {}) {
+  const params = new URLSearchParams();
+  if (options.tipo) params.set("tipo", options.tipo);
+
+  const query = params.toString();
+  const url = query ? `/reforms?${query}` : "/reforms";
+
+  return apiFetch<ReformResponse[]>(url, {
     method: "GET",
   });
 }
+
+export const TIPO_REFORMA_LABELS: Record<TipoReforma, string> = {
+  DATOS_INFORMATIVOS: "Datos informativos",
+  PRESUPUESTO: "Presupuesto",
+  MIXTA: "Mixta",
+};
+
+export const TIPO_REFORMA_OPTIONS: { value: TipoReforma; label: string }[] = [
+  { value: "DATOS_INFORMATIVOS", label: TIPO_REFORMA_LABELS.DATOS_INFORMATIVOS },
+  { value: "PRESUPUESTO", label: TIPO_REFORMA_LABELS.PRESUPUESTO },
+  { value: "MIXTA", label: TIPO_REFORMA_LABELS.MIXTA },
+];
 
 export async function getReform(id: number) {
   return apiFetch<ReformResponse>(`/reforms/${id}`, {

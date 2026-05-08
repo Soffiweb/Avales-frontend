@@ -279,6 +279,7 @@ export default function EventoReformaPage() {
   const [expandedBudgetRows, setExpandedBudgetRows] = useState<string[]>([]);
   const [requestReason, setRequestReason] = useState("");
   const [requestObservation, setRequestObservation] = useState("");
+  const [mesEjecucion, setMesEjecucion] = useState<number | "">("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [itemsCatalogo, setItemsCatalogo] = useState<CatalogItemPresupuestario[]>([]);
@@ -389,6 +390,10 @@ export default function EventoReformaPage() {
 
   const handleSubmit = async () => {
     if (!evento || !requestReason.trim()) return;
+    if (typeof mesEjecucion !== "number") {
+      setSubmitError("Seleccioná el mes en el que se va a ejecutar la reforma.");
+      return;
+    }
     if (!canSubmitReforma) {
       setSubmitError("Tu usuario no tiene permiso para solicitar reformas.");
       return;
@@ -415,6 +420,7 @@ export default function EventoReformaPage() {
         eventoId: evento.id,
         motivo: requestReason.trim(),
         observacion: requestObservation.trim() || undefined,
+        mesEjecucion,
         cambiosPropuestos: proposedChanges,
       });
 
@@ -1136,6 +1142,29 @@ export default function EventoReformaPage() {
                     className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                   />
                 </label>
+                <label className="mt-4 block space-y-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Mes de ejecución <span className="text-rose-500">*</span>
+                  </span>
+                  <select
+                    value={mesEjecucion === "" ? "" : String(mesEjecucion)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setMesEjecucion(value === "" ? "" : Number(value));
+                    }}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  >
+                    <option value="">Seleccioná un mes</option>
+                    {MONTH_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                    Mes en el que se va a ejecutar la reforma una vez aprobada.
+                  </span>
+                </label>
               </section>
 
               {hasUnresolvableBudgetItems ? (
@@ -1175,7 +1204,12 @@ export default function EventoReformaPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={!requestReason.trim() || submitting || hasUnresolvableBudgetItems}
+                disabled={
+                  !requestReason.trim() ||
+                  typeof mesEjecucion !== "number" ||
+                  submitting ||
+                  hasUnresolvableBudgetItems
+                }
                 className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-gray-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />

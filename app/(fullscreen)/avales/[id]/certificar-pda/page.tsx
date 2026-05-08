@@ -5,7 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
-import { aprobarAval, createPda, getAval, rechazarAval } from "@/lib/api/avales";
+import {
+  aprobarAval,
+  createPda,
+  getAval,
+  rechazarAval,
+} from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   formatCurrency,
@@ -18,12 +23,18 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
+import PdaPreview, {
+  type PdaDraft,
+} from "@/app/(app)/avales/_components/pda-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import AlertBanner from "@/components/ui/alert-banner";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
-import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
+import {
+  getApprovalStageLabel,
+  getNextApprovalStage,
+  getPreviousApprovalStages,
+} from "@/lib/constants";
 import { getNormalizedRoles } from "@/lib/auth/access";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
@@ -49,18 +60,20 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   observaciones: "",
 };
 
+type BudgetDraftDia = {
+  numeroDia: number;
+  cantidad?: number;
+  valorUnitario?: number;
+};
+
 type BudgetDraftItem = {
   id: number;
   itemId: number;
   codigo: number;
   nombre: string;
   actividad: string;
-  cantidad: number;
-  dias: number;
-  valorUnitario: number;
-  valor: number;
+  dias: BudgetDraftDia[];
 };
-
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   const tecnico = aval.avalTecnico;
@@ -82,7 +95,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -93,8 +108,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 
       const nombre = (
         [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
@@ -142,7 +161,7 @@ function buildDefaultDescripcion(aval: Aval) {
     aval.numeroColeccion ??
     String(aval.id);
 
-  return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por el ${entrenadorResponsable} Entrenador de la disciplina y la [NOMBRE PRESIDENTE] Presidente del Comité de Funcionamiento me permito certificar que el evento ${eventoNombre.toUpperCase()}${
+  return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por el ${entrenadorResponsable} Entrenador de la disciplina me permito certificar que el evento ${eventoNombre.toUpperCase()}${
     categoria ? ` (${categoria.toUpperCase()})` : ""
   } consta en el PDA 2026 aprobado por el Ministerio del Deporte.`;
 }
@@ -160,8 +179,9 @@ function validatePdaDraft(draft: PdaDraft): string | null {
   return null;
 }
 
-function normalizePositiveNumber(value: string, fallback = 1) {
-  const parsed = Number.parseFloat(value);
+function normalizePositiveNumber(value: string, fallback?: number) {
+  if (!value.trim()) return fallback;
+  const parsed = Number.parseFloat(value.replace(",", "."));
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return parsed;
 }
@@ -170,8 +190,16 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function getDraftItemDiaTotal(dia: BudgetDraftDia) {
+  const cantidad = dia.cantidad ?? 0;
+  const valorUnitario = dia.valorUnitario ?? 0;
+  return roundCurrency(cantidad * valorUnitario);
+}
+
 function getDraftItemTotal(item: BudgetDraftItem) {
-  return roundCurrency(item.valor);
+  return roundCurrency(
+    item.dias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0)
+  );
 }
 
 function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
@@ -185,24 +213,30 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       (candidate) =>
         candidate.rubroId === item.item.id || candidate.rubroId === item.id,
     );
-    const dias = normalizePositiveNumber(requerimiento?.cantidadDias ?? "1");
+    const cantidadDias = normalizePositiveNumber(requerimiento?.cantidadDias ?? "1") || 1;
     const cantidad = 1;
     const valorUnitario = roundCurrency(
       requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
         ? requerimiento.valorUnitario
-        : totalOriginal / (cantidad * dias || 1),
+        : totalOriginal / cantidadDias,
     );
+
+    const dias: BudgetDraftDia[] = [
+      {
+        numeroDia: 1,
+        cantidad,
+        valorUnitario,
+      },
+    ];
 
     return {
       id: item.id,
       itemId: item.item.id,
       codigo: item.item.numero,
       nombre: item.item.nombre,
-      actividad: item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
-      cantidad,
+      actividad:
+        item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
       dias,
-      valorUnitario,
-      valor: totalOriginal,
     };
   });
 }
@@ -225,7 +259,9 @@ export default function CertificarAvalPage() {
     message: string;
   } | null>(null);
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
-  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
+  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>(
+    [],
+  );
 
   const isPda = getNormalizedRoles(user).includes("PDA");
   const defaultSignerName = useMemo(() => {
@@ -307,13 +343,18 @@ export default function CertificarAvalPage() {
   const totalPresupuestoOriginal = useMemo(
     () =>
       presupuestoItems.reduce(
-        (total, item) => total + (Number.parseFloat(item.presupuesto ?? "0") || 0),
+        (total, item) =>
+          total + (Number.parseFloat(item.presupuesto ?? "0") || 0),
         0,
       ),
     [presupuestoItems],
   );
   const totalPresupuestoDraft = useMemo(
-    () => budgetDraftItems.reduce((total, item) => total + getDraftItemTotal(item), 0),
+    () =>
+      budgetDraftItems.reduce(
+        (total, item) => total + getDraftItemTotal(item),
+        0,
+      ),
     [budgetDraftItems],
   );
   const totalDifference = useMemo(
@@ -359,8 +400,21 @@ export default function CertificarAvalPage() {
       setActionError(validationError);
       return;
     }
+
+    const invalidItems = budgetDraftItems.filter((item) => {
+      return item.dias.length === 0 || item.dias.some((dia) => !dia.cantidad || !dia.valorUnitario || dia.cantidad <= 0 || dia.valorUnitario <= 0);
+    });
+    if (invalidItems.length > 0) {
+      setActionError(
+        "Todos los ítems deben tener al menos un día con cantidad y valor unitario mayores a 0.",
+      );
+      return;
+    }
+
     if (!totalMatches) {
-      setActionError("El total del presupuesto editado debe coincidir con el total original del evento.");
+      setActionError(
+        "El total del presupuesto editado debe coincidir con el total original del evento.",
+      );
       return;
     }
 
@@ -371,6 +425,11 @@ export default function CertificarAvalPage() {
         .map((item) => ({
           itemId: item.itemId,
           presupuesto: getDraftItemTotal(item),
+          dias: item.dias.map((dia) => ({
+            numeroDia: dia.numeroDia,
+            cantidad: dia.cantidad!,
+            valorUnitario: dia.valorUnitario!,
+          })),
         }))
         .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
 
@@ -397,35 +456,77 @@ export default function CertificarAvalPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, approvalEtapa, loadAval, draft, isEditable, budgetDraftItems, totalMatches]);
+  }, [
+    aval,
+    user?.id,
+    approvalEtapa,
+    loadAval,
+    draft,
+    isEditable,
+    budgetDraftItems,
+    totalMatches,
+  ]);
 
-  const handleBudgetItemChange = useCallback(
+  const handleDiaChange = useCallback(
     (
-      id: number,
-      field: "cantidad" | "dias" | "valorUnitario" | "valor",
+      itemId: number,
+      numeroDia: number,
+      field: "cantidad" | "valorUnitario",
       value: string,
     ) => {
       setBudgetDraftItems((prev) =>
         prev.map((item) => {
-          if (item.id !== id) return item;
+          if (item.id !== itemId) return item;
+          const normalizedValue = normalizePositiveNumber(value);
 
-          const updated = { ...item };
-          const numValue = field === "valorUnitario" || field === "valor"
-            ? roundCurrency(normalizePositiveNumber(value))
-            : normalizePositiveNumber(value);
-
-          updated[field] = numValue;
-
-          if (field === "cantidad" || field === "dias" || field === "valorUnitario") {
-            updated.valor = roundCurrency(updated.cantidad * updated.dias * updated.valorUnitario);
-          }
-
-          return updated;
+          return {
+            ...item,
+            dias: item.dias.map((dia) => {
+              if (dia.numeroDia !== numeroDia) return dia;
+              return {
+                ...dia,
+                [field]: normalizedValue,
+              };
+            }),
+          };
         }),
       );
     },
     [],
   );
+
+  const handleAddDia = useCallback((itemId: number) => {
+    setBudgetDraftItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const maxDia = Math.max(...item.dias.map((d) => d.numeroDia), 0);
+        return {
+          ...item,
+          dias: [
+            ...item.dias,
+            {
+              numeroDia: maxDia + 1,
+              cantidad: 1,
+              valorUnitario: 0,
+            },
+          ],
+        };
+      }),
+    );
+  }, []);
+
+  const handleRemoveDia = useCallback((itemId: number, numeroDia: number) => {
+    setBudgetDraftItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        if (item.dias.length <= 1) return item;
+        return {
+          ...item,
+          dias: item.dias.filter((dia) => dia.numeroDia !== numeroDia),
+        };
+      }),
+    );
+  }, []);
 
   const handleReject = useCallback(async () => {
     if (!aval) return;
@@ -463,7 +564,15 @@ export default function CertificarAvalPage() {
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, loadAval, isEditable]);
+  }, [
+    aval,
+    user?.id,
+    rechazoMotivo,
+    etapaDestino,
+    currentEtapa,
+    loadAval,
+    isEditable,
+  ]);
 
   if (authLoading) {
     return (
@@ -539,7 +648,8 @@ export default function CertificarAvalPage() {
                   Certificacion PDA
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Completa los datos del modelo PDA. El parrafo principal se agregara despues.
+                  Completa los datos del modelo PDA. El parrafo principal se
+                  agregara despues.
                 </p>
               </div>
 
@@ -555,7 +665,10 @@ export default function CertificarAvalPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, descripcion: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        descripcion: e.target.value,
+                      }))
                     }
                     placeholder="Escribe la descripcion que va en la parte superior del certificado..."
                   />
@@ -570,7 +683,10 @@ export default function CertificarAvalPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, nombreFirmante: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        nombreFirmante: e.target.value,
+                      }))
                     }
                     placeholder="Ej: Lic. Juan Perez"
                   />
@@ -585,7 +701,10 @@ export default function CertificarAvalPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, cargoFirmante: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        cargoFirmante: e.target.value,
+                      }))
                     }
                     placeholder="Ej: Metodologo Provincial"
                   />
@@ -599,7 +718,7 @@ export default function CertificarAvalPage() {
                       Items del presupuesto
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Cantidad, dias, valor unitario y valor son campos manuales e independientes.
+                      Desglose por día del presupuesto por ítem.
                     </p>
                   </div>
                   <div className="text-right">
@@ -620,8 +739,12 @@ export default function CertificarAvalPage() {
                         : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300"
                     }`}
                   >
-                    <p>Total original: {formatCurrency(totalPresupuestoOriginal)}</p>
-                    <p>Total editado: {formatCurrency(totalPresupuestoDraft)}</p>
+                    <p>
+                      Total original: {formatCurrency(totalPresupuestoOriginal)}
+                    </p>
+                    <p>
+                      Total editado: {formatCurrency(totalPresupuestoDraft)}
+                    </p>
                     <p>
                       Diferencia: {formatCurrency(Math.abs(totalDifference))}
                       {!totalMatches ? " (debe quedar en 0)" : ""}
@@ -634,104 +757,116 @@ export default function CertificarAvalPage() {
                     Este aval no tiene items presupuestarios registrados.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-800/60">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                            Cantidad
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                            Dias
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                            Codigo
-                          </th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                            Nombre
-                          </th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">
-                            V. unitario
-                          </th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">
-                            Valor
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                        {budgetDraftItems.map((item) => (
-                          <tr key={item.id}>
-                            <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="form-input w-20"
-                                value={item.cantidad}
-                                readOnly={!isEditable}
-                                disabled={!isEditable}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9]/g, "");
-                                  handleBudgetItemChange(item.id, "cantidad", value);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="form-input w-20"
-                                value={item.dias}
-                                readOnly={!isEditable}
-                                disabled={!isEditable}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9]/g, "");
-                                  handleBudgetItemChange(item.id, "dias", value);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-gray-700 dark:text-gray-200">
-                              {item.codigo}
-                            </td>
-                            <td className="px-4 py-3 text-gray-900 dark:text-gray-100">
-                              <div className="min-w-[220px]">
-                                <p>{item.nombre}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  {item.actividad}
-                                </p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                className="form-input w-28 ml-auto text-right"
-                                value={item.valorUnitario}
-                                readOnly={!isEditable}
-                                disabled={!isEditable}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9.]/g, "");
-                                  handleBudgetItemChange(item.id, "valorUnitario", value);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                className="form-input w-32 ml-auto text-right"
-                                value={item.valor}
-                                readOnly={!isEditable}
-                                disabled={!isEditable}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9.]/g, "");
-                                  handleBudgetItemChange(item.id, "valor", value);
-                                }}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-6 p-4">
+                    {budgetDraftItems.map((item) => (
+                      <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <div className="bg-gray-50 dark:bg-gray-800/60 px-4 py-3">
+                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                            {item.codigo} - {item.nombre}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {item.actividad}
+                          </p>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-100 dark:bg-gray-800">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">
+                                  Día
+                                </th>
+                                <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                  Cantidad
+                                </th>
+                                <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                  V. Unitario
+                                </th>
+                                <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                  Subtotal
+                                </th>
+                                <th className="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-300">
+                                  Acciones
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                              {item.dias.map((dia) => (
+                                <tr key={`${item.id}-${dia.numeroDia}`}>
+                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                                    Día {dia.numeroDia}
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      className="form-input w-20 ml-auto text-right"
+                                      value={dia.cantidad || ""}
+                                      readOnly={!isEditable}
+                                      disabled={!isEditable}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9.]/g, "");
+                                        handleDiaChange(item.id, dia.numeroDia, "cantidad", value);
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      className="form-input w-24 ml-auto text-right"
+                                      value={dia.valorUnitario || ""}
+                                      readOnly={!isEditable}
+                                      disabled={!isEditable}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9.,]/g, "").replace(",", ".");
+                                        handleDiaChange(item.id, dia.numeroDia, "valorUnitario", value);
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(getDraftItemDiaTotal(dia))}
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    {isEditable && item.dias.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveDia(item.id, dia.numeroDia)}
+                                        className="text-rose-500 hover:text-rose-600 text-lg"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="bg-gray-50 dark:bg-gray-800/40 px-4 py-2 flex items-center justify-between">
+                          <div className="flex gap-2">
+                            {isEditable && (
+                              <button
+                                type="button"
+                                onClick={() => handleAddDia(item.id)}
+                                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                              >
+                                + Agregar día
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Total del ítem
+                            </p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {formatCurrency(getDraftItemTotal(item))}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -827,11 +962,15 @@ export default function CertificarAvalPage() {
                   evento: {
                     ...aval.evento,
                     presupuesto: aval.evento.presupuesto.map((item) => {
-                      const budgetItem = budgetDraftItems.find((draftItem) => draftItem.id === item.id);
+                      const budgetItem = budgetDraftItems.find(
+                        (draftItem) => draftItem.id === item.id,
+                      );
                       return {
                         ...item,
                         presupuesto: String(
-                          budgetItem ? getDraftItemTotal(budgetItem) : Number.parseFloat(item.presupuesto ?? "0") || 0,
+                          budgetItem
+                            ? getDraftItemTotal(budgetItem)
+                            : Number.parseFloat(item.presupuesto ?? "0") || 0,
                         ),
                       };
                     }),

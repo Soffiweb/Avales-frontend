@@ -25,6 +25,13 @@ export type ActividadSimple = {
   numero: number;
 };
 
+export type PdaItemDia = {
+  id?: number;
+  numeroDia: number;
+  cantidad: number;
+  valorUnitario: number;
+};
+
 export type ItemSimple = {
   id: number;
   nombre: string;
@@ -194,6 +201,12 @@ export type Aval = {
     codigoActividad?: string | null;
     nombreFirmante?: string | null;
     cargoFirmante?: string | null;
+    items?: Array<{
+      id?: number;
+      itemId: number;
+      presupuesto: number;
+      dias: PdaItemDia[];
+    }> | null;
   } | null;
   comprasPublicas?: {
     numeroCertificado?: string | null;

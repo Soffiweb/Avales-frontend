@@ -139,9 +139,16 @@ export async function downloadPdaPdf(id: number) {
   });
 }
 
+export type CreatePdaItemDiaPayload = {
+  numeroDia: number;
+  cantidad: number;
+  valorUnitario: number;
+};
+
 export type CreatePdaItemPayload = {
   itemId: number;
   presupuesto: number;
+  dias: CreatePdaItemDiaPayload[];
 };
 
 export type CreatePdaPayload = {

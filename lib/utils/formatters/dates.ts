@@ -40,11 +40,7 @@ export function formatDateWithOptions(
   value?: string | null,
   options: DateFormatOptions = {},
 ): string {
-  const {
-    fallback = "-",
-    locale = DEFAULT_LOCALE,
-    ...dateOptions
-  } = options;
+  const { fallback = "-", locale = DEFAULT_LOCALE, ...dateOptions } = options;
   const date = parseDate(value);
   if (!date) return fallback;
   return date.toLocaleDateString(locale, {
@@ -263,8 +259,7 @@ export function formatEventScheduleSentence(
   evento?: EventScheduleLike | null,
   options: { year?: number; fallback?: string } = {},
 ): string {
-  const { year = new Date().getFullYear(), fallback = "en fecha por definir" } =
-    options;
+  const { fallback = "en fecha por definir" } = options;
 
   if (evento?.fechaInicio && evento?.fechaFin) {
     return `del ${formatDateWithOptions(evento.fechaInicio, {
@@ -278,9 +273,15 @@ export function formatEventScheduleSentence(
     })}`;
   }
 
-  const label = formatMonthYear(evento?.mesProgramado, year);
-  if (label === "-") return fallback;
-  return `en ${label.toLowerCase()}`;
+  if (
+    evento?.mesProgramado &&
+    evento.mesProgramado > 0 &&
+    evento.mesProgramado <= 12
+  ) {
+    return `en el mes de ${MONTHS[evento.mesProgramado - 1]}`;
+  }
+
+  return fallback;
 }
 
 export function formatEventDateRangeForDescripcion(

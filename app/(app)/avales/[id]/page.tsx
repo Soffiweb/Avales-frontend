@@ -486,11 +486,20 @@ export default function AvalDetailPage() {
     : 0;
 
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
-  const adjuntosSolicitud = aval.adjuntosSolicitud ?? [];
-  const solicitudAttachments = [
-    { label: "Convocatoria", url: aval.convocatoriaUrl },
-    { label: "Certificado médico", url: aval.solicitudUrl },
-  ].filter((item): item is { label: string; url: string } => Boolean(item.url));
+  const solicitudAvalUrl =
+    aval.solicitudUrl ?? aval.avalTecnicoPdfUrl ?? aval.avalTecnico?.archivo;
+  const documentActions = [
+    {
+      label: "Descargar solicitud del aval",
+      url: solicitudAvalUrl,
+      icon: FileText,
+    },
+    {
+      label: "Descargar convocatoria",
+      url: aval.convocatoriaUrl,
+      icon: Download,
+    },
+  ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);
 
@@ -753,57 +762,6 @@ export default function AvalDetailPage() {
                   </div>
                 ) : null}
 
-                {solicitudAttachments.length > 0 || adjuntosSolicitud.length > 0 ? (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/30">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                      <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500">
-                        Archivos adjuntos
-                      </p>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      {solicitudAttachments.map((item) => (
-                        <a
-                          key={item.label}
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900/40"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {item.label}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Documento del evento
-                            </p>
-                          </div>
-                          <Download className="w-4 h-4 shrink-0 text-gray-400 mt-1" />
-                        </a>
-                      ))}
-
-                      {adjuntosSolicitud.map((adjunto) => (
-                        <a
-                          key={adjunto.id}
-                          href={adjunto.url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900/40"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {adjunto.nombreOriginal || adjunto.nombreArchivo}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Archivo adjunto del entrenador · {formatDate(adjunto.createdAt)}
-                            </p>
-                          </div>
-                          <Download className="w-4 h-4 shrink-0 text-gray-400 mt-1" />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
                 {aval.avalTecnico ? (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
@@ -912,6 +870,41 @@ export default function AvalDetailPage() {
                 </ul>
               </div>
             ) : null}
+
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
+              <div className="space-y-2">
+                {documentActions.map((item) => {
+                  const Icon = item.icon;
+                  if (!item.url) {
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        disabled
+                        className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
+                      >
+                        <Icon className="w-4 h-4 mr-2" />
+                        {item.label}
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <a
+                      key={item.label}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      download
+                      className="btn w-full justify-center bg-indigo-500 text-white hover:bg-indigo-600"
+                    >
+                      <Icon className="w-4 h-4 mr-2" />
+                      {item.label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
 
             {showApprovalPanel ? (
               <ApprovalFlowCard

@@ -198,7 +198,7 @@ function getDraftItemDiaTotal(dia: BudgetDraftDia) {
 
 function getDraftItemTotal(item: BudgetDraftItem) {
   return roundCurrency(
-    item.dias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0)
+    item.dias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0),
   );
 }
 
@@ -213,7 +213,8 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       (candidate) =>
         candidate.rubroId === item.item.id || candidate.rubroId === item.id,
     );
-    const cantidadDias = normalizePositiveNumber(requerimiento?.cantidadDias ?? "1") || 1;
+    const cantidadDias =
+      normalizePositiveNumber(requerimiento?.cantidadDias ?? "1") || 1;
     const cantidad = 1;
     const valorUnitario = roundCurrency(
       requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
@@ -402,7 +403,16 @@ export default function CertificarAvalPage() {
     }
 
     const invalidItems = budgetDraftItems.filter((item) => {
-      return item.dias.length === 0 || item.dias.some((dia) => !dia.cantidad || !dia.valorUnitario || dia.cantidad <= 0 || dia.valorUnitario <= 0);
+      return (
+        item.dias.length === 0 ||
+        item.dias.some(
+          (dia) =>
+            !dia.cantidad ||
+            !dia.valorUnitario ||
+            dia.cantidad <= 0 ||
+            dia.valorUnitario <= 0,
+        )
+      );
     });
     if (invalidItems.length > 0) {
       setActionError(
@@ -759,7 +769,10 @@ export default function CertificarAvalPage() {
                 ) : (
                   <div className="space-y-6 p-4">
                     {budgetDraftItems.map((item) => (
-                      <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <div
+                        key={item.id}
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                      >
                         <div className="bg-gray-50 dark:bg-gray-800/60 px-4 py-3">
                           <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
                             {item.codigo} - {item.nombre}
@@ -805,8 +818,16 @@ export default function CertificarAvalPage() {
                                       readOnly={!isEditable}
                                       disabled={!isEditable}
                                       onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9.]/g, "");
-                                        handleDiaChange(item.id, dia.numeroDia, "cantidad", value);
+                                        const value = e.target.value.replace(
+                                          /[^0-9.]/g,
+                                          "",
+                                        );
+                                        handleDiaChange(
+                                          item.id,
+                                          dia.numeroDia,
+                                          "cantidad",
+                                          value,
+                                        );
                                       }}
                                     />
                                   </td>
@@ -819,8 +840,15 @@ export default function CertificarAvalPage() {
                                       readOnly={!isEditable}
                                       disabled={!isEditable}
                                       onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9.,]/g, "").replace(",", ".");
-                                        handleDiaChange(item.id, dia.numeroDia, "valorUnitario", value);
+                                        const value = e.target.value
+                                          .replace(/[^0-9.,]/g, "")
+                                          .replace(",", ".");
+                                        handleDiaChange(
+                                          item.id,
+                                          dia.numeroDia,
+                                          "valorUnitario",
+                                          value,
+                                        );
                                       }}
                                     />
                                   </td>
@@ -831,7 +859,12 @@ export default function CertificarAvalPage() {
                                     {isEditable && item.dias.length > 1 && (
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoveDia(item.id, dia.numeroDia)}
+                                        onClick={() =>
+                                          handleRemoveDia(
+                                            item.id,
+                                            dia.numeroDia,
+                                          )
+                                        }
                                         className="text-rose-500 hover:text-rose-600 text-lg"
                                       >
                                         ×

@@ -188,6 +188,9 @@ export type Aval = {
   etapaActual?: EtapaFlujo;
   comentario?: string | null;
   convocatoriaUrl?: string | null;
+  certificadoMedicoUrl?: string | null;
+  avalTecnicoPdfUrl?: string | null;
+  escuelaIniciacionPdfUrl?: string | null;
   dtmUrl?: string | null;
   pdaUrl?: string | null;
   solicitudUrl?: string | null;

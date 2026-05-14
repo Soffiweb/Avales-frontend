@@ -12,6 +12,7 @@ import type { User } from "@/types/user";
 import type { Aval } from "@/types/aval";
 import { formatGenero } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
+import { matchesSearchTerm } from "@/lib/utils/normalize-text";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 
@@ -100,20 +101,46 @@ export default function Paso01Deportistas({
   const [searchDeportistas, setSearchDeportistas] = useState("");
   const [deportistas, setDeportistas] = useState<Deportista[]>([]);
   const [loadingDeportistas, setLoadingDeportistas] = useState(false);
+  const [deportistasFocused, setDeportistasFocused] = useState(false);
   const [selectedDeportistas, setSelectedDeportistas] = useState<
     SelectedDeportista[]
-  >([]);
+  >(() =>
+    sortDeportistasByApellido(
+      (formData.deportistas ?? []).map((d) => ({
+        id: d.id,
+        nombres: d.nombres ?? d.nombre ?? "",
+        apellidos: d.apellidos ?? d.apellido ?? "",
+        cedula: d.cedula ?? "",
+        fechaNacimiento: d.fechaNacimiento ?? "",
+        genero: (d.genero as Deportista["genero"]) ?? undefined,
+        afiliacion: d.afiliacion ?? false,
+        rol: d.rol ?? "ATLETA",
+        // Campos extras que el form principal no guarda — usan defaults.
+        ...(d.payload as Partial<Deportista> | undefined),
+      })) as SelectedDeportista[],
+    ),
+  );
 
   const [searchEntrenadores, setSearchEntrenadores] = useState("");
   const [entrenadores, setEntrenadores] = useState<User[]>([]);
   const [loadingEntrenadores, setLoadingEntrenadores] = useState(false);
+  const [entrenadoresFocused, setEntrenadoresFocused] = useState(false);
   const [selectedEntrenadores, setSelectedEntrenadores] = useState<
     SelectedEntrenador[]
-  >([]);
+  >(() =>
+    (formData.entrenadores ?? []).map((e) => {
+      const [nombre = "", ...apellidoParts] = (e.nombre ?? "").split(" ");
+      return {
+        id: e.id,
+        nombre,
+        apellido: apellidoParts.join(" "),
+      } as SelectedEntrenador;
+    }),
+  );
 
   const [principalEntrenadorId, setPrincipalEntrenadorId] = useState<
     number | null
-  >(null);
+  >(() => formData.entrenadores?.[0]?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const autoSelectEntrenadorRef = useRef(false);
 
@@ -199,16 +226,12 @@ export default function Paso01Deportistas({
   }, [selectedEntrenadores, totalEntrenadoresRequeridos, user]);
 
   const fetchDeportistas = useCallback(async () => {
-    if (!searchDeportistas.trim()) {
-      setDeportistas([]);
-      return;
-    }
-
     try {
       setLoadingDeportistas(true);
+      const trimmed = searchDeportistas.trim();
       const options: ListDeportistasOptions = {
-        query: searchDeportistas.trim(),
         limit: 20,
+        ...(trimmed ? { query: trimmed } : {}),
       };
 
       const res = await listDeportistas(options);
@@ -221,11 +244,6 @@ export default function Paso01Deportistas({
   }, [searchDeportistas]);
 
   const fetchEntrenadores = useCallback(async () => {
-    if (!searchEntrenadores.trim()) {
-      setEntrenadores([]);
-      return;
-    }
-
     try {
       setLoadingEntrenadores(true);
       const options: ListEntrenadoresOptions = {
@@ -234,13 +252,17 @@ export default function Paso01Deportistas({
 
       const res = await listEntrenadores(options);
       const items = res.data ?? [];
-      const query = searchEntrenadores.toLowerCase();
+      const trimmed = searchEntrenadores.trim();
       setEntrenadores(
-        items.filter((entrenador) =>
-          `${entrenador.nombre} ${entrenador.apellido} ${entrenador.cedula}`
-            .toLowerCase()
-            .includes(query)
-        )
+        trimmed
+          ? items.filter((entrenador) =>
+              matchesSearchTerm(trimmed, [
+                entrenador.nombre,
+                entrenador.apellido,
+                entrenador.cedula,
+              ]),
+            )
+          : items,
       );
     } catch (err: any) {
       console.error("Error al cargar entrenadores:", err);
@@ -273,7 +295,6 @@ export default function Paso01Deportistas({
       sortDeportistasByApellido([...prev, { ...deportista, rol: "ATLETA" }])
     );
     setSearchDeportistas("");
-    setDeportistas([]);
   };
 
   const handleRemoveDeportista = (deportistaId: number) => {
@@ -291,7 +312,6 @@ export default function Paso01Deportistas({
       setPrincipalEntrenadorId(entrenador.id);
     }
     setSearchEntrenadores("");
-    setEntrenadores([]);
   };
 
   const handleRemoveEntrenador = (entrenadorId: number) => {
@@ -374,22 +394,21 @@ export default function Paso01Deportistas({
             placeholder="Buscar deportista..."
             value={searchDeportistas}
             onChange={(e) => setSearchDeportistas(e.target.value)}
+            onFocus={() => setDeportistasFocused(true)}
+            onBlur={() => setTimeout(() => setDeportistasFocused(false), 150)}
             disabled={selectedDeportistas.length >= totalDeportistasRequeridos}
           />
           {searchDeportistas.trim() && (
             <button
               type="button"
-              onClick={() => {
-                setSearchDeportistas("");
-                setDeportistas([]);
-              }}
+              onClick={() => setSearchDeportistas("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <X className="w-5 h-5" />
             </button>
           )}
 
-          {(loadingDeportistas || searchDeportistas.trim() !== "") && (
+          {deportistasFocused && (loadingDeportistas || deportistas.length > 0) && (
             <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {loadingDeportistas ? (
                 <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
@@ -530,22 +549,21 @@ export default function Paso01Deportistas({
             placeholder="Buscar entrenador..."
             value={searchEntrenadores}
             onChange={(e) => setSearchEntrenadores(e.target.value)}
+            onFocus={() => setEntrenadoresFocused(true)}
+            onBlur={() => setTimeout(() => setEntrenadoresFocused(false), 150)}
             disabled={selectedEntrenadores.length >= totalEntrenadoresRequeridos}
           />
           {searchEntrenadores.trim() && (
             <button
               type="button"
-              onClick={() => {
-                setSearchEntrenadores("");
-                setEntrenadores([]);
-              }}
+              onClick={() => setSearchEntrenadores("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <X className="w-5 h-5" />
             </button>
           )}
 
-          {(loadingEntrenadores || searchEntrenadores.trim() !== "") && (
+          {entrenadoresFocused && (loadingEntrenadores || entrenadores.length > 0) && (
             <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {loadingEntrenadores ? (
                 <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">

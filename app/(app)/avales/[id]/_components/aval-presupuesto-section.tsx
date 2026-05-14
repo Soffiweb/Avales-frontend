@@ -17,10 +17,10 @@ export default function AvalPresupuestoSection({
     <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
       <div className="flex flex-col gap-2 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+          <p className="text-xs uppercase tracking-wide text-gray-500">
             Presupuesto total
           </p>
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+          <p className="text-xs uppercase tracking-wide text-gray-500">
             Items registrados
           </p>
         </div>

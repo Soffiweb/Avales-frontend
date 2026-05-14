@@ -459,7 +459,7 @@ export default function RevisionDtmPage() {
         variant: "success",
         message: "Revisión DTM aprobada correctamente.",
       });
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error
@@ -498,13 +498,13 @@ export default function RevisionDtmPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
+      await rechazarAval(aval.id, user.id, approvalEtapa, rechazoMotivo.trim());
       setToast({
         variant: "success",
         message: "Aval rechazado correctamente.",
       });
       setRechazoMotivo("");
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error

@@ -16,14 +16,14 @@ import {
 import { listEventos } from "@/lib/api/eventos";
 import { canAccessReforms, getNormalizedRoles } from "@/lib/auth/access";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
+import { matchesSearchTerm } from "@/lib/utils/normalize-text";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDIENTE:
     "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
   APROBADA:
     "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
-  RECHAZADA:
-    "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
+  RECHAZADA: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
 };
 
 function getStatusClasses(status?: string | null) {
@@ -107,7 +107,9 @@ export default function ReformasPage() {
         setReforms(filteredReforms);
       } catch (err: unknown) {
         setError(
-          err instanceof Error ? err.message : "No se pudieron cargar las reformas.",
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las reformas.",
         );
       } finally {
         setLoading(false);
@@ -115,12 +117,7 @@ export default function ReformasPage() {
     }
 
     void fetchReforms();
-  }, [
-    authLoading,
-    canViewReforms,
-    isEntrenador,
-    tipoFilter,
-  ]);
+  }, [authLoading, canViewReforms, isEntrenador, tipoFilter]);
 
   if (authLoading) {
     return (
@@ -146,21 +143,16 @@ export default function ReformasPage() {
   }
 
   const filteredReforms = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
     return reforms.filter((reform) => {
-      const matchesStatus = statusFilter ? reform.estado === statusFilter : true;
-      const matchesSearch = term
-        ? [
-            reform.motivo,
-            reform.evento?.nombre,
-            reform.evento?.codigo,
-            String(reform.id),
-          ]
-            .filter(Boolean)
-            .some((value) => String(value).toLowerCase().includes(term))
+      const matchesStatus = statusFilter
+        ? reform.estado === statusFilter
         : true;
-
+      const matchesSearch = matchesSearchTerm(search, [
+        reform.motivo,
+        reform.evento?.nombre,
+        reform.evento?.codigo,
+        String(reform.id),
+      ]);
       return matchesStatus && matchesSearch;
     });
   }, [reforms, search, statusFilter]);
@@ -268,7 +260,10 @@ export default function ReformasPage() {
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                       Reforma #{reform.id}
                     </p>
-                    <h2 className="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100" title={reform.evento?.nombre}>
+                    <h2
+                      className="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100"
+                      title={reform.evento?.nombre}
+                    >
                       {reform.evento?.nombre || "Evento sin nombre"}
                     </h2>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -321,8 +316,8 @@ export default function ReformasPage() {
                       <dd className="mt-1 inline-flex items-center gap-1.5 text-gray-900 dark:text-gray-100">
                         <Calendar className="h-3.5 w-3.5 text-gray-400" />
                         {reform.mesEjecucion
-                          ? MES_NOMBRES_CORTOS[reform.mesEjecucion] ??
-                            `Mes ${reform.mesEjecucion}`
+                          ? (MES_NOMBRES_CORTOS[reform.mesEjecucion] ??
+                            `Mes ${reform.mesEjecucion}`)
                           : "-"}
                       </dd>
                     </div>

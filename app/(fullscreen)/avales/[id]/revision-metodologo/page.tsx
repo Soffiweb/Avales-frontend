@@ -492,7 +492,7 @@ export default function RevisionMetodologoPage() {
         variant: "success",
         message: "Revisión del metodólogo generada correctamente.",
       });
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "No se pudo aprobar el aval.",
@@ -527,13 +527,13 @@ export default function RevisionMetodologoPage() {
       await rechazarAval(
         aval.id,
         user.id,
-        currentEtapa,
+        approvalEtapa,
         rechazoMotivo.trim(),
         etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
       );
       setRechazoMotivo("");
       setEtapaDestino("");
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "No se pudo rechazar el aval.",

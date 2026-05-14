@@ -48,6 +48,7 @@ import {
 import AlertBanner from "@/components/ui/alert-banner";
 import { formatRoles } from "@/lib/utils/formatters/text";
 import TrainerDashboardSection from "./_components/trainer-dashboard-section";
+import PdaDashboardSection from "./_components/pda-dashboard-section";
 
 const COLORS = [
   "#6366f1",
@@ -231,6 +232,8 @@ export default function Dashboard() {
         </div>
 
         {isEntrenador && <TrainerDashboardSection />}
+        <PdaDashboardSection />
+
 
         {quickLinks.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

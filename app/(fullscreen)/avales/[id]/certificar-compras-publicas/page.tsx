@@ -23,6 +23,9 @@ import ComprasPublicasPreview, {
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
+import SaveIndicator from "@/components/ui/save-indicator";
+import DraftRestoredToast from "@/components/ui/draft-restored-toast";
+import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { formatRoles } from "@/lib/utils/formatters";
 import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
@@ -150,6 +153,8 @@ export default function CertificarComprasPublicasPage() {
     message: string;
   } | null>(null);
   const [draft, setDraft] = useState<ComprasPublicasDraft>(INITIAL_DRAFT);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
+  const [draftToastVisible, setDraftToastVisible] = useState(false);
 
   const isComprasPublicas = getNormalizedRoles(user).includes("COMPRAS_PUBLICAS");
   const defaultSignerName = useMemo(() => {
@@ -251,6 +256,32 @@ export default function CertificarComprasPublicasPage() {
     currentEtapa === "PDA" &&
     !aval?.comprasPublicas;
   const requiresContratacionData = draft.realizoProceso === true;
+
+  const autosave = useAutosaveDraft<ComprasPublicasDraft>({
+    key: `aval:${avalId}:compras-publicas`,
+    state: draft,
+    enabled: isEditable && Number.isFinite(avalId),
+    userId: user?.id,
+  });
+
+  // Restaurar borrador al entrar a la pantalla (solo si es editable)
+  useEffect(() => {
+    if (!isEditable) return;
+    if (!Number.isFinite(avalId)) return;
+    const restored = autosave.restore();
+    if (restored) {
+      setDraft(restored.state);
+      setDraftRestoredAt(restored.savedAt);
+      setDraftToastVisible(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditable, avalId]);
+
+  const handleDiscardDraft = useCallback(() => {
+    autosave.clear();
+    setDraft(INITIAL_DRAFT);
+    setDraftToastVisible(false);
+  }, [autosave]);
   const approvalEtapa = getNextApprovalStage(currentEtapa) ?? currentEtapa;
   const summaryText =
     "Al aprobarlo quedará certificado por Compras Públicas y continuará el flujo.";
@@ -316,11 +347,12 @@ export default function CertificarComprasPublicasPage() {
       const nextEtapa = getNextApprovalStage(refreshedEtapa);
       const resolvedApprovalEtapa = nextEtapa ?? refreshedEtapa;
       await aprobarAval(aval.id, user.id, resolvedApprovalEtapa);
+      autosave.clear();
       setToast({
         variant: "success",
         message: "Certificación de Compras Públicas registrada correctamente.",
       });
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       pushError(
         err instanceof Error
@@ -353,17 +385,18 @@ export default function CertificarComprasPublicasPage() {
       await rechazarAval(
         aval.id,
         user.id,
-        currentEtapa,
+        approvalEtapa,
         rechazoMotivo.trim(),
         etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
       );
+      autosave.clear();
       setToast({
         variant: "success",
         message: "Aval rechazado correctamente.",
       });
       setRechazoMotivo("");
       setEtapaDestino("");
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       pushError(
         err instanceof Error ? err.message : "No se pudo rechazar el aval.",
@@ -421,6 +454,12 @@ export default function CertificarComprasPublicasPage() {
 
   return (
     <div className="h-screen flex">
+      <DraftRestoredToast
+        visible={draftToastVisible}
+        savedAt={draftRestoredAt}
+        onDiscard={handleDiscardDraft}
+        onDismiss={() => setDraftToastVisible(false)}
+      />
       {toast && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
           <AlertBanner
@@ -442,13 +481,22 @@ export default function CertificarComprasPublicasPage() {
             </button>
 
             <div className="space-y-5">
-              <div>
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                  Certificado de Compras Públicas
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Completa los datos para emitir el certificado.
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                    Certificado de Compras Públicas
+                  </h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Completa los datos para emitir el certificado.
+                  </p>
+                </div>
+                {isEditable && (
+                  <SaveIndicator
+                    status={autosave.status}
+                    lastSavedAt={autosave.lastSavedAt}
+                    className="mt-2 shrink-0"
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

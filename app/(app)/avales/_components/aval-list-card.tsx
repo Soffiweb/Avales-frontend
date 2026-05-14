@@ -115,6 +115,28 @@ export default function AvalListCard({
       {avales.map((aval) => {
         const etapaActual = aval.etapaActual ?? getCurrentEtapa(aval.historial);
         const etapaParaMostrar = (etapaActual ?? "SOLICITUD") as EtapaFlujo;
+
+        // Solo se puede actuar si el aval está SOLICITADO y la etapa actual
+        // matchea con el rol del usuario. Además, si el último evento del
+        // historial fue RECHAZADO, no mostrar acción (el aval volvió a una
+        // etapa anterior por rechazo y debe ser re-procesado por otro rol).
+        const isProcessable = aval.estado === "SOLICITADO";
+        // El historial viene ordenado DESC (más nuevo primero) → [0] es el último evento.
+        const lastHistorial = aval.historial?.[0];
+        const wasRecentlyRejected = lastHistorial?.estado === "RECHAZADO";
+        const stageMatchesRole = (role: EtapaFlujo) =>
+          isProcessable && !wasRecentlyRejected && etapaParaMostrar === role;
+        const canPdaAct = isPda && stageMatchesRole("SOLICITUD" as EtapaFlujo);
+        const canComprasAct =
+          isComprasPublicas && stageMatchesRole("PDA" as EtapaFlujo);
+        const canMetodologoAct =
+          isMetodologo && stageMatchesRole("COMPRAS_PUBLICAS" as EtapaFlujo);
+        const canDtmAct =
+          isDtm && stageMatchesRole("REVISION_METODOLOGO" as EtapaFlujo);
+        const canControlPrevioAct =
+          isControlPrevio && stageMatchesRole("REVISION_DTM" as EtapaFlujo);
+        const canFinancieroAct =
+          isFinanciero && stageMatchesRole("CONTROL_PREVIO" as EtapaFlujo);
         const statusStyles = getApprovalStageBadgeStyles(
           aval.estado,
           etapaParaMostrar,
@@ -242,7 +264,7 @@ export default function AvalListCard({
                       <Eye className="w-4 h-4" />
                       Ver detalle
                     </Link>
-                    {isPda && (
+                    {canPdaAct && (
                       <Link
                         href={`/avales/${aval.id}/certificar-pda`}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition-colors"
@@ -251,7 +273,7 @@ export default function AvalListCard({
                         Certificar
                       </Link>
                     )}
-                    {isComprasPublicas && (
+                    {canComprasAct && (
                       <Link
                         href={`/avales/${aval.id}/certificar-compras-publicas`}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
@@ -260,7 +282,7 @@ export default function AvalListCard({
                         Certificar
                       </Link>
                     )}
-                    {isDtm && (
+                    {canDtmAct && (
                       <Link
                         href={`/avales/${aval.id}/revision-dtm`}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
@@ -269,7 +291,7 @@ export default function AvalListCard({
                         Revisar
                       </Link>
                     )}
-                    {isMetodologo && (
+                    {canMetodologoAct && (
                       <Link
                         href={`/avales/${aval.id}/revision-metodologo`}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
@@ -278,7 +300,7 @@ export default function AvalListCard({
                         Revisar
                       </Link>
                     )}
-                    {isControlPrevio && (
+                    {canControlPrevioAct && (
                       <Link
                         href={`/avales/${aval.id}/revision-control-previo`}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
@@ -287,7 +309,7 @@ export default function AvalListCard({
                         Revisar
                       </Link>
                     )}
-                    {isFinanciero && (
+                    {canFinancieroAct && (
                       <Link
                         href={`/avales/${aval.id}/certificacion-financiera`}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"

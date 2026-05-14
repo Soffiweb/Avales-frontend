@@ -367,7 +367,7 @@ export default function RevisionControlPrevioPage() {
     try {
       await aprobarAval(aval.id, user.id, approvalEtapa);
       setToast({ variant: "success", message: "Aval aprobado correctamente." });
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "No se pudo aprobar el aval.",
@@ -395,13 +395,13 @@ export default function RevisionControlPrevioPage() {
     setActionError(null);
     setActionLoading(true);
     try {
-      await rechazarAval(aval.id, user.id, currentEtapa, rechazoMotivo.trim());
+      await rechazarAval(aval.id, user.id, approvalEtapa, rechazoMotivo.trim());
       setToast({
         variant: "success",
         message: "Aval rechazado correctamente.",
       });
       setRechazoMotivo("");
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "No se pudo rechazar el aval.",

@@ -14,6 +14,8 @@ import {
   FileText,
   DollarSign,
   Download,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
@@ -24,7 +26,12 @@ import AvalDeportistasSection from "./_components/aval-deportistas-section";
 import AvalLogisticaSection from "./_components/aval-logistica-section";
 import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
-import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
+import {
+  aprobarAval,
+  getAval,
+  rechazarAval,
+  regenerarAvalPdfs,
+} from "@/lib/api/avales";
 import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
 import {
   formatDate,
@@ -95,7 +102,7 @@ function FactGrid({ items }: { items: FactItem[] }) {
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {visible.map((item) => (
         <div key={item.label} className="min-w-0">
-          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 dark:text-gray-500">
+          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-500">
             {item.label}
           </p>
           <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -156,12 +163,24 @@ type StageTimelineProps = {
   currentStage: EtapaFlujo;
 };
 
+const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
+  SOLICITUD: "Solicitud",
+  PDA: "PDA",
+  COMPRAS_PUBLICAS: "Compras Públicas",
+  REVISION_METODOLOGO: "Metodólogo",
+  REVISION_DTM: "DTM",
+  CONTROL_PREVIO: "Control Previo",
+  FINANCIERO: "Aprobado",
+  SECRETARIA: "Secretaría",
+};
+
 function StageTimeline({ currentStage }: StageTimelineProps) {
   const stages = APPROVAL_STAGE_FLOW.filter(
     (etapa) => etapa !== "SECRETARIA",
   ).map((etapa) => ({
     etapa,
     label: getApprovalStageLabel(etapa),
+    shortLabel: STAGE_SHORT_LABELS[etapa] ?? etapa,
   }));
   const timelineCurrentStage =
     stages.find((stage) => stage.etapa === currentStage)?.etapa ??
@@ -174,55 +193,96 @@ function StageTimeline({ currentStage }: StageTimelineProps) {
     Math.max(rawIndex === -1 ? 0 : rawIndex, 0),
     Math.max(stages.length - 1, 0),
   );
-  const progressPercent =
-    stages.length > 1
+  const isFlowApproved = currentStage === "FINANCIERO";
+  const progressPercent = isFlowApproved
+    ? 100
+    : stages.length > 1
       ? (currentIndex / Math.max(stages.length - 1, 1)) * 100
-      : 100;
+      : 0;
+
+  const currentStageInfo = stages[currentIndex];
 
   return (
-    <div className="space-y-3">
-      <div className="relative py-6">
-        <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-gray-200 dark:bg-gray-700 rounded-full" />
+    <div className="space-y-5">
+      {/* Header con paso actual */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Paso {currentIndex + 1} de {stages.length}
+          </p>
+          <h2 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {isFlowApproved
+              ? "Aval aprobado"
+              : `En: ${currentStageInfo?.label ?? "—"}`}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            {Math.round(progressPercent)}%
+          </span>
+          <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                isFlowApproved ? "bg-emerald-500" : "bg-blue-600"
+              }`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Stepper visual */}
+      <div className="relative pt-4 pb-2">
+        <div className="absolute inset-x-6 top-9 h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full" />
         <div
-          className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-blue-600 transition-all duration-300"
-          style={{ width: `${progressPercent}%` }}
+          className="absolute left-6 top-9 h-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-blue-600 transition-all duration-500"
+          style={{
+            width: `calc((100% - 3rem) * ${progressPercent / 100})`,
+          }}
         />
-        <div className="relative flex justify-between">
+        <div className="relative flex justify-between gap-1">
           {stages.map((stage, idx) => {
-            const isStageCompleted = idx <= currentIndex;
-            const isCurrentStage = idx === currentIndex;
-            const isFinancieroCompleted =
-              stage.etapa === "FINANCIERO" && currentStage === "FINANCIERO";
-            const status =
-              (isStageCompleted && !isCurrentStage) || isFinancieroCompleted
-                ? "done"
-                : isCurrentStage
-                  ? "current"
-                  : "upcoming";
+            const isStageCompleted = idx < currentIndex || isFlowApproved;
+            const isCurrentStage = idx === currentIndex && !isFlowApproved;
+            const status = isStageCompleted
+              ? "done"
+              : isCurrentStage
+                ? "current"
+                : "upcoming";
+
             const circleClasses =
               status === "done"
-                ? "bg-blue-600 border-blue-600 text-white"
+                ? "bg-emerald-500 border-emerald-500 text-white shadow-sm"
                 : status === "current"
-                  ? "border-blue-600 bg-white text-blue-600 shadow"
-                  : "border border-gray-200 dark:border-gray-700 bg-white text-gray-400";
-            const showCheckIcon = status !== "upcoming";
+                  ? "border-blue-600 bg-white text-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/40 shadow-md"
+                  : "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500";
+
+            const labelClasses =
+              status === "done"
+                ? "text-emerald-700 dark:text-emerald-300"
+                : status === "current"
+                  ? "text-blue-700 dark:text-blue-300 font-semibold"
+                  : "text-gray-500 dark:text-gray-400";
 
             return (
               <div
                 key={stage.etapa}
-                className="flex flex-col items-center text-center flex-1"
+                className="flex flex-col items-center text-center flex-1 min-w-0"
               >
                 <div
-                  className={`relative flex h-11 w-11 items-center justify-center rounded-full border-2 transition-colors ${circleClasses}`}
+                  className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${circleClasses}`}
+                  title={stage.label}
                 >
-                  {showCheckIcon ? (
-                    <Check className="w-4 h-4" />
+                  {status === "done" ? (
+                    <Check className="w-5 h-5" strokeWidth={3} />
                   ) : (
-                    <span className="text-sm font-semibold">{idx + 1}</span>
+                    <span className="text-sm font-bold">{idx + 1}</span>
                   )}
                 </div>
-                <p className="mt-3 text-xs font-semibold leading-snug text-gray-600 dark:text-gray-300 max-w-[80px]">
-                  {stage.label}
+                <p
+                  className={`mt-3 text-[11px] leading-tight px-1 transition-colors ${labelClasses}`}
+                >
+                  {stage.shortLabel}
                 </p>
               </div>
             );
@@ -253,8 +313,35 @@ export default function AvalDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const userRoles = getNormalizedRoles(user);
+  const isAdminLike =
+    userRoles.includes("ADMIN") || userRoles.includes("SUPER_ADMIN");
+
+  const handleRegeneratePdfs = useCallback(async () => {
+    if (!aval || regenerating) return;
+    try {
+      setRegenerating(true);
+      await regenerarAvalPdfs(aval.id);
+      setToast({
+        variant: "success",
+        message:
+          "Regeneración iniciada en background. Los PDFs se actualizarán en unos segundos.",
+      });
+    } catch (err: unknown) {
+      setToast({
+        variant: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la regeneración de PDFs.",
+      });
+    } finally {
+      setRegenerating(false);
+    }
+  }, [aval, regenerating]);
+
   const etapaActualResponse = aval?.etapaActual;
   const etapaActualHistorial = getCurrentEtapa(aval?.historial);
   const currentEtapa = (etapaActualResponse ??
@@ -544,17 +631,35 @@ export default function AvalDetailPage() {
             )}
           </div>
 
-          {canDownloadAvalCompleto && (
-            <a
-              href={avalCompletoPdfUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Descargar aval completo
-            </a>
-          )}
+          <div className="flex flex-col sm:flex-row gap-2">
+            {isAdminLike && (
+              <button
+                type="button"
+                onClick={handleRegeneratePdfs}
+                disabled={regenerating}
+                className="btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Regenera todos los PDFs ya emitidos (PDA, Compras, Metodólogo, DTM, Control Previo, Financiero, Aval Técnico, Aval Completo)"
+              >
+                {regenerating ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                {regenerating ? "Iniciando..." : "Regenerar PDFs"}
+              </button>
+            )}
+            {canDownloadAvalCompleto && (
+              <a
+                href={avalCompletoPdfUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Descargar aval completo
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Estado del aval */}
@@ -591,24 +696,25 @@ export default function AvalDetailPage() {
                   ) : null
                 }
               >
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-5">
+                  {/* Header: nombre completo + tags rápidos */}
+                  <div className="space-y-3">
                     <div className="min-w-0">
-                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 break-words">
                         {evento.nombre}
-                      </p>
+                      </h3>
                       {evento.codigo ? (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                           Evento {evento.codigo}
                         </p>
                       ) : null}
                     </div>
                     {eventBadges.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 text-xs text-gray-600 dark:text-gray-300">
-                        {eventBadges.slice(0, 6).map((badge, index) => (
+                      <div className="flex flex-wrap gap-1.5">
+                        {eventBadges.map((badge, index) => (
                           <span
                             key={`${badge}-${index}`}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40"
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900"
                           >
                             {badge}
                           </span>
@@ -617,95 +723,128 @@ export default function AvalDetailPage() {
                     ) : null}
                   </div>
 
-                  <FactGrid
-                    items={[
-                      { label: "Tipo", value: evento.tipoEvento },
-                      {
-                        label: "Participación",
-                        value:
-                          getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
-                          "",
-                      },
-                      { label: "Disciplina", value: evento.disciplina?.nombre },
-                      { label: "Categoría", value: evento.categoria?.nombre },
-                      { label: "Alcance", value: evento.alcance },
-                      {
-                        label: "Género",
-                        value: evento.genero ? formatGenero(evento.genero) : "",
-                      },
-                    ]}
-                  />
-
-                  {hasRealDates ? (
+                  {/* Clasificación */}
+                  <div className="space-y-2">
+                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                      Clasificación
+                    </p>
                     <FactGrid
                       items={[
+                        { label: "Tipo", value: evento.tipoEvento },
                         {
-                          label: "Inicio",
-                          value: evento.fechaInicio ? formatDate(evento.fechaInicio) : "",
-                        },
-                        {
-                          label: "Fin",
-                          value: evento.fechaFin ? formatDate(evento.fechaFin) : "",
-                        },
-                        {
-                          label: "Duración",
-                          value: duration ? `${duration} día${duration === 1 ? "" : "s"}` : "",
-                        },
-                        {
-                          label: "Tiempo",
+                          label: "Participación",
                           value:
-                            daysUntil === null
-                              ? ""
-                              : daysUntil < 0
-                                ? "Evento pasado"
-                                : daysUntil === 0
-                                  ? "Hoy"
-                                  : daysUntil === 1
-                                    ? "Mañana"
-                                    : `Faltan ${daysUntil} días`,
+                            getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
+                            "",
+                        },
+                        { label: "Disciplina", value: evento.disciplina?.nombre },
+                        { label: "Categoría", value: evento.categoria?.nombre },
+                        { label: "Alcance", value: evento.alcance },
+                        {
+                          label: "Género",
+                          value: evento.genero ? formatGenero(evento.genero) : "",
                         },
                       ]}
                     />
-                  ) : (
+                  </div>
+
+                  {/* Programación */}
+                  <div className="space-y-2">
+                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                      Programación
+                    </p>
+                    {hasRealDates ? (
+                      <FactGrid
+                        items={[
+                          {
+                            label: "Inicio",
+                            value: evento.fechaInicio ? formatDate(evento.fechaInicio) : "",
+                          },
+                          {
+                            label: "Fin",
+                            value: evento.fechaFin ? formatDate(evento.fechaFin) : "",
+                          },
+                          {
+                            label: "Duración",
+                            value: duration ? `${duration} día${duration === 1 ? "" : "s"}` : "",
+                          },
+                          {
+                            label: "Tiempo",
+                            value:
+                              daysUntil === null
+                                ? ""
+                                : daysUntil < 0
+                                  ? "Evento pasado"
+                                  : daysUntil === 0
+                                    ? "Hoy"
+                                    : daysUntil === 1
+                                      ? "Mañana"
+                                      : `Faltan ${daysUntil} días`,
+                          },
+                        ]}
+                      />
+                    ) : (
+                      <FactGrid
+                        items={[
+                          {
+                            label: "Mes programado",
+                            value: formatEventScheduleLabel(evento),
+                          },
+                        ]}
+                      />
+                    )}
+                  </div>
+
+                  {/* Ubicación */}
+                  <div className="space-y-2">
+                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3" />
+                      Ubicación
+                    </p>
                     <FactGrid
                       items={[
-                        {
-                          label: "Programación",
-                          value: formatEventScheduleLabel(evento),
-                        },
+                        { label: "Lugar", value: evento.lugar },
+                        { label: "Ciudad", value: evento.ciudad },
+                        { label: "Provincia", value: evento.provincia },
+                        { label: "País", value: evento.pais },
                       ]}
                     />
-                  )}
+                  </div>
 
-                  {[evento.ciudad, evento.provincia, evento.pais].some(Boolean) ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <MapPin className="w-4 h-4" />
-                      <span className="truncate">
-                        {[evento.ciudad, evento.provincia, evento.pais]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
+                  {/* Cupos */}
+                  <div className="space-y-2">
+                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                      Cupos
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 px-3 py-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-950/40">
+                          <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-500">
+                            Total entrenadores
+                          </p>
+                          <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+                            {totalEntrenadores ?? "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 px-3 py-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">
+                          <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-500">
+                            Deportistas seleccionados
+                          </p>
+                          <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+                            {deportistasList.length || "—"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  ) : null}
-
-                  <FactGrid
-                    items={[
-                      { label: "Lugar", value: evento.lugar },
-                      { label: "Ciudad", value: evento.ciudad },
-                      { label: "Provincia", value: evento.provincia },
-                      { label: "País", value: evento.pais },
-                    ]}
-                  />
-
-                  <FactGrid
-                    items={[
-                      { label: "Total entrenadores", value: totalEntrenadores },
-                      {
-                        label: "Deportistas seleccionados",
-                        value: deportistasList.length ? deportistasList.length : null,
-                      },
-                    ]}
-                  />
+                  </div>
                 </div>
               </CollapsibleSection>
             )}
@@ -742,7 +881,7 @@ export default function AvalDetailPage() {
 
                 {aval.descripcion ? (
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
-                    <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500">
+                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">
                       Descripción
                     </p>
                     <p className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
@@ -753,7 +892,7 @@ export default function AvalDetailPage() {
 
                 {aval.comentario ? (
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
-                    <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500">
+                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">
                       Comentario
                     </p>
                     <p className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
@@ -781,7 +920,7 @@ export default function AvalDetailPage() {
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {aval.avalTecnico.objetivos?.length ? (
                           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 p-4">
-                            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 mb-2">
+                            <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
                               Objetivos
                             </p>
                             <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
@@ -803,7 +942,7 @@ export default function AvalDetailPage() {
                         ) : null}
                         {aval.avalTecnico.criterios?.length ? (
                           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 p-4">
-                            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 mb-2">
+                            <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
                               Criterios
                             </p>
                             <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
@@ -857,7 +996,7 @@ export default function AvalDetailPage() {
           <div className="space-y-4 lg:sticky lg:top-6 self-start">
             {summaryLines.length > 0 ? (
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
-                <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 mb-2">
+                <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
                   Resumen
                 </p>
                 <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">

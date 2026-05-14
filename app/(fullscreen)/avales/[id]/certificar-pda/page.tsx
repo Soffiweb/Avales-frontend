@@ -456,7 +456,7 @@ export default function CertificarAvalPage() {
       await createPda(aval.id, pdaPayload);
       await aprobarAval(aval.id, user.id, approvalEtapa);
       setToast({ variant: "success", message: "PDA aprobado correctamente." });
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error
@@ -559,14 +559,14 @@ export default function CertificarAvalPage() {
       await rechazarAval(
         aval.id,
         user.id,
-        currentEtapa,
+        approvalEtapa,
         rechazoMotivo.trim(),
         etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
       );
       setToast({ variant: "success", message: "PDA rechazado correctamente." });
       setRechazoMotivo("");
       setEtapaDestino("");
-      await loadAval();
+      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "No se pudo rechazar el PDA.",

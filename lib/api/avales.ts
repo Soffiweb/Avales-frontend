@@ -56,6 +56,14 @@ export async function getAvalHistorial(id: number) {
   return apiFetch<Historial[]>(`/avales/${id}/historial`, { method: "GET" });
 }
 
+/** Dispara regeneración asíncrona de todos los PDFs del aval. Solo admin/super_admin. */
+export async function regenerarAvalPdfs(id: number) {
+  return apiFetch<{ id: number; status: string }>(
+    `/avales/${id}/regenerar-pdfs`,
+    { method: "POST" },
+  );
+}
+
 export async function uploadConvocatoria(
   eventoId: number,
   convocatoria: File,

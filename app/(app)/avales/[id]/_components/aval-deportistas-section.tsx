@@ -84,7 +84,7 @@ export default function AvalDeportistasSection({
 
   return (
     <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">
+      <p className="text-xs uppercase tracking-wide text-gray-500 mb-3">
         Deportistas seleccionados ({deportistas.length})
       </p>
       <div className="space-y-3">

@@ -53,17 +53,22 @@ export default function DropdownProfile({
           height={32}
           alt="User"
         />
-        <div className="flex items-center truncate">
-          <span className="truncate ml-2 text-sm font-medium text-gray-600 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-white">
+        <div className="ml-2 flex flex-col items-start truncate leading-tight">
+          <span className="truncate text-sm font-medium text-gray-600 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-white">
             {nombreCompleto}
           </span>
-          <svg
-            className="w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"
-            viewBox="0 0 12 12"
-          >
-            <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
-          </svg>
+          {!loading && user?.roles && user.roles.length > 0 ? (
+            <span className="mt-0.5 inline-flex max-w-[14rem] truncate rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900">
+              {roles}
+            </span>
+          ) : null}
         </div>
+        <svg
+          className="w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"
+          viewBox="0 0 12 12"
+        >
+          <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
+        </svg>
       </MenuButton>
 
       <Transition

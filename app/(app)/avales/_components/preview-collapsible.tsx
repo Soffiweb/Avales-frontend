@@ -38,7 +38,7 @@ export default function PreviewCollapsible({
         aria-expanded={isOpen}
       >
         <div className="min-w-0">
-          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-gray-500 dark:text-gray-400">
+          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Previsualización
           </p>
           <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">

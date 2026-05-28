@@ -8,6 +8,7 @@ import {
   formatTimeCompact,
   formatTransport,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 type FormData = {
   deportistas: Array<{
@@ -57,7 +58,10 @@ export default function AvalDocumentPreview({
     .map((entrenador) => entrenador.nombre)
     .join(", ") || "-";
   const disciplina = evento?.disciplina?.nombre?.toUpperCase() ?? "SIN DISCIPLINA";
-  const categoria = evento?.categoria?.nombre?.toUpperCase() ?? "SIN CATEGORIA";
+  const categoria = formatCategoryLabel(
+    evento?.categoria?.nombre ?? evento?.categoriaCodigo,
+    "SIN CATEGORIA"
+  ).toUpperCase();
   const genero = formatEnumLabel(evento?.genero ?? "MASCULINO_FEMENINO", " - ");
   const avalNumero =
     aval.avalTecnico?.numeroAval ??

@@ -21,6 +21,7 @@ import {
 import { uploadEventsExcel, type UploadExcelResponse } from "@/lib/api/eventos";
 import { getCatalog } from "@/lib/api/catalog";
 import { ROLES } from "@/lib/constants";
+import { APP_CATEGORIES } from "@/lib/utils/categories";
 import { formatRole } from "@/lib/utils/formatters/text";
 import FileDropzone from "./_components/file-dropzone";
 import DataPreviewTable from "./_components/data-preview-table";
@@ -518,7 +519,10 @@ export default function CargaMasivaPage() {
                     Solo se aceptan disciplinas registradas en el catalogo. Puedes enviar el codigo o el nombre exacto.
                   </p>
                   <p>
-                    CATEGORIA es opcional. Si la dejas vacia, se usara TODOS.
+                    CATEGORIA es opcional. Si la dejas vacía, se usará TODAS.
+                  </p>
+                  <p>
+                    Categorías válidas: {APP_CATEGORIES.join(", ")}.
                   </p>
                   <p>
                     Campos opcionales: {USERS_OPTIONAL_COLUMNS.join(", ")}.

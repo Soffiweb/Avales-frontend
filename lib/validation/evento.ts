@@ -2,11 +2,11 @@ import {
   EVENTO_TIPO_PARTICIPACION_OPTIONS,
   EVENTO_TAREA_OPTIONS,
   EVENTO_ALCANCE_OPTIONS,
-  EVENTO_MES_OPTIONS,
   EVENTO_CATEGORIA_OPTIONS,
   type EventoTipoParticipacion
 } from "@/lib/constants";
 import { z } from "zod";
+import type { CreateEventoPayload as CreateEventoPayloadType } from "@/types/evento";
 
 export const eventoItemSchema = z.object({
   itemId: z.number().int().positive("Selecciona un item"),
@@ -100,25 +100,6 @@ export type EventoItemPayload = {
   presupuesto: number;
 };
 
-export type CreateEventoPayload = {
-  codigo: string;
-  tipoParticipacion: EventoTipoParticipacion;
-  tipoEvento: string;
-  nombre: string;
-  lugar: string;
-  genero: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
-  disciplinaCodigo: string;
-  categoriaCodigo: string;
-  mesProgramado: number;
-  provincia: string;
-  ciudad: string;
-  pais: string;
-  alcance: string;
-  fechaInicio?: string | null;
-  fechaFin?: string | null;
-  numEntrenadoresHombres: number;
-  numEntrenadoresMujeres: number;
-  numAtletasHombres: number;
-  numAtletasMujeres: number;
+export type CreateEventoPayload = Omit<CreateEventoPayloadType, "eventoItems"> & {
   eventoItems?: EventoItemPayload[];
 };

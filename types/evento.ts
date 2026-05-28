@@ -1,7 +1,17 @@
 import type { CatalogItem } from "@/types/catalog";
+import type { EventoTipoParticipacion } from "@/lib/constants";
 
 export type EventoGenero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
 export type EventoEstado = "DISPONIBLE" | "SOLICITADO" | "RECHAZADO" | "ACEPTADO";
+export type EventoCategoriaCodigo =
+  | "FORMACIÓN"
+  | "MENORES"
+  | "PREJUVENIL"
+  | "JUVENIL"
+  | "SENIOR"
+  | "PERSONAS CON DISCAPACIDAD"
+  | "ESCUELAS DE INICIACIÓN"
+  | "TODAS";
 
 export type EventoItemActividad = {
   id: number;
@@ -60,6 +70,33 @@ export type Evento = {
   categoriaId: number;
   categoriaCodigo?: string | null;
   eventoItems?: EventoItem[];
+};
+
+export type CreateEventoPayload = {
+  codigo: string;
+  tipoParticipacion: EventoTipoParticipacion;
+  tipoEvento: string;
+  nombre: string;
+  lugar: string;
+  genero: EventoGenero;
+  disciplinaCodigo: string;
+  categoriaCodigo: EventoCategoriaCodigo;
+  mesProgramado: number;
+  provincia: string;
+  ciudad: string;
+  pais: string;
+  alcance: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+  eventoItems?: {
+    itemId: number;
+    mes: number;
+    presupuesto: number;
+  }[];
 };
 
 // La API devuelve el array directamente en data, y la paginación en meta

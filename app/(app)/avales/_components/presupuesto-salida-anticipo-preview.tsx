@@ -3,6 +3,7 @@ import {
   formatDecimal,
   formatEventScheduleLabel,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 export type PresupuestoSalidaPreviewItem = {
   id: number;
@@ -59,7 +60,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">CATEGORIA</td>
-              <td className="border border-slate-400 px-2 py-1">{evento?.categoria?.nombre || "-"}</td>
+              <td className="border border-slate-400 px-2 py-1">{formatCategoryLabel(evento?.categoria?.nombre ?? evento?.categoriaCodigo)}</td>
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">EVENTO</td>

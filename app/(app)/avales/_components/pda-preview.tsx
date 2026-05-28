@@ -6,6 +6,7 @@ import {
   formatLocationWithProvince,
   getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 export type PdaDraft = {
   descripcion: string;
@@ -78,7 +79,9 @@ export default function PdaPreview({ aval, draft }: Props) {
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">CATEGORIA</td>
             <td className="border border-slate-400 px-2 py-1">
-              {evento?.categoria?.nombre?.toUpperCase() || "-"}
+              {formatCategoryLabel(
+                evento?.categoria?.nombre ?? evento?.categoriaCodigo
+              ).toUpperCase()}
             </td>
           </tr>
           <tr>

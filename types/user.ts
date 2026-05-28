@@ -47,11 +47,17 @@ export type UserListResponse = User[];
 export type RoleSelectionRequired = {
   requiresRoleSelection: true;
   roles: RoleLike[];
-  selectionToken: string;
+  selectionToken?: string;
+  accessToken?: string;
 };
 
+export type AuthTokenResult = {
+  accessToken: string;
+  user?: User;
+} & Partial<User>;
+
 /** Resultado del POST /auth/login: sesión lista o pendiente de selección. */
-export type LoginResult = User | RoleSelectionRequired;
+export type LoginResult = User | RoleSelectionRequired | AuthTokenResult;
 
 export function loginRequiresSelection(
   result: LoginResult,
@@ -61,6 +67,21 @@ export function loginRequiresSelection(
     result !== null &&
     (result as RoleSelectionRequired).requiresRoleSelection === true
   );
+}
+
+export function getUserFromLoginResult(result: LoginResult): User | null {
+  if (loginRequiresSelection(result)) return null;
+  if ("accessToken" in result) {
+    if (result.user) return result.user;
+    if (typeof result.id === "number" && typeof result.email === "string") {
+      const user = { ...result } as Record<string, unknown>;
+      delete user.accessToken;
+      delete user.user;
+      return user as User;
+    }
+    return null;
+  }
+  return result;
 }
 
 export type AuthContextType = {

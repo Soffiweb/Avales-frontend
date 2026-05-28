@@ -20,6 +20,10 @@ import {
   getCatalogItemCode,
   resolveCatalogItemCodeFromList,
 } from "@/lib/utils/catalog";
+import {
+  getCategoryCodeValue,
+  getCategoryOptions,
+} from "@/lib/utils/categories";
 
 const EMPTY_FORM_VALUES: DeportistaFormValues = {
   nombres: "",
@@ -43,9 +47,12 @@ const mapDeportistaToFormValues = (
   genero: (deportista.genero ?? undefined) as DeportistaFormValues["genero"],
   fechaNacimiento: deportista.fechaNacimiento ?? "",
   categoriaCodigo:
-    deportista.categoriaCodigo ??
-    deportista.categoria?.codigo ??
-    (deportista.categoriaId ? String(deportista.categoriaId) : ""),
+    getCategoryCodeValue(
+      deportista.categoriaCodigo ??
+        deportista.categoria?.codigo ??
+        deportista.categoria?.nombre ??
+        (deportista.categoriaId ? String(deportista.categoriaId) : "")
+    ),
   disciplinaCodigo:
     deportista.disciplinaCodigo ??
     deportista.disciplina?.codigo ??
@@ -69,7 +76,6 @@ export default function DeportistaForm({
   onUpdated,
 }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [categorias, setCategorias] = useState<CatalogItem[]>([]);
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -101,16 +107,13 @@ export default function DeportistaForm({
     }
     reset({
       ...initialValues,
-      categoriaCodigo: resolveCatalogItemCodeFromList(
-        categorias,
-        initialValues.categoriaCodigo
-      ),
+      categoriaCodigo: getCategoryCodeValue(initialValues.categoriaCodigo),
       disciplinaCodigo: resolveCatalogItemCodeFromList(
         disciplinas,
         initialValues.disciplinaCodigo
       ),
     });
-  }, [deportista, initialValues, mode, catalogLoading, reset, categorias, disciplinas]);
+  }, [deportista, initialValues, mode, catalogLoading, reset, disciplinas]);
 
   const afiliacion = watch("afiliacion", false);
   const afiliacionInicio = watch("afiliacionInicio");
@@ -139,15 +142,12 @@ export default function DeportistaForm({
         setCatalogLoading(true);
         setCatalogError(null);
         const res = await getCatalog();
-        const cats = res.data?.categorias ?? [];
         const discs = res.data?.disciplinas ?? [];
-        setCategorias(cats);
         setDisciplinas(discs);
       } catch (err: any) {
         setCatalogError(
           err?.message ?? "No se pudieron cargar categorias/disciplinas."
         );
-        setCategorias([]);
         setDisciplinas([]);
       } finally {
         setCatalogLoading(false);
@@ -360,15 +360,14 @@ export default function DeportistaForm({
           <select
             id="categoriaCodigo"
             className="form-select w-full"
-            disabled={catalogLoading || !categorias.length}
             {...register("categoriaCodigo", {
               setValueAs: (v) => String(v),
             })}
           >
             <option value="">Selecciona una opcion</option>
-            {(categorias ?? []).map((c) => (
-              <option key={c.id} value={getCatalogItemCode(c)}>
-                {c.nombre}
+            {getCategoryOptions().map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>

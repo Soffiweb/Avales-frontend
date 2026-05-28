@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, Loader2 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import {
@@ -18,6 +18,7 @@ import {
   formatRoles,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -150,7 +151,10 @@ function buildDefaultDescripcion(aval: Aval) {
   const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
   const fecha = formatEventScheduleSentence(evento);
   const eventoNombre = evento?.nombre ?? "[NOMBRE EVENTO]";
-  const categoria = evento?.categoria?.nombre;
+  const categoria = formatCategoryLabel(
+    evento?.categoria?.nombre ?? evento?.categoriaCodigo,
+    ""
+  );
   const entrenadorResponsable = getResponsibleTrainerName(
     aval,
     "[NOMBRE ENTRENADOR RESPONSABLE]",
@@ -661,6 +665,30 @@ export default function CertificarAvalPage() {
                   Completa los datos del modelo PDA. El parrafo principal se
                   agregara despues.
                 </p>
+              </div>
+
+              <div className="max-w-xl">
+                {aval.convocatoriaUrl ? (
+                  <a
+                    href={aval.convocatoriaUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="btn w-full justify-center bg-indigo-500 text-white hover:bg-indigo-600 sm:w-auto"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Ver convocatoria
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 sm:w-auto"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Convocatoria no disponible
+                  </button>
+                )}
               </div>
 
               <div className="grid max-w-xl grid-cols-1 gap-4 md:grid-cols-2">

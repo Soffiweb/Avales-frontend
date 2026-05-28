@@ -10,6 +10,10 @@ import { login, selectRole } from "@/lib/api/auth";
 import { loginRequiresSelection, type RoleLike } from "@/types/user";
 import { getRoleCode, getRoleName } from "@/lib/auth/roles";
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,9 +24,24 @@ export default function SignIn() {
   const [selectionToken, setSelectionToken] = useState<string | null>(null);
   const [submittingRole, setSubmittingRole] = useState<string | null>(null);
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
 
   useEffect(() => {
+    const needsRole =
+      user && (user.roles?.length ?? 0) > 1 && !user.rolActivo;
+    if (!authLoading && user && !rolesToSelect && !needsRole) {
+      router.replace("/dashboard");
+      return;
+    }
+    if (!authLoading && user && needsRole && !rolesToSelect) {
+      setRolesToSelect(user.roles ?? []);
+      sessionStorage.setItem(
+        "avales:rolesToSelect",
+        JSON.stringify(user.roles ?? [])
+      );
+      return;
+    }
+
     if (rolesToSelect) return;
     const raw = sessionStorage.getItem("avales:rolesToSelect");
     const token = sessionStorage.getItem("avales:selectionToken");
@@ -34,7 +53,7 @@ export default function SignIn() {
         setRolesToSelect(parsed);
       }
     } catch {}
-  }, [rolesToSelect]);
+  }, [authLoading, rolesToSelect, router, user]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -46,16 +65,18 @@ export default function SignIn() {
 
       if (loginRequiresSelection(data)) {
         setRolesToSelect(data.roles);
-        setSelectionToken(data.selectionToken);
+        setSelectionToken(data.selectionToken ?? null);
         sessionStorage.setItem("avales:rolesToSelect", JSON.stringify(data.roles));
-        sessionStorage.setItem("avales:selectionToken", data.selectionToken);
+        if (data.selectionToken) {
+          sessionStorage.setItem("avales:selectionToken", data.selectionToken);
+        }
         return;
       }
 
       await refreshUser();
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.message ?? "Usuario o contraseña incorrectos.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Usuario o contraseña incorrectos."));
     } finally {
       setLoading(false);
     }
@@ -73,8 +94,10 @@ export default function SignIn() {
       setSelectionToken(null);
       await refreshUser();
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.message ?? "No se pudo seleccionar el rol. Intenta de nuevo.");
+    } catch (err: unknown) {
+      setError(
+        getErrorMessage(err, "No se pudo seleccionar el rol. Intenta de nuevo.")
+      );
       setSubmittingRole(null);
     }
   };

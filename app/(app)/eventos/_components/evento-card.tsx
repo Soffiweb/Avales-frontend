@@ -11,6 +11,7 @@ import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 type Props = {
   eventos: Evento[];
@@ -148,9 +149,14 @@ export default function EventoCard({
                   {evento.disciplina.nombre}
                 </span>
               )}
-              {evento.categoria?.nombre && (
+              {formatCategoryLabel(
+                evento.categoria?.nombre ?? evento.categoriaCodigo,
+                ""
+              ) && (
                 <span className="inline-flex items-center rounded-md bg-cyan-50 dark:bg-cyan-900/30 px-2 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-300">
-                  {evento.categoria.nombre}
+                  {formatCategoryLabel(
+                    evento.categoria?.nombre ?? evento.categoriaCodigo
+                  )}
                 </span>
               )}
             </div>

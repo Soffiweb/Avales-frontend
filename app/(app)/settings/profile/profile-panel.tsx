@@ -17,6 +17,10 @@ import {
   getCatalogItemId,
   resolveCatalogItemIdFromList,
 } from "@/lib/utils/catalog";
+import {
+  getCategoryByCatalogValue,
+  getCategoryIdOptions,
+} from "@/lib/utils/categories";
 
 type Props = {
   viewUserId?: number;
@@ -28,6 +32,10 @@ function getPrimaryCategoriaId(user: User | null, categorias: CatalogItem[]) {
   return (
     user.categoriaId ??
     user.categoria?.id ??
+    getCategoryByCatalogValue(
+      categorias,
+      user.categoriaCodigo ?? user.categoria?.codigo ?? user.categoria?.nombre,
+    )?.id ??
     resolveCatalogItemIdFromList(
       categorias,
       user.categoriaCodigo ?? user.categoria?.codigo,
@@ -346,7 +354,7 @@ export default function ProfilePanel({ viewUserId }: Props) {
                 })}
               >
                 <option value="">Seleccione una categoría</option>
-                {(categorias ?? []).map((c) => (
+                {getCategoryIdOptions(categorias).map((c) => (
                   <option key={c.id} value={String(c.id)}>
                     {c.nombre}
                   </option>

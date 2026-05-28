@@ -6,6 +6,7 @@ import { Eye, Pencil, Trash2, Users } from "lucide-react";
 import { User, type RoleLike, type UserDisciplina } from "@/types/user";
 import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
 import { getRoleCode, normalizeRoleCode } from "@/lib/auth/roles";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 type Props = {
   users: User[];
@@ -137,7 +138,9 @@ export default function UsuarioTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {user.categoria?.nombre ?? "-"}
+                        {formatCategoryLabel(
+                          user.categoria?.nombre ?? user.categoriaCodigo
+                        )}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 w-[260px] max-w-[260px]">

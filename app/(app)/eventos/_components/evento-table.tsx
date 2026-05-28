@@ -8,6 +8,7 @@ import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 type Props = {
   eventos: Evento[];
@@ -137,7 +138,9 @@ export default function EventoTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {evento.categoria?.nombre || "-"}
+                        {formatCategoryLabel(
+                          evento.categoria?.nombre ?? evento.categoriaCodigo
+                        )}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">

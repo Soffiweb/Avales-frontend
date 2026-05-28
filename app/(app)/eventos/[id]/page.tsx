@@ -45,6 +45,7 @@ import {
   formatEventScheduleLabel,
   formatMonth,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 import { getEventoTipoParticipacionLabel } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
@@ -573,7 +574,9 @@ export default function EventoDetailPage() {
                       Categoría
                     </p>
                     <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {evento.categoria?.nombre || "-"}
+                      {formatCategoryLabel(
+                        evento.categoria?.nombre ?? evento.categoriaCodigo
+                      )}
                     </p>
                   </div>
                   <div>

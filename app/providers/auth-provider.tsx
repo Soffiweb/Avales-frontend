@@ -11,8 +11,10 @@ import {
 } from "react";
 
 import { AuthContextType, RoleLike, User } from "../../types/user";
+import { getUserFromLoginResult } from "@/types/user";
 import { getProfile, switchRole as apiSwitchRole } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, ensureFreshAccessToken } from "@/lib/api/client";
+import { AUTH_TOKENS_CLEARED_EVENT, getAccessToken } from "@/lib/auth/tokens";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -26,21 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
 
-      const json = await getProfile(); // ApiEnvelope<User>
-      setUser(json.data);
-    } catch (err) {
-      console.error("DEBUG: Error detallado en fetchUser:", err);
-      if (err instanceof ApiError) {
-        console.error("DEBUG: ApiError status:", err.status);
-        console.error("DEBUG: ApiError problem:", err.problem);
+      const accessToken = await ensureFreshAccessToken();
+      if (typeof window !== "undefined" && !accessToken) {
+        setUser(null);
+        return;
       }
 
+      const json = await getProfile();
+      setUser(json.data);
+    } catch (err) {
       if (
         err instanceof ApiError &&
         (err.status === 401 || err.status === 403)
       ) {
-        // estado normal: no autenticado
-        console.log("DEBUG: Usuario no autenticado (401/403) -> Limpiando usuario.");
         setUser(null);
         setError(null);
       } else {
@@ -57,12 +57,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const switchRole = useCallback(async (rol: RoleLike) => {
     const { data } = await apiSwitchRole(rol);
-    setUser(data);
+    const nextUser = getUserFromLoginResult(data);
+    if (nextUser) {
+      setUser(nextUser);
+      return;
+    }
+
+    const profile = await getProfile();
+    setUser(profile.data);
   }, []);
 
   useEffect(() => {
     void fetchUser();
   }, [fetchUser]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (!getAccessToken()) return;
+      void ensureFreshAccessToken();
+    };
+
+    refresh();
+    const interval = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setUser(null);
+    };
+
+    window.addEventListener(AUTH_TOKENS_CLEARED_EVENT, handleAuthCleared);
+    return () => {
+      window.removeEventListener(AUTH_TOKENS_CLEARED_EVENT, handleAuthCleared);
+    };
+  }, []);
 
   return (
     <AuthContext.Provider

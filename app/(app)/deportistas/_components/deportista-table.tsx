@@ -4,6 +4,7 @@ import { Dumbbell } from "lucide-react";
 
 import type { Deportista } from "@/types/deportista";
 import { formatDateNumeric, formatGenero } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 type Props = {
   deportistas: Deportista[];
@@ -121,7 +122,9 @@ export default function DeportistaTable({
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
                       <div className="text-gray-700 dark:text-gray-300">
-                        {d.categoria?.nombre ?? "-"}
+                        {formatCategoryLabel(
+                          d.categoria?.nombre ?? d.categoriaCodigo
+                        )}
                       </div>
                     </td>
                     <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">

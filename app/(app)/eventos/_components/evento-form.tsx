@@ -17,28 +17,20 @@ import {
   type EventoFormValues,
 } from "@/lib/validation/evento";
 import {
+  EVENTO_ALCANCE_OPTIONS,
+  EVENTO_CATEGORIA_OPTIONS,
+  EVENTO_GENERO_OPTIONS,
+  EVENTO_MES_OPTIONS,
+  EVENTO_TAREA_OPTIONS,
   EVENTO_TIPO_PARTICIPACION_OPTIONS,
   normalizeEventoTipoParticipacion,
 } from "@/lib/constants";
+import { normalizeCategoryValue } from "@/lib/utils/categories";
 import {
   getCatalogItemCode,
   resolveCatalogItemCodeFromList,
 } from "@/lib/utils/catalog";
-
-const MESES = [
-  { value: 1, label: "Enero" },
-  { value: 2, label: "Febrero" },
-  { value: 3, label: "Marzo" },
-  { value: 4, label: "Abril" },
-  { value: 5, label: "Mayo" },
-  { value: 6, label: "Junio" },
-  { value: 7, label: "Julio" },
-  { value: 8, label: "Agosto" },
-  { value: 9, label: "Septiembre" },
-  { value: 10, label: "Octubre" },
-  { value: 11, label: "Noviembre" },
-  { value: 12, label: "Diciembre" },
-];
+import { formatDateInput } from "@/lib/utils/formatters/dates";
 
 function getDefaultMesProgramado(evento?: Evento | null) {
   if (evento?.mesProgramado) return evento.mesProgramado;
@@ -49,6 +41,30 @@ function getDefaultMesProgramado(evento?: Evento | null) {
     }
   }
   return new Date().getMonth() + 1;
+}
+
+function normalizeCategoriaCodigo(value?: string | null) {
+  const normalized = normalizeCategoryValue(value);
+  const match = EVENTO_CATEGORIA_OPTIONS.find(
+    (option) => normalizeCategoryValue(option.value) === normalized
+  );
+  return match?.value ?? "";
+}
+
+function resolveCategoriaCatalogItem(
+  categorias: CatalogItem[],
+  categoriaCodigo: string
+) {
+  const normalizedValue = normalizeCategoryValue(categoriaCodigo);
+  return categorias.find((item) => {
+    const normalizedCode = normalizeCategoryValue(item.codigo);
+    const normalizedName = normalizeCategoryValue(item.nombre);
+    return (
+      normalizedCode === normalizedValue ||
+      normalizedName === normalizedValue ||
+      String(item.id) === categoriaCodigo
+    );
+  });
 }
 
 const EMPTY_FORM_VALUES: EventoFormValues = {
@@ -88,16 +104,19 @@ const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
     evento.disciplina?.codigo ??
     (evento.disciplinaId ? String(evento.disciplinaId) : ""),
   categoriaCodigo:
-    evento.categoriaCodigo ??
-    evento.categoria?.codigo ??
-    (evento.categoriaId ? String(evento.categoriaId) : ""),
+    normalizeCategoriaCodigo(
+      evento.categoriaCodigo ??
+        evento.categoria?.codigo ??
+        evento.categoria?.nombre ??
+        (evento.categoriaId ? String(evento.categoriaId) : "")
+    ),
   mesProgramado: getDefaultMesProgramado(evento),
   provincia: evento.provincia ?? "",
   ciudad: evento.ciudad ?? "",
   pais: evento.pais ?? "Ecuador",
   alcance: evento.alcance ?? "",
-  fechaInicio: evento.fechaInicio ?? "",
-  fechaFin: evento.fechaFin ?? "",
+  fechaInicio: formatDateInput(evento.fechaInicio),
+  fechaFin: formatDateInput(evento.fechaFin),
   numEntrenadoresHombres: evento.numEntrenadoresHombres ?? 0,
   numEntrenadoresMujeres: evento.numEntrenadoresMujeres ?? 0,
   numAtletasHombres: evento.numAtletasHombres ?? 0,
@@ -172,10 +191,7 @@ export default function EventoForm({
     }
     reset({
       ...initialValues,
-      categoriaCodigo: resolveCatalogItemCodeFromList(
-        categorias,
-        initialValues.categoriaCodigo
-      ),
+      categoriaCodigo: normalizeCategoriaCodigo(initialValues.categoriaCodigo),
       disciplinaCodigo: resolveCatalogItemCodeFromList(
         disciplinas,
         initialValues.disciplinaCodigo
@@ -275,7 +291,7 @@ export default function EventoForm({
     setSubmitError(null);
 
     const disciplina = disciplinas.find((d) => getCatalogItemCode(d) === values.disciplinaCodigo);
-    const categoria = categorias.find((c) => getCatalogItemCode(c) === values.categoriaCodigo);
+    const categoria = resolveCategoriaCatalogItem(categorias, values.categoriaCodigo);
 
     const payload: CreateEventoPayload = {
       codigo: values.codigo.trim(),
@@ -294,10 +310,10 @@ export default function EventoForm({
       pais: values.pais.trim(),
       alcance: values.alcance.trim(),
       fechaInicio: values.fechaInicio?.trim()
-        ? new Date(values.fechaInicio).toISOString()
+        ? formatDateInput(values.fechaInicio)
         : null,
       fechaFin: values.fechaFin?.trim()
-        ? new Date(values.fechaFin).toISOString()
+        ? formatDateInput(values.fechaFin)
         : null,
       numEntrenadoresHombres: values.numEntrenadoresHombres,
       numEntrenadoresMujeres: values.numEntrenadoresMujeres,
@@ -472,13 +488,18 @@ export default function EventoForm({
             >
               Tipo de evento
             </label>
-            <input
+            <select
               id="tipoEvento"
-              className="form-input w-full"
-              type="text"
-              placeholder="Campeonato, Torneo..."
+              className="form-select w-full"
               {...register("tipoEvento")}
-            />
+            >
+              <option value="">Selecciona una opción</option>
+              {EVENTO_TAREA_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             {errors.tipoEvento && (
               <p className="mt-1 text-xs text-red-600">
                 {errors.tipoEvento.message}
@@ -513,10 +534,12 @@ export default function EventoForm({
               className="form-select w-full"
               {...register("genero")}
             >
-              <option value="">Selecciona una opcion</option>
-              <option value="MASCULINO">Masculino</option>
-              <option value="FEMENINO">Femenino</option>
-              <option value="MASCULINO_FEMENINO">Mixto</option>
+              <option value="">Selecciona una opción</option>
+              {EVENTO_GENERO_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
             {errors.genero && (
               <p className="mt-1 text-xs text-red-600">{errors.genero.message}</p>
@@ -527,13 +550,18 @@ export default function EventoForm({
             <label className="block text-sm font-medium mb-1" htmlFor="alcance">
               Alcance
             </label>
-            <input
+            <select
               id="alcance"
-              className="form-input w-full"
-              type="text"
-              placeholder="Nacional, Regional..."
+              className="form-select w-full"
               {...register("alcance")}
-            />
+            >
+              <option value="">Selecciona una opción</option>
+              {EVENTO_ALCANCE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             {errors.alcance && (
               <p className="mt-1 text-xs text-red-600">{errors.alcance.message}</p>
             )}
@@ -551,15 +579,14 @@ export default function EventoForm({
           <select
             id="categoriaCodigo"
             className="form-select w-full"
-            disabled={catalogLoading || !categorias.length}
             {...register("categoriaCodigo", {
               setValueAs: (v) => String(v),
             })}
           >
-            <option value="">Selecciona una opcion</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={getCatalogItemCode(c)}>
-                {c.nombre}
+            <option value="">Selecciona una opción</option>
+            {EVENTO_CATEGORIA_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -714,7 +741,7 @@ export default function EventoForm({
               })}
             >
               <option value="">Selecciona un mes</option>
-              {MESES.map((mes) => (
+              {EVENTO_MES_OPTIONS.map((mes) => (
                 <option key={mes.value} value={String(mes.value)}>
                   {mes.label}
                 </option>

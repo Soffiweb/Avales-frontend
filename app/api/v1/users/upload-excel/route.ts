@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   const backendUrl =
     process.env.BACKEND_URL ?? "http://localhost:3000";
 
-  const cookie = request.headers.get("cookie") ?? "";
+  const authorization = request.headers.get("authorization") ?? "";
 
   const body = await request.arrayBuffer();
 
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     method: "POST",
     headers: {
       "content-type": request.headers.get("content-type") ?? "",
-      cookie,
+      ...(authorization ? { authorization } : {}),
     },
     body,
   });

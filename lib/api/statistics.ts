@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import { listDeportistas } from "@/lib/api/deportistas";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 export type StatisticsQuery = {
   fechaInicio?: string;
@@ -108,7 +109,21 @@ export async function getAllStatistics(query?: StatisticsQuery) {
   if (query?.categoriaCodigo) params.set("categoriaCodigo", query.categoriaCodigo);
   const qs = params.toString();
 
-  return apiFetch<AllStatistics>(qs ? `/statistics?${qs}` : "/statistics");
+  return apiFetch<AllStatistics>(qs ? `/statistics?${qs}` : "/statistics").then(
+    (response) => ({
+      ...response,
+      data: {
+        ...response.data,
+        porCategoria: {
+          ...response.data.porCategoria,
+          items: (response.data.porCategoria?.items ?? []).map((item) => ({
+            ...item,
+            label: formatCategoryLabel(item.label, item.label),
+          })),
+        },
+      },
+    })
+  );
 }
 
 export type PresupuestoMesItem = {

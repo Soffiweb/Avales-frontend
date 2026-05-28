@@ -53,6 +53,15 @@ function getStatusIcon(status?: string | null) {
   return STATUS_ICONS[status.toUpperCase()] ?? AlertCircle;
 }
 
+function getAvalNumber(aval: Aval) {
+  return (
+    aval.avalTecnico?.numeroAval ??
+    aval.numeroColeccion ??
+    aval.aval ??
+    String(aval.id)
+  );
+}
+
 export default function AvalListCard({
   avales,
   loading,
@@ -150,6 +159,7 @@ export default function AvalListCard({
           (evento?.numEntrenadoresHombres || 0) +
           (evento?.numEntrenadoresMujeres || 0);
         const mesProgramado = formatMonthYear(evento?.mesProgramado);
+        const numeroAval = getAvalNumber(aval);
 
         return (
           <div
@@ -192,6 +202,14 @@ export default function AvalListCard({
                   <span className="truncate">
                     {evento?.disciplina?.nombre || "Sin disciplina"}
                   </span>
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  Aval
+                </p>
+                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  {numeroAval}
                 </p>
               </div>
             </div>

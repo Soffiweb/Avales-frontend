@@ -8,6 +8,7 @@ import {
   formatTramiteDate,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 export type ReviewItem = {
   key: string;
@@ -57,7 +58,10 @@ const SECTION_LABELS: Record<ReviewItem["section"], string> = {
 function buildDefaultObservations(aval: Aval) {
   const evento = aval.evento;
   const disciplina = evento?.disciplina?.nombre ?? "SIN DISCIPLINA";
-  const categoria = evento?.categoria?.nombre ?? "SIN CATEGORIA";
+  const categoria = formatCategoryLabel(
+    evento?.categoria?.nombre ?? evento?.categoriaCodigo,
+    "SIN CATEGORIA"
+  );
   const genero = formatEnumLabel(evento?.genero, " ", "POR DEFINIR");
   const lugar = formatLocationWithProvince(evento) || "POR DEFINIR";
   const fechas = formatEventScheduleSentence(evento).toUpperCase().trim();

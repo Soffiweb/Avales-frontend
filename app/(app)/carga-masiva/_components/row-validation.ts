@@ -1,4 +1,5 @@
 import { ROLES } from "@/lib/constants";
+import { APP_CATEGORIES, isValidAppCategory, normalizeCategoryValue } from "@/lib/utils/categories";
 import type { CatalogItem } from "@/types/catalog";
 import type { ColumnDef, UploadType } from "./template-columns";
 
@@ -88,6 +89,20 @@ function isValidDiscipline(value: string, disciplines: CatalogItem[]) {
       );
     });
   });
+}
+
+function isValidCategory(value: string) {
+  return isValidAppCategory(value);
+}
+
+function getInvalidCategories(value: string) {
+  const normalized = normalizeCategoryValue(value);
+  if (!normalized || normalized === "TODAS") return [];
+
+  const candidates = splitDisciplinaCandidates(value);
+  if (candidates.length === 0) return [value.trim()].filter(Boolean);
+
+  return candidates.filter((candidate) => !isValidCategory(candidate));
 }
 
 function getInvalidDisciplines(value: string, disciplines: CatalogItem[]) {
@@ -266,12 +281,8 @@ export function validatePreviewRows(
 
     if (type === "usuarios") {
       const categoria = row.CATEGORIA?.trim() ?? "";
-      if (
-        categoria &&
-        disciplines.length > 0 &&
-        !isValidDiscipline(categoria, disciplines)
-      ) {
-        const invalidCategories = getInvalidDisciplines(categoria, disciplines);
+      if (categoria && !isValidCategory(categoria)) {
+        const invalidCategories = getInvalidCategories(categoria);
         const detail =
           invalidCategories.length > 0
             ? invalidCategories.map((item) => `"${item}"`).join(", ")
@@ -279,7 +290,7 @@ export function validatePreviewRows(
         pushIssue(
           issues,
           "CATEGORIA",
-          `Categoría no encontrada: ${detail}`,
+          `Categoría inválida: ${detail}. Valores válidos: ${APP_CATEGORIES.join(", ")}`,
         );
       }
 

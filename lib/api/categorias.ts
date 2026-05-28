@@ -1,4 +1,8 @@
 import { apiFetch } from "@/lib/api/client";
+import {
+  normalizeCategoryCatalogItems,
+  sortCategoriesByPreferredOrder,
+} from "@/lib/utils/categories";
 import type { CatalogItem } from "@/types/catalog";
 
 export type CatalogPayload = {
@@ -7,7 +11,12 @@ export type CatalogPayload = {
 };
 
 export function getCategorias() {
-  return apiFetch<CatalogItem[]>("/catalog/categorias");
+  return apiFetch<CatalogItem[]>("/catalog/categorias").then((response) => ({
+    ...response,
+    data: sortCategoriesByPreferredOrder(
+      normalizeCategoryCatalogItems(response.data ?? [])
+    ),
+  }));
 }
 
 export function createCategoria(payload: CatalogPayload) {

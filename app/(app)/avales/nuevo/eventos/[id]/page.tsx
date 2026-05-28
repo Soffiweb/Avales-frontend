@@ -30,6 +30,7 @@ import {
   formatLocationWithProvince,
   formatCurrency,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 import { getEventoTipoParticipacionLabel } from "@/lib/constants";
 
 function getTotalParticipants(evento: Evento) {
@@ -330,7 +331,9 @@ export default function EventoDetailForAvalPage() {
             Disciplina: {evento.disciplina?.nombre || "-"}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Categoría: {evento.categoria?.nombre || "-"}
+            Categoría: {formatCategoryLabel(
+              evento.categoria?.nombre ?? evento.categoriaCodigo
+            )}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Género: {evento.genero || "-"}

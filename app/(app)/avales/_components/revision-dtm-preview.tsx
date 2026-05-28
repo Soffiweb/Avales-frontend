@@ -6,6 +6,7 @@ import {
   formatTramiteDate,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 import type {
   ReviewItem,
   ReviewStateItem,
@@ -62,7 +63,10 @@ function buildDtmRows(
   const evento = aval.evento;
   const tecnico = aval.avalTecnico;
   const deporte = evento?.disciplina?.nombre ?? "SIN DEPORTE";
-  const categoria = evento?.categoria?.nombre ?? "SIN CATEGORIA";
+  const categoria = formatCategoryLabel(
+    evento?.categoria?.nombre ?? evento?.categoriaCodigo,
+    "SIN CATEGORIA"
+  );
   const genero = formatEnumLabel(evento?.genero, " ", "POR DEFINIR");
   const entrenadorResponsable = getResponsibleTrainerName(aval);
   const eventoNombre = evento?.nombre?.toUpperCase() ?? "SIN EVENTO";

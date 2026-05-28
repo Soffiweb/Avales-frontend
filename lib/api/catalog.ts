@@ -1,14 +1,31 @@
 import { apiFetch } from "@/lib/api/client";
+import {
+  normalizeCategoryCatalogItems,
+  sortCategoriesByPreferredOrder,
+} from "@/lib/utils/categories";
 import type { CatalogItem, CatalogItemPresupuestario } from "@/types/catalog";
 
 export function getCatalog() {
-  return apiFetch<{ categorias: CatalogItem[]; disciplinas: CatalogItem[] }>(
-    "/catalog"
+  return apiFetch<{ categorias: CatalogItem[]; disciplinas: CatalogItem[] }>("/catalog").then(
+    (response) => ({
+      ...response,
+      data: {
+        ...response.data,
+        categorias: sortCategoriesByPreferredOrder(
+          normalizeCategoryCatalogItems(response.data?.categorias ?? [])
+        ),
+      },
+    })
   );
 }
 
 export function getCategorias() {
-  return apiFetch<CatalogItem[]>("/catalog/categorias");
+  return apiFetch<CatalogItem[]>("/catalog/categorias").then((response) => ({
+    ...response,
+    data: sortCategoriesByPreferredOrder(
+      normalizeCategoryCatalogItems(response.data ?? [])
+    ),
+  }));
 }
 
 export function getDisciplinas() {

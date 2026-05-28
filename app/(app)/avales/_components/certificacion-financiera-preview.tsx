@@ -5,6 +5,7 @@ import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 
 type Props = {
   aval: Aval;
@@ -27,7 +28,12 @@ function InfoTable({ aval, year }: { aval: Aval; year: number }) {
 
   const rows: [string, string][] = [
     ["DISCIPLINA", evento?.disciplina?.nombre?.toUpperCase() || "-"],
-    ["CATEGORIA", evento?.categoria?.nombre?.toUpperCase() || "-"],
+    [
+      "CATEGORIA",
+      formatCategoryLabel(
+        evento?.categoria?.nombre ?? evento?.categoriaCodigo
+      ).toUpperCase(),
+    ],
     ["EVENTO", evento?.nombre?.toUpperCase() || "-"],
     ["# PARTICIPANTES", participantesText],
     ["LUGAR DE COMPETENCIA", (formatLocationWithProvince(evento) || "-").toUpperCase()],

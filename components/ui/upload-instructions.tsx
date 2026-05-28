@@ -1,6 +1,7 @@
 "use client";
 
 import { Info } from "lucide-react";
+import { APP_CATEGORIES } from "@/lib/utils/categories";
 
 type UploadInstructionsProps = {
   type: "usuarios" | "eventos";
@@ -11,6 +12,7 @@ const USERS_INSTRUCTIONS = [
   "Usa la plantilla y no cambies los nombres de las columnas.",
   "Formato: .xlsx (recomendado) o .csv.",
   "CEDULA debe tener 10 dígitos.",
+  `CATEGORIA permite solo: ${APP_CATEGORIES.join(", ")}.`,
   "DISCIPLINA debe existir en el catálogo (código o nombre exacto).",
   "CARGO debe ser un rol válido del sistema.",
   "Si una CEDULA ya existe, se actualiza; si no existe, se crea.",

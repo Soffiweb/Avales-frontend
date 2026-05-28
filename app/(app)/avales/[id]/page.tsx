@@ -38,6 +38,7 @@ import {
   formatEventScheduleLabel,
   formatGenero,
 } from "@/lib/utils/formatters";
+import { formatCategoryLabel } from "@/lib/utils/categories";
 import {
   getEventoTipoParticipacionLabel,
   getApprovalStageLabel,
@@ -521,7 +522,10 @@ export default function AvalDetailPage() {
         evento.tipoEvento,
         getEventoTipoParticipacionLabel(evento.tipoParticipacion),
         evento.disciplina?.nombre,
-        evento.categoria?.nombre,
+        formatCategoryLabel(
+          evento.categoria?.nombre ?? evento.categoriaCodigo,
+          "",
+        ),
         evento.alcance,
         generoEtiqueta,
       ].filter(Boolean)
@@ -535,7 +539,7 @@ export default function AvalDetailPage() {
       : null;
   const summaryLines = [
     evento?.codigo ? `Evento ${evento.codigo}.` : null,
-    (aval.avalTecnico?.numeroAval || aval.numeroColeccion)
+    aval.avalTecnico?.numeroAval || aval.numeroColeccion
       ? `Solicitud ${formatSolicitudNumber(aval.avalTecnico?.numeroAval ?? aval.numeroColeccion)}.`
       : null,
     !hasRealDates && evento
@@ -616,10 +620,12 @@ export default function AvalDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="mb-2">
-              <Breadcrumb items={[
-                { label: "Avales", href: "/avales" },
-                { label: "Detalle del Aval" },
-              ]} />
+              <Breadcrumb
+                items={[
+                  { label: "Avales", href: "/avales" },
+                  { label: "Detalle del Aval" },
+                ]}
+              />
             </div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
               Detalle del Aval
@@ -723,30 +729,30 @@ export default function AvalDetailPage() {
                     ) : null}
                   </div>
 
-                  {/* Clasificación */}
-                  <div className="space-y-2">
-                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
-                      Clasificación
-                    </p>
-                    <FactGrid
-                      items={[
-                        { label: "Tipo", value: evento.tipoEvento },
-                        {
-                          label: "Participación",
-                          value:
-                            getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
-                            "",
-                        },
-                        { label: "Disciplina", value: evento.disciplina?.nombre },
-                        { label: "Categoría", value: evento.categoria?.nombre },
-                        { label: "Alcance", value: evento.alcance },
-                        {
-                          label: "Género",
-                          value: evento.genero ? formatGenero(evento.genero) : "",
-                        },
-                      ]}
-                    />
-                  </div>
+                  <FactGrid
+                    items={[
+                      { label: "Tipo", value: evento.tipoEvento },
+                      {
+                        label: "Participación",
+                        value:
+                          getEventoTipoParticipacionLabel(
+                            evento.tipoParticipacion,
+                          ) ?? "",
+                      },
+                      { label: "Disciplina", value: evento.disciplina?.nombre },
+                      {
+                        label: "Categoría",
+                        value: formatCategoryLabel(
+                          evento.categoria?.nombre ?? evento.categoriaCodigo,
+                        ),
+                      },
+                      { label: "Alcance", value: evento.alcance },
+                      {
+                        label: "Género",
+                        value: evento.genero ? formatGenero(evento.genero) : "",
+                      },
+                    ]}
+                  />
 
                   {/* Programación */}
                   <div className="space-y-2">
@@ -758,15 +764,21 @@ export default function AvalDetailPage() {
                         items={[
                           {
                             label: "Inicio",
-                            value: evento.fechaInicio ? formatDate(evento.fechaInicio) : "",
+                            value: evento.fechaInicio
+                              ? formatDate(evento.fechaInicio)
+                              : "",
                           },
                           {
                             label: "Fin",
-                            value: evento.fechaFin ? formatDate(evento.fechaFin) : "",
+                            value: evento.fechaFin
+                              ? formatDate(evento.fechaFin)
+                              : "",
                           },
                           {
                             label: "Duración",
-                            value: duration ? `${duration} día${duration === 1 ? "" : "s"}` : "",
+                            value: duration
+                              ? `${duration} día${duration === 1 ? "" : "s"}`
+                              : "",
                           },
                           {
                             label: "Tiempo",
@@ -868,13 +880,23 @@ export default function AvalDetailPage() {
                     { label: "Etapa", value: currentStageLabel },
                     {
                       label: "Emisión",
-                      value: aval.fechaEmision ? formatDate(aval.fechaEmision) : "",
+                      value: aval.fechaEmision
+                        ? formatDate(aval.fechaEmision)
+                        : "",
                     },
-                    { label: "Creado", value: aval.createdAt ? formatDate(aval.createdAt) : "" },
-                    { label: "Actualizado", value: aval.updatedAt ? formatDate(aval.updatedAt) : "" },
+                    {
+                      label: "Creado",
+                      value: aval.createdAt ? formatDate(aval.createdAt) : "",
+                    },
+                    {
+                      label: "Actualizado",
+                      value: aval.updatedAt ? formatDate(aval.updatedAt) : "",
+                    },
                     {
                       label: "N° solicitud",
-                      value: formatSolicitudNumber(aval.avalTecnico?.numeroAval ?? aval.numeroColeccion),
+                      value: formatSolicitudNumber(
+                        aval.avalTecnico?.numeroAval ?? aval.numeroColeccion,
+                      ),
                     },
                   ]}
                 />
@@ -1056,9 +1078,9 @@ export default function AvalDetailPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map(
-                  (e) => ({ value: e, label: getApprovalStageLabel(e) }),
-                )}
+                etapaDestinoOptions={getPreviousApprovalStages(
+                  currentEtapa,
+                ).map((e) => ({ value: e, label: getApprovalStageLabel(e) }))}
                 etapaDestinoValue={etapaDestino}
                 onEtapaDestinoChange={setEtapaDestino}
               />

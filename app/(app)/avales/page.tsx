@@ -38,6 +38,34 @@ const ETAPA_OPTIONS = [
   { label: "Financiero", value: "FINANCIERO" },
 ];
 
+function getAvalSearchNumber(aval: Aval) {
+  return (
+    aval.avalTecnico?.numeroAval ??
+    aval.numeroColeccion ??
+    aval.aval ??
+    String(aval.id)
+  );
+}
+
+function normalizeSearchValue(value?: string | null) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function matchesAvalSearch(aval: Aval, search: string) {
+  const term = normalizeSearchValue(search);
+  if (!term) return true;
+
+  const candidates = [
+    aval.evento?.nombre,
+    aval.evento?.codigo,
+    getAvalSearchNumber(aval),
+  ];
+
+  return candidates.some((candidate) =>
+    normalizeSearchValue(candidate).includes(term)
+  );
+}
+
 export default function AvalesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -139,7 +167,7 @@ export default function AvalesPage() {
       };
 
       const res = await listAvales(options);
-      const items = res.data ?? [];
+      const items = (res.data ?? []).filter((item) => matchesAvalSearch(item, search));
       const meta = res.meta;
       setAvales(items);
       setPagination({
@@ -266,7 +294,7 @@ export default function AvalesPage() {
           <div className="grid grid-flow-row sm:grid-flow-col sm:auto-cols-max sm:justify-end gap-2 w-full sm:w-auto">
             <SearchInput
               className="w-full sm:w-64"
-              placeholder="Buscar por evento o codigo"
+              placeholder="Buscar por evento, código o número de aval"
               value={search}
               onChange={(v) => {
                 setPage(1);

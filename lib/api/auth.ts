@@ -1,13 +1,8 @@
 import { apiFetch } from "./client";
 import type { LoginResult, RoleLike, User } from "@/types/user";
 import { canonicalizeRoleCode, getRoleCode } from "@/lib/auth/roles";
+import { clearAuthTokens } from "@/lib/auth/tokens";
 
-/**
- * Login del usuario. El backend devuelve:
- * - Si tiene 1 rol → sesión lista (cookie `token` HttpOnly + data del user con rolActivo).
- * - Si tiene 2+ roles → `{ requiresRoleSelection: true, roles, selectionToken }`
- *   (cookie `selection_token` HttpOnly de 10 min). El frontend debe llamar `selectRole()`.
- */
 export async function login(email: string, password: string) {
   return apiFetch<LoginResult>("/auth/login", {
     method: "POST",
@@ -15,9 +10,8 @@ export async function login(email: string, password: string) {
   });
 }
 
-/** Elige el rol de trabajo de la sesión cuando el login requirió selección. */
 export async function selectRole(rol: RoleLike, selectionToken?: string) {
-  return apiFetch<User>("/auth/select-role", {
+  return apiFetch<LoginResult>("/auth/select-role", {
     method: "POST",
     body: JSON.stringify({ rol: canonicalizeRoleCode(getRoleCode(rol)) }),
     headers: selectionToken
@@ -29,16 +23,19 @@ export async function selectRole(rol: RoleLike, selectionToken?: string) {
   });
 }
 
-/** Cambia el rol activo de una sesión ya autenticada. El backend emite un JWT nuevo. */
 export async function switchRole(rol: RoleLike) {
-  return apiFetch<User>("/auth/switch-role", {
+  return apiFetch<LoginResult>("/auth/switch-role", {
     method: "POST",
     body: JSON.stringify({ rol: canonicalizeRoleCode(getRoleCode(rol)) }),
   });
 }
 
 export async function logout() {
-  return apiFetch<null>("/auth/logout", { method: "POST" });
+  try {
+    return await apiFetch<null>("/auth/logout", { method: "POST" });
+  } finally {
+    clearAuthTokens();
+  }
 }
 
 export async function getProfile() {

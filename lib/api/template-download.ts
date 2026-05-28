@@ -1,3 +1,5 @@
+import { ensureFreshAccessToken } from "@/lib/api/client";
+
 const TEMPLATE_ENDPOINTS = {
   usuarios: {
     path: "/users/template",
@@ -67,9 +69,17 @@ async function extractErrorMessage(response: Response) {
 
 async function downloadTemplate(type: keyof typeof TEMPLATE_ENDPOINTS) {
   const config = TEMPLATE_ENDPOINTS[type];
+  const accessToken = await ensureFreshAccessToken();
+  const headers = new Headers();
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
   const response = await fetch(`/api/v1${config.path}`, {
     method: "GET",
     credentials: "include",
+    headers,
   });
 
   if (!response.ok) {

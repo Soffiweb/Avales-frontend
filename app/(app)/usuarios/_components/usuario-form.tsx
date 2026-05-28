@@ -28,6 +28,10 @@ import {
   getCatalogItemId,
   resolveCatalogItemIdFromList,
 } from "@/lib/utils/catalog";
+import {
+  getCategoryByCatalogValue,
+  getCategoryIdOptions,
+} from "@/lib/utils/categories";
 
 const ROLE_OPTIONS: Role[] = [
   "SUPER_ADMIN",
@@ -96,6 +100,10 @@ function resolveInitialCategoriaId(
   return (
     user.categoriaId ??
     user.categoria?.id ??
+    getCategoryByCatalogValue(
+      categorias,
+      user.categoriaCodigo ?? user.categoria?.codigo ?? user.categoria?.nombre,
+    )?.id ??
     resolveCatalogItemIdFromList(
       categorias,
       user.categoriaCodigo ?? user.categoria?.codigo,
@@ -191,9 +199,10 @@ export default function UsuarioForm({
     (role) => normalizeRoleCode(role) === "ENTRENADOR",
   );
   const categoriaOptions = useMemo(() => {
-    if (!initialUser?.categoria?.id) return categorias;
-    const exists = categorias.some((c) => c.id === initialUser.categoria?.id);
-    return exists ? categorias : [initialUser.categoria, ...categorias];
+    const normalized = getCategoryIdOptions(categorias);
+    if (!initialUser?.categoria?.id) return normalized;
+    const exists = normalized.some((c) => c.id === initialUser.categoria?.id);
+    return exists ? normalized : getCategoryIdOptions([initialUser.categoria, ...categorias]);
   }, [categorias, initialUser]);
 
   // sincronizar valores iniciales cuando llegan (edicion)

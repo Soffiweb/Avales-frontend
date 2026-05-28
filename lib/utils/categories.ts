@@ -89,16 +89,17 @@ export function getCategoryByCatalogValue(
   });
 }
 
-export function getCategoryIdOptions(items: CatalogItem[]) {
-  return APP_CATEGORIES.map((category) => {
+export function getCategoryIdOptions(items: CatalogItem[]): CatalogItem[] {
+  return APP_CATEGORIES.reduce<CatalogItem[]>((acc, category) => {
     const item = getCategoryByCatalogValue(items, category);
-    if (!item) return null;
-    return {
+    if (!item) return acc;
+    acc.push({
       id: item.id,
       codigo: item.codigo,
       nombre: formatCategoryLabel(category, category),
-    };
-  }).filter((item): item is CatalogItem => Boolean(item));
+    });
+    return acc;
+  }, []);
 }
 
 export function normalizeCategoryCatalogItems<T extends Pick<CatalogItem, "nombre">>(

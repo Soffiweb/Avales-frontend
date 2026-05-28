@@ -57,7 +57,9 @@ export type EventoSimple = {
   lugar: string;
   genero: Genero;
   disciplina: CatalogItemSimple;
+  disciplinaCodigo?: string | null;
   categoria: CatalogItemSimple;
+  categoriaCodigo?: string | null;
   provincia: string;
   ciudad: string;
   pais: string;

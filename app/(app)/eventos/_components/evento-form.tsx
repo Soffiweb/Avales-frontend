@@ -25,7 +25,7 @@ import {
   EVENTO_TIPO_PARTICIPACION_OPTIONS,
   normalizeEventoTipoParticipacion,
 } from "@/lib/constants";
-import { normalizeCategoryValue } from "@/lib/utils/categories";
+import { getCanonicalCategory, normalizeCategoryValue } from "@/lib/utils/categories";
 import {
   getCatalogItemCode,
   resolveCatalogItemCodeFromList,
@@ -292,18 +292,31 @@ export default function EventoForm({
 
     const disciplina = disciplinas.find((d) => getCatalogItemCode(d) === values.disciplinaCodigo);
     const categoria = resolveCategoriaCatalogItem(categorias, values.categoriaCodigo);
+    const tipoParticipacion =
+      normalizeEventoTipoParticipacion(values.tipoParticipacion) ??
+      undefined;
+    const categoriaCodigo = getCanonicalCategory(values.categoriaCodigo);
+
+    if (
+      !tipoParticipacion ||
+      !values.tipoEvento ||
+      !values.genero ||
+      !categoriaCodigo ||
+      !values.alcance
+    ) {
+      setSubmitError("Completa los campos obligatorios del evento.");
+      return;
+    }
 
     const payload: CreateEventoPayload = {
       codigo: values.codigo.trim(),
-      tipoParticipacion:
-        normalizeEventoTipoParticipacion(values.tipoParticipacion) ??
-        values.tipoParticipacion,
+      tipoParticipacion,
       tipoEvento: values.tipoEvento.trim(),
       nombre: values.nombre.trim(),
       lugar: values.lugar.trim(),
       genero: values.genero,
       disciplinaCodigo: values.disciplinaCodigo,
-      categoriaCodigo: values.categoriaCodigo,
+      categoriaCodigo,
       mesProgramado: values.mesProgramado,
       provincia: values.provincia.trim(),
       ciudad: values.ciudad.trim(),
@@ -987,7 +1000,7 @@ export default function EventoForm({
                 })}
               >
                 <option value="">Mes...</option>
-                {MESES.map((m) => (
+                {EVENTO_MES_OPTIONS.map((m) => (
                   <option key={m.value} value={m.value}>
                     {m.label}
                   </option>

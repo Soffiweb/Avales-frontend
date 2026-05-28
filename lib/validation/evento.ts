@@ -21,32 +21,45 @@ export const eventoSchema = z.object({
     .string()
     .min(1, "Codigo requerido")
     .max(50, "Codigo: maximo 50 caracteres"),
-  tipoParticipacion: z.enum(
-    EVENTO_TIPO_PARTICIPACION_OPTIONS.map((option) => option.value) as [
-      EventoTipoParticipacion,
-      ...EventoTipoParticipacion[],
-    ],
-    {
+  tipoParticipacion: z
+    .enum(
+      EVENTO_TIPO_PARTICIPACION_OPTIONS.map((option) => option.value) as [
+        EventoTipoParticipacion,
+        ...EventoTipoParticipacion[],
+      ]
+    )
+    .or(z.literal(""))
+    .refine((value) => value !== "", {
       message: "Selecciona un tipo de participacion",
-    }
-  ),
-  tipoEvento: z.enum(
-    EVENTO_TAREA_OPTIONS.map((option) => option.value) as [string, ...string[]],
-    { message: "Selecciona una tarea válida" }
-  ),
+    }),
+  tipoEvento: z
+    .enum(
+      EVENTO_TAREA_OPTIONS.map((option) => option.value) as [string, ...string[]]
+    )
+    .or(z.literal(""))
+    .refine((value) => value !== "", {
+      message: "Selecciona una tarea válida",
+    }),
   nombre: z
     .string()
     .min(3, "Nombre: minimo 3 caracteres")
     .max(200, "Nombre: maximo 200 caracteres"),
   lugar: z.string().min(1, "Lugar requerido").max(200),
-  genero: z.enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"], {
-    message: "Selecciona genero",
-  }),
+  genero: z
+    .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
+    .or(z.literal(""))
+    .refine((value) => value !== "", {
+      message: "Selecciona genero",
+    }),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
-  categoriaCodigo: z.enum(
-    EVENTO_CATEGORIA_OPTIONS.map((option) => option.value) as [string, ...string[]],
-    { message: "Selecciona una categoría válida" }
-  ),
+  categoriaCodigo: z
+    .enum(
+      EVENTO_CATEGORIA_OPTIONS.map((option) => option.value) as [string, ...string[]]
+    )
+    .or(z.literal(""))
+    .refine((value) => value !== "", {
+      message: "Selecciona una categoría válida",
+    }),
   mesProgramado: z
     .number()
     .int()
@@ -55,10 +68,14 @@ export const eventoSchema = z.object({
   provincia: z.string().min(1, "Provincia requerida").max(100),
   ciudad: z.string().min(1, "Ciudad requerida").max(100),
   pais: z.string().min(1, "Pais requerido").max(100),
-  alcance: z.enum(
-    EVENTO_ALCANCE_OPTIONS.map((option) => option.value) as [string, ...string[]],
-    { message: "Selecciona un alcance válido" }
-  ),
+  alcance: z
+    .enum(
+      EVENTO_ALCANCE_OPTIONS.map((option) => option.value) as [string, ...string[]]
+    )
+    .or(z.literal(""))
+    .refine((value) => value !== "", {
+      message: "Selecciona un alcance válido",
+    }),
   fechaInicio: optionalDateSchema,
   fechaFin: optionalDateSchema,
   numEntrenadoresHombres: z
@@ -92,7 +109,7 @@ export const eventoSchema = z.object({
   }
 });
 
-export type EventoFormValues = z.infer<typeof eventoSchema>;
+export type EventoFormValues = z.input<typeof eventoSchema>;
 
 export type EventoItemPayload = {
   itemId: number;

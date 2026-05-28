@@ -11,16 +11,19 @@ export const deportistaSchema = z.object({
       message: "Selecciona genero",
     }),
   fechaNacimiento: z.string().min(1, "Fecha de nacimiento requerida"),
-  categoriaCodigo: z.enum(APP_CATEGORIES, {
-    message: "Selecciona una categoria válida",
-  }),
+  categoriaCodigo: z
+    .enum(APP_CATEGORIES)
+    .or(z.literal(""))
+    .refine((value) => value !== "", {
+      message: "Selecciona una categoria válida",
+    }),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   afiliacion: z.boolean(),
   afiliacionInicio: z.string().optional().or(z.literal("")),
   afiliacionFin: z.string().optional().or(z.literal("")),
 });
 
-export type DeportistaFormValues = z.infer<typeof deportistaSchema>;
+export type DeportistaFormValues = z.input<typeof deportistaSchema>;
 
 export type CreateDeportistaPayload = {
   nombres: string;

@@ -49,6 +49,67 @@ export const EVENTO_TIPO_PARTICIPACION_OPTIONS = [
 export type EventoTipoParticipacion =
   (typeof EVENTO_TIPO_PARTICIPACION_OPTIONS)[number]["value"];
 
+// Opciones de dropdowns para eventos
+export const EVENTO_ACTIVIDAD_OPTIONS = [
+  { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_004", label: "Eventos de preparación competencia y capacitación deportiva 004" },
+  { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_005", label: "Eventos de preparación competencia y capacitación deportiva 005" },
+  { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_006", label: "Eventos de preparación competencia y capacitación deportiva 006" },
+  { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_007", label: "Eventos de preparación competencia y capacitación deportiva 007" },
+  { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_008", label: "Eventos de preparación competencia y capacitación deportiva 008" },
+  { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_009", label: "Eventos de preparación competencia y capacitación deportiva 009" },
+] as const;
+
+export const EVENTO_TAREA_OPTIONS = [
+  { value: "BASE_DE_ENTRENAMIENTO", label: "Base de entrenamiento" },
+  { value: "CAMPEONATOS", label: "Campeonatos" },
+  { value: "CONCENTRADOS", label: "Concentrados" },
+  { value: "JUEGOS", label: "Juegos" },
+  { value: "SELECTIVOS", label: "Selectivos" },
+  { value: "TODOS", label: "Todos" },
+] as const;
+
+export const EVENTO_SECTOR_OPTIONS = [
+  { value: "CONVENCIONAL", label: "Convencional" },
+  { value: "DISCAPACIDAD", label: "Discapacidad" },
+] as const;
+
+export const EVENTO_ALCANCE_OPTIONS = [
+  { value: "NACIONAL", label: "Nacional" },
+  { value: "INTERNACIONAL", label: "Internacional" },
+] as const;
+
+export const EVENTO_GENERO_OPTIONS = [
+  { value: "VARONES", label: "Varones" },
+  { value: "MUJERES", label: "Mujeres" },
+  { value: "MIXTO_AMBOS", label: "Mixto/Ambos" },
+] as const;
+
+export const EVENTO_MES_OPTIONS = [
+  { value: 1, label: "Enero" },
+  { value: 2, label: "Febrero" },
+  { value: 3, label: "Marzo" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Mayo" },
+  { value: 6, label: "Junio" },
+  { value: 7, label: "Julio" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Septiembre" },
+  { value: 10, label: "Octubre" },
+  { value: 11, label: "Noviembre" },
+  { value: 12, label: "Diciembre" },
+] as const;
+
+export const EVENTO_CATEGORIA_OPTIONS = [
+  { value: "Formación", label: "Formación" },
+  { value: "Menores", label: "Menores" },
+  { value: "Prejuvenil", label: "Prejuvenil" },
+  { value: "Juvenil", label: "Juvenil" },
+  { value: "Senior", label: "Senior" },
+  { value: "Personas con discapacidad", label: "Personas con discapacidad" },
+  { value: "Escuelas de iniciación", label: "Escuelas de iniciación" },
+  { value: "Todas", label: "Todas" },
+] as const;
+
 const EVENTO_TIPO_PARTICIPACION_ALIASES: Record<string, EventoTipoParticipacion> = {
   PARTICIPACION: "participación",
   PARTICIPACIÓN: "participación",

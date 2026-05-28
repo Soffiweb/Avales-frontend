@@ -1,4 +1,11 @@
-import { EVENTO_TIPO_PARTICIPACION_OPTIONS, type EventoTipoParticipacion } from "@/lib/constants";
+import {
+  EVENTO_TIPO_PARTICIPACION_OPTIONS,
+  EVENTO_TAREA_OPTIONS,
+  EVENTO_ALCANCE_OPTIONS,
+  EVENTO_MES_OPTIONS,
+  EVENTO_CATEGORIA_OPTIONS,
+  type EventoTipoParticipacion
+} from "@/lib/constants";
 import { z } from "zod";
 
 export const eventoItemSchema = z.object({
@@ -23,7 +30,10 @@ export const eventoSchema = z.object({
       message: "Selecciona un tipo de participacion",
     }
   ),
-  tipoEvento: z.string().min(1, "Tipo de evento requerido").max(100),
+  tipoEvento: z.enum(
+    EVENTO_TAREA_OPTIONS.map((option) => option.value) as [string, ...string[]],
+    { message: "Selecciona una tarea válida" }
+  ),
   nombre: z
     .string()
     .min(3, "Nombre: minimo 3 caracteres")
@@ -33,12 +43,22 @@ export const eventoSchema = z.object({
     message: "Selecciona genero",
   }),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
-  categoriaCodigo: z.string().min(1, "Selecciona una categoria"),
-  mesProgramado: z.number().int().min(1, "Selecciona un mes programado").max(12, "Selecciona un mes programado"),
+  categoriaCodigo: z.enum(
+    EVENTO_CATEGORIA_OPTIONS.map((option) => option.value) as [string, ...string[]],
+    { message: "Selecciona una categoría válida" }
+  ),
+  mesProgramado: z
+    .number()
+    .int()
+    .min(1, "Selecciona un mes programado")
+    .max(12, "Selecciona un mes programado"),
   provincia: z.string().min(1, "Provincia requerida").max(100),
   ciudad: z.string().min(1, "Ciudad requerida").max(100),
   pais: z.string().min(1, "Pais requerido").max(100),
-  alcance: z.string().min(1, "Alcance requerido").max(100),
+  alcance: z.enum(
+    EVENTO_ALCANCE_OPTIONS.map((option) => option.value) as [string, ...string[]],
+    { message: "Selecciona un alcance válido" }
+  ),
   fechaInicio: optionalDateSchema,
   fechaFin: optionalDateSchema,
   numEntrenadoresHombres: z

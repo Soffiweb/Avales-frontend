@@ -391,11 +391,6 @@ export default function AvalDetailPage() {
       setError(null);
       const res = await getAval(id);
       setAval(res.data);
-      console.log("[AvalDetail] getAval response:", res.data);
-      console.log(
-        "[AvalDetail] deportistasAval:",
-        res.data?.avalTecnico?.deportistasAval ?? [],
-      );
     } catch (err: any) {
       setError(err?.message ?? "No se pudo cargar el aval.");
     } finally {

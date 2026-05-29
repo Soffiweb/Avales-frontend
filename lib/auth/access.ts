@@ -106,6 +106,41 @@ export function isDTMUser(user: User | null | undefined) {
   return roles.includes("DTM") || roles.includes("DTM_EIDE");
 }
 
+export function isMetodologoUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("METODOLOGO");
+}
+
+export function isPdaUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("PDA");
+}
+
+export function isFinancieroUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("FINANCIERO");
+}
+
+export function isControlPrevioUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("CONTROL_PREVIO");
+}
+
+export function isComprasPublicasUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("COMPRAS_PUBLICAS");
+}
+
+export function isSecretariaUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("SECRETARIA");
+}
+
+export function isAvalReviewer(user: User | null | undefined) {
+  return (
+    isDTMUser(user) ||
+    isMetodologoUser(user) ||
+    isPdaUser(user) ||
+    isControlPrevioUser(user) ||
+    isComprasPublicasUser(user) ||
+    isFinancieroUser(user)
+  );
+}
+
 export function canSeeSidebar(
   user: User | null | undefined,
   noSidebar: Role[]

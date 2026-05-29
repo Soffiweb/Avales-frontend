@@ -9,6 +9,7 @@ import {
 import type { Deportista } from "@/types/deportista";
 import type { DeportistaAvalDto } from "@/types/aval";
 import { formatDate, formatGenero } from "@/lib/utils/formatters";
+import { SEARCH_RESULTS_LIMIT } from "@/lib/constants";
 
 type AvalTecnicoFormProps = {
   eventoId: number;
@@ -49,7 +50,7 @@ export default function AvalTecnicoForm({
       setError(null);
       const options: ListDeportistasOptions = {
         query: search.trim(),
-        limit: 20,
+        limit: SEARCH_RESULTS_LIMIT,
       };
 
       const res = await listDeportistas(options);

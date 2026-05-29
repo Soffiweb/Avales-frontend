@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
-import { useAuth } from "@/app/providers/auth-provider";
+import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
   aprobarAval,
   createComprasPublicas,
   getAval,
-  rechazarAval,
 } from "@/lib/api/avales";
-import type { Aval, EtapaFlujo } from "@/types/aval";
+import type { Aval } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -27,9 +26,8 @@ import SaveIndicator from "@/components/ui/save-indicator";
 import DraftRestoredToast from "@/components/ui/draft-restored-toast";
 import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
 import { getCurrentEtapa } from "@/lib/utils/aval-historial";
-import { formatRoles } from "@/lib/utils/formatters";
 import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
-import { getNormalizedRoles } from "@/lib/auth/access";
+import { isComprasPublicasUser } from "@/lib/auth/access";
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
@@ -72,7 +70,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
-
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
@@ -92,7 +89,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         nombre?: string;
         apellido?: string;
       };
-
       const nombre = (
         [
           withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
@@ -102,11 +98,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
           .join(" ")
           .trim() || `Entrenador ${item.entrenadorId}`
       ).toUpperCase();
-
-      return {
-        id: item.entrenadorId,
-        nombre,
-      };
+      return { id: item.entrenadorId, nombre };
     });
 
   return {
@@ -138,65 +130,122 @@ function toInputDate(value?: string | null) {
 export default function CertificarComprasPublicasPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const avalId = Number(params.id);
 
-  const [aval, setAval] = useState<Aval | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [rechazoMotivo, setRechazoMotivo] = useState("");
-  const [etapaDestino, setEtapaDestino] = useState("");
-  const [toast, setToast] = useState<{
-    variant: "success" | "error";
-    message: string;
-  } | null>(null);
   const [draft, setDraft] = useState<ComprasPublicasDraft>(INITIAL_DRAFT);
   const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
   const [draftToastVisible, setDraftToastVisible] = useState(false);
 
-  const isComprasPublicas = getNormalizedRoles(user).includes("COMPRAS_PUBLICAS");
-  const defaultSignerName = useMemo(() => {
-    if (!user) return "";
-    return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
-  }, [user]);
-  const defaultSignerCargo = useMemo(
-    () => (user?.roles?.length ? formatRoles(user.roles) : ""),
-    [user],
-  );
+  // Ref so onApproveAction/onRejectSuccess can call autosave.clear()
+  // without creating a circular dependency (autosave needs isEditable from hook)
+  const autosaveRef = useRef<{ clear: () => void }>({ clear: () => {} });
 
+  const {
+    authLoading,
+    user,
+    hasRequiredRole: isComprasPublicas,
+    defaultSignerName,
+    defaultSignerCargo,
+    aval,
+    loading,
+    error,
+    actionLoading,
+    actionError,
+    toast,
+    setToast,
+    rechazoMotivo,
+    setRechazoMotivo,
+    etapaDestino,
+    setEtapaDestino,
+    currentEtapa,
+    isEditable,
+    summaryText,
+    handleApprove,
+    handleReject,
+  } = useApprovalFlow({
+    avalId,
+    requiredRole: isComprasPublicasUser,
+    editableEtapa: "PDA",
+    approvalEtapa: (etapa) => getNextApprovalStage(etapa) ?? etapa,
+    enableEtapaDestino: true,
+    additionalEditableCheck: useCallback((a: Aval) => !a.comprasPublicas, []),
+    validateApprove: useCallback((_currentAval: Aval) => {
+      if (draft.realizoProceso === true) {
+        if (!draft.codigoNecesidad?.trim()) {
+          return "Debes ingresar el código de necesidad cuando sí existe proceso de contratación pública.";
+        }
+        if (!draft.objetoContratacion?.trim()) {
+          return "Debes ingresar el objeto de contratación cuando sí existe proceso de contratación pública.";
+        }
+      }
+      return null;
+    }, [draft.realizoProceso, draft.codigoNecesidad, draft.objetoContratacion]),
+    onApproveAction: useCallback(
+      async ({ aval: a, userId }) => {
+        const requiresContratacion = draft.realizoProceso === true;
+        const payload = {
+          numeroCertificado: draft.numeroCertificado?.trim() || undefined,
+          realizoProceso:
+            typeof draft.realizoProceso === "boolean" ? draft.realizoProceso : undefined,
+          codigoNecesidad: requiresContratacion
+            ? draft.codigoNecesidad?.trim() || undefined
+            : undefined,
+          objetoContratacion: requiresContratacion
+            ? draft.objetoContratacion?.trim() || undefined
+            : undefined,
+          nombreFirmante: draft.nombreFirmante?.trim() || undefined,
+          cargoFirmante: draft.cargoFirmante?.trim() || undefined,
+          fechaEmision: draft.fechaEmision?.trim() || undefined,
+        };
+
+        await createComprasPublicas(a.id, payload);
+        // Refresh aval to get updated etapa after creating compras
+        const refreshed = await getAval(a.id);
+        const refreshedEtapa =
+          refreshed.data.etapaActual ??
+          getCurrentEtapa(refreshed.data.historial) ??
+          "PDA";
+        const nextEtapa = getNextApprovalStage(refreshedEtapa);
+        const resolvedEtapa = nextEtapa ?? refreshedEtapa;
+        await aprobarAval(a.id, userId, resolvedEtapa);
+        autosaveRef.current.clear();
+      },
+      [draft, autosaveRef],
+    ),
+    onRejectSuccess: useCallback(() => { autosaveRef.current.clear(); }, [autosaveRef]),
+    approveSuccessMessage: "Certificación de Compras Públicas registrada correctamente.",
+    rejectSuccessMessage: "Aval rechazado correctamente.",
+  });
+
+  const autosave = useAutosaveDraft<ComprasPublicasDraft>({
+    key: `aval:${avalId}:compras-publicas`,
+    state: draft,
+    enabled: isEditable && Number.isFinite(avalId),
+    userId: user?.id,
+  });
+
+  // Keep ref in sync so callbacks can access current autosave.clear()
+  useEffect(() => { autosaveRef.current = autosave; }, [autosave]);
+
+  // Reset local state on aval navigation
   useEffect(() => {
     setDraft(INITIAL_DRAFT);
-    setRechazoMotivo("");
-    setActionError(null);
   }, [avalId]);
 
-  const loadAval = useCallback(async () => {
-    if (!avalId || Number.isNaN(avalId)) {
-      setError("ID de aval inválido.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getAval(avalId);
-      setAval(response.data);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "No se pudo cargar el aval.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [avalId]);
-
+  // Restore autosave draft when entering editable state
   useEffect(() => {
-    void loadAval();
-  }, [loadAval]);
+    if (!isEditable) return;
+    if (!Number.isFinite(avalId)) return;
+    const restored = autosave.restore();
+    if (restored) {
+      setDraft(restored.state);
+      setDraftRestoredAt(restored.savedAt);
+      setDraftToastVisible(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditable, avalId]);
 
+  // Populate draft from existing comprasPublicas data
   useEffect(() => {
     if (!aval) return;
     const compras = aval.comprasPublicas;
@@ -215,6 +264,7 @@ export default function CertificarComprasPublicasPage() {
     }));
   }, [aval]);
 
+  // Populate signer defaults from user
   useEffect(() => {
     if (!user) return;
     setDraft((prev) => {
@@ -228,6 +278,14 @@ export default function CertificarComprasPublicasPage() {
       return next;
     });
   }, [user, defaultSignerName, defaultSignerCargo]);
+
+  const handleDiscardDraft = useCallback(() => {
+    autosave.clear();
+    setDraft(INITIAL_DRAFT);
+    setDraftToastVisible(false);
+  }, [autosave]);
+
+  const requiresContratacionData = draft.realizoProceso === true;
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -246,174 +304,12 @@ export default function CertificarComprasPublicasPage() {
     };
   }, [aval]);
 
-  const etapaActualResponse = aval?.etapaActual;
-  const etapaActualHistorial = getCurrentEtapa(aval?.historial);
-  const currentEtapa = (etapaActualResponse ??
-    etapaActualHistorial ??
-    "SOLICITUD") as EtapaFlujo;
-  const isEditable =
-    aval?.estado === "SOLICITADO" &&
-    currentEtapa === "PDA" &&
-    !aval?.comprasPublicas;
-  const requiresContratacionData = draft.realizoProceso === true;
-
-  const autosave = useAutosaveDraft<ComprasPublicasDraft>({
-    key: `aval:${avalId}:compras-publicas`,
-    state: draft,
-    enabled: isEditable && Number.isFinite(avalId),
-    userId: user?.id,
-  });
-
-  // Restaurar borrador al entrar a la pantalla (solo si es editable)
-  useEffect(() => {
-    if (!isEditable) return;
-    if (!Number.isFinite(avalId)) return;
-    const restored = autosave.restore();
-    if (restored) {
-      setDraft(restored.state);
-      setDraftRestoredAt(restored.savedAt);
-      setDraftToastVisible(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditable, avalId]);
-
-  const handleDiscardDraft = useCallback(() => {
-    autosave.clear();
-    setDraft(INITIAL_DRAFT);
-    setDraftToastVisible(false);
-  }, [autosave]);
-  const approvalEtapa = getNextApprovalStage(currentEtapa) ?? currentEtapa;
-  const summaryText =
-    "Al aprobarlo quedará certificado por Compras Públicas y continuará el flujo.";
-
-  const pushError = useCallback((message: string) => {
-    setActionError(message);
-    setToast({ variant: "error", message });
-  }, []);
-
-  const handleApprove = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      pushError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!isEditable) {
-      pushError("No puedes certificar este aval en la etapa actual.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      const requiresContratacionData = draft.realizoProceso === true;
-      if (requiresContratacionData) {
-        if (!draft.codigoNecesidad?.trim()) {
-          pushError(
-            "Debes ingresar el código de necesidad cuando sí existe proceso de contratación pública.",
-          );
-          return;
-        }
-        if (!draft.objetoContratacion?.trim()) {
-          pushError(
-            "Debes ingresar el objeto de contratación cuando sí existe proceso de contratación pública.",
-          );
-          return;
-        }
-      }
-      const payload = {
-        numeroCertificado: draft.numeroCertificado?.trim() || undefined,
-        realizoProceso:
-          typeof draft.realizoProceso === "boolean"
-            ? draft.realizoProceso
-            : undefined,
-        codigoNecesidad: requiresContratacionData
-          ? draft.codigoNecesidad?.trim() || undefined
-          : undefined,
-        objetoContratacion: requiresContratacionData
-          ? draft.objetoContratacion?.trim() || undefined
-          : undefined,
-        nombreFirmante: draft.nombreFirmante?.trim() || undefined,
-        cargoFirmante: draft.cargoFirmante?.trim() || undefined,
-        fechaEmision: draft.fechaEmision?.trim() || undefined,
-      };
-
-      await createComprasPublicas(aval.id, payload);
-      const refreshed = await getAval(aval.id);
-      setAval(refreshed.data);
-      const refreshedEtapa =
-        refreshed.data.etapaActual ??
-        getCurrentEtapa(refreshed.data.historial) ??
-        currentEtapa;
-      const nextEtapa = getNextApprovalStage(refreshedEtapa);
-      const resolvedApprovalEtapa = nextEtapa ?? refreshedEtapa;
-      await aprobarAval(aval.id, user.id, resolvedApprovalEtapa);
-      autosave.clear();
-      setToast({
-        variant: "success",
-        message: "Certificación de Compras Públicas registrada correctamente.",
-      });
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      pushError(
-        err instanceof Error
-          ? err.message
-          : "No se pudo certificar Compras Públicas.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, loadAval, draft, isEditable, pushError]);
-
-  const handleReject = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      pushError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!isEditable) {
-      pushError("No puedes rechazar este aval en la etapa actual.");
-      return;
-    }
-    if (!rechazoMotivo.trim()) {
-      pushError("Debes indicar un motivo para el rechazo.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await rechazarAval(
-        aval.id,
-        user.id,
-        approvalEtapa,
-        rechazoMotivo.trim(),
-        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
-      );
-      autosave.clear();
-      setToast({
-        variant: "success",
-        message: "Aval rechazado correctamente.",
-      });
-      setRechazoMotivo("");
-      setEtapaDestino("");
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      pushError(
-        err instanceof Error ? err.message : "No se pudo rechazar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, loadAval, isEditable, pushError]);
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Cargando sesión...
-          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
         </div>
       </div>
     );
@@ -511,10 +407,7 @@ export default function CertificarComprasPublicasPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        fechaEmision: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, fechaEmision: e.target.value }))
                     }
                   />
                 </label>
@@ -531,10 +424,7 @@ export default function CertificarComprasPublicasPage() {
                         checked={draft.realizoProceso === true}
                         disabled={!isEditable}
                         onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            realizoProceso: true,
-                          }))
+                          setDraft((prev) => ({ ...prev, realizoProceso: true }))
                         }
                       />
                       Sí
@@ -569,10 +459,7 @@ export default function CertificarComprasPublicasPage() {
                     readOnly={!isEditable || !requiresContratacionData}
                     disabled={!isEditable || !requiresContratacionData}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        codigoNecesidad: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, codigoNecesidad: e.target.value }))
                     }
                     placeholder="Ej: CN-2026-001"
                   />
@@ -589,10 +476,7 @@ export default function CertificarComprasPublicasPage() {
                     readOnly={!isEditable || !requiresContratacionData}
                     disabled={!isEditable || !requiresContratacionData}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        objetoContratacion: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, objetoContratacion: e.target.value }))
                     }
                     placeholder="Describe el objeto de contratación..."
                   />
@@ -608,10 +492,7 @@ export default function CertificarComprasPublicasPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        nombreFirmante: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, nombreFirmante: e.target.value }))
                     }
                     placeholder="Ej: Ing. Flor María Hualpa Palacios"
                   />
@@ -627,10 +508,7 @@ export default function CertificarComprasPublicasPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        cargoFirmante: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, cargoFirmante: e.target.value }))
                     }
                     placeholder="Ej: Encargada de Compras Públicas de FDPL"
                   />
@@ -682,9 +560,7 @@ export default function CertificarComprasPublicasPage() {
                   )}
 
                   {actionError && (
-                    <div className="text-xs text-rose-600 dark:text-rose-400">
-                      {actionError}
-                    </div>
+                    <div className="text-xs text-rose-600 dark:text-rose-400">{actionError}</div>
                   )}
 
                   <div className="flex items-center justify-end gap-2">
@@ -729,10 +605,7 @@ export default function CertificarComprasPublicasPage() {
             <PreviewCollapsible title="Certificacion PDA">
               <PdaPreview aval={aval} draft={pdaDraft} />
             </PreviewCollapsible>
-            <PreviewCollapsible
-              title="Certificacion compras publicas"
-              defaultOpen
-            >
+            <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
               <ComprasPublicasPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
           </div>

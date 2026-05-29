@@ -2,18 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
+import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
   aprobarAval,
-  getAval,
   getRevisionMetodologoItems,
-  rechazarAval,
-  type RevisionMetodologoItem,
 } from "@/lib/api/avales";
 import { getDirigido } from "@/lib/api/user";
-import type { Aval, EtapaFlujo } from "@/types/aval";
-import { useAuth } from "@/app/providers/auth-provider";
+import type { Aval } from "@/types/aval";
 import {
   formatRoles,
   formatEventScheduleSentence,
@@ -40,7 +37,6 @@ import {
   getNextApprovalStage,
   getPreviousApprovalStages,
 } from "@/lib/constants";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
   DEFAULT_REVIEW_ITEMS,
@@ -48,6 +44,7 @@ import {
   normalizeReviewItems,
   mergeReviewStateFromApi,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
+import { isMetodologoUser } from "@/lib/auth/access";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -90,7 +87,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
-
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
@@ -102,9 +98,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort(
-      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-    )
+    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -112,25 +106,16 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         nombre?: string;
         apellido?: string;
       };
-
       const nombre = (
         [
-          withUser.entrenador?.nombre ??
-            withUser.usuario?.nombre ??
-            withUser.nombre,
-          withUser.entrenador?.apellido ??
-            withUser.usuario?.apellido ??
-            withUser.apellido,
+          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
+          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
           .trim() || `Entrenador ${item.entrenadorId}`
       ).toUpperCase();
-
-      return {
-        id: item.entrenadorId,
-        nombre,
-      };
+      return { id: item.entrenadorId, nombre };
     });
 
   return {
@@ -161,7 +146,6 @@ function buildDefaultDescripcion(aval: Aval) {
     aval,
     "[NOMBRE ENTRENADOR RESPONSABLE]",
   );
-
   return `En base a la presentacion del Aval Tecnico de Participacion Competitiva de ${disciplina}, ${eventoNombre}, con fecha ${fecha}, suscrito por el ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los items revisados.`;
 }
 
@@ -184,28 +168,15 @@ function getTodayLocalDate() {
 export default function RevisionMetodologoPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
   const avalId = Number(params.id);
 
-  const [aval, setAval] = useState<Aval | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
-  const [reviewItems, setReviewItems] =
-    useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
   const [reviewState, setReviewState] = useState(() =>
     buildInitialReviewState(DEFAULT_REVIEW_ITEMS),
   );
   const [dtmName, setDtmName] = useState("");
   const [dtmCargo, setDtmCargo] = useState("");
-  const [rechazoMotivo, setRechazoMotivo] = useState("");
-  const [etapaDestino, setEtapaDestino] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    variant: "success" | "error";
-    message: string;
-  } | null>(null);
   const [revisionHeader, setRevisionHeader] = useState({
     numeroRevision: "",
     dirigidoA: "",
@@ -220,14 +191,77 @@ export default function RevisionMetodologoPage() {
     firmanteCargo: "",
   });
 
+  const {
+    // hasRequiredRole only used to compute showApprovalPanel — no early return (page is viewable by all)
+    hasRequiredRole: isMetodologo,
+    user,
+    aval,
+    loading,
+    error,
+    actionLoading,
+    actionError,
+    toast,
+    setToast,
+    rechazoMotivo,
+    setRechazoMotivo,
+    etapaDestino,
+    setEtapaDestino,
+    currentEtapa,
+    isEditable,
+    handleApprove,
+    handleReject,
+  } = useApprovalFlow({
+    avalId,
+    requiredRole: isMetodologoUser,
+    // isEditable when aval is SOLICITADO and at COMPRAS_PUBLICAS stage
+    editableEtapa: "COMPRAS_PUBLICAS",
+    // approve always promotes to REVISION_METODOLOGO regardless of currentEtapa
+    approvalEtapa: "REVISION_METODOLOGO",
+    enableEtapaDestino: true,
+    onApproveAction: useCallback(
+      async ({ aval: a, userId }) => {
+        const items = reviewItems
+          .map((item) => {
+            const state = reviewState[item.key];
+            return {
+              key: item.key,
+              cumple: state?.cumple ?? item.defaultCumple,
+              observacion: state?.observacion?.trim() || "",
+            };
+          })
+          .filter(
+            (item) =>
+              !item.cumple || (item.observacion && item.observacion.length > 0),
+          );
+
+        await aprobarAval(a.id, userId, "REVISION_METODOLOGO", {
+          numeroRevision: revisionHeader.numeroRevision.trim(),
+          dirigidoA: revisionHeader.dirigidoA.trim(),
+          cargoDirigidoA: revisionHeader.cargoDirigidoA.trim(),
+          descripcionEncabezado: revisionHeader.descripcionEncabezado.trim(),
+          firmanteNombre: revisionFooter.firmanteNombre.trim(),
+          firmanteCargo: revisionFooter.firmanteCargo.trim(),
+          fechaRevision: revisionHeader.fechaRevision,
+          observacionesFinales:
+            revisionHeader.observacionFechaTramite.trim() ||
+            revisionFooter.observacionesFinales.trim(),
+          items,
+        });
+      },
+      [reviewItems, reviewState, revisionHeader, revisionFooter],
+    ),
+    approveSuccessMessage: "Revisión del metodólogo generada correctamente.",
+  });
+
+  // showApprovalPanel combines role + stage — page is viewable by non-metodologos
+  const showApprovalPanel = isMetodologo && isEditable;
+
+  // Reset local state on aval navigation
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);
     setReviewState(buildInitialReviewState(reviewItems));
     setDtmName("");
     setDtmCargo("");
-    setRechazoMotivo("");
-    setActionError(null);
-    setToast(null);
     setRevisionHeader({
       numeroRevision: "",
       dirigidoA: "",
@@ -236,41 +270,12 @@ export default function RevisionMetodologoPage() {
       fechaRevision: getTodayLocalDate(),
       observacionFechaTramite: "",
     });
-    setRevisionFooter({
-      observacionesFinales: "",
-      firmanteNombre: "",
-      firmanteCargo: "",
-    });
+    setRevisionFooter({ observacionesFinales: "", firmanteNombre: "", firmanteCargo: "" });
   }, [avalId]);
 
-  const loadAval = useCallback(async () => {
-    if (!avalId || Number.isNaN(avalId)) {
-      setError("ID de aval inválido.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getAval(avalId);
-      setAval(response.data);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "No se pudo cargar el aval.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [avalId]);
-
-  useEffect(() => {
-    void loadAval();
-  }, [loadAval]);
-
+  // Load review items from API
   useEffect(() => {
     let active = true;
-
     async function loadReviewItems() {
       try {
         const response = await getRevisionMetodologoItems();
@@ -283,34 +288,50 @@ export default function RevisionMetodologoPage() {
         setReviewState((prev) => {
           const next = buildInitialReviewState(nextItems);
           nextItems.forEach((item) => {
-            if (prev[item.key]) {
-              next[item.key] = prev[item.key];
-            }
+            if (prev[item.key]) next[item.key] = prev[item.key];
           });
           return next;
         });
       } catch {
         if (!active) return;
         setReviewItems(DEFAULT_REVIEW_ITEMS);
-        setReviewState((prev) => prev);
       }
     }
-
     void loadReviewItems();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
+  // Load DTM user for "Dirigido a" field
+  useEffect(() => {
+    let active = true;
+    async function loadDtmUser() {
+      try {
+        const res = await getDirigido("DTM");
+        if (!active) return;
+        const first = res.data;
+        const nombre = first
+          ? [first.nombre, first.apellido].filter(Boolean).join(" ").trim()
+          : "";
+        setDtmName(nombre);
+        setDtmCargo(first?.cargo?.trim() || "DTM");
+      } catch {
+        if (!active) return;
+        setDtmName("");
+        setDtmCargo("");
+      }
+    }
+    void loadDtmUser();
+    return () => { active = false; };
+  }, []);
+
+  // Populate descripcion default when aval loads
   useEffect(() => {
     if (!aval) return;
     if (draft.descripcion.trim()) return;
-    setDraft((prev) => ({
-      ...prev,
-      descripcion: buildDefaultDescripcion(aval),
-    }));
+    setDraft((prev) => ({ ...prev, descripcion: buildDefaultDescripcion(aval) }));
   }, [aval, draft.descripcion]);
 
+  // Populate revisionHeader from API data or defaults when aval loads
   useEffect(() => {
     if (!aval) return;
     setRevisionHeader((prev) => ({
@@ -321,20 +342,15 @@ export default function RevisionMetodologoPage() {
   }, [aval]);
 
   useEffect(() => {
-    if (!aval) return;
-    if (!aval.revisionMetodologo) return;
+    if (!aval?.revisionMetodologo) return;
     setRevisionHeader((prev) => ({
       ...prev,
-      numeroRevision:
-        aval.revisionMetodologo?.numeroRevision ?? prev.numeroRevision,
+      numeroRevision: aval.revisionMetodologo?.numeroRevision ?? prev.numeroRevision,
       dirigidoA: aval.revisionMetodologo?.dirigidoA ?? prev.dirigidoA,
-      cargoDirigidoA:
-        aval.revisionMetodologo?.cargoDirigidoA ?? prev.cargoDirigidoA,
+      cargoDirigidoA: aval.revisionMetodologo?.cargoDirigidoA ?? prev.cargoDirigidoA,
       descripcionEncabezado:
-        aval.revisionMetodologo?.descripcionEncabezado ??
-        prev.descripcionEncabezado,
-      fechaRevision:
-        aval.revisionMetodologo?.fechaRevision ?? prev.fechaRevision,
+        aval.revisionMetodologo?.descripcionEncabezado ?? prev.descripcionEncabezado,
+      fechaRevision: aval.revisionMetodologo?.fechaRevision ?? prev.fechaRevision,
       observacionFechaTramite:
         prev.observacionFechaTramite ||
         aval.revisionMetodologo?.observacionesFinales ||
@@ -342,33 +358,7 @@ export default function RevisionMetodologoPage() {
     }));
   }, [aval]);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadDtmUser() {
-      try {
-        const res = await getDirigido("DTM");
-        const first = res.data;
-        if (!active) return;
-        const nombre = first
-          ? [first.nombre, first.apellido].filter(Boolean).join(" ").trim()
-          : "";
-        const cargo = first?.cargo?.trim() || "DTM";
-        setDtmName(nombre);
-        setDtmCargo(cargo);
-      } catch {
-        if (!active) return;
-        setDtmName("");
-        setDtmCargo("");
-      }
-    }
-
-    void loadDtmUser();
-    return () => {
-      active = false;
-    };
-  }, []);
-
+  // Populate revisionHeader "Dirigido a" from DTM user
   useEffect(() => {
     if (!dtmName) return;
     setRevisionHeader((prev) => ({
@@ -378,12 +368,10 @@ export default function RevisionMetodologoPage() {
     }));
   }, [dtmName, dtmCargo]);
 
+  // Populate revisionFooter from current user
   useEffect(() => {
     if (!user) return;
-    const nombre = [user.nombre, user.apellido]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+    const nombre = [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
     const cargo = user.roles?.length ? formatRoles(user.roles) : "";
     setRevisionFooter((prev) => ({
       ...prev,
@@ -392,6 +380,7 @@ export default function RevisionMetodologoPage() {
     }));
   }, [user]);
 
+  // Merge API review items into reviewState when aval loads
   useEffect(() => {
     if (!aval) return;
     const apiItems = aval.revisionMetodologo?.items ?? [];
@@ -400,157 +389,25 @@ export default function RevisionMetodologoPage() {
     setRevisionFooter((prev) => ({
       ...prev,
       observacionesFinales:
-        prev.observacionesFinales ||
-        aval.revisionMetodologo?.observacionesFinales ||
-        "",
+        prev.observacionesFinales || aval.revisionMetodologo?.observacionesFinales || "",
       firmanteNombre:
         prev.firmanteNombre || aval.revisionMetodologo?.firmanteNombre || "",
       firmanteCargo:
         prev.firmanteCargo || aval.revisionMetodologo?.firmanteCargo || "",
     }));
   }, [aval, reviewItems]);
-  useEffect(() => {
-    if (!user) return;
-    const nombre = [user.nombre, user.apellido]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    const cargo = user.roles?.length ? formatRoles(user.roles) : "";
-    setRevisionFooter((prev) => ({
-      ...prev,
-      firmanteNombre: prev.firmanteNombre || nombre,
-      firmanteCargo: prev.firmanteCargo || cargo,
-    }));
-  }, [user]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
-  const etapaActualResponse = aval?.etapaActual;
-  const etapaActualHistorial = getCurrentEtapa(aval?.historial);
-  const currentEtapa = (etapaActualResponse ??
-    etapaActualHistorial ??
-    "SOLICITUD") as
-    | "SOLICITUD"
-    | "REVISION_METODOLOGO"
-    | "REVISION_DTM"
-    | "PDA"
-    | "COMPRAS_PUBLICAS"
-    | "CONTROL_PREVIO"
-    | "SECRETARIA"
-    | "FINANCIERO";
-  const nextEtapa = getNextApprovalStage(currentEtapa);
-  const approvalEtapa = nextEtapa ?? currentEtapa;
-  const currentStageLabel = getApprovalStageLabel(currentEtapa);
-  const nextStageLabel = getApprovalStageLabel(approvalEtapa);
-  const showApprovalPanel =
-    aval?.estado === "SOLICITADO" &&
-    currentEtapa === "COMPRAS_PUBLICAS" &&
-    (user?.roles ?? []).includes("METODOLOGO");
-
-  const handleApprove = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      const items = reviewItems
-        .map((item) => {
-          const state = reviewState[item.key];
-          const cumple = state?.cumple ?? item.defaultCumple;
-          const observacion = state?.observacion?.trim() || "";
-          return {
-            key: item.key,
-            cumple,
-            observacion,
-          };
-        })
-        .filter(
-          (item) =>
-            !item.cumple || (item.observacion && item.observacion.length > 0),
-        );
-
-      await aprobarAval(aval.id, user.id, "REVISION_METODOLOGO", {
-        numeroRevision: revisionHeader.numeroRevision.trim(),
-        dirigidoA: revisionHeader.dirigidoA.trim(),
-        cargoDirigidoA: revisionHeader.cargoDirigidoA.trim(),
-        descripcionEncabezado: revisionHeader.descripcionEncabezado.trim(),
-        firmanteNombre: revisionFooter.firmanteNombre.trim(),
-        firmanteCargo: revisionFooter.firmanteCargo.trim(),
-        fechaRevision: revisionHeader.fechaRevision,
-        observacionesFinales:
-          revisionHeader.observacionFechaTramite.trim() ||
-          revisionFooter.observacionesFinales.trim(),
-        items,
-      });
-      setToast({
-        variant: "success",
-        message: "Revisión del metodólogo generada correctamente.",
-      });
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "No se pudo aprobar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [
-    aval,
-    user?.id,
-    loadAval,
-    reviewItems,
-    reviewState,
-    revisionHeader,
-    revisionFooter,
-  ]);
-
-  const handleReject = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!rechazoMotivo.trim()) {
-      setActionError("Debes indicar un motivo para el rechazo.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await rechazarAval(
-        aval.id,
-        user.id,
-        approvalEtapa,
-        rechazoMotivo.trim(),
-        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
-      );
-      setRechazoMotivo("");
-      setEtapaDestino("");
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "No se pudo rechazar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, currentEtapa, rechazoMotivo, etapaDestino, loadAval]);
   const comprasDraft = useMemo(() => {
     if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
     const compras = aval.comprasPublicas;
     return {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
-        typeof compras.realizoProceso === "boolean"
-          ? compras.realizoProceso
-          : null,
+        typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
       codigoNecesidad: compras.codigoNecesidad ?? "",
       objetoContratacion: compras.objetoContratacion ?? "",
       nombreFirmante: compras.nombreFirmante ?? "",
@@ -561,18 +418,21 @@ export default function RevisionMetodologoPage() {
   const previewDraft = useMemo(
     () => ({
       ...draft,
-      descripcion:
-        draft.descripcion?.trim() || revisionHeader.descripcionEncabezado,
+      descripcion: draft.descripcion?.trim() || revisionHeader.descripcionEncabezado,
       nombreFirmante: draft.nombreFirmante || revisionFooter.firmanteNombre,
       cargoFirmante: draft.cargoFirmante || revisionFooter.firmanteCargo,
     }),
     [draft, revisionHeader.descripcionEncabezado, revisionFooter],
   );
-  const totalReviewItems = reviewItems.length;
   const noCumpleCount = reviewItems.filter((item) => {
     const state = reviewState[item.key];
     return !(state?.cumple ?? item.defaultCumple);
   }).length;
+
+  const currentStageLabel = getApprovalStageLabel(currentEtapa);
+  const nextStageLabel = getApprovalStageLabel(
+    getNextApprovalStage(currentEtapa) ?? currentEtapa,
+  );
 
   if (loading) {
     return (
@@ -673,10 +533,7 @@ export default function RevisionMetodologoPage() {
                       className="form-input w-full mt-1"
                       value={revisionHeader.dirigidoA}
                       onChange={(e) =>
-                        setRevisionHeader((prev) => ({
-                          ...prev,
-                          dirigidoA: e.target.value,
-                        }))
+                        setRevisionHeader((prev) => ({ ...prev, dirigidoA: e.target.value }))
                       }
                       placeholder="Nombre completo"
                     />
@@ -748,9 +605,8 @@ export default function RevisionMetodologoPage() {
                   </label>
                 </div>
               </div>
-              {(
-                ["CHECKLIST", "DATOS_INFORMATIVOS", "HOJAS_EXCEL"] as const
-              ).map((section) => {
+
+              {(["CHECKLIST", "DATOS_INFORMATIVOS", "HOJAS_EXCEL"] as const).map((section) => {
                 const sectionItems = reviewItems
                   .filter((item) => item.section === section)
                   .sort((a, b) => a.order - b.order);
@@ -807,10 +663,7 @@ export default function RevisionMetodologoPage() {
                                     onChange={() =>
                                       setReviewState((prev) => ({
                                         ...prev,
-                                        [item.key]: {
-                                          ...prev[item.key],
-                                          cumple: true,
-                                        },
+                                        [item.key]: { ...prev[item.key], cumple: true },
                                       }))
                                     }
                                   />
@@ -825,10 +678,7 @@ export default function RevisionMetodologoPage() {
                                     onChange={() =>
                                       setReviewState((prev) => ({
                                         ...prev,
-                                        [item.key]: {
-                                          ...prev[item.key],
-                                          cumple: false,
-                                        },
+                                        [item.key]: { ...prev[item.key], cumple: false },
                                       }))
                                     }
                                   />
@@ -861,6 +711,7 @@ export default function RevisionMetodologoPage() {
                   </details>
                 );
               })}
+
               <div className="space-y-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -890,6 +741,7 @@ export default function RevisionMetodologoPage() {
                   </label>
                 </div>
               </div>
+
               {showApprovalPanel && (
                 <ApprovalFlowCard
                   title="Aprobación del aval"
@@ -901,19 +753,19 @@ export default function RevisionMetodologoPage() {
                   actionLoading={actionLoading}
                   onApprove={handleApprove}
                   onReject={handleReject}
-                  etapaDestinoOptions={getPreviousApprovalStages(
-                    currentEtapa,
-                  ).map((e) => ({ value: e, label: getApprovalStageLabel(e) }))}
+                  etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map((e) => ({
+                    value: e,
+                    label: getApprovalStageLabel(e),
+                  }))}
                   etapaDestinoValue={etapaDestino}
                   onEtapaDestinoChange={setEtapaDestino}
                 />
               )}
-              {!showApprovalPanel &&
-                aval?.revisionMetodologo?.numeroRevision && (
-                  <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-                    Revisión del metodólogo generada correctamente.
-                  </div>
-                )}
+              {!showApprovalPanel && aval?.revisionMetodologo?.numeroRevision && (
+                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+                  Revisión del metodólogo generada correctamente.
+                </div>
+              )}
             </div>
           </div>
         </div>

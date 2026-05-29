@@ -1,8 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Upload } from "lucide-react";
 
@@ -15,14 +13,13 @@ import UploadEventsExcelModal from "@/components/events/upload-excel-events-moda
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser, isDTMUser } from "@/lib/auth/access";
 import { getDisciplinas } from "@/lib/api/catalog";
-import {
-  listEventos,
-  softDeleteEvento,
-  type ListEventosOptions,
-} from "@/lib/api/eventos";
+import { listEventos, softDeleteEvento } from "@/lib/api/eventos";
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
-import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { CONFIRM_CLEANUP_DELAY, DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { useResourceList } from "@/lib/hooks/use-resource-list";
+import { useUrlFilters } from "@/lib/hooks/use-url-filters";
+import { useStatusToast } from "@/lib/hooks/use-status-toast";
 
 const STATUS_OPTIONS = [
   { label: "Todos los estados", value: "" },
@@ -33,199 +30,71 @@ const STATUS_OPTIONS = [
 ];
 
 export default function EventosPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [eventos, setEventos] = useState<Evento[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
-  const [estado, setEstado] = useState(() => searchParams.get("estado") ?? "");
-  const [disciplinaId, setDisciplinaId] = useState(
-    () => searchParams.get("disciplinaId") ?? "",
-  );
-  const [page, setPage] = useState(() => {
-    const value = Number(searchParams.get("page") ?? "1");
-    return Number.isFinite(value) && value > 0 ? value : 1;
-  });
-  const [pagination, setPagination] = useState({
-    page,
-    limit: DEFAULT_PAGE_SIZE,
-    total: 0,
-  });
-  const [toast, setToast] = useState<{
-    variant: "success" | "error";
-    message: string;
-    description?: string;
-  } | null>(null);
   const { user } = useAuth();
   const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
   const isDTM = isDTMUser(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
+
+  const { filters, page, setFilter, setPage } = useUrlFilters("/eventos", {
+    search: "",
+    estado: "",
+    disciplinaId: "",
+  });
+
+  const disciplinaIdFilter =
+    filters.disciplinaId && !isEntrenador
+      ? Number(filters.disciplinaId)
+      : undefined;
+
+  const { items: eventos, loading, error, pagination, totalPages, currentPage, refetch } =
+    useResourceList<Evento>({
+      queryKey: ["eventos", filters.search, filters.estado, disciplinaIdFilter, page],
+      queryFn: () =>
+        listEventos({
+          page,
+          limit: DEFAULT_PAGE_SIZE,
+          estado: filters.estado || undefined,
+          search: filters.search.trim() || undefined,
+          disciplinaId: disciplinaIdFilter,
+        }),
+      page,
+    });
+
+  const { toast, setToast } = useStatusToast("/eventos", {
+    created: {
+      variant: "success",
+      message: "Evento creado correctamente.",
+      description: "El listado se actualiza automaticamente.",
+    },
+    updated: { variant: "success", message: "Evento actualizado correctamente." },
+    error: { variant: "error", message: "No se pudo procesar la solicitud." },
+  });
+
   const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
   const [disciplinasLoading, setDisciplinasLoading] = useState(false);
   const [confirmEvento, setConfirmEvento] = useState<Evento | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const selectedDisciplinaId = disciplinaId ? Number(disciplinaId) : undefined;
-  const disciplinaIdFilter =
-    typeof selectedDisciplinaId === "number" &&
-    Number.isFinite(selectedDisciplinaId)
-      ? selectedDisciplinaId
-      : undefined;
-
-  const pageSize = pagination.limit || DEFAULT_PAGE_SIZE;
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((pagination.total || 0) / pageSize)),
-    [pagination.total, pageSize],
-  );
-  const hasPaginationInfo = pagination.total > 0;
-  const currentPage = hasPaginationInfo ? Math.min(page, totalPages) : page;
-  const showing = eventos.length;
 
   useEffect(() => {
-    if (!hasPaginationInfo || page === currentPage) return;
-    setPage(currentPage);
-  }, [hasPaginationInfo, page, currentPage]);
+    if (page !== currentPage) setPage(currentPage);
+  }, [page, currentPage, setPage]);
 
   useEffect(() => {
     if (!canManageEvents) return;
-
-    const loadDisciplinas = async () => {
-      try {
-        setDisciplinasLoading(true);
-        const res = await getDisciplinas();
-        setDisciplinas(res.data ?? []);
-      } catch {
-        setDisciplinas([]);
-      } finally {
-        setDisciplinasLoading(false);
-      }
-    };
-
-    void loadDisciplinas();
+    setDisciplinasLoading(true);
+    getDisciplinas()
+      .then((res) => setDisciplinas(res.data ?? []))
+      .catch(() => setDisciplinas([]))
+      .finally(() => setDisciplinasLoading(false));
   }, [canManageEvents]);
-
-  const fetchEventos = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const options: ListEventosOptions = {
-        page: currentPage,
-        limit: DEFAULT_PAGE_SIZE,
-        estado: estado || undefined,
-        search: search.trim() || undefined,
-        disciplinaId: !isEntrenador ? disciplinaIdFilter : undefined,
-      };
-      const res = await listEventos(options);
-      const items = res.data ?? [];
-      const apiPagination = res.pagination;
-      const meta = res.meta;
-      const apiPage =
-        typeof apiPagination?.current_page === "number" &&
-        apiPagination.current_page > 0
-          ? apiPagination.current_page
-          : typeof apiPagination?.page === "number" && apiPagination.page > 0
-          ? apiPagination.page
-          : typeof meta?.page === "number" && meta.page > 0
-          ? meta.page
-          : currentPage;
-      const apiLimit =
-        typeof apiPagination?.per_page === "number" &&
-        apiPagination.per_page > 0
-          ? apiPagination.per_page
-          : typeof apiPagination?.limit === "number" && apiPagination.limit > 0
-          ? apiPagination.limit
-          : typeof meta?.limit === "number" && meta.limit > 0
-          ? meta.limit
-          : DEFAULT_PAGE_SIZE;
-      const apiTotal =
-        typeof apiPagination?.total === "number" && apiPagination.total >= 0
-          ? apiPagination.total
-          : typeof meta?.total === "number" && meta.total >= 0
-          ? meta.total
-          : items.length;
-      setEventos(items);
-      setPagination({
-        page: apiPage,
-        limit: apiLimit,
-        total: apiTotal,
-      });
-    } catch (err: any) {
-      const message = err?.message ?? "No se pudieron cargar los eventos.";
-      setError(message);
-      setToast({ variant: "error", message });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    currentPage,
-    estado,
-    search,
-    isEntrenador,
-    disciplinaIdFilter,
-  ]);
-
-  useEffect(() => {
-    void fetchEventos();
-  }, [fetchEventos]);
-
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (search.trim()) params.set("search", search.trim());
-    if (estado) params.set("estado", estado);
-    if (!isEntrenador && disciplinaIdFilter !== undefined) {
-      params.set("disciplinaId", String(disciplinaIdFilter));
-    }
-    if (currentPage > 1) params.set("page", String(currentPage));
-
-    router.replace(params.toString() ? `/eventos?${params}` : "/eventos", {
-      scroll: false,
-    });
-  }, [search, estado, disciplinaIdFilter, currentPage, router, isEntrenador]);
-
-  // mostrar toast cuando viene status desde la creacion/edicion
-  useEffect(() => {
-    const status = searchParams.get("status");
-    if (!status) return;
-
-    if (status === "created") {
-      setToast({
-        variant: "success",
-        message: "Evento creado correctamente.",
-        description: "El listado se actualiza automaticamente.",
-      });
-    } else if (status === "updated") {
-      setToast({
-        variant: "success",
-        message: "Evento actualizado correctamente.",
-      });
-    } else if (status === "error") {
-      setToast({
-        variant: "error",
-        message: "No se pudo procesar la solicitud.",
-      });
-    }
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("status");
-    router.replace(params.toString() ? `/eventos?${params}` : "/eventos", {
-      scroll: false,
-    });
-  }, [searchParams, router]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   useEffect(() => {
     if (confirmOpen) return;
-    const timer = setTimeout(() => setConfirmEvento(null), 180);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setConfirmEvento(null), CONFIRM_CLEANUP_DELAY);
+    return () => clearTimeout(t);
   }, [confirmOpen]);
 
   const handleDelete = (evento: Evento) => {
@@ -238,15 +107,13 @@ export default function EventosPage() {
     try {
       setDeleting(true);
       await softDeleteEvento(confirmEvento.id);
-      setToast({
-        variant: "success",
-        message: "Evento eliminado correctamente.",
-      });
-      await fetchEventos();
-    } catch (err: any) {
+      setToast({ variant: "success", message: "Evento eliminado correctamente." });
+      refetch();
+    } catch (err: unknown) {
       setToast({
         variant: "error",
-        message: err?.message ?? "No se pudo eliminar el evento.",
+        message:
+          err instanceof Error ? err.message : "No se pudo eliminar el evento.",
       });
     } finally {
       setDeleting(false);
@@ -269,11 +136,7 @@ export default function EventosPage() {
 
       {error && !loading && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
-          <AlertBanner
-            variant="error"
-            message={error}
-            onClose={() => setError(null)}
-          />
+          <AlertBanner variant="error" message={error} onClose={() => {}} />
         </div>
       )}
 
@@ -292,40 +155,31 @@ export default function EventosPage() {
             <SearchInput
               className="w-full sm:w-64"
               placeholder="Buscar por nombre, lugar o codigo"
-              value={search}
-              onChange={(v) => {
-                setPage(1);
-                setSearch(v);
-              }}
+              value={filters.search}
+              onChange={(v) => setFilter("search", v)}
             />
             <select
               className="form-select w-full sm:w-48"
-              value={estado}
-              onChange={(e) => {
-                setPage(1);
-                setEstado(e.target.value);
-              }}
+              value={filters.estado}
+              onChange={(e) => setFilter("estado", e.target.value)}
             >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
                 </option>
               ))}
             </select>
             {canManageEvents && !isDTM && (
               <select
                 className="form-select w-full sm:w-56"
-                value={disciplinaId}
-                onChange={(e) => {
-                  setPage(1);
-                  setDisciplinaId(e.target.value);
-                }}
+                value={filters.disciplinaId}
+                onChange={(e) => setFilter("disciplinaId", e.target.value)}
                 disabled={disciplinasLoading}
               >
                 <option value="">Todas las disciplinas</option>
-                {disciplinas.map((disciplina) => (
-                  <option key={disciplina.id} value={String(disciplina.id)}>
-                    {disciplina.nombre}
+                {disciplinas.map((d) => (
+                  <option key={d.id} value={String(d.id)}>
+                    {d.nombre}
                   </option>
                 ))}
               </select>
@@ -360,7 +214,7 @@ export default function EventosPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-6">
           <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 sm:mb-0">
-            Página {currentPage} de {totalPages} (mostrando {showing} de{" "}
+            Página {currentPage} de {totalPages} (mostrando {eventos.length} de{" "}
             {pagination.total})
           </div>
           <Pagination
@@ -370,6 +224,7 @@ export default function EventosPage() {
           />
         </div>
       </div>
+
       <ConfirmModal
         open={confirmOpen}
         title="Eliminar evento"
@@ -385,14 +240,11 @@ export default function EventosPage() {
           setConfirmOpen(false);
         }}
       />
+
       <UploadEventsExcelModal
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
-        onSuccess={() => {
-          fetchEventos(); // Refrescar la lista
-          // No cerramos el modal automáticamente para que vean el resultado,
-          // pero si el usuario cierra, ya estará refrescado.
-        }}
+        onSuccess={() => refetch()}
       />
     </>
   );

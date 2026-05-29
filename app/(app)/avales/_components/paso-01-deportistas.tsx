@@ -15,6 +15,7 @@ import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { matchesSearchTerm } from "@/lib/utils/normalize-text";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
+import { SEARCH_RESULTS_LIMIT } from "@/lib/constants";
 
 type FormData = {
   deportistas: Array<{
@@ -230,7 +231,7 @@ export default function Paso01Deportistas({
       setLoadingDeportistas(true);
       const trimmed = searchDeportistas.trim();
       const options: ListDeportistasOptions = {
-        limit: 20,
+        limit: SEARCH_RESULTS_LIMIT,
         ...(trimmed ? { query: trimmed } : {}),
       };
 

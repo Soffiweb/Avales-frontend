@@ -4,18 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
-import { useAuth } from "@/app/providers/auth-provider";
-import { aprobarAval, getAval, rechazarAval } from "@/lib/api/avales";
+import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
+import { aprobarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { getApprovalStageLabel } from "@/lib/constants";
-import { getNormalizedRoles } from "@/lib/auth/access";
-import { formatRoles } from "@/lib/utils/formatters";
+import { isFinancieroUser } from "@/lib/auth/access";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
@@ -33,6 +31,8 @@ const INITIAL_DRAFT: FinancieroDraft = {
   notas: ["", "", ""],
 };
 
+const APPROVAL_ETAPA: EtapaFlujo = "FINANCIERO";
+
 function joinWithCommaAndY(items: string[]) {
   if (items.length === 0) return "";
   if (items.length === 1) return items[0];
@@ -43,130 +43,105 @@ function joinWithCommaAndY(items: string[]) {
 export default function CertificacionFinancieraPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const avalId = Number(params.id);
 
-  const [aval, setAval] = useState<Aval | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [rechazoMotivo, setRechazoMotivo] = useState("");
-  const [toast, setToast] = useState<{
-    variant: "success" | "error";
-    message: string;
-  } | null>(null);
   const [draft, setDraft] = useState<FinancieroDraft>(INITIAL_DRAFT);
-  const [editableNotas, setEditableNotas] = useState<boolean[]>([
-    false,
-    false,
-    false,
-  ]);
+  const [editableNotas, setEditableNotas] = useState<boolean[]>([false, false, false]);
   const [notesInitialized, setNotesInitialized] = useState(false);
 
-  const isFinanciero = getNormalizedRoles(user).includes("FINANCIERO");
+  const {
+    authLoading,
+    user,
+    hasRequiredRole: isFinanciero,
+    defaultSignerName,
+    defaultSignerCargo,
+    aval,
+    loading,
+    error,
+    actionLoading,
+    actionError,
+    toast,
+    setToast,
+    rechazoMotivo,
+    setRechazoMotivo,
+    currentEtapa,
+    isEditable,
+    handleApprove,
+    handleReject,
+  } = useApprovalFlow({
+    avalId,
+    requiredRole: isFinancieroUser,
+    editableEtapa: "CONTROL_PREVIO",
+    approvalEtapa: APPROVAL_ETAPA,
+    onApproveAction: useCallback(
+      async ({ aval: a, userId, approvalEtapa }) => {
+        const notasPayload = draft.notas
+          .map((texto, index) => ({ titulo: `NOTA ${index + 1}`, texto: texto.trim() }))
+          .filter((nota) => nota.texto.length > 0);
 
+        const defaultNotas = buildDefaultNotas(a);
+        const notasActualesNorm = draft.notas.map((n) => n.trim());
+        const notasDefaultNorm = defaultNotas.map((n) => n.trim());
+        const notasSinCambios =
+          notasActualesNorm.length === notasDefaultNorm.length &&
+          notasActualesNorm.every((n, i) => n === notasDefaultNorm[i]);
+
+        await aprobarAval(
+          a.id,
+          userId,
+          approvalEtapa,
+          undefined,
+          undefined,
+          notasSinCambios ? { notas: [] } : { notas: notasPayload },
+        );
+      },
+      [draft.notas],
+    ),
+    approveSuccessMessage: "Certificación financiera aprobada correctamente.",
+  });
+
+  // Reset local state on aval navigation
   useEffect(() => {
     setDraft(INITIAL_DRAFT);
-    setRechazoMotivo("");
-    setActionError(null);
     setEditableNotas([false, false, false]);
     setNotesInitialized(false);
   }, [avalId]);
 
+  // Populate signer defaults from user
   useEffect(() => {
     if (!user) return;
-    const nombre = [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
-    const cargo = user.roles?.length ? formatRoles(user.roles) : "";
     setDraft((prev) => ({
       ...prev,
-      firmanteNombre: prev.firmanteNombre || nombre,
-      firmanteCargo: prev.firmanteCargo || cargo,
+      firmanteNombre: prev.firmanteNombre || defaultSignerName,
+      firmanteCargo: prev.firmanteCargo || defaultSignerCargo,
     }));
-  }, [user]);
-
-  const loadAval = useCallback(async () => {
-    if (!avalId || Number.isNaN(avalId)) {
-      setError("ID de aval inválido.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getAval(avalId);
-      setAval(response.data);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "No se pudo cargar el aval.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [avalId]);
-
-  useEffect(() => {
-    void loadAval();
-  }, [loadAval]);
-
-  const currentEtapa = useMemo(() => {
-    const etapaActualResponse = aval?.etapaActual;
-    const etapaActualHistorial = getCurrentEtapa(aval?.historial);
-    return (etapaActualResponse ?? etapaActualHistorial ?? "SOLICITUD") as EtapaFlujo;
-  }, [aval]);
-
-  const isEditable =
-    aval?.estado === "SOLICITADO" && currentEtapa === "CONTROL_PREVIO";
-
-  const approvalEtapa: EtapaFlujo = "FINANCIERO";
+  }, [user, defaultSignerName, defaultSignerCargo]);
 
   const defaultDescripcionCertificacion = useMemo(() => {
     if (!aval) return "";
-    return `De acuerdo a la sumilla Aval Nro. ${aval.avalTecnico?.numeroAval || aval.numeroColeccion || aval.aval || aval.id}, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`;
+    return `De acuerdo a la sumilla Aval Nro. ${
+      aval.avalTecnico?.numeroAval || aval.numeroColeccion || aval.aval || aval.id
+    }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`;
   }, [aval]);
 
+  // Populate description from aval once available
   useEffect(() => {
     if (!defaultDescripcionCertificacion) return;
     setDraft((prev) => {
       if (prev.descripcionCertificacion.trim()) return prev;
-      return {
-        ...prev,
-        descripcionCertificacion: defaultDescripcionCertificacion,
-      };
+      return { ...prev, descripcionCertificacion: defaultDescripcionCertificacion };
     });
   }, [defaultDescripcionCertificacion]);
 
-  const defaultNotas = useMemo(() => {
-    const requerimientosRaw = (aval?.evento?.presupuesto ?? [])
-      .map((item) => item.item?.nombre?.trim().toLowerCase())
-      .filter((item): item is string => Boolean(item));
-    const requerimientos = Array.from(new Set(requerimientosRaw));
-    const requerimientosTexto = joinWithCommaAndY(requerimientos);
-
-    const nota1 = requerimientosTexto
-      ? `El requerimiento es ${requerimientosTexto}`
-      : "El requerimiento es pasajes ida y vuelta, hospedaje, transporte de personal y deportistas, afiliacion y alimentacion";
-
-    const nota2 = `Las facturas de gastos deben solicitarse con los siguientes datos:
-Razon Social: Federacion Deportiva Provincial de Loja
-RUC: 1191708241001
-Direccion: Macara entre Mercadillo y Azuay
-Telefono: 72570734`;
-
-    const nota3 =
-      "El informe de gastos, se entregara como maximo 72 horas culminada la competencia";
-
-    return [nota1, nota2, nota3];
-  }, [aval]);
-
+  // Initialize notes once aval loads
   useEffect(() => {
     if (notesInitialized) return;
     if (!aval) return;
+    const defaultNotas = buildDefaultNotas(aval);
     setDraft((prev) => ({ ...prev, notas: defaultNotas }));
     setEditableNotas(defaultNotas.map(() => false));
     setNotesInitialized(true);
-  }, [notesInitialized, aval, defaultNotas]);
+  }, [notesInitialized, aval]);
 
   const handleNotaChange = useCallback((index: number, value: string) => {
     setDraft((prev) => ({
@@ -176,20 +151,14 @@ Telefono: 72570734`;
   }, []);
 
   const handleAddNota = useCallback(() => {
-    setDraft((prev) => ({
-      ...prev,
-      notas: [...prev.notas, ""],
-    }));
+    setDraft((prev) => ({ ...prev, notas: [...prev.notas, ""] }));
     setEditableNotas((prev) => [...prev, true]);
   }, []);
 
   const handleRemoveNota = useCallback((index: number) => {
     setDraft((prev) => {
       if (prev.notas.length <= 1) return prev;
-      return {
-        ...prev,
-        notas: prev.notas.filter((_, i) => i !== index),
-      };
+      return { ...prev, notas: prev.notas.filter((_, i) => i !== index) };
     });
     setEditableNotas((prev) => {
       if (prev.length <= 1) return prev;
@@ -201,104 +170,12 @@ Telefono: 72570734`;
     setEditableNotas((prev) => prev.map((editable, i) => (i === index ? true : editable)));
   }, []);
 
-  const handleApprove = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!isEditable || !isFinanciero) {
-      setActionError("No puedes aprobar este aval en la etapa actual.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      const notasPayload = draft.notas
-        .map((texto, index) => ({
-          titulo: `NOTA ${index + 1}`,
-          texto: texto.trim(),
-        }))
-        .filter((nota) => nota.texto.length > 0);
-
-      const notasActualesNormalizadas = draft.notas.map((nota) => nota.trim());
-      const notasDefaultNormalizadas = defaultNotas.map((nota) => nota.trim());
-      const notasSinCambios =
-        notasActualesNormalizadas.length === notasDefaultNormalizadas.length &&
-        notasActualesNormalizadas.every(
-          (nota, index) => nota === notasDefaultNormalizadas[index],
-        );
-
-      await aprobarAval(
-        aval.id,
-        user.id,
-        approvalEtapa,
-        undefined,
-        undefined,
-        notasSinCambios ? { notas: [] } : { notas: notasPayload },
-      );
-      setToast({
-        variant: "success",
-        message: "Certificación financiera aprobada correctamente.",
-      });
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "No se pudo aprobar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [
-    aval,
-    user?.id,
-    isEditable,
-    isFinanciero,
-    loadAval,
-    draft.notas,
-    defaultNotas,
-  ]);
-
-  const handleReject = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!isEditable || !isFinanciero) {
-      setActionError("No puedes rechazar este aval en la etapa actual.");
-      return;
-    }
-    if (!rechazoMotivo.trim()) {
-      setActionError("Debes indicar un motivo para el rechazo.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await rechazarAval(aval.id, user.id, approvalEtapa, rechazoMotivo.trim());
-      setToast({ variant: "success", message: "Aval rechazado correctamente." });
-      setRechazoMotivo("");
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "No se pudo rechazar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, isEditable, isFinanciero, rechazoMotivo, currentEtapa, loadAval]);
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Cargando sesión...
-          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
         </div>
       </div>
     );
@@ -382,12 +259,11 @@ Telefono: 72570734`;
                   rows={3}
                   value={draft.descripcionCertificacion}
                   onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      descripcionCertificacion: e.target.value,
-                    }))
+                    setDraft((prev) => ({ ...prev, descripcionCertificacion: e.target.value }))
                   }
-                  placeholder={defaultDescripcionCertificacion || "Describe la certificación presupuestaria..."}
+                  placeholder={
+                    defaultDescripcionCertificacion || "Describe la certificación presupuestaria..."
+                  }
                 />
               </label>
 
@@ -489,7 +365,7 @@ Telefono: 72570734`;
               <ApprovalFlowCard
                 title="Aprobación financiera"
                 currentStageLabel={getApprovalStageLabel(currentEtapa)}
-                nextStageLabel={getApprovalStageLabel(approvalEtapa)}
+                nextStageLabel={getApprovalStageLabel(APPROVAL_ETAPA)}
                 reasonValue={rechazoMotivo}
                 onReasonChange={setRechazoMotivo}
                 actionError={actionError}
@@ -520,4 +396,27 @@ Telefono: 72570734`;
       </div>
     </div>
   );
+}
+
+function buildDefaultNotas(aval: Aval) {
+  const requerimientosRaw = (aval?.evento?.presupuesto ?? [])
+    .map((item) => item.item?.nombre?.trim().toLowerCase())
+    .filter((item): item is string => Boolean(item));
+  const requerimientos = Array.from(new Set(requerimientosRaw));
+  const requerimientosTexto = joinWithCommaAndY(requerimientos);
+
+  const nota1 = requerimientosTexto
+    ? `El requerimiento es ${requerimientosTexto}`
+    : "El requerimiento es pasajes ida y vuelta, hospedaje, transporte de personal y deportistas, afiliacion y alimentacion";
+
+  const nota2 = `Las facturas de gastos deben solicitarse con los siguientes datos:
+Razon Social: Federacion Deportiva Provincial de Loja
+RUC: 1191708241001
+Direccion: Macara entre Mercadillo y Azuay
+Telefono: 72570734`;
+
+  const nota3 =
+    "El informe de gastos, se entregara como maximo 72 horas culminada la competencia";
+
+  return [nota1, nota2, nota3];
 }

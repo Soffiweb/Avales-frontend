@@ -28,11 +28,41 @@ function getApiUrl() {
   if (typeof window !== "undefined") {
     return "/api/v1";
   }
+  return null;
+}
 
-  // En el servidor (SSR), usamos la URL completa
-  const url = process.env.NEXT_PUBLIC_API_URL;
-  if (!url) return "http://localhost:3000/api/v1";
-  return url;
+async function getServerApiUrl() {
+  const appUrl =
+    process.env.APP_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_URL;
+
+  try {
+    const { headers } = await import("next/headers");
+    const headerStore = await headers();
+    const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+    const protocol =
+      headerStore.get("x-forwarded-proto") ??
+      (host?.includes("localhost") ? "http" : "https");
+
+    if (host) {
+      return `${protocol}://${host}/api/v1`;
+    }
+  } catch {}
+
+  if (appUrl) {
+    const normalized = appUrl.startsWith("http") ? appUrl : `https://${appUrl}`;
+    return `${normalized.replace(/\/$/, "")}/api/v1`;
+  }
+
+  return "http://localhost:4000/api/v1";
+}
+
+async function resolveApiUrl() {
+  const clientUrl = getApiUrl();
+  if (clientUrl) return clientUrl;
+  return getServerApiUrl();
 }
 
 const REFRESH_THRESHOLD_MS = 2 * 60 * 1000;
@@ -153,7 +183,7 @@ export async function apiFetch<T>(
   };
 
   const request = async (token: string | null) =>
-    fetch(`${getApiUrl()}${path}`, {
+    fetch(`${await resolveApiUrl()}${path}`, {
       ...options,
       credentials: "include",
       headers: buildHeaders(token),

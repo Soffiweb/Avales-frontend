@@ -163,12 +163,6 @@ export async function updateEvento(
     throw new Error("Debes cambiar al menos un campo para actualizar el evento.");
   }
 
-  console.log("[API] updateEvento payload JSON:", {
-    eventoId: id,
-    payload: cleanPayload,
-    archivoIncluido: !!archivo,
-  });
-
   if (archivo) {
     const formData = new FormData();
     Object.entries(cleanPayload).forEach(([key, value]) => {

@@ -4,22 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
-import { useAuth } from "@/app/providers/auth-provider";
-import {
-  aprobarAval,
-  getAval,
-  getRevisionMetodologoItems,
-  rechazarAval,
-} from "@/lib/api/avales";
+import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
+import { aprobarAval, getRevisionMetodologoItems } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, {
-  type PdaDraft,
-} from "@/app/(app)/avales/_components/pda-preview";
+import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
@@ -32,9 +25,8 @@ import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/pre
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 import { getApprovalStageLabel, getNextApprovalStage } from "@/lib/constants";
-import { getNormalizedRoles } from "@/lib/auth/access";
+import { isControlPrevioUser } from "@/lib/auth/access";
 import {
   formatEventScheduleSentence,
   formatLocationWithProvince,
@@ -87,7 +79,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
-
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
@@ -99,9 +90,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort(
-      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
-    )
+    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -109,25 +98,16 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         nombre?: string;
         apellido?: string;
       };
-
       const nombre = (
         [
-          withUser.entrenador?.nombre ??
-            withUser.usuario?.nombre ??
-            withUser.nombre,
-          withUser.entrenador?.apellido ??
-            withUser.usuario?.apellido ??
-            withUser.apellido,
+          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
+          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
           .trim() || `Entrenador ${item.entrenadorId}`
       ).toUpperCase();
-
-      return {
-        id: item.entrenadorId,
-        nombre,
-      };
+      return { id: item.entrenadorId, nombre };
     });
 
   return {
@@ -159,10 +139,7 @@ function getTodayLocalDate() {
 
 function buildDefaultDtmDescripcion(aval: Aval) {
   const evento = aval.evento;
-  const entrenador = getResponsibleTrainerName(
-    aval,
-    "[ENTRENADOR RESPONSABLE]",
-  );
+  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
   const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
   const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
   const numeroSolicitud =
@@ -175,42 +152,51 @@ function buildDefaultDtmDescripcion(aval: Aval) {
     formatLocationWithProvince(evento) ||
     "[LUGAR]";
   const rangoFechas = formatEventScheduleSentence(evento);
-
   return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
 }
 
 export default function RevisionControlPrevioPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const avalId = Number(params.id);
 
-  const [aval, setAval] = useState<Aval | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [rechazoMotivo, setRechazoMotivo] = useState("");
-  const [toast, setToast] = useState<{
-    variant: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [reviewItems, setReviewItems] =
-    useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
-  const [reviewState, setReviewState] = useState<
-    Record<string, ReviewStateItem>
-  >({});
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
+  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>({});
 
-  const isControlPrevio = getNormalizedRoles(user).includes("CONTROL_PREVIO");
+  const {
+    authLoading,
+    hasRequiredRole: isControlPrevio,
+    aval,
+    loading,
+    error,
+    actionLoading,
+    actionError,
+    toast,
+    setToast,
+    rechazoMotivo,
+    setRechazoMotivo,
+    currentEtapa,
+    isEditable,
+    handleApprove,
+    handleReject,
+  } = useApprovalFlow({
+    avalId,
+    requiredRole: isControlPrevioUser,
+    editableEtapa: "REVISION_DTM",
+    approvalEtapa: (etapa) => getNextApprovalStage(etapa) ?? etapa,
+    onApproveAction: useCallback(
+      async ({ aval: a, userId, approvalEtapa }) => {
+        await aprobarAval(a.id, userId, approvalEtapa);
+      },
+      [],
+    ),
+    approveSuccessMessage: "Aval aprobado correctamente.",
+  });
 
-  useEffect(() => {
-    setActionError(null);
-    setRechazoMotivo("");
-  }, [avalId]);
+  const showApprovalPanel = isControlPrevio && isEditable;
 
   useEffect(() => {
     let active = true;
-
     async function loadReviewItems() {
       try {
         const response = await getRevisionMetodologoItems();
@@ -224,45 +210,14 @@ export default function RevisionControlPrevioPage() {
         setReviewItems(DEFAULT_REVIEW_ITEMS);
       }
     }
-
     void loadReviewItems();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
-
-  const loadAval = useCallback(async () => {
-    if (!avalId || Number.isNaN(avalId)) {
-      setError("ID de aval inválido.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getAval(avalId);
-      setAval(response.data);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "No se pudo cargar el aval.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [avalId]);
-
-  useEffect(() => {
-    void loadAval();
-  }, [loadAval]);
 
   useEffect(() => {
     if (!aval) return;
     setReviewState(
-      mergeReviewStateFromApi(
-        reviewItems,
-        aval.revisionMetodologo?.items ?? [],
-      ),
+      mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? []),
     );
   }, [aval, reviewItems]);
 
@@ -288,9 +243,7 @@ export default function RevisionControlPrevioPage() {
     return {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
-        typeof compras.realizoProceso === "boolean"
-          ? compras.realizoProceso
-          : null,
+        typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
       codigoNecesidad: compras.codigoNecesidad ?? "",
       objetoContratacion: compras.objetoContratacion ?? "",
       nombreFirmante: compras.nombreFirmante ?? "",
@@ -298,23 +251,19 @@ export default function RevisionControlPrevioPage() {
       fechaEmision: compras.fechaEmision ?? "",
     };
   }, [aval]);
-
   const revisionHeader = useMemo(
     () => ({
       numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
       dirigidoA: aval?.revisionMetodologo?.dirigidoA ?? "",
       cargoDirigidoA: aval?.revisionMetodologo?.cargoDirigidoA ?? "",
-      descripcionEncabezado:
-        aval?.revisionMetodologo?.descripcionEncabezado ?? "",
+      descripcionEncabezado: aval?.revisionMetodologo?.descripcionEncabezado ?? "",
       fechaRevision: aval?.revisionMetodologo?.fechaRevision ?? "",
     }),
     [aval],
   );
-
   const revisionFooter = useMemo(
     () => ({
-      observacionesFinales:
-        aval?.revisionMetodologo?.observacionesFinales ?? "",
+      observacionesFinales: aval?.revisionMetodologo?.observacionesFinales ?? "",
       firmanteNombre: aval?.revisionMetodologo?.firmanteNombre ?? "",
       firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
     }),
@@ -326,8 +275,7 @@ export default function RevisionControlPrevioPage() {
       descripcionEncabezado:
         aval?.revisionDtm?.descripcion ??
         (aval ? buildDefaultDtmDescripcion(aval) : ""),
-      fechaRevision:
-        aval?.revisionDtm?.fechaPresentacion ?? getTodayLocalDate(),
+      fechaRevision: aval?.revisionDtm?.fechaPresentacion ?? getTodayLocalDate(),
       observacionFechaTramite: "",
     }),
     [aval, revisionHeader],
@@ -341,91 +289,12 @@ export default function RevisionControlPrevioPage() {
     [aval],
   );
 
-  const etapaActualResponse = aval?.etapaActual;
-  const etapaActualHistorial = getCurrentEtapa(aval?.historial);
-  const currentEtapa = (etapaActualResponse ??
-    etapaActualHistorial ??
-    "SOLICITUD") as EtapaFlujo;
-  const isEditable =
-    aval?.estado === "SOLICITADO" && currentEtapa === "REVISION_DTM";
-  const approvalEtapa = getNextApprovalStage(currentEtapa) ?? currentEtapa;
-  const showApprovalPanel = isControlPrevio && isEditable;
-
-  const handleApprove = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!showApprovalPanel) {
-      setActionError("No puedes aprobar este aval en la etapa actual.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await aprobarAval(aval.id, user.id, approvalEtapa);
-      setToast({ variant: "success", message: "Aval aprobado correctamente." });
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "No se pudo aprobar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, showApprovalPanel, approvalEtapa, loadAval]);
-
-  const handleReject = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!showApprovalPanel) {
-      setActionError("No puedes rechazar este aval en la etapa actual.");
-      return;
-    }
-    if (!rechazoMotivo.trim()) {
-      setActionError("Debes indicar un motivo para el rechazo.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await rechazarAval(aval.id, user.id, approvalEtapa, rechazoMotivo.trim());
-      setToast({
-        variant: "success",
-        message: "Aval rechazado correctamente.",
-      });
-      setRechazoMotivo("");
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error ? err.message : "No se pudo rechazar el aval.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [
-    aval,
-    user?.id,
-    showApprovalPanel,
-    rechazoMotivo,
-    currentEtapa,
-    loadAval,
-  ]);
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Cargando sesión...
-          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
         </div>
       </div>
     );
@@ -463,6 +332,8 @@ export default function RevisionControlPrevioPage() {
       </div>
     );
   }
+
+  const approvalEtapa = (getNextApprovalStage(currentEtapa) ?? currentEtapa) as EtapaFlujo;
 
   return (
     <div className="h-screen flex">
@@ -528,10 +399,7 @@ export default function RevisionControlPrevioPage() {
             <PreviewCollapsible title="Certificacion PDA" defaultOpen>
               <PdaPreview aval={aval} draft={pdaDraft} />
             </PreviewCollapsible>
-            <PreviewCollapsible
-              title="Certificacion compras publicas"
-              defaultOpen
-            >
+            <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Revision metodologo" defaultOpen>
@@ -554,14 +422,8 @@ export default function RevisionControlPrevioPage() {
                 useDefaultObservations={false}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible
-              title="Presupuesto de salida"
-              defaultOpen
-            >
-              <PresupuestoSalidaAnticipoPreview
-                aval={aval}
-                draft={{ notas: [] }}
-              />
+            <PreviewCollapsible title="Presupuesto de salida" defaultOpen>
+              <PresupuestoSalidaAnticipoPreview aval={aval} draft={{ notas: [] }} />
             </PreviewCollapsible>
           </div>
         </div>

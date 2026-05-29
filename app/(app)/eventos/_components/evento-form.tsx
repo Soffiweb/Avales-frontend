@@ -1,21 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Upload, X } from "lucide-react";
+import { Controller } from "react-hook-form";
+import { Plus, Trash2 } from "lucide-react";
 
 import DatePicker from "@/components/forms/DatePicker";
-import { ApiError } from "@/lib/api/client";
-import { createEvento, updateEvento } from "@/lib/api/eventos";
-import { getCatalog, getItemsPresupuestarios } from "@/lib/api/catalog";
-import type { CatalogItem, CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
-import {
-  eventoSchema,
-  type CreateEventoPayload,
-  type EventoFormValues,
-} from "@/lib/validation/evento";
 import {
   EVENTO_ALCANCE_OPTIONS,
   EVENTO_CATEGORIA_OPTIONS,
@@ -23,111 +12,11 @@ import {
   EVENTO_MES_OPTIONS,
   EVENTO_TAREA_OPTIONS,
   EVENTO_TIPO_PARTICIPACION_OPTIONS,
-  normalizeEventoTipoParticipacion,
 } from "@/lib/constants";
-import { getCanonicalCategory, normalizeCategoryValue } from "@/lib/utils/categories";
-import {
-  getCatalogItemCode,
-  resolveCatalogItemCodeFromList,
-} from "@/lib/utils/catalog";
-import { formatDateInput } from "@/lib/utils/formatters/dates";
-
-function getDefaultMesProgramado(evento?: Evento | null) {
-  if (evento?.mesProgramado) return evento.mesProgramado;
-  if (evento?.fechaInicio) {
-    const start = new Date(evento.fechaInicio);
-    if (!Number.isNaN(start.getTime())) {
-      return start.getMonth() + 1;
-    }
-  }
-  return new Date().getMonth() + 1;
-}
-
-function normalizeCategoriaCodigo(value?: string | null) {
-  const normalized = normalizeCategoryValue(value);
-  const match = EVENTO_CATEGORIA_OPTIONS.find(
-    (option) => normalizeCategoryValue(option.value) === normalized
-  );
-  return match?.value ?? "";
-}
-
-function resolveCategoriaCatalogItem(
-  categorias: CatalogItem[],
-  categoriaCodigo: string
-) {
-  const normalizedValue = normalizeCategoryValue(categoriaCodigo);
-  return categorias.find((item) => {
-    const normalizedCode = normalizeCategoryValue(item.codigo);
-    const normalizedName = normalizeCategoryValue(item.nombre);
-    return (
-      normalizedCode === normalizedValue ||
-      normalizedName === normalizedValue ||
-      String(item.id) === categoriaCodigo
-    );
-  });
-}
-
-const EMPTY_FORM_VALUES: EventoFormValues = {
-  codigo: "",
-  tipoParticipacion: EVENTO_TIPO_PARTICIPACION_OPTIONS[0].value,
-  tipoEvento: "",
-  nombre: "",
-  lugar: "",
-  genero: undefined as unknown as EventoFormValues["genero"],
-  disciplinaCodigo: "",
-  categoriaCodigo: "",
-  mesProgramado: new Date().getMonth() + 1,
-  provincia: "",
-  ciudad: "",
-  pais: "Ecuador",
-  alcance: "",
-  fechaInicio: "",
-  fechaFin: "",
-  numEntrenadoresHombres: 0,
-  numEntrenadoresMujeres: 0,
-  numAtletasHombres: 0,
-  numAtletasMujeres: 0,
-  eventoItems: [],
-};
-
-const mapEventoToFormValues = (evento: Evento): EventoFormValues => ({
-  codigo: evento.codigo ?? "",
-  tipoParticipacion:
-    normalizeEventoTipoParticipacion(evento.tipoParticipacion) ??
-    EVENTO_TIPO_PARTICIPACION_OPTIONS[0].value,
-  tipoEvento: evento.tipoEvento ?? "",
-  nombre: evento.nombre ?? "",
-  lugar: evento.lugar ?? "",
-  genero: evento.genero ?? (undefined as unknown as EventoFormValues["genero"]),
-  disciplinaCodigo:
-    evento.disciplinaCodigo ??
-    evento.disciplina?.codigo ??
-    (evento.disciplinaId ? String(evento.disciplinaId) : ""),
-  categoriaCodigo:
-    normalizeCategoriaCodigo(
-      evento.categoriaCodigo ??
-        evento.categoria?.codigo ??
-        evento.categoria?.nombre ??
-        (evento.categoriaId ? String(evento.categoriaId) : "")
-    ),
-  mesProgramado: getDefaultMesProgramado(evento),
-  provincia: evento.provincia ?? "",
-  ciudad: evento.ciudad ?? "",
-  pais: evento.pais ?? "Ecuador",
-  alcance: evento.alcance ?? "",
-  fechaInicio: formatDateInput(evento.fechaInicio),
-  fechaFin: formatDateInput(evento.fechaFin),
-  numEntrenadoresHombres: evento.numEntrenadoresHombres ?? 0,
-  numEntrenadoresMujeres: evento.numEntrenadoresMujeres ?? 0,
-  numAtletasHombres: evento.numAtletasHombres ?? 0,
-  numAtletasMujeres: evento.numAtletasMujeres ?? 0,
-  eventoItems:
-    evento.eventoItems?.map((ei) => ({
-      itemId: ei.item.id,
-      mes: ei.mes,
-      presupuesto: parseFloat(ei.presupuesto) || 0,
-    })) ?? [],
-});
+import { getCatalogItemCode } from "@/lib/utils/catalog";
+import { parseDecimalInput, parseIntegerInput } from "./evento-form-helpers";
+import EventoFileUpload from "./evento-file-upload";
+import { useEventoForm } from "./use-evento-form";
 
 type Props = {
   mode?: "create" | "edit";
@@ -142,298 +31,37 @@ export default function EventoForm({
   onCreated,
   onUpdated,
 }: Props) {
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [categorias, setCategorias] = useState<CatalogItem[]>([]);
-  const [disciplinas, setDisciplinas] = useState<CatalogItem[]>([]);
-  const [itemsCatalogo, setItemsCatalogo] = useState<CatalogItemPresupuestario[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [archivoPreview, setArchivoPreview] = useState<string | null>(null);
-  const [draggingArchivo, setDraggingArchivo] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const initialValues = useMemo<EventoFormValues>(() => {
-    if (mode === "edit" && evento) {
-      return mapEventoToFormValues(evento);
-    }
-    return EMPTY_FORM_VALUES;
-  }, [evento, mode]);
-
   const {
-    register,
+    append,
+    archivo,
+    archivoPreview,
+    buttonLabel,
+    catalogError,
+    catalogLoading,
+    control,
+    disciplinas,
+    draggingArchivo,
+    errors,
+    fields,
+    handleArchivoDragLeave,
+    handleArchivoDragOver,
+    handleArchivoDrop,
+    handleFileChange,
     handleSubmit,
-    control,
-    formState: { errors, isSubmitting },
-    reset,
-    setError,
-    watch,
-  } = useForm<EventoFormValues>({
-    resolver: zodResolver(eventoSchema),
-    defaultValues: initialValues,
+    isSubmitting,
+    itemsByActividad,
+    onSubmit,
+    register,
+    remove,
+    removeFile,
+    submitError,
+    totalPresupuesto,
+  } = useEventoForm({
+    mode,
+    evento,
+    onCreated,
+    onUpdated,
   });
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "eventoItems",
-  });
-
-  const eventoItemsValues = watch("eventoItems") ?? [];
-
-  const totalPresupuesto = eventoItemsValues.reduce(
-    (sum, item) => sum + (item?.presupuesto || 0),
-    0
-  );
-
-  useEffect(() => {
-    if (mode !== "edit" || !evento || catalogLoading || !initialValues) {
-      return;
-    }
-    reset({
-      ...initialValues,
-      categoriaCodigo: normalizeCategoriaCodigo(initialValues.categoriaCodigo),
-      disciplinaCodigo: resolveCatalogItemCodeFromList(
-        disciplinas,
-        initialValues.disciplinaCodigo
-      ),
-      mesProgramado: initialValues.mesProgramado ?? getDefaultMesProgramado(evento),
-    });
-  }, [evento, initialValues, mode, catalogLoading, reset, categorias, disciplinas]);
-
-  useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        setCatalogLoading(true);
-        setCatalogError(null);
-        const [catalogRes, itemsRes] = await Promise.all([
-          getCatalog(),
-          getItemsPresupuestarios(),
-        ]);
-        const cats = catalogRes.data?.categorias ?? [];
-        const discs = catalogRes.data?.disciplinas ?? [];
-        setCategorias(cats);
-        setDisciplinas(discs);
-        setItemsCatalogo(itemsRes.data ?? []);
-      } catch (err: any) {
-        setCatalogError(
-          err?.message ?? "No se pudieron cargar categorias/disciplinas."
-        );
-        setCategorias([]);
-        setDisciplinas([]);
-      } finally {
-        setCatalogLoading(false);
-      }
-    };
-
-    void loadCatalog();
-  }, []);
-
-  const processArchivo = (file: File) => {
-    const validTypes = ["image/jpeg", "image/png", "application/pdf"];
-    if (!validTypes.includes(file.type)) {
-      setSubmitError("Solo se permiten archivos JPG, PNG o PDF");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setSubmitError("El archivo no puede superar 5MB");
-      return;
-    }
-
-    setArchivo(file);
-    setSubmitError(null);
-
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setArchivoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setArchivoPreview(null);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processArchivo(file);
-  };
-
-  const handleArchivoDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingArchivo(true);
-  };
-
-  const handleArchivoDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingArchivo(false);
-  };
-
-  const handleArchivoDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingArchivo(false);
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) processArchivo(droppedFile);
-  };
-
-  const removeFile = () => {
-    setArchivo(null);
-    setArchivoPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const onSubmit = async (values: EventoFormValues) => {
-    setSubmitError(null);
-
-    const disciplina = disciplinas.find((d) => getCatalogItemCode(d) === values.disciplinaCodigo);
-    const categoria = resolveCategoriaCatalogItem(categorias, values.categoriaCodigo);
-    const tipoParticipacion =
-      normalizeEventoTipoParticipacion(values.tipoParticipacion) ??
-      undefined;
-    const categoriaCodigo = getCanonicalCategory(values.categoriaCodigo);
-
-    if (
-      !tipoParticipacion ||
-      !values.tipoEvento ||
-      !values.genero ||
-      !categoriaCodigo ||
-      !values.alcance
-    ) {
-      setSubmitError("Completa los campos obligatorios del evento.");
-      return;
-    }
-
-    const payload: CreateEventoPayload = {
-      codigo: values.codigo.trim(),
-      tipoParticipacion,
-      tipoEvento: values.tipoEvento.trim(),
-      nombre: values.nombre.trim(),
-      lugar: values.lugar.trim(),
-      genero: values.genero,
-      disciplinaCodigo: values.disciplinaCodigo,
-      categoriaCodigo,
-      mesProgramado: values.mesProgramado,
-      provincia: values.provincia.trim(),
-      ciudad: values.ciudad.trim(),
-      pais: values.pais.trim(),
-      alcance: values.alcance.trim(),
-      fechaInicio: values.fechaInicio?.trim()
-        ? formatDateInput(values.fechaInicio)
-        : null,
-      fechaFin: values.fechaFin?.trim()
-        ? formatDateInput(values.fechaFin)
-        : null,
-      numEntrenadoresHombres: values.numEntrenadoresHombres,
-      numEntrenadoresMujeres: values.numEntrenadoresMujeres,
-      numAtletasHombres: values.numAtletasHombres,
-      numAtletasMujeres: values.numAtletasMujeres,
-      eventoItems: values.eventoItems?.length ? values.eventoItems : undefined,
-    };
-
-    try {
-      if (mode === "edit") {
-        if (!evento?.id) {
-          throw new Error("No se pudo identificar el evento a editar.");
-        }
-        const updatePayload = {
-          codigo: payload.codigo,
-          tipoParticipacion: payload.tipoParticipacion,
-          tipoEvento: payload.tipoEvento,
-          nombre: payload.nombre,
-          lugar: payload.lugar,
-          genero: payload.genero,
-          disciplinaId: disciplina?.id,
-          categoriaId: categoria?.id,
-          mesProgramado: payload.mesProgramado,
-          provincia: payload.provincia,
-          ciudad: payload.ciudad,
-          pais: payload.pais,
-          alcance: payload.alcance,
-          fechaInicio: payload.fechaInicio,
-          fechaFin: payload.fechaFin,
-          numEntrenadoresHombres: payload.numEntrenadoresHombres,
-          numEntrenadoresMujeres: payload.numEntrenadoresMujeres,
-          numAtletasHombres: payload.numAtletasHombres,
-          numAtletasMujeres: payload.numAtletasMujeres,
-          eventoItems: payload.eventoItems,
-        };
-        console.log("[EVENTO EDIT] Payload enviado:", {
-          eventoId: evento.id,
-          updatePayload,
-          archivoNombre: archivo?.name,
-        });
-        await updateEvento(
-          evento.id,
-          updatePayload,
-          archivo ?? undefined
-        );
-        if (onUpdated) {
-          await onUpdated();
-        }
-      } else {
-        await createEvento(payload, archivo ?? undefined);
-        reset(EMPTY_FORM_VALUES);
-        removeFile();
-        if (onCreated) {
-          await onCreated();
-        }
-      }
-    } catch (err: unknown) {
-      const fallback =
-        mode === "edit"
-          ? "No se pudo actualizar el evento. Intenta nuevamente."
-          : "No se pudo crear el evento. Intenta nuevamente.";
-      let message = fallback;
-
-      if (err instanceof ApiError) {
-        const problem = err.problem;
-        const detail =
-          problem?.detail ?? problem?.title ?? err.message ?? fallback;
-        if (problem?.field) {
-          const fieldName =
-            problem.field === "categoriaId" ||
-            problem.field === "categoriaCodigo"
-              ? ("categoriaCodigo" as keyof EventoFormValues)
-              : problem.field === "disciplinaId" ||
-                  problem.field === "disciplinaCodigo"
-                ? ("disciplinaCodigo" as keyof EventoFormValues)
-                : problem.field === "mesProgramado"
-                  ? ("mesProgramado" as keyof EventoFormValues)
-                : (problem.field as keyof EventoFormValues);
-          setError(fieldName, { type: "server", message: detail });
-        }
-        message = detail;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-
-      setSubmitError(message);
-    }
-  };
-
-  const buttonLabel = isSubmitting
-    ? "Guardando..."
-    : mode === "edit"
-    ? "Guardar cambios"
-    : "Guardar evento";
-
-  // Agrupar items del catálogo por actividad para el select
-  const itemsByActividad = useMemo(() => {
-    const groups: Record<string, CatalogItemPresupuestario[]> = {};
-    for (const item of itemsCatalogo) {
-      const key = item.actividad
-        ? `${item.actividad.numero} - ${item.actividad.nombre}`
-        : "Sin actividad";
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(item);
-    }
-    return groups;
-  }, [itemsCatalogo]);
 
   return (
     <form
@@ -848,7 +476,7 @@ export default function EventoForm({
               type="text"
               inputMode="numeric"
               {...register("numEntrenadoresHombres", {
-                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+                setValueAs: parseIntegerInput,
               })}
             />
             {errors.numEntrenadoresHombres && (
@@ -871,7 +499,7 @@ export default function EventoForm({
               type="text"
               inputMode="numeric"
               {...register("numEntrenadoresMujeres", {
-                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+                setValueAs: parseIntegerInput,
               })}
             />
             {errors.numEntrenadoresMujeres && (
@@ -894,7 +522,7 @@ export default function EventoForm({
               type="text"
               inputMode="numeric"
               {...register("numAtletasHombres", {
-                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+                setValueAs: parseIntegerInput,
               })}
             />
             {errors.numAtletasHombres && (
@@ -917,7 +545,7 @@ export default function EventoForm({
               type="text"
               inputMode="numeric"
               {...register("numAtletasMujeres", {
-                setValueAs: (v) => Number(String(v).replace(/\D/g, '')) || 0,
+                setValueAs: parseIntegerInput,
               })}
             />
             {errors.numAtletasMujeres && (
@@ -1025,11 +653,7 @@ export default function EventoForm({
                 inputMode="decimal"
                 placeholder="0.00"
                 {...register(`eventoItems.${index}.presupuesto`, {
-                  setValueAs: (v) => {
-                    const clean = String(v).replace(/[^\d.]/g, '');
-                    const noMultipleDots = clean.replace(/\.(?=.*\.)/g, '');
-                    return Number(noMultipleDots) || 0;
-                  },
+                  setValueAs: parseDecimalInput,
                 })}
               />
               {errors.eventoItems?.[index]?.presupuesto && (
@@ -1083,72 +707,17 @@ export default function EventoForm({
         </p>
       </div>
 
-      <div className="p-5 space-y-4">
-        <div
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={handleArchivoDragOver}
-          onDragLeave={handleArchivoDragLeave}
-          onDrop={handleArchivoDrop}
-          className={`
-            relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-            ${draggingArchivo
-              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-              : archivo
-                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10"
-                : "border-gray-300 hover:border-indigo-400 dark:border-gray-600"}
-          `}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.pdf"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-
-          {archivo ? (
-            <div className="flex flex-col items-center">
-              <Upload className="w-10 h-10 text-indigo-500 mb-2" />
-              <p className="font-medium text-gray-900 dark:text-gray-100">{archivo.name}</p>
-              <p className="text-sm text-gray-500">{(archivo.size / 1024).toFixed(1)} KB</p>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); removeFile(); }}
-                className="mt-2 text-sm text-red-500 hover:text-red-600 flex items-center gap-1"
-              >
-                <X className="w-3 h-3" />
-                Quitar archivo
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <Upload className="w-10 h-10 text-gray-400 mb-2" />
-              <p className="font-medium text-gray-700 dark:text-gray-200">
-                {draggingArchivo ? "Suelta el archivo aqui" : "Arrastra o haz clic para seleccionar"}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                JPG, PNG o PDF (max 5MB)
-              </p>
-            </div>
-          )}
-        </div>
-
-        {archivoPreview && (
-          <div className="mt-2">
-            <img
-              src={archivoPreview}
-              alt="Vista previa"
-              className="max-w-xs rounded-lg border border-gray-200 dark:border-gray-700"
-            />
-          </div>
-        )}
-
-        {mode === "edit" && evento?.archivo && !archivo && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Archivo actual: {evento.archivo}
-          </p>
-        )}
-      </div>
+      <EventoFileUpload
+        archivo={archivo}
+        archivoPreview={archivoPreview}
+        draggingArchivo={draggingArchivo}
+        currentArchivoLabel={mode === "edit" ? (evento?.archivo ?? null) : null}
+        onFileChange={handleFileChange}
+        onDragOver={handleArchivoDragOver}
+        onDragLeave={handleArchivoDragLeave}
+        onDrop={handleArchivoDrop}
+        onRemove={removeFile}
+      />
 
       {/* Errores y Submit */}
       <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700/60">

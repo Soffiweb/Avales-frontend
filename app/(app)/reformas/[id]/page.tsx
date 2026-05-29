@@ -143,7 +143,6 @@ export default function ReformaDetailPage() {
         setLoading(true);
         setError(null);
         const response = await getReform(id);
-        console.log("Detalle de reforma:", response.data);
         setReform(response.data);
       } catch (err: unknown) {
         setError(

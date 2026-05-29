@@ -19,15 +19,6 @@ export function getCatalog() {
   );
 }
 
-export function getCategorias() {
-  return apiFetch<CatalogItem[]>("/catalog/categorias").then((response) => ({
-    ...response,
-    data: sortCategoriesByPreferredOrder(
-      normalizeCategoryCatalogItems(response.data ?? [])
-    ),
-  }));
-}
-
 export function getDisciplinas() {
   return apiFetch<CatalogItem[]>("/catalog/disciplinas");
 }

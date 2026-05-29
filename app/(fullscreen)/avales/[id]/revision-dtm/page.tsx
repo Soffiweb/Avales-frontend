@@ -4,12 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
-import { useAuth } from "@/app/providers/auth-provider";
+import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
   aprobarAval,
-  getAval,
   getRevisionMetodologoItems,
-  rechazarAval,
 } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
@@ -33,9 +31,7 @@ import {
   mergeReviewStateFromApi,
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
-import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
-import { getNormalizedRoles } from "@/lib/auth/access";
+import { isDTMUser } from "@/lib/auth/access";
 import {
   formatEventScheduleSentence,
   formatLocationWithProvince,
@@ -102,7 +98,6 @@ function buildDtmDraft(
   },
 ): DtmDraft {
   const revisionDtm = aval?.revisionDtm;
-
   return {
     descripcion: revisionDtm?.descripcion ?? "",
     observacion: revisionDtm?.observacion ?? "",
@@ -141,7 +136,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
-
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
@@ -161,7 +155,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         nombre?: string;
         apellido?: string;
       };
-
       const nombre = (
         [
           withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
@@ -171,11 +164,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
           .join(" ")
           .trim() || `Entrenador ${item.entrenadorId}`
       ).toUpperCase();
-
-      return {
-        id: item.entrenadorId,
-        nombre,
-      };
+      return { id: item.entrenadorId, nombre };
     });
 
   return {
@@ -197,48 +186,72 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   };
 }
 
+const APPROVAL_ETAPA: EtapaFlujo = "REVISION_DTM";
+const EDITABLE_ETAPA: EtapaFlujo = "REVISION_METODOLOGO";
+
 export default function RevisionDtmPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const avalId = Number(params.id);
 
-  const [aval, setAval] = useState<Aval | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [rechazoMotivo, setRechazoMotivo] = useState("");
-  const [toast, setToast] = useState<{
-    variant: "success" | "error";
-    message: string;
-  } | null>(null);
   const [draft, setDraft] = useState<DtmDraft>(INITIAL_DTM_DRAFT);
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(
-    DEFAULT_REVIEW_ITEMS,
-  );
-  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>(
-    {},
-  );
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
+  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>({});
 
-  const isDtm = getNormalizedRoles(user).includes("DTM");
-  const defaultSignerName = useMemo(() => {
-    if (!user) return "";
-    return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
-  }, [user]);
-  const defaultSignerCargo = useMemo(
-    () => (user?.roles?.length ? formatRoles(user.roles) : ""),
-    [user],
-  );
-
-  useEffect(() => {
-    setActionError(null);
-    setRechazoMotivo("");
-  }, [avalId]);
+  const {
+    authLoading,
+    user,
+    hasRequiredRole: isDtm,
+    defaultSignerName,
+    defaultSignerCargo,
+    aval,
+    loading,
+    error,
+    actionLoading,
+    actionError,
+    toast,
+    setToast,
+    rechazoMotivo,
+    setRechazoMotivo,
+    isEditable,
+    summaryText,
+    handleApprove,
+    handleReject,
+  } = useApprovalFlow({
+    avalId,
+    requiredRole: isDTMUser,
+    editableEtapa: EDITABLE_ETAPA,
+    approvalEtapa: APPROVAL_ETAPA,
+    validateApprove: useCallback((_aval: Aval) => {
+      if (!draft.descripcion.trim()) return "La descripción es obligatoria.";
+      return null;
+    }, [draft.descripcion]),
+    onApproveAction: useCallback(
+      async ({ aval: a, userId, approvalEtapa }) => {
+        const items = reviewItems.map((item) => {
+          const state = reviewState[item.key];
+          return {
+            key: item.key,
+            cumple: state?.cumple ?? item.defaultCumple,
+            observacion: state?.observacion?.trim() || "",
+          };
+        });
+        await aprobarAval(a.id, userId, approvalEtapa, undefined, {
+          descripcion: draft.descripcion.trim(),
+          observacion: draft.observacion.trim() || undefined,
+          fechaPresentacion: draft.fechaPresentacion,
+          firmanteNombre: draft.firmanteNombre.trim() || undefined,
+          firmanteCargo: draft.firmanteCargo.trim() || undefined,
+          items,
+        });
+      },
+      [draft, reviewItems, reviewState],
+    ),
+    approveSuccessMessage: "Revisión DTM aprobada correctamente.",
+  });
 
   useEffect(() => {
     let active = true;
-
     async function loadReviewItems() {
       try {
         const response = await getRevisionMetodologoItems();
@@ -252,37 +265,9 @@ export default function RevisionDtmPage() {
         setReviewItems(DEFAULT_REVIEW_ITEMS);
       }
     }
-
     void loadReviewItems();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
-
-  const loadAval = useCallback(async () => {
-    if (!avalId || Number.isNaN(avalId)) {
-      setError("ID de aval inválido.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getAval(avalId);
-      setAval(response.data);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "No se pudo cargar el aval.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [avalId]);
-
-  useEffect(() => {
-    void loadAval();
-  }, [loadAval]);
 
   useEffect(() => {
     setDraft(
@@ -292,6 +277,22 @@ export default function RevisionDtmPage() {
       }),
     );
   }, [aval, defaultSignerName, defaultSignerCargo]);
+
+  useEffect(() => {
+    if (!aval) return;
+    if (draft.descripcion.trim()) return;
+    setDraft((prev) => ({
+      ...prev,
+      descripcion: buildDefaultDtmDescripcion(aval),
+    }));
+  }, [aval, draft.descripcion]);
+
+  useEffect(() => {
+    if (!aval) return;
+    setReviewState(
+      mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? []),
+    );
+  }, [aval, reviewItems]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -315,9 +316,7 @@ export default function RevisionDtmPage() {
     return {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
-        typeof compras.realizoProceso === "boolean"
-          ? compras.realizoProceso
-          : null,
+        typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
       codigoNecesidad: compras.codigoNecesidad ?? "",
       objetoContratacion: compras.objetoContratacion ?? "",
       nombreFirmante: compras.nombreFirmante ?? "",
@@ -326,47 +325,24 @@ export default function RevisionDtmPage() {
     };
   }, [aval]);
 
-  useEffect(() => {
-    if (!aval) return;
-    setReviewState(
-      mergeReviewStateFromApi(
-        reviewItems,
-        aval.revisionMetodologo?.items ?? [],
-      ),
-    );
-  }, [aval, reviewItems]);
-
-  useEffect(() => {
-    if (!aval) return;
-    if (draft.descripcion.trim()) return;
-    setDraft((prev) => ({
-      ...prev,
-      descripcion: buildDefaultDtmDescripcion(aval),
-    }));
-  }, [aval, draft.descripcion]);
-
   const revisionHeader = useMemo(
     () => ({
       numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
       dirigidoA: aval?.revisionMetodologo?.dirigidoA ?? "",
       cargoDirigidoA: aval?.revisionMetodologo?.cargoDirigidoA ?? "",
-      descripcionEncabezado:
-        aval?.revisionMetodologo?.descripcionEncabezado ?? "",
+      descripcionEncabezado: aval?.revisionMetodologo?.descripcionEncabezado ?? "",
       fechaRevision: aval?.revisionMetodologo?.fechaRevision ?? "",
     }),
     [aval],
   );
-
   const revisionFooter = useMemo(
     () => ({
-      observacionesFinales:
-        aval?.revisionMetodologo?.observacionesFinales ?? "",
+      observacionesFinales: aval?.revisionMetodologo?.observacionesFinales ?? "",
       firmanteNombre: aval?.revisionMetodologo?.firmanteNombre ?? "",
       firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
     }),
     [aval],
   );
-
   const dtmPreviewHeader = useMemo(
     () => ({
       ...revisionHeader,
@@ -374,156 +350,23 @@ export default function RevisionDtmPage() {
       fechaRevision: draft.fechaPresentacion,
       observacionFechaTramite: draft.observacionFechaTramite,
     }),
-    [
-      revisionHeader,
-      draft.descripcion,
-      draft.fechaPresentacion,
-      draft.observacionFechaTramite,
-    ],
+    [revisionHeader, draft.descripcion, draft.fechaPresentacion, draft.observacionFechaTramite],
   );
-
   const dtmPreviewFooter = useMemo(
     () => ({
       observacionesFinales: draft.observacion,
       firmanteNombre: draft.firmanteNombre || defaultSignerName,
       firmanteCargo: draft.firmanteCargo || defaultSignerCargo,
     }),
-    [
-      draft.observacion,
-      draft.firmanteNombre,
-      draft.firmanteCargo,
-      defaultSignerName,
-      defaultSignerCargo,
-    ],
+    [draft.observacion, draft.firmanteNombre, draft.firmanteCargo, defaultSignerName, defaultSignerCargo],
   );
-
-  const etapaActualResponse = aval?.etapaActual;
-  const etapaActualHistorial = getCurrentEtapa(aval?.historial);
-  const rawCurrentEtapa = (
-    etapaActualResponse ??
-    etapaActualHistorial ??
-    "SOLICITUD"
-  ).toUpperCase() as EtapaFlujo;
-  const currentEtapa = APPROVAL_STAGE_FLOW.includes(rawCurrentEtapa)
-    ? rawCurrentEtapa
-    : "SOLICITUD";
-  const isEditable =
-    aval?.estado === "SOLICITADO" && currentEtapa === "REVISION_METODOLOGO";
-  const approvalEtapa: EtapaFlujo = "REVISION_DTM";
-  const currentStageLabel = getApprovalStageLabel(currentEtapa);
-  const nextStageLabel = getApprovalStageLabel(approvalEtapa);
-  const summaryText = `El aval pasará de "${currentStageLabel}" a "${nextStageLabel}" y quedará en "${nextStageLabel}".`;
-
-  const handleApprove = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!isEditable) {
-      setActionError("No puedes aprobar este aval en la etapa actual.");
-      return;
-    }
-    if (!draft.descripcion.trim()) {
-      setActionError("La descripción es obligatoria.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      const items = reviewItems.map((item) => {
-        const state = reviewState[item.key];
-        return {
-          key: item.key,
-          cumple: state?.cumple ?? item.defaultCumple,
-          observacion: state?.observacion?.trim() || "",
-        };
-      });
-
-      await aprobarAval(
-        aval.id,
-        user.id,
-        approvalEtapa,
-        undefined,
-        {
-          descripcion: draft.descripcion.trim(),
-          observacion: draft.observacion.trim() || undefined,
-          fechaPresentacion: draft.fechaPresentacion,
-          firmanteNombre: draft.firmanteNombre.trim() || undefined,
-          firmanteCargo: draft.firmanteCargo.trim() || undefined,
-          items,
-        },
-      );
-      setToast({
-        variant: "success",
-        message: "Revisión DTM aprobada correctamente.",
-      });
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error
-          ? err.message
-          : "No se pudo aprobar la revisión DTM.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [
-    aval,
-    user?.id,
-    isEditable,
-    draft,
-    approvalEtapa,
-    loadAval,
-    reviewItems,
-    reviewState,
-  ]);
-
-  const handleReject = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!isEditable) {
-      setActionError("No puedes rechazar este aval en la etapa actual.");
-      return;
-    }
-    if (!rechazoMotivo.trim()) {
-      setActionError("Debes indicar un motivo para el rechazo.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await rechazarAval(aval.id, user.id, approvalEtapa, rechazoMotivo.trim());
-      setToast({
-        variant: "success",
-        message: "Aval rechazado correctamente.",
-      });
-      setRechazoMotivo("");
-      setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
-    } catch (err: unknown) {
-      setActionError(
-        err instanceof Error
-          ? err.message
-          : "No se pudo rechazar la revisión DTM.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, isEditable, rechazoMotivo, currentEtapa, loadAval]);
 
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Cargando sesión...
-          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
         </div>
       </div>
     );
@@ -606,10 +449,7 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        fechaPresentacion: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, fechaPresentacion: e.target.value }))
                     }
                   />
                 </label>
@@ -624,10 +464,7 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        observacionFechaTramite: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, observacionFechaTramite: e.target.value }))
                     }
                     placeholder="Escribe la observación para la fecha de trámite..."
                   />
@@ -644,10 +481,7 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        descripcion: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, descripcion: e.target.value }))
                     }
                     placeholder="Describe la revisión DTM..."
                   />
@@ -664,10 +498,7 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        firmanteNombre: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, firmanteNombre: e.target.value }))
                     }
                     placeholder="Nombre del firmante"
                   />
@@ -684,10 +515,7 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        firmanteCargo: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, firmanteCargo: e.target.value }))
                     }
                     placeholder="Cargo del firmante"
                   />
@@ -704,10 +532,7 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        observacion: e.target.value,
-                      }))
+                      setDraft((prev) => ({ ...prev, observacion: e.target.value }))
                     }
                     placeholder="Observaciones adicionales..."
                   />
@@ -715,9 +540,7 @@ export default function RevisionDtmPage() {
               </div>
 
               {actionError && (
-                <div className="text-xs text-rose-600 dark:text-rose-400">
-                  {actionError}
-                </div>
+                <div className="text-xs text-rose-600 dark:text-rose-400">{actionError}</div>
               )}
 
               {isEditable && (

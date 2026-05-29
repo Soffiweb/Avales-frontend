@@ -9,6 +9,9 @@ import { APP_CATEGORIES } from "@/lib/utils/categories";
 /** Número de items por página en listados */
 export const DEFAULT_PAGE_SIZE = 10;
 
+/** Número máximo de resultados en búsquedas typeahead/inline */
+export const SEARCH_RESULTS_LIMIT = 20;
+
 /** Duración del toast en milisegundos antes de ocultarse */
 export const TOAST_DURATION = 4000;
 

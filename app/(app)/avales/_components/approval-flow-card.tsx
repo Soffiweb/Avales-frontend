@@ -1,7 +1,5 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
-
 type StageOption = {
   value: string;
   label: string;

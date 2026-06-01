@@ -7,7 +7,11 @@ import { useFieldArray, useForm } from "react-hook-form";
 
 import { ApiError } from "@/lib/api/client";
 import { getCatalog, getItemsPresupuestarios } from "@/lib/api/catalog";
-import { createEvento, updateEvento } from "@/lib/api/eventos";
+import {
+  createEvento,
+  generateEventoCodigo,
+  updateEvento,
+} from "@/lib/api/eventos";
 import { getCatalogItemCode, resolveCatalogItemCodeFromList } from "@/lib/utils/catalog";
 import { eventoSchema, type EventoFormValues } from "@/lib/validation/evento";
 import type { CatalogItem, CatalogItemPresupuestario } from "@/types/catalog";
@@ -59,11 +63,57 @@ export function useEventoForm({
     formState: { errors, isSubmitting },
     reset,
     setError,
+    setValue,
+    getValues,
     watch,
   } = useForm<EventoFormValues>({
     resolver: zodResolver(eventoSchema),
     defaultValues: initialValues,
   });
+
+  const [generatingCodigo, setGeneratingCodigo] = useState(false);
+  const [generateCodigoError, setGenerateCodigoError] = useState<string | null>(
+    null,
+  );
+
+  const handleGenerateCodigo = useCallback(async () => {
+    setGenerateCodigoError(null);
+    const values = getValues();
+    const nombre = values.nombre?.toString().trim();
+    const mesProgramado = values.mesProgramado;
+
+    if (!nombre) {
+      setGenerateCodigoError(
+        "Primero ingresá el nombre del evento.",
+      );
+      return;
+    }
+    if (!mesProgramado || mesProgramado < 1 || mesProgramado > 12) {
+      setGenerateCodigoError(
+        "Primero seleccioná el mes programado.",
+      );
+      return;
+    }
+
+    try {
+      setGeneratingCodigo(true);
+      const { codigo } = await generateEventoCodigo({
+        nombre,
+        mesProgramado: Number(mesProgramado),
+      });
+      setValue("codigo", codigo, { shouldValidate: true, shouldDirty: true });
+    } catch (err: unknown) {
+      const message =
+        err instanceof ApiError
+          ? err.problem?.detail ?? err.problem?.title ?? err.message
+          : err instanceof Error
+            ? err.message
+            : "No se pudo generar el código.";
+      setGenerateCodigoError(message);
+    } finally {
+      setGeneratingCodigo(false);
+    }
+  }, [getValues, setValue]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -307,10 +357,13 @@ export function useEventoForm({
     draggingArchivo,
     errors,
     fields,
+    generateCodigoError,
+    generatingCodigo,
     handleArchivoDragLeave,
     handleArchivoDragOver,
     handleArchivoDrop,
     handleFileChange,
+    handleGenerateCodigo,
     handleSubmit,
     isSubmitting,
     itemsByActividad,

@@ -1,7 +1,7 @@
 "use client";
 
 import { Controller } from "react-hook-form";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Sparkles, Trash2 } from "lucide-react";
 
 import DatePicker from "@/components/forms/DatePicker";
 import type { Evento } from "@/types/evento";
@@ -43,10 +43,13 @@ export default function EventoForm({
     draggingArchivo,
     errors,
     fields,
+    generateCodigoError,
+    generatingCodigo,
     handleArchivoDragLeave,
     handleArchivoDragOver,
     handleArchivoDrop,
     handleFileChange,
+    handleGenerateCodigo,
     handleSubmit,
     isSubmitting,
     itemsByActividad,
@@ -84,15 +87,34 @@ export default function EventoForm({
             <label className="block text-sm font-medium mb-1" htmlFor="codigo">
               Codigo
             </label>
-            <input
-              id="codigo"
-              className="form-input w-full"
-              type="text"
-              placeholder="EVT-2025-001"
-              {...register("codigo")}
-            />
+            <div className="flex gap-2">
+              <input
+                id="codigo"
+                className="form-input flex-1"
+                type="text"
+                placeholder="EVT-202606-FUTBO-001"
+                {...register("codigo")}
+              />
+              <button
+                type="button"
+                onClick={handleGenerateCodigo}
+                disabled={generatingCodigo}
+                className="btn bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                title="Genera automaticamente con el patron EVT-YYYYMM-NOMBRE-SEQ. Requiere nombre y mes programado."
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="ml-1 hidden sm:inline">
+                  {generatingCodigo ? "Generando..." : "Generar"}
+                </span>
+              </button>
+            </div>
             {errors.codigo && (
               <p className="mt-1 text-xs text-red-600">{errors.codigo.message}</p>
+            )}
+            {generateCodigoError && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {generateCodigoError}
+              </p>
             )}
           </div>
 

@@ -94,6 +94,30 @@ export async function getEvento(id: number) {
   return apiFetch<Evento>(`/events/${id}`, { method: "GET" });
 }
 
+export type GenerateEventoCodigoOptions = {
+  nombre: string;
+  mesProgramado: number;
+  anio?: number;
+};
+
+export async function generateEventoCodigo(
+  options: GenerateEventoCodigoOptions,
+): Promise<{ codigo: string }> {
+  const params = new URLSearchParams();
+  params.set("nombre", options.nombre);
+  params.set("mesProgramado", String(options.mesProgramado));
+  if (options.anio !== undefined) {
+    params.set("anio", String(options.anio));
+  }
+
+  const response = await apiFetch<{ codigo: string }>(
+    `/events/generate-codigo?${params.toString()}`,
+    { method: "GET" },
+  );
+
+  return response.data;
+}
+
 function appendEventoFormData(
   formData: FormData,
   values: CreateEventoPayload | UpdateEventoPayload,

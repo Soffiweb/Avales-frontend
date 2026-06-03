@@ -15,6 +15,8 @@ import AlertBanner from "@/components/ui/alert-banner";
 import { getApprovalStageLabel } from "@/lib/constants";
 import { isFinancieroUser } from "@/lib/auth/access";
 import { getApprovalFlowStages } from "@/lib/approval-flow";
+import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
+import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
@@ -105,6 +107,10 @@ export default function CertificacionFinancieraPage() {
     ),
     approveSuccessMessage: "Certificación financiera aprobada correctamente.",
   });
+  const { config: formConfig } = useAvalFormConfig(aval);
+  const financieroSection = getSectionConfig(formConfig, "FINANCIERO");
+  const approveAction = getActionConfig(formConfig, "APROBAR");
+  const rejectAction = getActionConfig(formConfig, "RECHAZAR");
 
   // Reset local state on aval navigation
   useEffect(() => {
@@ -367,7 +373,7 @@ export default function CertificacionFinancieraPage() {
               </div>
             </div>
 
-            {isEditable ? (
+            {isEditable && (financieroSection?.visible ?? true) ? (
               <ApprovalFlowCard
                 title="Aprobación financiera"
                 currentStageLabel={getApprovalStageLabel(currentEtapa)}
@@ -378,6 +384,10 @@ export default function CertificacionFinancieraPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                approveVisible={approveAction?.visible ?? true}
+                approveEnabled={approveAction?.enabled ?? true}
+                rejectVisible={rejectAction?.visible ?? true}
+                rejectEnabled={rejectAction?.enabled ?? true}
               />
             ) : (
               <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">

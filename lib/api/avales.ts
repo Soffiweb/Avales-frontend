@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api/client";
 import type {
   Aval,
+  AvalFormConfig,
   AvalListResponse,
   AvalParticipante,
   CreateColeccionAvalPayload,
@@ -49,6 +50,12 @@ export async function listAvales(options: ListAvalesOptions = {}) {
 
 export async function getAval(id: number) {
   return apiFetch<Aval>(`/avales/${id}`, { method: "GET" });
+}
+
+export async function getAvalFormConfig(id: number) {
+  return apiFetch<AvalFormConfig>(`/avales/${id}/form-config`, {
+    method: "GET",
+  });
 }
 
 export async function createColeccionAval(payload: CreateColeccionAvalPayload) {

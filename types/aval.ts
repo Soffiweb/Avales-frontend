@@ -366,3 +366,40 @@ export type UpsertAvalParticipantesPayload = {
     modalidadParticipacion: ModalidadParticipacion;
   }>;
 };
+
+export type AvalFormSectionKey =
+  | "DOCUMENTOS"
+  | "PDA"
+  | "COMPRAS_PUBLICAS"
+  | "REVISION_METODOLOGO"
+  | "REVISION_DTM"
+  | "CONTROL_PREVIO"
+  | "FINANCIERO"
+  | "PRESUPUESTO"
+  | "PARTICIPANTES";
+
+export type AvalFormActionKey =
+  | "GUARDAR"
+  | "ENVIAR"
+  | "APROBAR"
+  | "RECHAZAR";
+
+export type AvalFormSectionConfig = {
+  key: AvalFormSectionKey;
+  visible: boolean;
+  editable: boolean;
+  required: boolean;
+};
+
+export type AvalFormActionConfig = {
+  key: AvalFormActionKey;
+  visible: boolean;
+  enabled: boolean;
+};
+
+export type AvalFormConfig = {
+  tipoAval?: TipoAval;
+  etapaActual: string;
+  secciones: AvalFormSectionConfig[];
+  acciones: AvalFormActionConfig[];
+};

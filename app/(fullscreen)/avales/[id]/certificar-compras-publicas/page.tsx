@@ -33,6 +33,8 @@ import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
+import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
+import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
@@ -222,6 +224,10 @@ export default function CertificarComprasPublicasPage() {
     approveSuccessMessage: "Certificación de Compras Públicas registrada correctamente.",
     rejectSuccessMessage: "Aval rechazado correctamente.",
   });
+  const { config: formConfig } = useAvalFormConfig(aval);
+  const comprasSection = getSectionConfig(formConfig, "COMPRAS_PUBLICAS");
+  const approveAction = getActionConfig(formConfig, "APROBAR");
+  const rejectAction = getActionConfig(formConfig, "RECHAZAR");
 
   const autosave = useAutosaveDraft<ComprasPublicasDraft>({
     key: `aval:${avalId}:compras-publicas`,
@@ -521,7 +527,7 @@ export default function CertificarComprasPublicasPage() {
                 </label>
               </div>
 
-              {isEditable && (
+              {isEditable && (comprasSection?.visible ?? true) && (
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -570,22 +576,26 @@ export default function CertificarComprasPublicasPage() {
                   )}
 
                   <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={handleReject}
-                      disabled={actionLoading}
-                      className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
-                    >
-                      Rechazar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleApprove}
-                      disabled={actionLoading}
-                      className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
-                    >
-                      Aprobar
-                    </button>
+                    {(rejectAction?.visible ?? true) && (
+                      <button
+                        type="button"
+                        onClick={handleReject}
+                        disabled={actionLoading || !(rejectAction?.enabled ?? true)}
+                        className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                      >
+                        Rechazar
+                      </button>
+                    )}
+                    {(approveAction?.visible ?? true) && (
+                      <button
+                        type="button"
+                        onClick={handleApprove}
+                        disabled={actionLoading || !(approveAction?.enabled ?? true)}
+                        className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                      >
+                        Aprobar
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

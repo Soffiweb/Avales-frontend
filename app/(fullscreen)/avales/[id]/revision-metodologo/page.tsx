@@ -48,6 +48,8 @@ import {
   mergeReviewStateFromApi,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { isMetodologoUser } from "@/lib/auth/access";
+import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
+import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -258,8 +260,14 @@ export default function RevisionMetodologoPage() {
     approveSuccessMessage: "Revisión del metodólogo generada correctamente.",
   });
 
+  const { config: formConfig } = useAvalFormConfig(aval);
+  const reviewSection = getSectionConfig(formConfig, "REVISION_METODOLOGO");
+  const approveAction = getActionConfig(formConfig, "APROBAR");
+  const rejectAction = getActionConfig(formConfig, "RECHAZAR");
+
   // showApprovalPanel combines role + stage — page is viewable by non-metodologos
-  const showApprovalPanel = isMetodologo && isEditable;
+  const showApprovalPanel =
+    isMetodologo && isEditable && (reviewSection?.visible ?? true);
 
   // Reset local state on aval navigation
   useEffect(() => {
@@ -758,6 +766,10 @@ export default function RevisionMetodologoPage() {
                   actionLoading={actionLoading}
                   onApprove={handleApprove}
                   onReject={handleReject}
+                  approveVisible={approveAction?.visible ?? true}
+                  approveEnabled={approveAction?.enabled ?? true}
+                  rejectVisible={rejectAction?.visible ?? true}
+                  rejectEnabled={rejectAction?.enabled ?? true}
                   etapaDestinoOptions={getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => ({
                     value: e,
                     label: getApprovalStageLabel(e),

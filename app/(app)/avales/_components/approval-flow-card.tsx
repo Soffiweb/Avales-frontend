@@ -17,6 +17,10 @@ type ApprovalFlowCardProps = {
   onReasonChange: (value: string) => void;
   onApprove: () => void;
   onReject: () => void;
+  approveVisible?: boolean;
+  approveEnabled?: boolean;
+  rejectVisible?: boolean;
+  rejectEnabled?: boolean;
   etapaDestinoOptions?: StageOption[];
   etapaDestinoValue?: string;
   onEtapaDestinoChange?: (value: string) => void;
@@ -34,6 +38,10 @@ export default function ApprovalFlowCard({
   onReasonChange,
   onApprove,
   onReject,
+  approveVisible = true,
+  approveEnabled = true,
+  rejectVisible = true,
+  rejectEnabled = true,
   etapaDestinoOptions,
   etapaDestinoValue,
   onEtapaDestinoChange,
@@ -105,22 +113,26 @@ export default function ApprovalFlowCard({
       {actionError && <p className="text-sm text-rose-500">{actionError}</p>}
 
       <div className="flex flex-wrap justify-end gap-3">
-        <button
-          type="button"
-          disabled={actionLoading}
-          onClick={onReject}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-rose-600 to-rose-500 shadow-lg hover:from-rose-500 hover:to-rose-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Rechazar
-        </button>
-        <button
-          type="button"
-          disabled={actionLoading}
-          onClick={onApprove}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 shadow-lg hover:from-emerald-500 hover:to-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Aprobar etapa
-        </button>
+        {rejectVisible && (
+          <button
+            type="button"
+            disabled={actionLoading || !rejectEnabled}
+            onClick={onReject}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-rose-600 to-rose-500 shadow-lg hover:from-rose-500 hover:to-rose-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Rechazar
+          </button>
+        )}
+        {approveVisible && (
+          <button
+            type="button"
+            disabled={actionLoading || !approveEnabled}
+            onClick={onApprove}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 shadow-lg hover:from-emerald-500 hover:to-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Aprobar etapa
+          </button>
+        )}
       </div>
     </div>
   );

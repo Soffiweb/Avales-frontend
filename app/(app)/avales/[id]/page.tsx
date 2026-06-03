@@ -52,6 +52,8 @@ import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
+import { getActionConfig } from "@/lib/aval-form-config";
+import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
   if (!fechaInicio) return null;
@@ -594,6 +596,9 @@ export default function AvalDetailPage() {
   ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);
+  const { config: formConfig } = useAvalFormConfig(aval);
+  const approveAction = getActionConfig(formConfig, "APROBAR");
+  const rejectAction = getActionConfig(formConfig, "RECHAZAR");
 
   return (
     <>
@@ -1128,6 +1133,10 @@ export default function AvalDetailPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                approveVisible={approveAction?.visible ?? true}
+                approveEnabled={approveAction?.enabled ?? true}
+                rejectVisible={rejectAction?.visible ?? true}
+                rejectEnabled={rejectAction?.enabled ?? true}
                 etapaDestinoOptions={getPreviousApprovalStagesForAval(
                   aval,
                   currentEtapa,

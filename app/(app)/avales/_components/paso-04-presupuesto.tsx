@@ -6,7 +6,8 @@ import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
 import { createAval, uploadAdjuntosSolicitud } from "@/lib/api/avales";
-import type { Aval } from "@/types/aval";
+import { getTipoAvalLabel } from "@/lib/constants";
+import type { Aval, ModalidadParticipacion, TipoAval } from "@/types/aval";
 
 type FormData = {
   deportistas: Array<{
@@ -19,6 +20,7 @@ type FormData = {
     cedula?: string;
     payload?: Record<string, unknown>;
     rol?: string;
+    modalidadParticipacion?: ModalidadParticipacion;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
   fechaEmision?: string;
@@ -32,6 +34,8 @@ type FormData = {
   criterios: string[];
   observaciones?: string;
   adjuntoSolicitud?: File | null;
+  tipoAval?: TipoAval;
+  montoSolicitado?: number;
 };
 
 type Paso04PresupuestoProps = {
@@ -63,6 +67,9 @@ export default function Paso04Presupuesto({
     number | null
   >(null);
   const [submitting, setSubmitting] = useState(false);
+  const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
+  const isSoloResultado = tipoAval === "SOLO_RESULTADO";
+  const isAutogestion = tipoAval === "AUTOGESTION";
 
   useEffect(() => {
     onPreviewChange?.({ observaciones, adjuntoSolicitud });
@@ -101,6 +108,8 @@ export default function Paso04Presupuesto({
       // Preparar el payload según la estructura esperada por la API
       const payload = {
         coleccionAvalId: avalId,
+        tipoAval,
+        montoSolicitado: isAutogestion ? formData.montoSolicitado : undefined,
         fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
         numeroAval: numeroAval.trim() || undefined,
         fechaHoraSalida: formData.fechaHoraSalida,
@@ -126,6 +135,7 @@ export default function Paso04Presupuesto({
           apellidos: d.apellidos?.trim() || undefined,
           cedula: d.cedula?.trim() || undefined,
           payload: d.payload,
+          modalidadParticipacion: d.modalidadParticipacion,
         })),
         entrenadores: formData.entrenadores.map((e, index) => ({
           entrenadorId: e.id,
@@ -165,8 +175,19 @@ export default function Paso04Presupuesto({
         Requerimientos del Evento
       </h1>
       <p className="text-gray-600 dark:text-gray-400 mb-6">
-        Revisa los requerimientos registrados para este evento.
+        Revisa los requerimientos y completa el cierre de la solicitud.
       </p>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+          {getTipoAvalLabel(tipoAval)}
+        </span>
+        {isAutogestion && typeof formData.montoSolicitado === "number" ? (
+          <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            Monto solicitado: {formatCurrency(formData.montoSolicitado)}
+          </span>
+        ) : null}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Info banner
@@ -185,7 +206,8 @@ export default function Paso04Presupuesto({
         </div>
         */}
         {/* Items del Evento */}
-        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        {!isSoloResultado && (
+          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <div className="mb-4 flex items-start gap-3">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
               <DollarSign className="w-4 h-4" />
@@ -250,7 +272,8 @@ export default function Paso04Presupuesto({
               </p>
             </div>
           )}
-        </section>
+          </section>
+        )}
 
         <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <div className="mb-3 flex items-start gap-3">

@@ -8,8 +8,11 @@ import { getAval, rechazarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import type { User } from "@/types/user";
 import { getNormalizedRoles } from "@/lib/auth/access";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
-import { APPROVAL_STAGE_FLOW, getApprovalStageLabel } from "@/lib/constants";
+import { getApprovalStageLabel } from "@/lib/constants";
+import {
+  getAvalCurrentEtapa,
+  getNextApprovalStageForAval,
+} from "@/lib/approval-flow";
 import { formatRoles } from "@/lib/utils/formatters";
 
 export type ToastState = { variant: "success" | "error"; message: string };
@@ -27,9 +30,11 @@ export type UseApprovalFlowOptions = {
   /** Role(s) allowed on this page, or a custom predicate. */
   requiredRole: RoleCheck;
   /** The currentEtapa that unlocks editing on this page. */
-  editableEtapa: EtapaFlujo;
-  /** Fixed etapa sent to aprobarAval, or computed from currentEtapa. */
-  approvalEtapa: EtapaFlujo | ((currentEtapa: EtapaFlujo) => EtapaFlujo);
+  editableEtapa: EtapaFlujo | ((aval: Aval | null) => EtapaFlujo);
+  /** Fixed etapa sent to aprobarAval, or computed from currentEtapa/current aval. */
+  approvalEtapa:
+    | EtapaFlujo
+    | ((currentEtapa: EtapaFlujo, aval: Aval | null) => EtapaFlujo);
   /** Page-specific action: validation + API calls. Must throw on error. */
   onApproveAction: (ctx: ApproveActionContext) => Promise<void>;
   /** Extra validation before onApproveAction. Receives the loaded aval. Return error string or null. */
@@ -131,24 +136,24 @@ export function useApprovalFlow({
     void loadAval();
   }, [loadAval]);
 
-  const rawCurrentEtapa = (
-    (aval?.etapaActual ?? getCurrentEtapa(aval?.historial) ?? "SOLICITUD")
-  ).toUpperCase() as EtapaFlujo;
-  const currentEtapa: EtapaFlujo = APPROVAL_STAGE_FLOW.includes(rawCurrentEtapa)
-    ? rawCurrentEtapa
-    : "SOLICITUD";
+  const currentEtapa: EtapaFlujo = getAvalCurrentEtapa(aval);
 
   const resolvedApprovalEtapa: EtapaFlujo =
     typeof approvalEtapa === "function"
-      ? approvalEtapa(currentEtapa)
+      ? approvalEtapa(currentEtapa, aval)
       : approvalEtapa;
+  const resolvedEditableEtapa =
+    typeof editableEtapa === "function" ? editableEtapa(aval) : editableEtapa;
+
+  const computedNextEtapa =
+    getNextApprovalStageForAval(aval, currentEtapa) ?? currentEtapa;
 
   const isEditable =
     aval?.estado === "SOLICITADO" &&
-    currentEtapa === editableEtapa &&
+    currentEtapa === resolvedEditableEtapa &&
     (additionalEditableCheck && aval ? additionalEditableCheck(aval) : true);
 
-  const summaryText = `El aval pasará de "${getApprovalStageLabel(currentEtapa)}" a "${getApprovalStageLabel(resolvedApprovalEtapa)}" y quedará en "${getApprovalStageLabel(resolvedApprovalEtapa)}".`;
+  const summaryText = `El aval pasará de "${getApprovalStageLabel(currentEtapa)}" a "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}" y quedará en "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}".`;
 
   const handleApprove = useCallback(async () => {
     if (!aval) return;
@@ -248,6 +253,7 @@ export function useApprovalFlow({
     setEtapaDestino,
     // Computed
     currentEtapa,
+    resolvedEditableEtapa,
     resolvedApprovalEtapa,
     isEditable,
     summaryText,

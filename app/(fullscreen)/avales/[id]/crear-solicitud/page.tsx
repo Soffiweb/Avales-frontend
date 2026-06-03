@@ -1,9 +1,9 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getAval } from "@/lib/api/avales";
-import type { Aval } from "@/types/aval";
+import type { Aval, ModalidadParticipacion, TipoAval } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -34,6 +34,7 @@ type FormData = {
     payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
+    modalidadParticipacion?: ModalidadParticipacion;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
 
@@ -52,6 +53,8 @@ type FormData = {
   // Paso 4: Observaciones
   observaciones?: string;
   adjuntoSolicitud?: File | null;
+  tipoAval?: TipoAval;
+  montoSolicitado?: number;
 };
 
 const INITIAL_FORM_DATA: FormData = {
@@ -67,6 +70,8 @@ const INITIAL_FORM_DATA: FormData = {
   criterios: [],
   observaciones: "",
   adjuntoSolicitud: null,
+  tipoAval: undefined,
+  montoSolicitado: undefined,
 };
 
 const STEPS = [
@@ -79,6 +84,7 @@ const STEPS = [
 export default function CrearSolicitudPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const avalId = Number(params.id);
 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -92,13 +98,25 @@ export default function CrearSolicitudPage() {
       setLoading(true);
       setError(null);
       const response = await getAval(avalId);
-      setAval(response.data);
+      const avalData = response.data;
+      setAval(avalData);
+      setFormData((prev) => ({
+        ...prev,
+        tipoAval:
+          avalData.tipoAval ??
+          ((searchParams.get("tipoAval") as TipoAval | null) ?? undefined),
+        montoSolicitado:
+          avalData.montoSolicitado ??
+          (searchParams.get("montoSolicitado")
+            ? Number(searchParams.get("montoSolicitado"))
+            : undefined),
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar el aval");
     } finally {
       setLoading(false);
     }
-  }, [avalId]);
+  }, [avalId, searchParams]);
 
   useEffect(() => {
     loadAval();

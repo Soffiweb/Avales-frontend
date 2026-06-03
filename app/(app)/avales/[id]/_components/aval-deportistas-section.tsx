@@ -2,6 +2,7 @@
 
 import { User } from "lucide-react";
 import type { DeportistaAval } from "@/types/aval";
+import { getModalidadParticipacionLabel } from "@/lib/constants";
 
 type DeportistasList = DeportistaAval[];
 
@@ -106,6 +107,13 @@ export default function AvalDeportistasSection({
                   {" · "}
                   {getDeportistaCedula(deportista)}
                 </p>
+                {deportista.modalidadParticipacion ? (
+                  <p className="mt-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-300">
+                    {getModalidadParticipacionLabel(
+                      deportista.modalidadParticipacion,
+                    )}
+                  </p>
+                ) : null}
               </div>
             </div>
           ))

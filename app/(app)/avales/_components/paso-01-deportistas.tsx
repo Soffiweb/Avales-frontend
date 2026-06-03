@@ -15,7 +15,12 @@ import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { matchesSearchTerm } from "@/lib/utils/normalize-text";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
+import {
+  getAllowedModalidadesByTipoAval,
+  getModalidadParticipacionLabel,
+} from "@/lib/constants";
 import { SEARCH_RESULTS_LIMIT } from "@/lib/constants";
+import type { ModalidadParticipacion, TipoAval } from "@/types/aval";
 
 type FormData = {
   deportistas: Array<{
@@ -33,6 +38,7 @@ type FormData = {
     payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
+    modalidadParticipacion?: ModalidadParticipacion;
   }>;
   entrenadores: Array<{ id: number; nombre: string }>;
   fechaEmision?: string;
@@ -45,6 +51,7 @@ type FormData = {
   objetivos: string[];
   criterios: string[];
   observaciones?: string;
+  tipoAval?: TipoAval;
 };
 
 type Paso01DeportistasProps = {
@@ -55,7 +62,10 @@ type Paso01DeportistasProps = {
   onBack: () => void;
 };
 
-type SelectedDeportista = Deportista & { rol?: string };
+type SelectedDeportista = Deportista & {
+  rol?: string;
+  modalidadParticipacion?: ModalidadParticipacion;
+};
 type SelectedEntrenador = User;
 
 function formatDeportistaNombre(
@@ -84,6 +94,12 @@ function sortDeportistasByApellido<T extends Pick<Deportista, "nombres" | "apell
       sensitivity: "base",
     });
   });
+}
+
+function getDefaultModalidad(tipoAval?: TipoAval | null): ModalidadParticipacion {
+  if (tipoAval === "AUTOGESTION") return "CUBIERTO_AUTOGESTION";
+  if (tipoAval === "SOLO_RESULTADO") return "SOLO_RESULTADO";
+  return "CUBIERTO_FONDOS_PUBLICOS";
 }
 
 export default function Paso01Deportistas({
@@ -116,6 +132,9 @@ export default function Paso01Deportistas({
         genero: (d.genero as Deportista["genero"]) ?? undefined,
         afiliacion: d.afiliacion ?? false,
         rol: d.rol ?? "ATLETA",
+        modalidadParticipacion:
+          d.modalidadParticipacion ??
+          getDefaultModalidad(formData.tipoAval ?? aval.tipoAval ?? undefined),
         // Campos extras que el form principal no guarda — usan defaults.
         ...(d.payload as Partial<Deportista> | undefined),
       })) as SelectedDeportista[],
@@ -150,6 +169,11 @@ export default function Paso01Deportistas({
   const totalEntrenadoresRequeridos =
     (evento.numEntrenadoresHombres ?? 0) +
     (evento.numEntrenadoresMujeres ?? 0);
+  const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
+  const modalidadesPermitidas =
+    aval.modalidadesPermitidas?.length
+      ? aval.modalidadesPermitidas
+      : getAllowedModalidadesByTipoAval(tipoAval);
 
   const buildSelectedData = useCallback(() => {
     const principal =
@@ -184,18 +208,22 @@ export default function Paso01Deportistas({
         },
         observacion: d.afiliacion ? "AFILIADO/A 2026" : "SIN AFILIACION",
         rol: d.rol ?? "ATLETA",
+        modalidadParticipacion:
+          d.modalidadParticipacion ?? getDefaultModalidad(tipoAval),
       })),
       entrenadores: orderedEntrenadores.map((e) => ({
         id: e.id,
         nombre: `${e.nombre} ${e.apellido}`.trim(),
       })),
       fechaEmision,
+      tipoAval,
     };
   }, [
     fechaEmision,
     principalEntrenadorId,
     selectedDeportistas,
     selectedEntrenadores,
+    tipoAval,
   ]);
 
   useEffect(() => {
@@ -293,13 +321,33 @@ export default function Paso01Deportistas({
     }
 
     setSelectedDeportistas((prev) =>
-      sortDeportistasByApellido([...prev, { ...deportista, rol: "ATLETA" }])
+      sortDeportistasByApellido([
+        ...prev,
+        {
+          ...deportista,
+          rol: "ATLETA",
+          modalidadParticipacion: getDefaultModalidad(tipoAval),
+        },
+      ])
     );
     setSearchDeportistas("");
   };
 
   const handleRemoveDeportista = (deportistaId: number) => {
     setSelectedDeportistas((prev) => prev.filter((d) => d.id !== deportistaId));
+  };
+
+  const handleModalidadChange = (
+    deportistaId: number,
+    modalidadParticipacion: ModalidadParticipacion,
+  ) => {
+    setSelectedDeportistas((prev) =>
+      prev.map((deportista) =>
+        deportista.id === deportistaId
+          ? { ...deportista, modalidadParticipacion }
+          : deportista,
+      ),
+    );
   };
 
   const handleAddEntrenador = (entrenador: User) => {
@@ -489,6 +537,36 @@ export default function Paso01Deportistas({
                     )}
                     {deportista.disciplina?.nombre && (
                       <span>{deportista.disciplina.nombre}</span>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    {modalidadesPermitidas.length > 1 ? (
+                      <select
+                        value={
+                          deportista.modalidadParticipacion ??
+                          getDefaultModalidad(tipoAval)
+                        }
+                        onChange={(e) =>
+                          handleModalidadChange(
+                            deportista.id,
+                            e.target.value as ModalidadParticipacion,
+                          )
+                        }
+                        className="form-select w-full text-xs sm:max-w-[240px]"
+                      >
+                        {modalidadesPermitidas.map((modalidad) => (
+                          <option key={modalidad} value={modalidad}>
+                            {getModalidadParticipacionLabel(modalidad)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                        {getModalidadParticipacionLabel(
+                          deportista.modalidadParticipacion ??
+                            modalidadesPermitidas[0],
+                        )}
+                      </span>
                     )}
                   </div>
                 </div>

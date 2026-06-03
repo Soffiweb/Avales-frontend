@@ -1,4 +1,8 @@
-import type { EtapaFlujo } from "@/types/aval";
+import type {
+  EtapaFlujo,
+  ModalidadParticipacion,
+  TipoAval,
+} from "@/types/aval";
 import { APP_CATEGORIES } from "@/lib/utils/categories";
 
 /**
@@ -273,6 +277,54 @@ export const AVAL_APPROVAL_REVIEWER_ROLES = [
   "CONTROL_PREVIO",
   "FINANCIERO",
 ] as const;
+
+export const TIPO_AVAL_OPTIONS: Array<{ value: TipoAval; label: string }> = [
+  { value: "FONDOS_PUBLICOS", label: "Fondos públicos" },
+  { value: "AUTOGESTION", label: "Autogestión" },
+  { value: "SOLO_RESULTADO", label: "Solo resultados" },
+];
+
+export function getTipoAvalLabel(value?: string | null): string {
+  if (!value) return "Sin tipo";
+  return (
+    TIPO_AVAL_OPTIONS.find((option) => option.value === value)?.label ?? value
+  );
+}
+
+export const MODALIDAD_PARTICIPACION_OPTIONS: Array<{
+  value: ModalidadParticipacion;
+  label: string;
+}> = [
+  {
+    value: "CUBIERTO_FONDOS_PUBLICOS",
+    label: "Cubierto por fondos públicos",
+  },
+  {
+    value: "CUBIERTO_AUTOGESTION",
+    label: "Cubierto por autogestión",
+  },
+  { value: "SOLO_RESULTADO", label: "Solo resultado" },
+];
+
+export function getModalidadParticipacionLabel(value?: string | null): string {
+  if (!value) return "Sin modalidad";
+  return (
+    MODALIDAD_PARTICIPACION_OPTIONS.find((option) => option.value === value)
+      ?.label ?? value
+  );
+}
+
+export function getAllowedModalidadesByTipoAval(
+  tipoAval?: TipoAval | null,
+): ModalidadParticipacion[] {
+  if (tipoAval === "FONDOS_PUBLICOS") {
+    return ["CUBIERTO_FONDOS_PUBLICOS", "SOLO_RESULTADO"];
+  }
+  if (tipoAval === "AUTOGESTION") {
+    return ["CUBIERTO_AUTOGESTION", "SOLO_RESULTADO"];
+  }
+  return ["SOLO_RESULTADO"];
+}
 
 export const APPROVAL_STAGE_FLOW: EtapaFlujo[] = [
   "SOLICITUD",

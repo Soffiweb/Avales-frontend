@@ -19,12 +19,16 @@ import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   getApprovalStageBadgeStyles,
   getApprovalStageLabel,
+  getTipoAvalLabel,
 } from "@/lib/constants";
+import {
+  getAvalCurrentEtapa,
+  getApprovalFlowStages,
+} from "@/lib/approval-flow";
 import {
   formatDate,
   formatMonthYear,
 } from "@/lib/utils/formatters";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
 
 type Props = {
   avales: Aval[];
@@ -122,8 +126,8 @@ export default function AvalListCard({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {avales.map((aval) => {
-        const etapaActual = aval.etapaActual ?? getCurrentEtapa(aval.historial);
-        const etapaParaMostrar = (etapaActual ?? "SOLICITUD") as EtapaFlujo;
+        const etapaParaMostrar = getAvalCurrentEtapa(aval) as EtapaFlujo;
+        const flowStages = getApprovalFlowStages(aval);
 
         // Solo se puede actuar si el aval está SOLICITADO y la etapa actual
         // matchea con el rol del usuario. Además, si el último evento del
@@ -137,15 +141,29 @@ export default function AvalListCard({
           isProcessable && !wasRecentlyRejected && etapaParaMostrar === role;
         const canPdaAct = isPda && stageMatchesRole("SOLICITUD" as EtapaFlujo);
         const canComprasAct =
-          isComprasPublicas && stageMatchesRole("PDA" as EtapaFlujo);
+          flowStages.includes("COMPRAS_PUBLICAS") &&
+          isComprasPublicas &&
+          stageMatchesRole("PDA" as EtapaFlujo);
         const canMetodologoAct =
-          isMetodologo && stageMatchesRole("COMPRAS_PUBLICAS" as EtapaFlujo);
+          isMetodologo &&
+          stageMatchesRole(
+            flowStages.includes("COMPRAS_PUBLICAS")
+              ? ("COMPRAS_PUBLICAS" as EtapaFlujo)
+              : ("PDA" as EtapaFlujo),
+          );
         const canDtmAct =
           isDtm && stageMatchesRole("REVISION_METODOLOGO" as EtapaFlujo);
         const canControlPrevioAct =
-          isControlPrevio && stageMatchesRole("REVISION_DTM" as EtapaFlujo);
+          flowStages.includes("CONTROL_PREVIO") &&
+          isControlPrevio &&
+          stageMatchesRole("REVISION_DTM" as EtapaFlujo);
         const canFinancieroAct =
-          isFinanciero && stageMatchesRole("CONTROL_PREVIO" as EtapaFlujo);
+          isFinanciero &&
+          stageMatchesRole(
+            flowStages.includes("CONTROL_PREVIO")
+              ? ("CONTROL_PREVIO" as EtapaFlujo)
+              : ("REVISION_DTM" as EtapaFlujo),
+          );
         const statusStyles = getApprovalStageBadgeStyles(
           aval.estado,
           etapaParaMostrar,
@@ -176,6 +194,11 @@ export default function AvalListCard({
                     <StatusIcon className="w-3 h-3" />
                     {stageLabel}
                   </span>
+                  {aval.tipoAval && (
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                      {getTipoAvalLabel(aval.tipoAval)}
+                    </span>
+                  )}
                   {!isAdmin && aval.estado === "BORRADOR" && (
                     <span className="relative inline-flex">
                       <AlertCircle

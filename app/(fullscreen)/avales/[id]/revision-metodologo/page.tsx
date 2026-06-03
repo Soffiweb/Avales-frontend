@@ -34,9 +34,12 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import {
   getApprovalStageLabel,
-  getNextApprovalStage,
-  getPreviousApprovalStages,
 } from "@/lib/constants";
+import {
+  getApprovalFlowStages,
+  getNextApprovalStageForAval,
+  getPreviousApprovalStagesForAval,
+} from "@/lib/approval-flow";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
   DEFAULT_REVIEW_ITEMS,
@@ -213,8 +216,10 @@ export default function RevisionMetodologoPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isMetodologoUser,
-    // isEditable when aval is SOLICITADO and at COMPRAS_PUBLICAS stage
-    editableEtapa: "COMPRAS_PUBLICAS",
+    editableEtapa: (currentAval) =>
+      getApprovalFlowStages(currentAval).includes("COMPRAS_PUBLICAS")
+        ? "COMPRAS_PUBLICAS"
+        : "PDA",
     // approve always promotes to REVISION_METODOLOGO regardless of currentEtapa
     approvalEtapa: "REVISION_METODOLOGO",
     enableEtapaDestino: true,
@@ -431,7 +436,7 @@ export default function RevisionMetodologoPage() {
 
   const currentStageLabel = getApprovalStageLabel(currentEtapa);
   const nextStageLabel = getApprovalStageLabel(
-    getNextApprovalStage(currentEtapa) ?? currentEtapa,
+    getNextApprovalStageForAval(aval, currentEtapa) ?? "REVISION_METODOLOGO",
   );
 
   if (loading) {
@@ -753,7 +758,7 @@ export default function RevisionMetodologoPage() {
                   actionLoading={actionLoading}
                   onApprove={handleApprove}
                   onReject={handleReject}
-                  etapaDestinoOptions={getPreviousApprovalStages(currentEtapa).map((e) => ({
+                  etapaDestinoOptions={getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => ({
                     value: e,
                     label: getApprovalStageLabel(e),
                   }))}

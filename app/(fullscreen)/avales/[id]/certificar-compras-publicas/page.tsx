@@ -25,9 +25,14 @@ import AlertBanner from "@/components/ui/alert-banner";
 import SaveIndicator from "@/components/ui/save-indicator";
 import DraftRestoredToast from "@/components/ui/draft-restored-toast";
 import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
-import { getApprovalStageLabel, getNextApprovalStage, getPreviousApprovalStages } from "@/lib/constants";
+import { getApprovalStageLabel } from "@/lib/constants";
 import { isComprasPublicasUser } from "@/lib/auth/access";
+import {
+  getApprovalFlowStages,
+  getAvalCurrentEtapa,
+  getNextApprovalStageForAval,
+  getPreviousApprovalStagesForAval,
+} from "@/lib/approval-flow";
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
@@ -165,8 +170,12 @@ export default function CertificarComprasPublicasPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isComprasPublicasUser,
-    editableEtapa: "PDA",
-    approvalEtapa: (etapa) => getNextApprovalStage(etapa) ?? etapa,
+    editableEtapa: (currentAval) =>
+      getApprovalFlowStages(currentAval).includes("COMPRAS_PUBLICAS")
+        ? "PDA"
+        : "COMPRAS_PUBLICAS",
+    approvalEtapa: (etapa, currentAval) =>
+      getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,
     additionalEditableCheck: useCallback((a: Aval) => !a.comprasPublicas, []),
     validateApprove: useCallback((_currentAval: Aval) => {
@@ -201,11 +210,8 @@ export default function CertificarComprasPublicasPage() {
         await createComprasPublicas(a.id, payload);
         // Refresh aval to get updated etapa after creating compras
         const refreshed = await getAval(a.id);
-        const refreshedEtapa =
-          refreshed.data.etapaActual ??
-          getCurrentEtapa(refreshed.data.historial) ??
-          "PDA";
-        const nextEtapa = getNextApprovalStage(refreshedEtapa);
+        const refreshedEtapa = getAvalCurrentEtapa(refreshed.data);
+        const nextEtapa = getNextApprovalStageForAval(refreshed.data, refreshedEtapa);
         const resolvedEtapa = nextEtapa ?? refreshedEtapa;
         await aprobarAval(a.id, userId, resolvedEtapa);
         autosaveRef.current.clear();
@@ -539,7 +545,7 @@ export default function CertificarComprasPublicasPage() {
                     />
                   </label>
 
-                  {getPreviousApprovalStages(currentEtapa).length > 0 && (
+                  {getPreviousApprovalStagesForAval(aval, currentEtapa).length > 0 && (
                     <label className="block">
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                         Regresar a etapa (opcional)
@@ -550,7 +556,7 @@ export default function CertificarComprasPublicasPage() {
                         onChange={(e) => setEtapaDestino(e.target.value)}
                       >
                         <option value="">Etapa anterior (por defecto)</option>
-                        {getPreviousApprovalStages(currentEtapa).map((e) => (
+                        {getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => (
                           <option key={e} value={e}>
                             {getApprovalStageLabel(e)}
                           </option>

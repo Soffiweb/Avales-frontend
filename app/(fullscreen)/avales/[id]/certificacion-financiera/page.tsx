@@ -14,6 +14,7 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import AlertBanner from "@/components/ui/alert-banner";
 import { getApprovalStageLabel } from "@/lib/constants";
 import { isFinancieroUser } from "@/lib/auth/access";
+import { getApprovalFlowStages } from "@/lib/approval-flow";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
@@ -71,8 +72,13 @@ export default function CertificacionFinancieraPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isFinancieroUser,
-    editableEtapa: "CONTROL_PREVIO",
+    editableEtapa: (currentAval) =>
+      getApprovalFlowStages(currentAval).includes("CONTROL_PREVIO")
+        ? "CONTROL_PREVIO"
+        : "REVISION_DTM",
     approvalEtapa: APPROVAL_ETAPA,
+    additionalEditableCheck: (currentAval) =>
+      getApprovalFlowStages(currentAval).includes("FINANCIERO"),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
         const notasPayload = draft.notas

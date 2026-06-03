@@ -2,6 +2,18 @@ import type { User } from "@/types/user";
 
 export type Estado = "DISPONIBLE" | "BORRADOR" | "SOLICITADO" | "RECHAZADO" | "ACEPTADO";
 
+export type TipoAval =
+  | "FONDOS_PUBLICOS"
+  | "AUTOGESTION"
+  | "SOLO_RESULTADO";
+
+export type FuentePresupuesto = "FONDOS_PUBLICOS" | "AUTOGESTION";
+
+export type ModalidadParticipacion =
+  | "CUBIERTO_FONDOS_PUBLICOS"
+  | "CUBIERTO_AUTOGESTION"
+  | "SOLO_RESULTADO";
+
 export type EtapaFlujo =
   | "SOLICITUD"
   | "REVISION_METODOLOGO"
@@ -114,7 +126,28 @@ export type DeportistaAval = {
   deportistaId?: number;
   deportistaExternoId?: string;
   rol: string;
+  modalidadParticipacion?: ModalidadParticipacion | null;
   deportista: DeportistaAvalDetail;
+};
+
+export type AvalParticipante = {
+  id: number;
+  deportistaId: number;
+  nombreCompleto: string;
+  modalidadParticipacion: ModalidadParticipacion;
+};
+
+export type AvalPresupuestoFuente = {
+  fuente?: FuentePresupuesto | null;
+  asignado: number;
+  comprometido: number;
+  disponible: number;
+};
+
+export type AvalResumenCupos = {
+  total: number;
+  cubiertos: number;
+  soloResultado: number;
 };
 
 export type EntrenadorAval = {
@@ -184,10 +217,19 @@ export type AdjuntoSolicitud = {
 
 export type Aval = {
   id: number;
+  coleccionAvalId?: number | null;
   descripcion?: string | null;
   fechaEmision?: string | null;
   estado: Estado;
   etapaActual?: EtapaFlujo;
+  tipoAval?: TipoAval | null;
+  flujo?: string[] | null;
+  siguienteEtapa?: string | null;
+  modalidadesPermitidas?: ModalidadParticipacion[] | null;
+  montoSolicitado?: number | null;
+  montoAsignado?: number | null;
+  presupuesto?: AvalPresupuestoFuente | null;
+  resumenCupos?: AvalResumenCupos | null;
   comentario?: string | null;
   convocatoriaUrl?: string | null;
   certificadoMedicoUrl?: string | null;
@@ -249,6 +291,7 @@ export type Aval = {
   }>;
   evento: EventoSimple;
   avalTecnico?: AvalTecnico;
+  participantes?: AvalParticipante[] | null;
   entrenadores: EntrenadorAval[];
   historial: Historial[];
   createdAt: string;
@@ -277,6 +320,7 @@ export type RubroPresupuestarioDto = {
 export type DeportistaAvalDto = {
   deportistaExternoId: string;
   rol: string;
+  modalidadParticipacion?: ModalidadParticipacion;
   nombre?: string;
   apellido?: string;
   nombres?: string;
@@ -293,6 +337,8 @@ export type EntrenadorAvalDto = {
 
 export type CreateAvalPayload = {
   coleccionAvalId: number;
+  tipoAval?: TipoAval;
+  montoSolicitado?: number;
   fechaEmision?: string | null;
   numeroAval?: string | null;
   fechaHoraSalida: string;
@@ -306,4 +352,17 @@ export type CreateAvalPayload = {
   deportistas: DeportistaAvalDto[];
   entrenadores: EntrenadorAvalDto[];
   observaciones?: string;
+};
+
+export type CreateColeccionAvalPayload = {
+  eventoId: number;
+  tipoAval: TipoAval;
+  montoSolicitado?: number;
+};
+
+export type UpsertAvalParticipantesPayload = {
+  participantes: Array<{
+    deportistaId: number;
+    modalidadParticipacion: ModalidadParticipacion;
+  }>;
 };

@@ -25,8 +25,12 @@ import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/pre
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
-import { getApprovalStageLabel, getNextApprovalStage } from "@/lib/constants";
+import { getApprovalStageLabel } from "@/lib/constants";
 import { isControlPrevioUser } from "@/lib/auth/access";
+import {
+  getApprovalFlowStages,
+  getNextApprovalStageForAval,
+} from "@/lib/approval-flow";
 import {
   formatEventScheduleSentence,
   formatLocationWithProvince,
@@ -183,7 +187,10 @@ export default function RevisionControlPrevioPage() {
     avalId,
     requiredRole: isControlPrevioUser,
     editableEtapa: "REVISION_DTM",
-    approvalEtapa: (etapa) => getNextApprovalStage(etapa) ?? etapa,
+    additionalEditableCheck: (currentAval) =>
+      getApprovalFlowStages(currentAval).includes("CONTROL_PREVIO"),
+    approvalEtapa: (etapa, currentAval) =>
+      getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
         await aprobarAval(a.id, userId, approvalEtapa);
@@ -333,7 +340,8 @@ export default function RevisionControlPrevioPage() {
     );
   }
 
-  const approvalEtapa = (getNextApprovalStage(currentEtapa) ?? currentEtapa) as EtapaFlujo;
+  const approvalEtapa = (getNextApprovalStageForAval(aval, currentEtapa) ??
+    currentEtapa) as EtapaFlujo;
 
   return (
     <div className="h-screen flex">

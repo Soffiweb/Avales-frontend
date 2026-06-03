@@ -27,9 +27,11 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import { isPdaUser } from "@/lib/auth/access";
 import {
   getApprovalStageLabel,
-  getNextApprovalStage,
-  getPreviousApprovalStages,
 } from "@/lib/constants";
+import {
+  getNextApprovalStageForAval,
+  getPreviousApprovalStagesForAval,
+} from "@/lib/approval-flow";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -243,7 +245,8 @@ export default function CertificarAvalPage() {
     avalId,
     requiredRole: isPdaUser,
     editableEtapa: "SOLICITUD",
-    approvalEtapa: (etapa) => getNextApprovalStage(etapa) ?? etapa,
+    approvalEtapa: (etapa, currentAval) =>
+      getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,
     validateApprove: useCallback((currentAval: Aval) => {
       const pdaError = validatePdaDraft(draft);
@@ -750,7 +753,7 @@ export default function CertificarAvalPage() {
                     />
                   </label>
 
-                  {getPreviousApprovalStages(currentEtapa).length > 0 && (
+                  {getPreviousApprovalStagesForAval(aval, currentEtapa).length > 0 && (
                     <label className="block">
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                         Regresar a etapa (opcional)
@@ -761,7 +764,7 @@ export default function CertificarAvalPage() {
                         onChange={(e) => setEtapaDestino(e.target.value)}
                       >
                         <option value="">Etapa anterior (por defecto)</option>
-                        {getPreviousApprovalStages(currentEtapa).map((e) => (
+                        {getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => (
                           <option key={e} value={e}>
                             {getApprovalStageLabel(e)}
                           </option>

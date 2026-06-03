@@ -2,10 +2,13 @@ import { apiFetch } from "@/lib/api/client";
 import type {
   Aval,
   AvalListResponse,
+  AvalParticipante,
+  CreateColeccionAvalPayload,
   CreateAvalPayload,
   Estado,
   EtapaFlujo,
   Historial,
+  UpsertAvalParticipantesPayload,
 } from "@/types/aval";
 
 export type EstadoHistorial = "ACEPTADO" | "RECHAZADO";
@@ -48,6 +51,13 @@ export async function getAval(id: number) {
   return apiFetch<Aval>(`/avales/${id}`, { method: "GET" });
 }
 
+export async function createColeccionAval(payload: CreateColeccionAvalPayload) {
+  return apiFetch<Aval>("/avales", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getAvalesByEvento(eventoId: number) {
   return apiFetch<Aval[]>(`/avales/evento/${eventoId}`, { method: "GET" });
 }
@@ -68,11 +78,21 @@ export async function uploadConvocatoria(
   eventoId: number,
   convocatoria: File,
   certificadoMedico: File,
+  options?: {
+    tipoAval?: CreateColeccionAvalPayload["tipoAval"];
+    montoSolicitado?: number;
+  },
 ) {
   const formData = new FormData();
   formData.append("eventoId", String(eventoId));
   formData.append("convocatoria", convocatoria);
   formData.append("certificadoMedico", certificadoMedico);
+  if (options?.tipoAval) {
+    formData.append("tipoAval", options.tipoAval);
+  }
+  if (typeof options?.montoSolicitado === "number") {
+    formData.append("montoSolicitado", String(options.montoSolicitado));
+  }
 
   return apiFetch<Aval>("/avales/convocatoria", {
     method: "POST",
@@ -82,6 +102,22 @@ export async function uploadConvocatoria(
 
 export async function createAval(payload: CreateAvalPayload) {
   return apiFetch<Aval>("/avales", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAvalParticipantes(id: number) {
+  return apiFetch<AvalParticipante[]>(`/avales/${id}/participantes`, {
+    method: "GET",
+  });
+}
+
+export async function upsertAvalParticipantes(
+  id: number,
+  payload: UpsertAvalParticipantesPayload,
+) {
+  return apiFetch<Aval>(`/avales/${id}/participantes`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

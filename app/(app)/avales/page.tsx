@@ -82,7 +82,7 @@ export default function AvalesPage() {
   const defaultEtapa: EtapaFlujo | "" = isPda
     ? "SOLICITUD"
     : isMetodologo
-    ? "COMPRAS_PUBLICAS"
+    ? ""
     : isControlPrevio
     ? "REVISION_DTM"
     : isFinanciero

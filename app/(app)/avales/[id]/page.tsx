@@ -36,18 +36,22 @@ import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
 import {
   formatDate,
   formatEventScheduleLabel,
+  formatCurrency,
   formatGenero,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 import {
   getEventoTipoParticipacionLabel,
+  getTipoAvalLabel,
   getApprovalStageLabel,
-  getNextApprovalStage,
-  getPreviousApprovalStages,
-  APPROVAL_STAGE_FLOW,
 } from "@/lib/constants";
 import { getNormalizedRoles } from "@/lib/auth/access";
-import { getCurrentEtapa } from "@/lib/utils/aval-historial";
+import {
+  getApprovalFlowStages,
+  getAvalCurrentEtapa,
+  getNextApprovalStageForAval,
+  getPreviousApprovalStagesForAval,
+} from "@/lib/approval-flow";
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
   if (!fechaInicio) return null;
@@ -162,6 +166,7 @@ function CollapsibleSection({
 
 type StageTimelineProps = {
   currentStage: EtapaFlujo;
+  flowStages: EtapaFlujo[];
 };
 
 const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
@@ -175,10 +180,10 @@ const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
   SECRETARIA: "Secretaría",
 };
 
-function StageTimeline({ currentStage }: StageTimelineProps) {
-  const stages = APPROVAL_STAGE_FLOW.filter(
-    (etapa) => etapa !== "SECRETARIA",
-  ).map((etapa) => ({
+function StageTimeline({ currentStage, flowStages }: StageTimelineProps) {
+  const stages = flowStages
+    .filter((etapa) => etapa !== "SECRETARIA")
+    .map((etapa) => ({
     etapa,
     label: getApprovalStageLabel(etapa),
     shortLabel: STAGE_SHORT_LABELS[etapa] ?? etapa,
@@ -343,14 +348,15 @@ export default function AvalDetailPage() {
     }
   }, [aval, regenerating]);
 
-  const etapaActualResponse = aval?.etapaActual;
-  const etapaActualHistorial = getCurrentEtapa(aval?.historial);
-  const currentEtapa = (etapaActualResponse ??
-    etapaActualHistorial ??
-    "SOLICITUD") as EtapaFlujo;
-  const isControlPrevioStage = currentEtapa === "REVISION_DTM";
-  const isFinancieroStage = currentEtapa === "CONTROL_PREVIO";
-  const nextEtapa = getNextApprovalStage(currentEtapa);
+  const currentEtapa = getAvalCurrentEtapa(aval);
+  const flowStages = getApprovalFlowStages(aval);
+  const previousToFinanciero = flowStages.includes("CONTROL_PREVIO")
+    ? "CONTROL_PREVIO"
+    : "REVISION_DTM";
+  const isControlPrevioStage =
+    flowStages.includes("CONTROL_PREVIO") && currentEtapa === "REVISION_DTM";
+  const isFinancieroStage = currentEtapa === previousToFinanciero;
+  const nextEtapa = getNextApprovalStageForAval(aval, currentEtapa);
   const showFinancieroPanel =
     userRoles.includes("FINANCIERO") && isFinancieroStage;
   const resolvedNextEtapa: EtapaFlujo | undefined = showFinancieroPanel
@@ -364,7 +370,7 @@ export default function AvalDetailPage() {
   const arrowCurrentLabel = currentStageLabel;
   const arrowNextLabel = nextStageLabel;
   const hasNextAfterApproval = Boolean(
-    getNextApprovalStage(resolvedNextEtapa ?? currentEtapa),
+    getNextApprovalStageForAval(aval, resolvedNextEtapa ?? currentEtapa),
   );
   const isMetodologoStage = currentEtapa === "REVISION_METODOLOGO";
   const isDtmStage = currentEtapa === "REVISION_DTM";
@@ -665,7 +671,7 @@ export default function AvalDetailPage() {
 
         {/* Estado del aval */}
         <div className="space-y-4">
-          <StageTimeline currentStage={currentEtapa} />
+          <StageTimeline currentStage={currentEtapa} flowStages={flowStages} />
           {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>
             <div className="pt-3">
@@ -1011,6 +1017,55 @@ export default function AvalDetailPage() {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-6 self-start">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
+              <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-3">
+                Contrato aval
+              </p>
+              <div className="grid gap-3">
+                <div>
+                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Tipo
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {getTipoAvalLabel(aval.tipoAval)}
+                  </p>
+                </div>
+                {typeof aval.montoSolicitado === "number" ? (
+                  <div>
+                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Monto solicitado
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {formatCurrency(aval.montoSolicitado)}
+                    </p>
+                  </div>
+                ) : null}
+                {typeof aval.montoAsignado === "number" ? (
+                  <div>
+                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Monto asignado
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {formatCurrency(aval.montoAsignado)}
+                    </p>
+                  </div>
+                ) : null}
+                {aval.presupuesto ? (
+                  <div className="rounded-lg bg-gray-50 px-3 py-3 dark:bg-gray-900/60">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      Presupuesto por fuente
+                    </p>
+                    <div className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                      <p>Fuente: {getTipoAvalLabel(aval.presupuesto.fuente ?? aval.tipoAval)}</p>
+                      <p>Asignado: {formatCurrency(aval.presupuesto.asignado)}</p>
+                      <p>Comprometido: {formatCurrency(aval.presupuesto.comprometido)}</p>
+                      <p>Disponible: {formatCurrency(aval.presupuesto.disponible)}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
             {summaryLines.length > 0 ? (
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
                 <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
@@ -1073,7 +1128,8 @@ export default function AvalDetailPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                etapaDestinoOptions={getPreviousApprovalStages(
+                etapaDestinoOptions={getPreviousApprovalStagesForAval(
+                  aval,
                   currentEtapa,
                 ).map((e) => ({ value: e, label: getApprovalStageLabel(e) }))}
                 etapaDestinoValue={etapaDestino}

@@ -22,7 +22,7 @@ import {
   isAvalReviewer,
 } from "@/lib/auth/access";
 import AvalListCard from "./_components/aval-list-card";
-import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { DEFAULT_PAGE_SIZE, TIPO_AVAL_OPTIONS } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
 import { useStatusToast } from "@/lib/hooks/use-status-toast";
@@ -75,6 +75,8 @@ export default function AvalesPage() {
   const { filters, page, setFilter, setPage } = useUrlFilters("/avales", {
     search: "",
     estado: "",
+    tipoAval: "",
+    mixto: "",
   });
 
   // Defaults por rol — se calculan una vez y entran en el queryKey
@@ -100,6 +102,8 @@ export default function AvalesPage() {
         "avales",
         filters.search,
         efectivoEstado,
+        filters.tipoAval,
+        filters.mixto,
         efectivoEtapa,
         page,
         user?.id,
@@ -120,9 +124,22 @@ export default function AvalesPage() {
       select: (res) => {
         const r = res as Record<string, unknown>;
         const items = (Array.isArray(r?.data) ? r.data : []) as Aval[];
-        if (!filters.search.trim()) return items;
         const term = filters.search.trim().toLowerCase();
         return items.filter((aval) => {
+          const matchesTipoAval =
+            !filters.tipoAval || aval.tipoAval === filters.tipoAval;
+          if (!matchesTipoAval) return false;
+          const hasSoloResultadoParticipant =
+            (aval.avalTecnico?.deportistasAval ?? []).some(
+              (deportista) =>
+                deportista.modalidadParticipacion === "SOLO_RESULTADO",
+            );
+          const matchesMixto =
+            !filters.mixto ||
+            (filters.mixto === "SI" && hasSoloResultadoParticipant) ||
+            (filters.mixto === "NO" && !hasSoloResultadoParticipant);
+          if (!matchesMixto) return false;
+          if (!term) return true;
           const candidates = [
             aval.evento?.nombre,
             aval.evento?.codigo,
@@ -196,6 +213,27 @@ export default function AvalesPage() {
                   {o.label}
                 </option>
               ))}
+            </select>
+            <select
+              className="form-select w-full sm:w-48"
+              value={filters.tipoAval}
+              onChange={(e) => setFilter("tipoAval", e.target.value)}
+            >
+              <option value="">Todos los tipos</option>
+              {TIPO_AVAL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="form-select w-full sm:w-40"
+              value={filters.mixto}
+              onChange={(e) => setFilter("mixto", e.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="SI">Mixtos</option>
+              <option value="NO">Sin mixtos</option>
             </select>
             <select
               className="form-select w-full sm:w-56"

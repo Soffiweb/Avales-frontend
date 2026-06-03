@@ -53,6 +53,7 @@ import {
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
 import { getActionConfig } from "@/lib/aval-form-config";
+import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
@@ -599,6 +600,11 @@ export default function AvalDetailPage() {
   const { config: formConfig } = useAvalFormConfig(aval);
   const approveAction = getActionConfig(formConfig, "APROBAR");
   const rejectAction = getActionConfig(formConfig, "RECHAZAR");
+  const participantesSection = getSectionConfig(formConfig, "PARTICIPANTES");
+  const presupuestoSection = getSectionConfig(formConfig, "PRESUPUESTO");
+  const hasMixedParticipants = deportistasList.some(
+    (deportista) => deportista.modalidadParticipacion === "SOLO_RESULTADO",
+  );
 
   return (
     <>
@@ -938,10 +944,12 @@ export default function AvalDetailPage() {
                       </p>
                     </div>
 
-                    <AvalLogisticaSection
-                      avalTecnico={aval.avalTecnico}
-                      fechaEmision={aval.fechaEmision}
-                    />
+                    {(getSectionConfig(formConfig, "DOCUMENTOS")?.visible ?? true) && (
+                      <AvalLogisticaSection
+                        avalTecnico={aval.avalTecnico}
+                        fechaEmision={aval.fechaEmision}
+                      />
+                    )}
 
                     {(aval.avalTecnico.objetivos?.length ||
                       aval.avalTecnico.criterios?.length) && (
@@ -993,15 +1001,21 @@ export default function AvalDetailPage() {
                       </div>
                     )}
 
-                    {deportistasList.length > 0 ? (
+                    {deportistasList.length > 0 &&
+                    (participantesSection?.visible ?? true) ? (
                       <AvalDeportistasSection deportistas={deportistasList} />
+                    ) : null}
+                    {hasMixedParticipants ? (
+                      <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
+                        Este aval incluye participantes solo por resultados dentro del mismo expediente.
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
               </div>
             </CollapsibleSection>
 
-            {canShowPresupuestoSalida ? (
+            {canShowPresupuestoSalida && (presupuestoSection?.visible ?? true) ? (
               <CollapsibleSection
                 title="Presupuesto de salida"
                 icon={

@@ -35,6 +35,7 @@ type FormData = {
   objetivos: string[];
   criterios: string[];
   observaciones?: string;
+  tipoAval?: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO";
 };
 
 type AvalDocumentPreviewProps = {
@@ -82,6 +83,7 @@ export default function AvalDocumentPreview({
     Boolean(formData.observaciones?.trim());
   const showNomina = mode !== "solicitud";
   const showSolicitud = mode !== "nomina" && (showDetallePage || mode === "solicitud");
+  const showRequerimientos = formData.tipoAval !== "SOLO_RESULTADO";
 
   return (
     <div className="w-full space-y-6 text-slate-900">
@@ -436,6 +438,7 @@ export default function AvalDocumentPreview({
             </table>
           </div>
 
+          {showRequerimientos && (
           <div>
             <p className="text-[12px] font-semibold uppercase">Requerimientos</p>
             <table className="mt-1 w-full border-collapse text-[11px]">
@@ -494,6 +497,7 @@ export default function AvalDocumentPreview({
               </tbody>
             </table>
           </div>
+          )}
 
           <table className="w-full border-collapse text-[11px]">
             <tbody>

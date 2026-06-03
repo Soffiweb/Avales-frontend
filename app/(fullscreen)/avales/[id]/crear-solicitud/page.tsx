@@ -4,6 +4,9 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getAval } from "@/lib/api/avales";
 import type { Aval, ModalidadParticipacion, TipoAval } from "@/types/aval";
+import { getSectionConfig } from "@/lib/aval-form-config";
+import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
+import { getTipoAvalLabel } from "@/lib/constants";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -74,13 +77,6 @@ const INITIAL_FORM_DATA: FormData = {
   montoSolicitado: undefined,
 };
 
-const STEPS = [
-  { number: 1, title: "Participantes" },
-  { number: 2, title: "Logística" },
-  { number: 3, title: "Objetivos y Criterios" },
-  { number: 4, title: "Presupuesto" },
-];
-
 export default function CrearSolicitudPage() {
   const params = useParams();
   const router = useRouter();
@@ -92,6 +88,7 @@ export default function CrearSolicitudPage() {
   const [aval, setAval] = useState<Aval | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { config: formConfig } = useAvalFormConfig(aval);
 
   const loadAval = useCallback(async () => {
     try {
@@ -180,6 +177,18 @@ export default function CrearSolicitudPage() {
     );
   }
 
+  const presupuestoSection = getSectionConfig(formConfig, "PRESUPUESTO");
+  const showPresupuestoStep = presupuestoSection?.visible ?? formData.tipoAval !== "SOLO_RESULTADO";
+  const steps = [
+    { number: 1 as WizardStep, title: "Participantes" },
+    { number: 2 as WizardStep, title: "Logística" },
+    { number: 3 as WizardStep, title: "Objetivos y Criterios" },
+    {
+      number: 4 as WizardStep,
+      title: showPresupuestoStep ? "Presupuesto" : "Resumen y envío",
+    },
+  ];
+
   return (
     <div className="h-screen flex">
       {/* Left Panel - Form */}
@@ -207,10 +216,13 @@ export default function CrearSolicitudPage() {
                 </svg>
                 Volver
               </button>
+              <div className="mb-4 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                {getTipoAvalLabel(formData.tipoAval ?? aval.tipoAval)}
+              </div>
 
               {/* Progress Steps */}
               <div className="flex items-center gap-3 mb-8">
-                {STEPS.map((step, index) => (
+                {steps.map((step, index) => (
                   <div key={step.number} className="flex items-center gap-3">
                     <button
                       onClick={() => handleStepClick(step.number)}
@@ -224,9 +236,16 @@ export default function CrearSolicitudPage() {
                     >
                       {step.number}
                     </button>
-                    {index < STEPS.length - 1 && (
+                    {index < steps.length - 1 && (
                       <div className="w-12 h-0.5 bg-gray-200 dark:bg-gray-700" />
                     )}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-4">
+                {steps.map((step) => (
+                  <div key={`label-${step.number}`} className="truncate">
+                    {step.number}. {step.title}
                   </div>
                 ))}
               </div>

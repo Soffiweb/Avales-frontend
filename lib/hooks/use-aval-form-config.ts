@@ -28,11 +28,12 @@ export function useAvalFormConfig(aval: Aval | null): UseAvalFormConfigResult {
     setConfig(fallback);
 
     let active = true;
+    const avalId = aval.id;
 
     async function loadConfig() {
       try {
         setLoading(true);
-        const response = await getAvalFormConfig(aval.id);
+        const response = await getAvalFormConfig(avalId);
         if (!active) return;
         setConfig(response.data ?? fallback);
       } catch (error) {

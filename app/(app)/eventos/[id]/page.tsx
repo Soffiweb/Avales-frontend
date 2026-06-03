@@ -38,6 +38,7 @@ import {
 import { listReformsByEvento } from "@/lib/api/reforms";
 import type { Evento } from "@/types/evento";
 import { calcularTotalEvento } from "@/types/evento";
+import type { Aval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   formatCurrency,
@@ -46,7 +47,7 @@ import {
   formatMonth,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import { getEventoTipoParticipacionLabel } from "@/lib/constants";
+import { getEventoTipoParticipacionLabel, getTipoAvalLabel, getModalidadParticipacionLabel } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   {
@@ -129,7 +130,7 @@ export default function EventoDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [existingAvalId, setExistingAvalId] = useState<number | null>(null);
+  const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -148,10 +149,9 @@ export default function EventoDetailPage() {
         setEvento(eventoRes.data);
         try {
           const avalesRes = await getAvalesByEvento(id);
-          const avales = avalesRes.data ?? [];
-          setExistingAvalId(avales.length > 0 ? avales[0].id : null);
+          setAvalesEvento(avalesRes.data ?? []);
         } catch {
-          setExistingAvalId(null);
+          setAvalesEvento([]);
         }
       } catch (err: any) {
         setError(err?.message ?? "No se pudo cargar el evento.");
@@ -260,7 +260,38 @@ export default function EventoDetailPage() {
     (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0);
   const totalEntrenadores =
     (evento.numEntrenadoresHombres || 0) + (evento.numEntrenadoresMujeres || 0);
-  const hasAval = existingAvalId !== null;
+  const hasAval = avalesEvento.length > 0;
+  const firstAvalId = avalesEvento[0]?.id ?? null;
+
+  // Métricas consolidadas desde avales
+  const cuposAsignados = avalesEvento.reduce(
+    (sum, a) => sum + (a.resumenCupos?.total ?? 0),
+    0,
+  );
+  const cuposDisponibles = Math.max(totalAtletas - cuposAsignados, 0);
+
+  const modalidadCounts = avalesEvento.reduce<Record<string, number>>(
+    (acc, aval) => {
+      for (const d of aval.avalTecnico?.deportistasAval ?? []) {
+        const key = d.modalidadParticipacion ?? "SIN_MODALIDAD";
+        acc[key] = (acc[key] ?? 0) + 1;
+      }
+      return acc;
+    },
+    {},
+  );
+
+  const presupuestoPorFuente = avalesEvento.reduce<
+    Record<string, { asignado: number; comprometido: number; disponible: number }>
+  >((acc, aval) => {
+    if (!aval.presupuesto) return acc;
+    const fuente = aval.presupuesto.fuente ?? aval.tipoAval ?? "DESCONOCIDO";
+    if (!acc[fuente]) acc[fuente] = { asignado: 0, comprometido: 0, disponible: 0 };
+    acc[fuente].asignado += aval.presupuesto.asignado;
+    acc[fuente].comprometido += aval.presupuesto.comprometido;
+    acc[fuente].disponible += aval.presupuesto.disponible;
+    return acc;
+  }, {});
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const canManageReforms = canCreateReforma(user) && !isDTM;
   const canViewReforms = canAccessReforms(user) || isDTM;
@@ -354,9 +385,9 @@ export default function EventoDetailPage() {
                           : "No disponible para crear aval"}
                       </button>
                     )}
-                    {hasAval && existingAvalId && (
+                    {hasAval && firstAvalId && (
                       <Link
-                        href={`/avales/${existingAvalId}`}
+                        href={`/avales/${firstAvalId}`}
                         className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         Ver aval
@@ -783,6 +814,163 @@ export default function EventoDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Resumen consolidado de avales */}
+        {avalesEvento.length > 0 && (
+          <div className="space-y-4">
+            {/* Avales asociados */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                    Avales asociados
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {avalesEvento.length}{" "}
+                    {avalesEvento.length === 1 ? "aval" : "avales"} registrados
+                  </p>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                {avalesEvento.map((aval) => (
+                  <div
+                    key={aval.id}
+                    className="flex items-center justify-between px-5 py-3 gap-4"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                        {getTipoAvalLabel(aval.tipoAval)}
+                      </span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {aval.estado}
+                      </span>
+                      {aval.resumenCupos ? (
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {aval.resumenCupos.total} deportistas
+                        </span>
+                      ) : null}
+                    </div>
+                    <Link
+                      href={`/avales/${aval.id}`}
+                      className="shrink-0 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                    >
+                      Ver →
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Cupos consolidados */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <Users className="w-5 h-5 text-gray-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                  Cupos consolidados
+                </h3>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    {totalAtletas}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Planificados
+                  </p>
+                </div>
+                <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/30 p-3">
+                  <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                    {cuposAsignados}
+                  </p>
+                  <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
+                    Asignados
+                  </p>
+                </div>
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3">
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                    {cuposDisponibles}
+                  </p>
+                  <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1">
+                    Disponibles
+                  </p>
+                </div>
+              </div>
+
+              {Object.keys(modalidadCounts).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Por modalidad
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(modalidadCounts).map(([modalidad, count]) => (
+                      <span
+                        key={modalidad}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                      >
+                        {modalidad === "SIN_MODALIDAD"
+                          ? "Sin modalidad"
+                          : getModalidadParticipacionLabel(modalidad)}
+                        <span className="font-semibold">{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Presupuesto por fuente */}
+            {Object.keys(presupuestoPorFuente).length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                    Presupuesto por fuente
+                  </h3>
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {Object.entries(presupuestoPorFuente).map(([fuente, montos]) => (
+                    <div key={fuente} className="px-5 py-4">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                        {getTipoAvalLabel(fuente)}
+                      </p>
+                      <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Asignado
+                          </p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">
+                            {formatCurrency(montos.asignado)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Comprometido
+                          </p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">
+                            {formatCurrency(montos.comprometido)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Disponible
+                          </p>
+                          <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            {formatCurrency(montos.disponible)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <ConfirmModal

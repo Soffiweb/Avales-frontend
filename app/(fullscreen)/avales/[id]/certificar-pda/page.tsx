@@ -6,7 +6,7 @@ import { ArrowLeft, ExternalLink, FileText, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import { aprobarAval, createPda } from "@/lib/api/avales";
-import type { Aval } from "@/types/aval";
+import type { Aval, AvalPresupuestoFuente } from "@/types/aval";
 import {
   formatCurrency,
   formatEventScheduleSentence,
@@ -27,6 +27,7 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import { isPdaUser } from "@/lib/auth/access";
 import {
   getApprovalStageLabel,
+  getTipoAvalLabel,
 } from "@/lib/constants";
 import {
   getNextApprovalStageForAval,
@@ -206,6 +207,32 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   });
 }
 
+function PresupuestoFuenteWidget({ presupuesto }: { presupuesto: AvalPresupuestoFuente }) {
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3 space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        Presupuesto{presupuesto.fuente ? ` — ${getTipoAvalLabel(presupuesto.fuente)}` : ""}
+      </p>
+      <div className="grid grid-cols-3 gap-3">
+        {(
+          [
+            { label: "Asignado", value: presupuesto.asignado },
+            { label: "Comprometido", value: presupuesto.comprometido },
+            { label: "Disponible", value: presupuesto.disponible },
+          ] as const
+        ).map(({ label, value }) => (
+          <div key={label}>
+            <p className="text-[0.65rem] text-gray-500 dark:text-gray-400">{label}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {formatCurrency(value)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CertificarAvalPage() {
   const params = useParams();
   const router = useRouter();
@@ -213,6 +240,8 @@ export default function CertificarAvalPage() {
 
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
   const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
+  const [montoAsignado, setMontoAsignado] = useState("");
+  const [justificacionAjuste, setJustificacionAjuste] = useState("");
 
   const totalPresupuestoDraft = useMemo(
     () => budgetDraftItems.reduce((total, item) => total + getDraftItemTotal(item), 0),
@@ -252,6 +281,14 @@ export default function CertificarAvalPage() {
       const pdaError = validatePdaDraft(draft);
       if (pdaError) return pdaError;
 
+      if (currentAval.tipoAval === "AUTOGESTION") {
+        const monto = Number.parseFloat(montoAsignado.replace(",", "."));
+        if (!Number.isFinite(monto) || monto <= 0) {
+          return "Debes ingresar el monto aprobado por PDA (mayor a 0).";
+        }
+        return null;
+      }
+
       const invalidItems = budgetDraftItems.filter(
         (item) =>
           item.dias.length === 0 ||
@@ -277,20 +314,28 @@ export default function CertificarAvalPage() {
       }
 
       return null;
-    }, [draft, budgetDraftItems, totalPresupuestoDraft]),
+    }, [draft, budgetDraftItems, totalPresupuestoDraft, montoAsignado]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
-        const items = budgetDraftItems
-          .map((item) => ({
-            itemId: item.itemId,
-            presupuesto: getDraftItemTotal(item),
-            dias: item.dias.map((dia) => ({
-              numeroDia: dia.numeroDia,
-              cantidad: dia.cantidad!,
-              valorUnitario: dia.valorUnitario!,
-            })),
-          }))
-          .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
+        const isAutogestion = a.tipoAval === "AUTOGESTION";
+
+        const items = isAutogestion
+          ? []
+          : budgetDraftItems
+              .map((item) => ({
+                itemId: item.itemId,
+                presupuesto: getDraftItemTotal(item),
+                dias: item.dias.map((dia) => ({
+                  numeroDia: dia.numeroDia,
+                  cantidad: dia.cantidad!,
+                  valorUnitario: dia.valorUnitario!,
+                })),
+              }))
+              .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
+
+        const monto = isAutogestion
+          ? normalizePositiveNumber(montoAsignado)
+          : undefined;
 
         const pdaPayload = {
           descripcion: draft.descripcion.trim(),
@@ -299,13 +344,14 @@ export default function CertificarAvalPage() {
           codigoActividad: draft.codigoActividad?.trim() || "005",
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
-          items,
+          montoAsignado: monto,
+          items: items.length > 0 ? items : undefined,
         };
 
         await createPda(a.id, pdaPayload);
         await aprobarAval(a.id, userId, approvalEtapa);
       },
-      [draft, budgetDraftItems],
+      [draft, budgetDraftItems, montoAsignado],
     ),
     approveSuccessMessage: "PDA aprobado correctamente.",
     rejectSuccessMessage: "PDA rechazado correctamente.",
@@ -315,6 +361,8 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);
     setBudgetDraftItems([]);
+    setMontoAsignado("");
+    setJustificacionAjuste("");
   }, [avalId]);
 
   // Populate draft description and pda numbers from loaded aval
@@ -344,10 +392,23 @@ export default function CertificarAvalPage() {
     });
   }, [user, defaultSignerName, defaultSignerCargo]);
 
-  // Build budget items from aval data
+  // Build budget items — only for FONDOS_PUBLICOS
   useEffect(() => {
     if (!aval) return;
+    if (aval.tipoAval === "AUTOGESTION" || aval.tipoAval === "SOLO_RESULTADO") {
+      setBudgetDraftItems([]);
+      return;
+    }
     setBudgetDraftItems(buildBudgetDraftItems(aval));
+  }, [aval]);
+
+  // Pre-populate montoAsignado for AUTOGESTION
+  useEffect(() => {
+    if (!aval || aval.tipoAval !== "AUTOGESTION") return;
+    if (montoAsignado) return;
+    const initial = aval.montoAsignado ?? aval.montoSolicitado;
+    if (initial != null && initial > 0) setMontoAsignado(String(initial));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aval]);
 
   const trainerDocsData = useMemo(
@@ -460,6 +521,26 @@ export default function CertificarAvalPage() {
     );
   }
 
+  if (aval.tipoAval === "SOLO_RESULTADO") {
+    return (
+      <div className="px-6 py-8">
+        <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl p-6 text-center">
+          Este aval es de tipo <strong>Solo por Resultados</strong> y no requiere certificación PDA.
+        </div>
+      </div>
+    );
+  }
+
+  const isAutogestion = aval.tipoAval === "AUTOGESTION";
+  const montoAsignadoNum = Number.parseFloat(montoAsignado.replace(",", "."));
+  const montoSolicitadoNum = aval.montoSolicitado ?? 0;
+  const montoChanged =
+    isAutogestion &&
+    montoAsignado.trim() !== "" &&
+    Number.isFinite(montoAsignadoNum) &&
+    aval.montoSolicitado != null &&
+    Math.abs(montoAsignadoNum - montoSolicitadoNum) >= 0.01;
+
   return (
     <div className="h-screen flex">
       {toast && (
@@ -563,6 +644,82 @@ export default function CertificarAvalPage() {
                 </label>
               </div>
 
+              {/* Sección AUTOGESTION */}
+              {isAutogestion && (
+                <div className="max-w-xl space-y-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Presupuesto de autogestión
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Revisa el monto solicitado y aprueba o ajusta el monto asignado.
+                    </p>
+                  </div>
+
+                  {/* Monto solicitado por entrenador */}
+                  <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20 px-4 py-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Monto solicitado por entrenador
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">
+                      {aval.montoSolicitado != null
+                        ? formatCurrency(aval.montoSolicitado)
+                        : "—"}
+                    </p>
+                  </div>
+
+                  {/* Presupuesto disponible */}
+                  {aval.presupuesto && (
+                    <PresupuestoFuenteWidget presupuesto={aval.presupuesto} />
+                  )}
+
+                  {/* Monto aprobado por PDA */}
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Monto aprobado por PDA *
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="form-input w-full mt-1"
+                      value={montoAsignado}
+                      readOnly={!isEditable}
+                      disabled={!isEditable}
+                      onChange={(e) => setMontoAsignado(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </label>
+
+                  {/* Justificación si el monto cambia */}
+                  {montoChanged && (
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Justificación del ajuste
+                      </span>
+                      <textarea
+                        className="form-textarea w-full mt-1"
+                        rows={3}
+                        value={justificacionAjuste}
+                        readOnly={!isEditable}
+                        disabled={!isEditable}
+                        onChange={(e) => setJustificacionAjuste(e.target.value)}
+                        placeholder="Explica por qué se ajustó el monto solicitado..."
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* Presupuesto por fuente para FONDOS_PUBLICOS */}
+              {!isAutogestion && aval.presupuesto && (
+                <div className="max-w-xl">
+                  <PresupuestoFuenteWidget presupuesto={aval.presupuesto} />
+                </div>
+              )}
+
+              {!isAutogestion && (
               <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40">
                 <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
                   <div>
@@ -728,6 +885,7 @@ export default function CertificarAvalPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {isEditable && (
                 <div className="max-w-xl rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">

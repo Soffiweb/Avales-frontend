@@ -193,6 +193,7 @@ export type CreatePdaPayload = {
   codigoActividad?: string;
   nombreFirmante?: string;
   cargoFirmante?: string;
+  montoAsignado?: number;
   items?: CreatePdaItemPayload[];
 };
 

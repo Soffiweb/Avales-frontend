@@ -77,7 +77,6 @@ export default function NuevoAvalPage() {
       const baseOptions: ListEventosOptions = {
         limit: FETCH_LIMIT,
         estado: "DISPONIBLE",
-        sinAval: true,
         search: search.trim() || undefined,
         disciplinaId: isEntrenador ? undefined : primaryDisciplinaId,
       };

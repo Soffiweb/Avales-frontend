@@ -302,6 +302,82 @@ function StageTimeline({ currentStage, flowStages }: StageTimelineProps) {
   );
 }
 
+const HISTORIAL_STATE_STYLES: Record<string, string> = {
+  SOLICITADO: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+  RECHAZADO: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",
+  ACEPTADO: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  BORRADOR: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  DISPONIBLE: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+};
+
+function HistorialTimeline({
+  historial,
+  flowStages,
+}: {
+  historial: Historial[];
+  flowStages: EtapaFlujo[];
+}) {
+  const sorted = historial.slice().sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+
+  return (
+    <div className="space-y-3 pt-2">
+      {sorted.map((entry, idx) => {
+        const stageLabel = flowStages.includes(entry.etapa)
+          ? getApprovalStageLabel(entry.etapa)
+          : entry.etapa;
+        const stateStyle =
+          HISTORIAL_STATE_STYLES[entry.estado] ??
+          "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+        const isLast = idx === sorted.length - 1;
+
+        return (
+          <div key={entry.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div
+                className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                  entry.estado === "RECHAZADO"
+                    ? "border-rose-400 bg-rose-50 text-rose-600 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
+                    : entry.estado === "ACEPTADO"
+                      ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      : "border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+                }`}
+              >
+                {idx + 1}
+              </div>
+              {!isLast && (
+                <div className="mt-1 w-0.5 flex-1 bg-gray-200 dark:bg-gray-700" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1 pb-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {stageLabel}
+                </p>
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${stateStyle}`}
+                >
+                  {entry.estado}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {entry.usuario.nombre} {entry.usuario.apellido} ·{" "}
+                {formatDate(entry.createdAt)}
+              </p>
+              {entry.comentario ? (
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 italic">
+                  {entry.comentario}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AvalDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -868,6 +944,35 @@ export default function AvalDetailPage() {
                         </div>
                       </div>
                     </div>
+
+                    {aval.resumenCupos ? (
+                      <div className="grid grid-cols-3 gap-2 rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-3 dark:border-gray-700 dark:bg-gray-800/60">
+                        <div className="text-center">
+                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Total
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {aval.resumenCupos.total}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Cubiertos
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                            {aval.resumenCupos.cubiertos}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Solo resultado
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold text-indigo-700 dark:text-indigo-400">
+                            {aval.resumenCupos.soloResultado}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </CollapsibleSection>
@@ -1162,6 +1267,28 @@ export default function AvalDetailPage() {
           </div>
         </div>
       </div>
+
+      {aval.historial.length > 0 ? (
+        <div className="px-4 sm:px-6 lg:px-8 pb-8 w-full max-w-7xl mx-auto">
+          <CollapsibleSection
+            title="Historial de aprobación"
+            icon={
+              <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            }
+            meta={
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {aval.historial.length}{" "}
+                {aval.historial.length === 1 ? "evento" : "eventos"}
+              </p>
+            }
+          >
+            <HistorialTimeline
+              historial={aval.historial}
+              flowStages={flowStages}
+            />
+          </CollapsibleSection>
+        </div>
+      ) : null}
 
       <ConfirmModal
         open={confirmOpen}

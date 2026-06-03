@@ -29,3 +29,13 @@ Frontend en Next.js (App Router) + TypeScript. Consume API REST de NestJS en `NE
 ## Contexto del negocio
 
 Ver `docs/NEGOCIO.md`
+
+## Standards de desarrollo
+
+Antes de escribir o modificar código, leer:
+
+1. `.agents/skills/soffiweb-avales-frontend-standards/SKILL.md` — reglas maestras, flujo obligatorio y reglas duras
+2. `.agents/skills/soffiweb-avales-frontend-standards/references/frontend.md` — Next.js, datos, componentes, formularios
+3. `.agents/skills/soffiweb-avales-frontend-standards/references/checklist.md` — checklist de cierre
+
+Leer `references/backend.md` y `references/architecture.md` solo si la tarea toca contratos de API, BFF/proxy o decisiones estructurales.

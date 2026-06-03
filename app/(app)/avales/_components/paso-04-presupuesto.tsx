@@ -68,8 +68,8 @@ export default function Paso04Presupuesto({
   >(null);
   const [submitting, setSubmitting] = useState(false);
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
-  const isSoloResultado = tipoAval === "SOLO_RESULTADO";
   const isAutogestion = tipoAval === "AUTOGESTION";
+  const isFondosPublicos = tipoAval === "FONDOS_PUBLICOS";
 
   useEffect(() => {
     onPreviewChange?.({ observaciones, adjuntoSolicitud });
@@ -205,73 +205,113 @@ export default function Paso04Presupuesto({
           </div>
         </div>
         */}
-        {/* Items del Evento */}
-        {!isSoloResultado && (
+        {/* Presupuesto según tipo de aval */}
+        {isFondosPublicos && (
           <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-              <DollarSign className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Requerimientos del evento
-              </h2>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Revisa los requerimientos registrados para esta
-                solicitud.
-              </p>
-            </div>
-          </div>
-
-          {presupuestoItems.length > 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-800/60">
-              <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {presupuestoItems.length}{" "}
-                  {presupuestoItems.length === 1 ? "requerimiento" : "requerimientos"}
+            <div className="mb-4 flex items-start gap-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                <DollarSign className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Requerimientos del evento
+                </h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Revisa los requerimientos registrados para esta solicitud.
                 </p>
               </div>
+            </div>
 
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {presupuestoItems.map((presupuestoItem) => {
-                  const valor = parseFloat(presupuestoItem.presupuesto) || 0;
-
-                  return (
-                    <div key={presupuestoItem.id} className="px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">
+            {presupuestoItems.length > 0 ? (
+              <div className="rounded-xl border border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-800/60">
+                <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {presupuestoItems.length}{" "}
+                    {presupuestoItems.length === 1 ? "requerimiento" : "requerimientos"}
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {presupuestoItems.map((presupuestoItem) => {
+                    const valor = parseFloat(presupuestoItem.presupuesto) || 0;
+                    return (
+                      <div key={presupuestoItem.id} className="px-4 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="flex-1 min-w-0 font-semibold text-gray-900 dark:text-gray-100">
                             {presupuestoItem.item.nombre}
                           </p>
-                        </div>
-                        <div className="text-right">
                           <p className="whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100">
                             {formatCurrency(valor)}
                           </p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900/60">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    Total presupuesto
+                  </p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(getTotalPresupuesto())}
+                  </p>
+                </div>
               </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800">
+                <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-400" />
+                <p className="text-gray-600 dark:text-gray-400">
+                  No hay requerimientos asociados a este evento.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
 
-              <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900/60">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  Total presupuesto
-                </p>
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                  {formatCurrency(getTotalPresupuesto())}
+        {isAutogestion && (
+          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-4 flex items-start gap-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                <DollarSign className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Presupuesto disponible
+                </h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Fondos de autogestión asignados para esta solicitud.
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-              <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-400" />
-              <p className="text-gray-600 dark:text-gray-400">
-                No hay requerimientos asociados a este evento.
-              </p>
-            </div>
-          )}
+
+            {aval.presupuesto ? (
+              <div className="divide-y divide-gray-200 rounded-xl border border-gray-200 bg-gray-50/70 dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800/60">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Asignado</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(aval.presupuesto.asignado)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Comprometido</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(aval.presupuesto.comprometido)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900/60 rounded-b-xl">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Disponible</p>
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                    {formatCurrency(aval.presupuesto.disponible)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-700 dark:bg-gray-800">
+                <DollarSign className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No hay información de presupuesto disponible.
+                </p>
+              </div>
+            )}
           </section>
         )}
 

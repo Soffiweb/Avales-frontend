@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, FileText, Loader2 } from "lucide-react";
 
@@ -242,6 +242,7 @@ export default function CertificarAvalPage() {
   const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
   const [montoAsignado, setMontoAsignado] = useState("");
   const [justificacionAjuste, setJustificacionAjuste] = useState("");
+  const montoAsignadoInitialized = useRef(false);
 
   const totalPresupuestoDraft = useMemo(
     () => budgetDraftItems.reduce((total, item) => total + getDraftItemTotal(item), 0),
@@ -286,6 +287,10 @@ export default function CertificarAvalPage() {
         if (!Number.isFinite(monto) || monto <= 0) {
           return "Debes ingresar el monto aprobado por PDA (mayor a 0).";
         }
+        const montoOriginal = currentAval.montoSolicitado ?? 0;
+        if (Math.abs(monto - montoOriginal) >= 0.01 && !justificacionAjuste.trim()) {
+          return "Debes justificar el ajuste del monto solicitado.";
+        }
         return null;
       }
 
@@ -314,7 +319,7 @@ export default function CertificarAvalPage() {
       }
 
       return null;
-    }, [draft, budgetDraftItems, totalPresupuestoDraft, montoAsignado]),
+    }, [draft, budgetDraftItems, totalPresupuestoDraft, montoAsignado, justificacionAjuste]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
         const isAutogestion = a.tipoAval === "AUTOGESTION";
@@ -363,6 +368,7 @@ export default function CertificarAvalPage() {
     setBudgetDraftItems([]);
     setMontoAsignado("");
     setJustificacionAjuste("");
+    montoAsignadoInitialized.current = false;
   }, [avalId]);
 
   // Populate draft description and pda numbers from loaded aval
@@ -402,13 +408,15 @@ export default function CertificarAvalPage() {
     setBudgetDraftItems(buildBudgetDraftItems(aval));
   }, [aval]);
 
-  // Pre-populate montoAsignado for AUTOGESTION
+  // Pre-populate montoAsignado for AUTOGESTION — useRef evita re-set al recargar aval
   useEffect(() => {
     if (!aval || aval.tipoAval !== "AUTOGESTION") return;
-    if (montoAsignado) return;
+    if (montoAsignadoInitialized.current) return;
     const initial = aval.montoAsignado ?? aval.montoSolicitado;
-    if (initial != null && initial > 0) setMontoAsignado(String(initial));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (initial != null && initial > 0) {
+      setMontoAsignado(String(initial));
+      montoAsignadoInitialized.current = true;
+    }
   }, [aval]);
 
   const trainerDocsData = useMemo(

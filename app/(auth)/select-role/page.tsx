@@ -118,7 +118,7 @@ export default function SelectRolePage() {
               >
                 <span className="font-medium">{getRoleName(rol)}</span>
                 <span className="text-xs uppercase tracking-wider opacity-70">
-                  {isSubmitting ? "Entrando..." : code}
+                  {isSubmitting ? "Entrando..." : "Acceder"}
                 </span>
               </button>
             );

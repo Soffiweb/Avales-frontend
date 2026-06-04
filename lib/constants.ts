@@ -24,7 +24,6 @@ export const CONFIRM_CLEANUP_DELAY = 180;
 
 /** Roles disponibles en el sistema */
 export const ROLES = [
-  "super_admin",
   "admin",
   "administrador",
   "secretaria",

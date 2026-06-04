@@ -34,7 +34,6 @@ import {
 } from "@/lib/utils/categories";
 
 const ROLE_OPTIONS: Role[] = [
-  "SUPER_ADMIN",
   "ADMIN",
   "SECRETARIA",
   "DTM",

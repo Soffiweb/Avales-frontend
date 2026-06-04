@@ -40,5 +40,5 @@ export function getRoleName(role: RoleLike): string {
   if (typeof role === "string") {
     return formatRole(normalizeRoleCode(role));
   }
-  return role.nombre?.trim() || formatRole(normalizeRoleCode(role.codigo));
+  return formatRole(normalizeRoleCode(role.codigo));
 }

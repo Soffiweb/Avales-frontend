@@ -640,7 +640,7 @@ export default function AvalDetailPage() {
   ].filter((line): line is string => Boolean(line));
   const isAvalCompleto =
     aval.estado === "ACEPTADO" || currentEtapa === "FINANCIERO";
-  const canDownloadAvalCompleto = Boolean(aval.aval);
+  const canDownloadAvalCompleto = Boolean(aval.aval) || isAvalCompleto;
   const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-pdf`;
 
   const totalAtletas = evento

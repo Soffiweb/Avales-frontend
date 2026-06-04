@@ -47,8 +47,8 @@ export function formatRole(role?: string | null): string {
     .toUpperCase();
 
   const map: Record<string, string> = {
-    SUPER_ADMIN: "Super administrador",
-    SUPERADMIN: "Super administrador",
+    SUPER_ADMIN: "Administrador",
+    SUPERADMIN: "Administrador",
     ADMIN: "Administrador",
     ADMINISTRADOR: "Administrador",
     SECRETARIA: "Secretaría",
@@ -80,10 +80,10 @@ export function formatRoles(
   return roles
     .map((role) => {
       if (typeof role === "string") return formatRole(role);
-      const name = role?.nombre?.trim();
-      if (name) return name;
       const code = role?.codigo?.trim();
-      return formatRole(code ?? "");
+      if (code) return formatRole(code);
+      const name = role?.nombre?.trim();
+      return name || "-";
     })
     .join(", ");
 }

@@ -21,6 +21,7 @@ const USERS_INSTRUCTIONS = [
 const EVENTS_INSTRUCTIONS = [
   "Usa la plantilla y no cambies los nombres de las columnas.",
   "Formato: .xlsx (recomendado) o .csv.",
+  "Si el archivo incluye fechas, usa el formato YYYY-MM-DD.",
   'La hoja de datos debe ser la que contiene los encabezados "Evento" y "Actividad" (en la plantilla suele ser la hoja Aux).',
   "Lugar es opcional.",
   "Ciudad o Provincia: llena al menos una.",

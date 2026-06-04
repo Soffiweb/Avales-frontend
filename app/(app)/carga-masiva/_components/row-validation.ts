@@ -9,6 +9,7 @@ export type RowIssuesByIndex = Record<number, RowIssues>;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CEDULA_REGEX = /^\d{10}$/;
 const PHONE_REGEX = /^\d{7,15}$/;
+const EVENT_FINANCING_VALUES = new Set(["FONDOS_PUBLICOS", "AUTOGESTION"]);
 
 const normalizeComparable = (value: string) =>
   value
@@ -231,6 +232,18 @@ function pushIssue(issues: RowIssues, key: string, message: string) {
   if (!issues[key]) issues[key] = message;
 }
 
+function normalizeFinancingValue(value: string) {
+  const normalized = normalizeComparable(value);
+  if (!normalized) return "";
+  if (normalized === "FONDOS_PUBLICOS" || normalized === "FONDOS_PUBLICO") {
+    return "FONDOS_PUBLICOS";
+  }
+  if (normalized === "AUTOGESTION" || normalized === "AUTOGESTION_PROPIA") {
+    return "AUTOGESTION";
+  }
+  return normalized;
+}
+
 function validateNumericField(
   issues: RowIssues,
   row: Record<string, string>,
@@ -374,6 +387,33 @@ export function validatePreviewRows(
             pushIssue(issues, col.key, "Presupuesto no puede ser negativo");
           }
         });
+
+      const hasBudget = columns
+        .filter((col) => col.itemDescription)
+        .some((col) => {
+          const num = parseExcelNumber(row[col.key]?.trim() ?? "");
+          return num !== null && num > 0;
+        });
+
+      const financing = row.Financiamiento?.trim() ?? "";
+      if (hasBudget && !financing) {
+        pushIssue(
+          issues,
+          "Financiamiento",
+          "Tipo financiamiento es obligatorio cuando la fila tiene presupuesto",
+        );
+      }
+
+      if (financing) {
+        const normalizedFinancing = normalizeFinancingValue(financing);
+        if (!EVENT_FINANCING_VALUES.has(normalizedFinancing)) {
+          pushIssue(
+            issues,
+            "Financiamiento",
+            "Tipo financiamiento inválido. Usa FONDOS_PUBLICOS o AUTOGESTION",
+          );
+        }
+      }
     }
 
     if (Object.keys(issues).length > 0) {

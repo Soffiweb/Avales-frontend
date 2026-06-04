@@ -48,6 +48,7 @@ export default function CargaMasivaPage() {
   const [uploadType, setUploadType] = useState<UploadType | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<Record<string, string>[]>([]);
+  const [parsedSheetName, setParsedSheetName] = useState<string>("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -94,6 +95,86 @@ export default function CargaMasivaPage() {
     }
   }, [catalogLoading, disciplinasCatalog]);
 
+  const findEventSheetName = useCallback((workbook: XLSX.WorkBook) => {
+    const normalize = (value: string) => value.trim().toUpperCase();
+
+    const namedSheet = workbook.SheetNames.find(
+      (name) => normalize(name) === "EVENTOS"
+    );
+    if (namedSheet) return namedSheet;
+
+    const sheetWithHeaders = workbook.SheetNames.find((name) => {
+      const worksheet = workbook.Sheets[name];
+      const rawData = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: "",
+        raw: false,
+      }) as string[][];
+
+      return rawData.slice(0, 20).some((row) => {
+        const normalizedRow = row.map((cell) => normalize(String(cell ?? "")));
+        return normalizedRow.includes("EVENTO") && normalizedRow.includes("ACTIVIDAD");
+      });
+    });
+    if (sheetWithHeaders) return sheetWithHeaders;
+
+    const auxSheet = workbook.SheetNames.find((name) => {
+      const normalized = normalize(name);
+      return normalized.includes("AUX") && (normalized.includes("004") || normalized.includes("005"));
+    });
+
+    return auxSheet ?? workbook.SheetNames[0];
+  }, []);
+
+  const buildSanitizedUploadFile = useCallback(
+    (currentFile: File, type: UploadType) => {
+      const workbook = XLSX.utils.book_new();
+      const sheetColumns =
+        type === "eventos" && detectedColumns.length > 0
+          ? detectedColumns
+          : getColumnsForType(type);
+
+      const headerRow = sheetColumns.map((col) =>
+        col.itemDescription ? col.label : col.key
+      );
+
+      const dataRows = parsedRows.map((row) =>
+        sheetColumns.map((col) => row[col.key] ?? "")
+      );
+
+      const sheetData =
+        type === "eventos"
+          ? [
+              headerRow,
+              sheetColumns.map((col) => col.itemDescription ?? ""),
+              ...dataRows,
+            ]
+          : [headerRow, ...dataRows];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+      const sheetName =
+        type === "eventos"
+          ? parsedSheetName || "Aux 004"
+          : parsedSheetName || "Hoja1";
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      const arrayBuffer = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+
+      return new File(
+        [arrayBuffer],
+        currentFile.name.replace(/\.(csv|xls|xlsx)$/i, "") + "-limpio.xlsx",
+        {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+      );
+    },
+    [detectedColumns, parsedRows, parsedSheetName]
+  );
+
   const handleSelectType = (type: UploadType) => {
     setUploadType(type);
     setStep("upload-file");
@@ -105,6 +186,7 @@ export default function CargaMasivaPage() {
     setExistingCedulas(null);
     setRowIssues({});
     setDetectedColumns([]);
+    setParsedSheetName("");
   };
 
   const handleFileSelect = useCallback(
@@ -115,6 +197,7 @@ export default function CargaMasivaPage() {
       setExistingCedulas(null);
       setRowIssues({});
       setDetectedColumns([]);
+      setParsedSheetName("");
 
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -122,15 +205,11 @@ export default function CargaMasivaPage() {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
 
-          // For events, look for the specific sheet
           let sheetName = workbook.SheetNames[0];
           if (uploadType === "eventos") {
-            const auxSheet = workbook.SheetNames.find(
-              (s) =>
-                s.includes("Aux") && (s.includes("004") || s.includes("005"))
-            );
-            if (auxSheet) sheetName = auxSheet;
+            sheetName = findEventSheetName(workbook);
           }
+          setParsedSheetName(sheetName);
 
           const worksheet = workbook.Sheets[sheetName];
           const rawData = XLSX.utils.sheet_to_json(worksheet, {
@@ -229,6 +308,15 @@ export default function CargaMasivaPage() {
               mapped[item.key] = val;
             }
 
+            const hasMappedValues = [...currentBaseColumns, ...budgetItemIndices.map((item) => ({
+              key: item.key,
+            }))].some((col) => {
+              const value = mapped[col.key];
+              return Boolean(value?.toString().trim());
+            });
+
+            if (!hasMappedValues) continue;
+
             rows.push(mapped);
           }
 
@@ -271,15 +359,16 @@ export default function CargaMasivaPage() {
       };
       reader.readAsArrayBuffer(selectedFile);
     },
-    [uploadType, ensureCatalogLoaded]
+    [uploadType, ensureCatalogLoaded, findEventSheetName]
   );
 
   const handleFileClear = () => {
     setFile(null);
-    setParsedRows([]);
-    setParseError(null);
-    setExistingCedulas(null);
-    setRowIssues({});
+      setParsedRows([]);
+      setParseError(null);
+      setExistingCedulas(null);
+      setRowIssues({});
+      setParsedSheetName("");
   };
 
   const handleUpload = async () => {
@@ -288,12 +377,16 @@ export default function CargaMasivaPage() {
     try {
       setUploading(true);
       setUploadError(null);
+      const fileToUpload =
+        uploadType === "eventos"
+          ? buildSanitizedUploadFile(file, uploadType)
+          : file;
 
       if (uploadType === "usuarios") {
-        const result = await uploadUsersExcel(file);
+        const result = await uploadUsersExcel(fileToUpload);
         setResponse(result.data);
       } else {
-        const result = await uploadEventsExcel(file);
+        const result = await uploadEventsExcel(fileToUpload);
         setResponse(result.data);
       }
       setStep("results");
@@ -317,6 +410,7 @@ export default function CargaMasivaPage() {
     setExistingCedulas(null);
     setRowIssues({});
     setDetectedColumns([]);
+    setParsedSheetName("");
   };
 
   const handleUploadAnother = () => {
@@ -329,6 +423,7 @@ export default function CargaMasivaPage() {
     setExistingCedulas(null);
     setRowIssues({});
     setDetectedColumns([]);
+    setParsedSheetName("");
   };
 
   const rowsWithIssues = parsedRows.filter((_, index) =>

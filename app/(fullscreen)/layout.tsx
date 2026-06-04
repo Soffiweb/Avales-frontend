@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/auth-provider";
+import { authDebugLog } from "@/lib/auth/debug";
 
 export default function FullscreenLayout({
   children,
@@ -14,6 +15,7 @@ export default function FullscreenLayout({
 
   useEffect(() => {
     if (loading || user) return;
+    authDebugLog("FullscreenLayout: user null, redirect /signin");
     router.replace("/signin");
   }, [loading, router, user]);
 
@@ -21,6 +23,9 @@ export default function FullscreenLayout({
     if (loading || !user) return;
     const roles = user.roles ?? [];
     if (roles.length > 1 && !user.rolActivo) {
+      authDebugLog("FullscreenLayout: sin rolActivo, redirect /select-role", {
+        roles,
+      });
       sessionStorage.setItem("avales:rolesToSelect", JSON.stringify(roles));
       router.replace("/select-role");
     }

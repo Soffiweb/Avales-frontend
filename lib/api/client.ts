@@ -6,6 +6,7 @@ import {
   getJwtExpirationMs,
   saveTokensFromPayload,
 } from "@/lib/auth/tokens";
+import { authDebugLog, describeToken } from "@/lib/auth/debug";
 
 export type ApiEnvelope<T> = ApiResponse<T>;
 
@@ -94,6 +95,9 @@ function shouldRefreshToken(token: string | null) {
 function redirectToLogin() {
   if (typeof window === "undefined") return;
   if (window.location.pathname === "/signin") return;
+  authDebugLog("redirectToLogin: redirigiendo a /signin", {
+    pathname: window.location.pathname,
+  });
   window.location.assign("/signin");
 }
 
@@ -101,6 +105,9 @@ async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
+    authDebugLog("refreshAccessToken: iniciando refresh", {
+      currentToken: describeToken(getAccessToken()),
+    });
     const res = await fetch(`${getApiUrl()}/auth/refresh`, {
       method: "POST",
       credentials: "include",
@@ -112,6 +119,10 @@ async function refreshAccessToken() {
       | null;
 
     if (!res.ok) {
+      authDebugLog("refreshAccessToken: refresh fallo", {
+        status: res.status,
+        payload,
+      });
       clearAuthTokens();
       if (res.status === 401) redirectToLogin();
       return null;
@@ -122,10 +133,20 @@ async function refreshAccessToken() {
         ? (payload as ApiResponse<unknown>).data
         : payload;
 
-    if (!saveTokensFromPayload(data)) return null;
+    if (!saveTokensFromPayload(data)) {
+      authDebugLog("refreshAccessToken: refresh ok pero sin token usable", {
+        data,
+      });
+      return null;
+    }
+
+    authDebugLog("refreshAccessToken: refresh exitoso", {
+      nextToken: describeToken(getAccessToken()),
+    });
 
     return getAccessToken();
   })().finally(() => {
+    authDebugLog("refreshAccessToken: fin de ciclo");
     refreshPromise = null;
   });
 
@@ -137,7 +158,16 @@ export async function ensureFreshAccessToken() {
 
   const accessToken = getAccessToken();
 
-  if (!shouldRefreshToken(accessToken)) return accessToken;
+  if (!shouldRefreshToken(accessToken)) {
+    authDebugLog("ensureFreshAccessToken: token aun vigente", {
+      token: describeToken(accessToken),
+    });
+    return accessToken;
+  }
+
+  authDebugLog("ensureFreshAccessToken: token ausente o por expirar", {
+    token: describeToken(accessToken),
+  });
 
   return refreshAccessToken();
 }
@@ -190,6 +220,12 @@ export async function apiFetch<T>(
     });
 
   let token = shouldUseAuth ? await ensureFreshAccessToken() : null;
+  authDebugLog("apiFetch: request inicial", {
+    path,
+    method: options.method ?? "GET",
+    shouldUseAuth,
+    token: describeToken(token),
+  });
   let res = await request(token);
 
   if (
@@ -197,8 +233,17 @@ export async function apiFetch<T>(
     shouldUseAuth &&
     !isAuthPath(path, "/auth/logout")
   ) {
+    authDebugLog("apiFetch: request devolvio 401, intentando refresh", {
+      path,
+      method: options.method ?? "GET",
+    });
     token = await refreshAccessToken();
     if (token) {
+      authDebugLog("apiFetch: reintentando request tras refresh", {
+        path,
+        method: options.method ?? "GET",
+        token: describeToken(token),
+      });
       res = await request(token);
     }
   }
@@ -227,8 +272,16 @@ export async function apiFetch<T>(
         /sin rol activo/.test(text) ||
         /session without active role/.test(text);
       if (missingActiveRole && window.location.pathname !== "/select-role") {
+        authDebugLog("apiFetch: 401 por falta de rol activo", {
+          path,
+          msg,
+        });
         window.location.assign("/select-role");
       } else if (shouldUseAuth && !isAuthPath(path, "/auth/profile")) {
+        authDebugLog("apiFetch: 401 autenticado, limpiando sesion", {
+          path,
+          msg,
+        });
         clearAuthTokens();
         redirectToLogin();
       }
@@ -239,6 +292,10 @@ export async function apiFetch<T>(
 
   if (!payload || !isApiResponse(payload)) {
     if (allowsRawAuthResponse(path)) {
+      authDebugLog("apiFetch: auth raw response", {
+        path,
+        payload,
+      });
       saveTokensFromPayload(payload);
       return {
         status: "success",
@@ -251,6 +308,22 @@ export async function apiFetch<T>(
   }
 
   saveTokensFromPayload(payload.data);
+  if (isAuthPath(path, "/auth/profile")) {
+    authDebugLog("apiFetch: profile cargado", {
+      rolActivo:
+        payload.data &&
+        typeof payload.data === "object" &&
+        "rolActivo" in (payload.data as Record<string, unknown>)
+          ? (payload.data as Record<string, unknown>).rolActivo
+          : null,
+      roles:
+        payload.data &&
+        typeof payload.data === "object" &&
+        "roles" in (payload.data as Record<string, unknown>)
+          ? (payload.data as Record<string, unknown>).roles
+          : null,
+    });
+  }
 
   return payload;
 }

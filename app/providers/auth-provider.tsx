@@ -15,6 +15,7 @@ import { getUserFromLoginResult } from "@/types/user";
 import { getProfile, switchRole as apiSwitchRole } from "@/lib/api/auth";
 import { ApiError, ensureFreshAccessToken } from "@/lib/api/client";
 import { AUTH_TOKENS_CLEARED_EVENT, getAccessToken } from "@/lib/auth/tokens";
+import { authDebugLog, describeToken } from "@/lib/auth/debug";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -27,24 +28,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       setError(null);
+      authDebugLog("AuthProvider.fetchUser: inicio", {
+        currentToken: describeToken(getAccessToken()),
+      });
 
       const accessToken = await ensureFreshAccessToken();
       if (typeof window !== "undefined" && !accessToken) {
+        authDebugLog("AuthProvider.fetchUser: sin access token tras refresh");
         setUser(null);
         return;
       }
 
       const json = await getProfile();
+      authDebugLog("AuthProvider.fetchUser: profile exitoso", {
+        userId: json.data?.id ?? null,
+        rolActivo: json.data?.rolActivo ?? null,
+        roles: json.data?.roles ?? null,
+      });
       setUser(json.data);
     } catch (err) {
       if (
         err instanceof ApiError &&
         (err.status === 401 || err.status === 403)
       ) {
+        authDebugLog("AuthProvider.fetchUser: auth error", {
+          status: err.status,
+          message: err.message,
+        });
         setUser(null);
         setError(null);
       } else {
         console.error("Error cargando perfil:", err);
+        authDebugLog("AuthProvider.fetchUser: error inesperado", {
+          message: err instanceof Error ? err.message : "unknown",
+        });
         setUser(null);
         setError(
           err instanceof Error ? err.message : "No se pudo cargar el usuario."
@@ -73,7 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const refresh = () => {
-      if (!getAccessToken()) return;
+      if (!getAccessToken()) {
+        authDebugLog("AuthProvider.interval: sin token, no refresca");
+        return;
+      }
+      authDebugLog("AuthProvider.interval: chequeando refresh");
       void ensureFreshAccessToken();
     };
 
@@ -84,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleAuthCleared = () => {
+      authDebugLog("AuthProvider: evento AUTH_TOKENS_CLEARED_EVENT");
       setUser(null);
     };
 

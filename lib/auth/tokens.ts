@@ -1,3 +1,5 @@
+import { authDebugLog, describeToken } from "@/lib/auth/debug";
+
 const ACCESS_TOKEN_KEY = "avales:accessToken";
 const LEGACY_REFRESH_TOKEN_KEY = "avales:refreshToken";
 
@@ -23,12 +25,18 @@ export function setAuthTokens(tokens: {
 
   if (tokens.accessToken) {
     localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+    authDebugLog("setAuthTokens: access token guardado", {
+      token: describeToken(tokens.accessToken),
+    });
   }
 }
 
 export function clearAuthTokens() {
   if (!canUseStorage()) return;
 
+  authDebugLog("clearAuthTokens: limpiando tokens locales", {
+    previousToken: describeToken(localStorage.getItem(ACCESS_TOKEN_KEY)),
+  });
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
   window.dispatchEvent(new Event(AUTH_TOKENS_CLEARED_EVENT));
@@ -57,7 +65,12 @@ export function readTokensFromPayload(value: unknown) {
 
 export function saveTokensFromPayload(value: unknown) {
   const tokens = readTokensFromPayload(value);
-  if (!tokens.accessToken) return false;
+  if (!tokens.accessToken) {
+    authDebugLog("saveTokensFromPayload: payload sin accessToken", {
+      payloadType: typeof value,
+    });
+    return false;
+  }
 
   setAuthTokens(tokens);
   return true;

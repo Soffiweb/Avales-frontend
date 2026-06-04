@@ -39,7 +39,7 @@ function isEtapaFlujo(value: string): value is EtapaFlujo {
 }
 
 export function normalizeEtapaFlujo(value?: string | null): EtapaFlujo | undefined {
-  if (!value) return undefined;
+  if (!value || typeof value !== "string") return undefined;
   const normalized = value.trim().toUpperCase();
   return isEtapaFlujo(normalized) ? normalized : undefined;
 }

@@ -35,7 +35,6 @@ type FormData = {
   observaciones?: string;
   adjuntoSolicitud?: File | null;
   tipoAval?: TipoAval;
-  montoSolicitado?: number;
 };
 
 type Paso04PresupuestoProps = {
@@ -109,7 +108,6 @@ export default function Paso04Presupuesto({
       const payload = {
         coleccionAvalId: avalId,
         tipoAval,
-        montoSolicitado: isAutogestion ? formData.montoSolicitado : undefined,
         fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
         numeroAval: numeroAval.trim() || undefined,
         fechaHoraSalida: formData.fechaHoraSalida,
@@ -182,11 +180,6 @@ export default function Paso04Presupuesto({
         <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
           {getTipoAvalLabel(tipoAval)}
         </span>
-        {isAutogestion && typeof formData.montoSolicitado === "number" ? (
-          <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-            Monto solicitado: {formatCurrency(formData.montoSolicitado)}
-          </span>
-        ) : null}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

@@ -57,7 +57,6 @@ type FormData = {
   observaciones?: string;
   adjuntoSolicitud?: File | null;
   tipoAval?: TipoAval;
-  montoSolicitado?: number;
 };
 
 const INITIAL_FORM_DATA: FormData = {
@@ -74,7 +73,6 @@ const INITIAL_FORM_DATA: FormData = {
   observaciones: "",
   adjuntoSolicitud: null,
   tipoAval: undefined,
-  montoSolicitado: undefined,
 };
 
 export default function CrearSolicitudPage() {
@@ -101,12 +99,8 @@ export default function CrearSolicitudPage() {
         ...prev,
         tipoAval:
           avalData.tipoAval ??
-          ((searchParams.get("tipoAval") as TipoAval | null) ?? undefined),
-        montoSolicitado:
-          avalData.montoSolicitado ??
-          (searchParams.get("montoSolicitado")
-            ? Number(searchParams.get("montoSolicitado"))
-            : undefined),
+          (searchParams.get("tipoAval") as TipoAval | null) ??
+          undefined,
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar el aval");
@@ -126,7 +120,7 @@ export default function CrearSolicitudPage() {
         setCurrentStep((prev) => (prev + 1) as WizardStep);
       }
     },
-    [currentStep]
+    [currentStep],
   );
 
   const handlePreviewDataChange = useCallback((stepData: Partial<FormData>) => {
@@ -140,10 +134,6 @@ export default function CrearSolicitudPage() {
       router.push("/avales");
     }
   }, [currentStep, router]);
-
-  const handleStepClick = useCallback((step: number) => {
-    setCurrentStep(step as WizardStep);
-  }, []);
 
   if (loading) {
     return (
@@ -178,14 +168,15 @@ export default function CrearSolicitudPage() {
   }
 
   const presupuestoSection = getSectionConfig(formConfig, "PRESUPUESTO");
-  const showPresupuestoStep = presupuestoSection?.visible ?? formData.tipoAval !== "SOLO_RESULTADO";
+  const showPresupuestoStep =
+    presupuestoSection?.visible ?? formData.tipoAval !== "SOLO_RESULTADO";
   const steps = [
-    { number: 1 as WizardStep, title: "Participantes" },
-    { number: 2 as WizardStep, title: "Logística" },
-    { number: 3 as WizardStep, title: "Objetivos y Criterios" },
+    { number: 1 as WizardStep, title: "" },
+    { number: 2 as WizardStep, title: "" },
+    { number: 3 as WizardStep, title: "" },
     {
       number: 4 as WizardStep,
-      title: showPresupuestoStep ? "Presupuesto" : "Resumen y envío",
+      title: showPresupuestoStep ? "" : "",
     },
   ];
 
@@ -216,38 +207,33 @@ export default function CrearSolicitudPage() {
                 </svg>
                 Volver
               </button>
-              <div className="mb-4 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
-                {getTipoAvalLabel(formData.tipoAval ?? aval.tipoAval)}
-              </div>
-
-              {/* Progress Steps */}
-              <div className="flex items-center gap-3 mb-8">
-                {steps.map((step, index) => (
-                  <div key={step.number} className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleStepClick(step.number)}
-                      className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold transition-colors ${
-                        currentStep === step.number
-                          ? "bg-indigo-600 text-white"
-                          : currentStep > step.number
-                          ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
-                          : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                      }`}
-                    >
-                      {step.number}
-                    </button>
-                    {index < steps.length - 1 && (
-                      <div className="w-12 h-0.5 bg-gray-200 dark:bg-gray-700" />
-                    )}
+              {/* Progress Steps + badge */}
+              <div className="mb-8">
+                <div className="flex justify-end mb-2">
+                  <div className="shrink-0 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                    {getTipoAvalLabel(formData.tipoAval ?? aval.tipoAval)}
                   </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-4">
-                {steps.map((step) => (
-                  <div key={`label-${step.number}`} className="truncate">
-                    {step.number}. {step.title}
-                  </div>
-                ))}
+                </div>
+                <div className="flex items-center gap-3">
+                  {steps.map((step, index) => (
+                    <div key={step.number} className="flex items-center gap-3">
+                      <div
+                        className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold select-none ${
+                          currentStep === step.number
+                            ? "bg-indigo-600 text-white"
+                            : currentStep > step.number
+                              ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+                              : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                        }`}
+                      >
+                        {step.number}
+                      </div>
+                      {index < steps.length - 1 && (
+                        <div className="w-12 h-0.5 bg-gray-200 dark:bg-gray-700" />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

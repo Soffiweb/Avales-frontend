@@ -19,8 +19,11 @@ import {
   getAllowedModalidadesByTipoAval,
   getModalidadParticipacionLabel,
 } from "@/lib/constants";
-import { SEARCH_RESULTS_LIMIT } from "@/lib/constants";
 import type { ModalidadParticipacion, TipoAval } from "@/types/aval";
+
+const DEPORTISTA_SEARCH_MIN_LENGTH = 3;
+const DEPORTISTA_SEARCH_LIMIT = 10;
+const DEPORTISTA_SEARCH_DEBOUNCE_MS = 400;
 
 type FormData = {
   deportistas: Array<{
@@ -170,6 +173,9 @@ export default function Paso01Deportistas({
     (evento.numEntrenadoresHombres ?? 0) +
     (evento.numEntrenadoresMujeres ?? 0);
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
+  const trimmedSearchDeportistas = searchDeportistas.trim();
+  const canSearchDeportistas =
+    trimmedSearchDeportistas.length >= DEPORTISTA_SEARCH_MIN_LENGTH;
   const modalidadesPermitidas =
     aval.modalidadesPermitidas?.length
       ? aval.modalidadesPermitidas
@@ -255,12 +261,19 @@ export default function Paso01Deportistas({
   }, [selectedEntrenadores, totalEntrenadoresRequeridos, user]);
 
   const fetchDeportistas = useCallback(async () => {
+    const trimmed = searchDeportistas.trim();
+
+    if (trimmed.length < DEPORTISTA_SEARCH_MIN_LENGTH) {
+      setDeportistas([]);
+      setLoadingDeportistas(false);
+      return;
+    }
+
     try {
       setLoadingDeportistas(true);
-      const trimmed = searchDeportistas.trim();
       const options: ListDeportistasOptions = {
-        limit: SEARCH_RESULTS_LIMIT,
-        ...(trimmed ? { query: trimmed } : {}),
+        limit: DEPORTISTA_SEARCH_LIMIT,
+        query: trimmed,
       };
 
       const res = await listDeportistas(options);
@@ -303,7 +316,7 @@ export default function Paso01Deportistas({
   useEffect(() => {
     const timer = setTimeout(() => {
       void fetchDeportistas();
-    }, 300);
+    }, DEPORTISTA_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [fetchDeportistas]);
 
@@ -434,6 +447,10 @@ export default function Paso01Deportistas({
           El evento requiere {totalDeportistasRequeridos}{" "}
           {totalDeportistasRequeridos === 1 ? "deportista" : "deportistas"}.
         </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+          Escribe al menos {DEPORTISTA_SEARCH_MIN_LENGTH} letras. Se muestran hasta{" "}
+          {DEPORTISTA_SEARCH_LIMIT} resultados.
+        </p>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -457,7 +474,17 @@ export default function Paso01Deportistas({
             </button>
           )}
 
-          {deportistasFocused && (loadingDeportistas || deportistas.length > 0) && (
+          {deportistasFocused &&
+            trimmedSearchDeportistas.length > 0 &&
+            !canSearchDeportistas && (
+              <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                  Escribe al menos {DEPORTISTA_SEARCH_MIN_LENGTH} letras para buscar.
+                </div>
+              </div>
+            )}
+
+          {deportistasFocused && canSearchDeportistas && (
             <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {loadingDeportistas ? (
                 <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
@@ -481,6 +508,7 @@ export default function Paso01Deportistas({
                     <button
                       key={deportista.id}
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleAddDeportista(deportista)}
                       disabled={isDisabled}
                       className={`w-full px-4 py-3 text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
@@ -666,6 +694,7 @@ export default function Paso01Deportistas({
                     <button
                       key={entrenador.id}
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleAddEntrenador(entrenador)}
                       disabled={isDisabled}
                       className={`w-full px-4 py-3 text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${

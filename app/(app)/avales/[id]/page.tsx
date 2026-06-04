@@ -555,6 +555,8 @@ export default function AvalDetailPage() {
     }
   }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, fetchAval]);
 
+  const { config: formConfig } = useAvalFormConfig(aval);
+
   if (loading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
@@ -673,7 +675,6 @@ export default function AvalDetailPage() {
   ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);
-  const { config: formConfig } = useAvalFormConfig(aval);
   const approveAction = getActionConfig(formConfig, "APROBAR");
   const rejectAction = getActionConfig(formConfig, "RECHAZAR");
   const participantesSection = getSectionConfig(formConfig, "PARTICIPANTES");

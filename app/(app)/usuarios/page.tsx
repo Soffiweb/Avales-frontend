@@ -12,19 +12,39 @@ import UsuarioTable from "./_components/usuario-table";
 import UploadUsersExcelModal from "@/components/users/upload-excel-users-modal";
 import { softDeleteUser, listUsers } from "@/lib/api/user";
 import type { User } from "@/types/user";
-import { CONFIRM_CLEANUP_DELAY, DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { CONFIRM_CLEANUP_DELAY, DEFAULT_PAGE_SIZE, ROLES } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
 import { useStatusToast } from "@/lib/hooks/use-status-toast";
+import { canonicalizeRoleCode } from "@/lib/auth/roles";
+import { formatRole } from "@/lib/utils/formatters";
 
 const MIN_QUERY_LENGTH = 2;
+const ROLE_OPTIONS = ROLES.map((role) => {
+  const canonicalRole = canonicalizeRoleCode(role);
+  return {
+    value: canonicalRole,
+    label: formatRole(canonicalRole),
+  };
+}).filter(
+  (option, index, array) =>
+    array.findIndex((item) => item.value === option.value) === index
+);
 
 export default function Usuarios() {
   const { filters, page, setFilter, setPage } = useUrlFilters("/usuarios", {
     query: "",
+    roles: [] as string[],
   });
 
   const normalizedQuery = useMemo(() => filters.query.trim(), [filters.query]);
+  const selectedRoles = useMemo(
+    () =>
+      filters.roles
+        .map((role) => canonicalizeRoleCode(role))
+        .filter(Boolean),
+    [filters.roles]
+  );
   const effectiveQuery =
     normalizedQuery.length >= MIN_QUERY_LENGTH ? normalizedQuery : undefined;
   const shouldFetchUsers =
@@ -32,9 +52,17 @@ export default function Usuarios() {
 
   const { items: users, loading, error, pagination, totalPages, currentPage, refetch } =
     useResourceList<User>({
-      queryKey: ["usuarios", effectiveQuery, page],
+      queryKey: ["usuarios", effectiveQuery, selectedRoles, page],
       queryFn: (signal) =>
-        listUsers({ query: effectiveQuery, page, limit: DEFAULT_PAGE_SIZE }, signal),
+        listUsers(
+          {
+            query: effectiveQuery,
+            page,
+            limit: DEFAULT_PAGE_SIZE,
+            roles: selectedRoles.length > 0 ? selectedRoles : undefined,
+          },
+          signal
+        ),
       page,
       enabled: shouldFetchUsers,
     });
@@ -124,6 +152,23 @@ export default function Usuarios() {
                 setPage(1);
               }}
             />
+            <select
+              multiple
+              value={selectedRoles}
+              onChange={(e) => {
+                const roles = Array.from(e.target.selectedOptions, (option) => option.value);
+                setFilter("roles", roles);
+                setPage(1);
+              }}
+              className="form-multiselect min-h-[42px] w-full sm:w-64"
+              aria-label="Filtrar por roles"
+            >
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <button
               onClick={() => setUploadModalOpen(true)}
               className="btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"

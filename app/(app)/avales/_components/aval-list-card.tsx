@@ -24,6 +24,7 @@ import {
 import {
   getAvalCurrentEtapa,
   getApprovalFlowStages,
+  getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
 import {
   formatDate,
@@ -128,6 +129,9 @@ export default function AvalListCard({
       {avales.map((aval) => {
         const etapaParaMostrar = getAvalCurrentEtapa(aval) as EtapaFlujo;
         const flowStages = getApprovalFlowStages(aval);
+        const metodologoSourceStage =
+          getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
+          ("SOLICITUD" as EtapaFlujo);
 
         // Solo se puede actuar si el aval está SOLICITADO y la etapa actual
         // matchea con el rol del usuario. Además, si el último evento del
@@ -146,11 +150,7 @@ export default function AvalListCard({
           stageMatchesRole("PDA" as EtapaFlujo);
         const canMetodologoAct =
           isMetodologo &&
-          stageMatchesRole(
-            flowStages.includes("COMPRAS_PUBLICAS")
-              ? ("COMPRAS_PUBLICAS" as EtapaFlujo)
-              : ("PDA" as EtapaFlujo),
-          );
+          stageMatchesRole(metodologoSourceStage);
         const canDtmAct =
           isDtm && stageMatchesRole("REVISION_METODOLOGO" as EtapaFlujo);
         const canControlPrevioAct =

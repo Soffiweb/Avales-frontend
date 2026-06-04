@@ -62,8 +62,7 @@ export type ListUsersOptions = {
   query?: string;
   page?: number;
   limit?: number;
-  rol?: string;
-  roles?: string[];
+  role?: string;
   genero?: string;
 };
 
@@ -112,13 +111,7 @@ export async function listUsers(
   if (options.query) params.set("query", options.query);
   if (options.page) params.set("page", String(options.page));
   if (options.limit) params.set("limit", String(options.limit));
-  if (options.rol) params.set("rol", options.rol);
-  if (options.roles?.length) {
-    for (const role of options.roles) {
-      const normalizedRole = role.trim();
-      if (normalizedRole) params.append("roles", normalizedRole);
-    }
-  }
+  if (options.role) params.set("role", options.role);
   if (options.genero) params.set("genero", options.genero);
 
   const qs = params.toString();

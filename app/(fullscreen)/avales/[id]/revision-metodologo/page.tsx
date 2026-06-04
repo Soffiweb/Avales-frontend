@@ -219,9 +219,8 @@ export default function RevisionMetodologoPage() {
     avalId,
     requiredRole: isMetodologoUser,
     editableEtapa: (currentAval) =>
-      getApprovalFlowStages(currentAval).includes("COMPRAS_PUBLICAS")
-        ? "COMPRAS_PUBLICAS"
-        : "PDA",
+      getPreviousApprovalStagesForAval(currentAval, "REVISION_METODOLOGO").at(-1) ??
+      "SOLICITUD",
     // approve always promotes to REVISION_METODOLOGO regardless of currentEtapa
     approvalEtapa: "REVISION_METODOLOGO",
     enableEtapaDestino: true,

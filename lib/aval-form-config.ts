@@ -5,13 +5,20 @@ import type {
   AvalFormSectionConfig,
   EtapaFlujo,
 } from "@/types/aval";
-import { getApprovalFlowStages, getAvalCurrentEtapa } from "@/lib/approval-flow";
+import {
+  getApprovalFlowStages,
+  getAvalCurrentEtapa,
+  getPreviousApprovalStagesForAval,
+} from "@/lib/approval-flow";
 
 function buildSections(currentEtapa: EtapaFlujo, aval: Aval): AvalFormSectionConfig[] {
   const flow = getApprovalFlowStages(aval);
   const hasCompras = flow.includes("COMPRAS_PUBLICAS");
   const hasControlPrevio = flow.includes("CONTROL_PREVIO");
   const hasFinanciero = flow.includes("FINANCIERO");
+  const metodologoSourceStage =
+    getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
+    "SOLICITUD";
 
   return [
     { key: "PARTICIPANTES", visible: true, editable: currentEtapa === "SOLICITUD", required: true },
@@ -19,7 +26,7 @@ function buildSections(currentEtapa: EtapaFlujo, aval: Aval): AvalFormSectionCon
     { key: "PRESUPUESTO", visible: aval.tipoAval !== "SOLO_RESULTADO", editable: currentEtapa === "SOLICITUD", required: aval.tipoAval !== "SOLO_RESULTADO" },
     { key: "PDA", visible: flow.includes("PDA"), editable: currentEtapa === "SOLICITUD", required: flow.includes("PDA") },
     { key: "COMPRAS_PUBLICAS", visible: hasCompras, editable: currentEtapa === "PDA", required: hasCompras },
-    { key: "REVISION_METODOLOGO", visible: true, editable: currentEtapa === (hasCompras ? "COMPRAS_PUBLICAS" : "PDA"), required: true },
+    { key: "REVISION_METODOLOGO", visible: true, editable: currentEtapa === metodologoSourceStage, required: true },
     { key: "REVISION_DTM", visible: true, editable: currentEtapa === "REVISION_METODOLOGO", required: true },
     { key: "CONTROL_PREVIO", visible: hasControlPrevio, editable: currentEtapa === "REVISION_DTM", required: hasControlPrevio },
     { key: "FINANCIERO", visible: hasFinanciero, editable: currentEtapa === (hasControlPrevio ? "CONTROL_PREVIO" : "REVISION_DTM"), required: hasFinanciero },

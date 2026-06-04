@@ -102,7 +102,10 @@ export type ListUsersResponse = ApiResponse<UserListResponse> & {
   pagination?: UsersPagination;
 };
 
-export async function listUsers(options: ListUsersOptions = {}) {
+export async function listUsers(
+  options: ListUsersOptions = {},
+  signal?: AbortSignal
+) {
   const params = new URLSearchParams();
 
   if (options.query) params.set("query", options.query);
@@ -116,6 +119,7 @@ export async function listUsers(options: ListUsersOptions = {}) {
 
   return apiFetch<UserListResponse>(url, {
     method: "GET",
+    signal,
   }) as Promise<ListUsersResponse>;
 }
 

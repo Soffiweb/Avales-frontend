@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Upload } from "lucide-react";
 
@@ -17,7 +17,6 @@ import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
 import { useStatusToast } from "@/lib/hooks/use-status-toast";
 
-const SEARCH_DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 2;
 
 export default function Usuarios() {
@@ -25,24 +24,19 @@ export default function Usuarios() {
     query: "",
   });
 
-  // Debounce de búsqueda: no dispara query hasta que el usuario deje de escribir
-  const [debouncedQuery, setDebouncedQuery] = useState(filters.query);
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(filters.query), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [filters.query]);
-
+  const normalizedQuery = useMemo(() => filters.query.trim(), [filters.query]);
   const effectiveQuery =
-    debouncedQuery.trim().length >= MIN_QUERY_LENGTH
-      ? debouncedQuery.trim()
-      : undefined;
+    normalizedQuery.length >= MIN_QUERY_LENGTH ? normalizedQuery : undefined;
+  const shouldFetchUsers =
+    normalizedQuery.length === 0 || normalizedQuery.length >= MIN_QUERY_LENGTH;
 
   const { items: users, loading, error, pagination, totalPages, currentPage, refetch } =
     useResourceList<User>({
       queryKey: ["usuarios", effectiveQuery, page],
-      queryFn: () =>
-        listUsers({ query: effectiveQuery, page, limit: DEFAULT_PAGE_SIZE }),
+      queryFn: (signal) =>
+        listUsers({ query: effectiveQuery, page, limit: DEFAULT_PAGE_SIZE }, signal),
       page,
+      enabled: shouldFetchUsers,
     });
 
   const { toast, setToast } = useStatusToast("/usuarios", {
@@ -124,6 +118,7 @@ export default function Usuarios() {
               className="w-full sm:w-64"
               placeholder="Buscar por nombre, email, cedula..."
               value={filters.query}
+              debounceMs={400}
               onChange={(v) => {
                 setFilter("query", v);
                 setPage(1);

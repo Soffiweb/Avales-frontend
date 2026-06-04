@@ -60,7 +60,7 @@ export function extractPagination(
 
 type UseResourceListOptions<TData> = {
   queryKey: unknown[];
-  queryFn: () => Promise<unknown>;
+  queryFn: (signal?: AbortSignal) => Promise<unknown>;
   page: number;
   limit?: number;
   enabled?: boolean;
@@ -93,9 +93,12 @@ export function useResourceList<TData>({
     refetch,
   } = useQuery({
     queryKey,
-    queryFn,
+    queryFn: ({ signal }) => queryFn(signal),
     enabled,
     placeholderData: (prev: unknown) => prev,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const pagination = useMemo(

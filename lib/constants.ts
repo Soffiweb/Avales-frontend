@@ -90,7 +90,7 @@ export const EVENTO_ALCANCE_OPTIONS = [
 export const EVENTO_GENERO_OPTIONS = [
   { value: "MASCULINO", label: "Varones" },
   { value: "FEMENINO", label: "Mujeres" },
-  { value: "MASCULINO_FEMENINO", label: "Mixto/Ambos" },
+  { value: "MASCULINO_FEMENINO", label: "Ambos" },
 ] as const;
 
 export const EVENTO_MES_OPTIONS = [

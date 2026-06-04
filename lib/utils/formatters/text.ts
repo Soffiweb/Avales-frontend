@@ -5,7 +5,7 @@ const GENERO_MAP: Record<string, string> = {
   FEMENINO: "Femenino",
   O: "Otro",
   OTRO: "Otro",
-  MASCULINO_FEMENINO: "Mixto/Ambos",
+  MASCULINO_FEMENINO: "Ambos",
 };
 
 export function formatGenero(genero?: string | null): string {

@@ -443,7 +443,7 @@ export default function UsuarioForm({
             <option value="">Selecciona una opción</option>
             <option value="MASCULINO">Masculino</option>
             <option value="FEMENINO">Femenino</option>
-            <option value="MASCULINO_FEMENINO">Masculino/Femenino</option>
+            <option value="MASCULINO_FEMENINO">Ambos</option>
           </select>
           {errors.genero && (
             <p className="mt-1 text-xs text-red-600">{errors.genero.message}</p>

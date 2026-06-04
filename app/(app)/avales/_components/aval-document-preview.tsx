@@ -2,8 +2,8 @@ import type { Aval } from "@/types/aval";
 import {
   formatCurrencyFromString,
   formatDateDMY,
-  formatEnumLabel,
   formatEventScheduleDocumentLabel,
+  formatGenero,
   formatLocationWithProvince,
   formatTimeCompact,
   formatTransport,
@@ -63,7 +63,7 @@ export default function AvalDocumentPreview({
     evento?.categoria?.nombre ?? evento?.categoriaCodigo,
     "SIN CATEGORIA"
   ).toUpperCase();
-  const genero = formatEnumLabel(evento?.genero ?? "MASCULINO_FEMENINO", " - ");
+  const genero = formatGenero(evento?.genero ?? "MASCULINO_FEMENINO");
   const avalNumero =
     aval.avalTecnico?.numeroAval ??
     aval.aval ??

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 export type PaginationMeta = {
@@ -60,7 +60,7 @@ export function extractPagination(
 
 type UseResourceListOptions<TData> = {
   queryKey: unknown[];
-  queryFn: (signal?: AbortSignal) => Promise<unknown>;
+  queryFn: (signal?: AbortSignal) => Promise<object>;
   page: number;
   limit?: number;
   enabled?: boolean;
@@ -75,7 +75,7 @@ export type UseResourceListResult<TData> = {
   pagination: PaginationMeta;
   totalPages: number;
   currentPage: number;
-  refetch: () => void;
+  refetch: ReturnType<typeof useQuery<object, Error>>["refetch"];
 };
 
 export function useResourceList<TData>({
@@ -91,11 +91,11 @@ export function useResourceList<TData>({
     isFetching,
     error,
     refetch,
-  } = useQuery({
+  } = useQuery<object, Error>({
     queryKey,
     queryFn: ({ signal }) => queryFn(signal),
     enabled,
-    placeholderData: (prev: unknown) => prev,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { X, Upload, FileText, Loader2 } from "lucide-react";
 
 type UploadFiles = {
@@ -15,6 +21,7 @@ type UploadModalProps = {
   title?: string;
   description?: string;
   acceptedTypes?: string;
+  children?: ReactNode;
 };
 
 export default function UploadModal({
@@ -24,6 +31,7 @@ export default function UploadModal({
   title = "Subir documentos obligatorios",
   description = "Sube la convocatoria y el certificado médico para crear el borrador del aval.",
   acceptedTypes = ".pdf",
+  children,
 }: UploadModalProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,10 +152,10 @@ export default function UploadModal({
   };
 
   const dropzoneClass = (type: "convocatoria" | "certificado") =>
-    `relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+    `relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors min-h-[170px] flex items-center justify-center ${
       draggingOver === type
         ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-        : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+        : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900 hover:border-gray-400 dark:hover:border-gray-500"
     }`;
 
   return (
@@ -159,10 +167,10 @@ export default function UploadModal({
       />
 
       {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg">
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
+        <div className="relative flex w-full max-w-2xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700 sm:px-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
               {title}
             </h2>
@@ -177,13 +185,14 @@ export default function UploadModal({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-6">
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+          <div className="overflow-y-auto px-5 py-5 sm:px-6">
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
               {description}
             </p>
 
             <div className="space-y-4">
-              {/* Convocatoria */}
+              {children ? <div>{children}</div> : null}
+
               <div
                 onClick={() => handleClickUpload("convocatoria")}
                 onDragOver={(e) => handleDragOver(e, "convocatoria")}
@@ -215,7 +224,7 @@ export default function UploadModal({
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div>
                     <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                       Subir convocatoria
@@ -223,11 +232,10 @@ export default function UploadModal({
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Arrastra un PDF aqui o haz clic para seleccionar
                     </p>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* Certificado medico */}
               <div
                 onClick={() => handleClickUpload("certificado")}
                 onDragOver={(e) => handleDragOver(e, "certificado")}
@@ -260,7 +268,7 @@ export default function UploadModal({
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div>
                     <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                       Subir certificado medico
@@ -268,15 +276,14 @@ export default function UploadModal({
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Arrastra un PDF aqui o haz clic para seleccionar
                     </p>
-                  </>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Supported types */}
-            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              Archivos soportados: PDF
-            </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Archivos soportados: PDF
+              </p>
+            </div>
 
             {/* Error */}
             {error && (
@@ -287,7 +294,7 @@ export default function UploadModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-700 sm:px-6">
             <button
               type="button"
               onClick={onClose}
@@ -299,7 +306,9 @@ export default function UploadModal({
             <button
               type="button"
               onClick={handleUpload}
-              disabled={!convocatoriaFile || !certificadoMedicoFile || uploading}
+              disabled={
+                !convocatoriaFile || !certificadoMedicoFile || uploading
+              }
               className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? (

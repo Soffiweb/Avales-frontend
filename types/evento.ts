@@ -37,6 +37,14 @@ export type EventoItem = {
   updatedAt?: string;
 };
 
+export type PresupuestoFuente = {
+  fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
+  montoAsignado: string;
+  montoComprometido: string;
+  montoDisponible: string;
+  montoEjecutado: string;
+};
+
 export type Evento = {
   id: number;
   codigo: string;
@@ -70,6 +78,7 @@ export type Evento = {
   categoriaId: number;
   categoriaCodigo?: string | null;
   eventoItems?: EventoItem[];
+  presupuestosFuente?: PresupuestoFuente[];
 };
 
 export type CreateEventoPayload = {
@@ -108,4 +117,27 @@ export function calcularTotalEvento(evento: Evento): number {
     const valor = parseFloat(item.presupuesto) || 0;
     return sum + valor;
   }, 0);
+}
+
+function parseMonto(value?: string | null) {
+  return Number.parseFloat(value ?? "0") || 0;
+}
+
+export function eventoTieneFondosPublicos(evento?: Evento | null): boolean {
+  if (!evento) return false;
+
+  const totalEvento = calcularTotalEvento(evento);
+  if (totalEvento > 0) return true;
+
+  return (
+    evento.presupuestosFuente?.some(
+      (presupuesto) =>
+        presupuesto.fuente === "FONDOS_PUBLICOS" &&
+        (
+          parseMonto(presupuesto.montoAsignado) > 0 ||
+          parseMonto(presupuesto.montoDisponible) > 0 ||
+          parseMonto(presupuesto.montoComprometido) > 0
+        ),
+    ) ?? false
+  );
 }

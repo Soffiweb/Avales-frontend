@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Users, Search, Wallet } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Users, Search } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import UploadModal from "@/components/ui/upload-modal";
 import { uploadConvocatoria } from "@/lib/api/avales";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
-import { TIPO_AVAL_OPTIONS, getTipoAvalLabel } from "@/lib/constants";
-import type { Evento } from "@/types/evento";
+import { eventoTieneFondosPublicos, type Evento } from "@/types/evento";
 import type { TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
@@ -32,12 +32,18 @@ function getTotalParticipants(evento: Evento) {
 }
 
 function getEventSortTimestamp(evento: Evento) {
-  const start = evento.fechaInicio ? new Date(evento.fechaInicio).getTime() : NaN;
+  const start = evento.fechaInicio
+    ? new Date(evento.fechaInicio).getTime()
+    : NaN;
   if (!Number.isNaN(start)) return start;
   const end = evento.fechaFin ? new Date(evento.fechaFin).getTime() : NaN;
   if (!Number.isNaN(end)) return end;
   if (evento.mesProgramado) {
-    return new Date(new Date().getFullYear(), evento.mesProgramado - 1, 1).getTime();
+    return new Date(
+      new Date().getFullYear(),
+      evento.mesProgramado - 1,
+      1,
+    ).getTime();
   }
   return 0;
 }
@@ -52,7 +58,6 @@ export default function NuevoAvalPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
-  const [montoSolicitado, setMontoSolicitado] = useState("");
 
   // Submission
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -63,6 +68,16 @@ export default function NuevoAvalPage() {
   const isEntrenador = userRoles.includes("ENTRENADOR") && !isAdminUser(user);
   const isComprasPublicas = userRoles.includes("COMPRAS_PUBLICAS");
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
+  const eventoSeleccionadoTieneFondosPublicos =
+    eventoTieneFondosPublicos(selectedEvento);
+
+  useEffect(() => {
+    if (!selectedEvento) return;
+    if (eventoSeleccionadoTieneFondosPublicos) return;
+    if (tipoAval === "FONDOS_PUBLICOS") {
+      setTipoAval("AUTOGESTION");
+    }
+  }, [selectedEvento, eventoSeleccionadoTieneFondosPublicos, tipoAval]);
 
   useEffect(() => {
     if (isComprasPublicas) {
@@ -86,10 +101,7 @@ export default function NuevoAvalPage() {
       let total = Number.POSITIVE_INFINITY;
       let pageLimit = FETCH_LIMIT;
 
-      while (
-        collected.size < PAGE_SIZE &&
-        (page - 1) * pageLimit < total
-      ) {
+      while (collected.size < PAGE_SIZE && (page - 1) * pageLimit < total) {
         const res = await listEventos({ ...baseOptions, page });
         const items = res.data ?? [];
         const meta = res.meta;
@@ -132,13 +144,6 @@ export default function NuevoAvalPage() {
       setSubmitError("Tu rol no tiene permisos para crear avales.");
       return;
     }
-    if (tipoAval === "AUTOGESTION") {
-      const monto = Number(montoSolicitado);
-      if (!montoSolicitado.trim() || Number.isNaN(monto) || monto <= 0) {
-        setSubmitError("Ingresa un monto solicitado válido para autogestión.");
-        return;
-      }
-    }
 
     setSelectedEvento(evento);
     setUploadModalOpen(true);
@@ -155,27 +160,25 @@ export default function NuevoAvalPage() {
       throw new Error("No se ha seleccionado un evento.");
     }
 
-    const monto =
-      tipoAval === "AUTOGESTION" ? Number(montoSolicitado) : undefined;
+    // if (!eventoTieneFondosPublicos(selectedEvento) && tipoAval === "FONDOS_PUBLICOS") {
+    //   throw new Error(
+    //     "Este evento no tiene presupuesto. Solo puedes crear avales por autogestión o solo resultados.",
+    //   );
+    // }
 
     const response = await uploadConvocatoria(
       selectedEvento.id,
       convocatoria,
       certificadoMedico,
-      {
-        tipoAval,
-        montoSolicitado:
-          typeof monto === "number" && Number.isFinite(monto) ? monto : undefined,
-      },
+      { tipoAval },
     );
 
     setUploadModalOpen(false);
     setSelectedEvento(null);
     const params = new URLSearchParams({ tipoAval });
-    if (tipoAval === "AUTOGESTION" && typeof monto === "number" && monto > 0) {
-      params.set("montoSolicitado", String(monto));
-    }
-    router.push(`/avales/${response.data.id}/crear-solicitud?${params.toString()}`);
+    router.push(
+      `/avales/${response.data.id}/crear-solicitud?${params.toString()}`,
+    );
   };
 
   return (
@@ -200,7 +203,13 @@ export default function NuevoAvalPage() {
         description={`Sube la convocatoria y el certificado médico para crear el aval${
           selectedEvento?.nombre ? ` de "${selectedEvento.nombre}"` : ""
         }.`}
-      />
+      >
+        <AvalUploadOptions
+          evento={selectedEvento}
+          tipoAval={tipoAval}
+          onTipoAvalChange={setTipoAval}
+        />
+      </UploadModal>
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
         {/* Header */}
@@ -216,71 +225,10 @@ export default function NuevoAvalPage() {
             Crear nuevo aval
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Selecciona el tipo de aval, luego el evento y sube convocatoria +
-            certificado médico.
+            Selecciona el evento y luego completa el tipo de aval en el modal de
+            carga.
           </p>
         </div>
-
-        <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Tipo de aval
-            </h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              El flujo, modalidades permitidas y presupuesto dependen de esta selección.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            {TIPO_AVAL_OPTIONS.map((option) => {
-              const active = tipoAval === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setTipoAval(option.value)}
-                  className={`rounded-xl border p-4 text-left transition ${
-                    active
-                      ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/30"
-                      : "border-gray-200 hover:border-indigo-300 dark:border-gray-700 dark:hover:border-indigo-700"
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {option.label}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    {option.value === "FONDOS_PUBLICOS"
-                      ? "Usa presupuesto planificado del POA."
-                      : option.value === "AUTOGESTION"
-                        ? "Permite monto solicitado editable luego por PDA."
-                        : "No usa presupuesto."}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-
-          {tipoAval === "AUTOGESTION" && (
-            <div className="max-w-sm">
-              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Monto solicitado
-              </label>
-              <div className="relative">
-                <Wallet className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
-                  className="form-input w-full pl-10"
-                  placeholder="0.00"
-                  value={montoSolicitado}
-                  onChange={(e) => setMontoSolicitado(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-        </section>
 
         {/* Buscador */}
         <div className="relative">
@@ -316,10 +264,6 @@ export default function NuevoAvalPage() {
             </div>
           </div>
         )}
-
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
-          Tipo seleccionado: <strong>{getTipoAvalLabel(tipoAval)}</strong>
-        </div>
 
         {/* Lista de eventos */}
         {loading ? (
@@ -410,9 +354,7 @@ export default function NuevoAvalPage() {
                 <div className="mt-3 space-y-1.5 text-sm text-gray-600 dark:text-gray-300">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span>
-                      {formatEventScheduleLabel(evento)}
-                    </span>
+                    <span>{formatEventScheduleLabel(evento)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-400 shrink-0" />

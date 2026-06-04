@@ -17,14 +17,15 @@ import {
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import UploadModal from "@/components/ui/upload-modal";
 import { useAuth } from "@/app/providers/auth-provider";
 import { canCreateReforma } from "@/lib/auth/access";
 import { getEvento } from "@/lib/api/eventos";
 import { uploadConvocatoria, getAvalesByEvento } from "@/lib/api/avales";
 import { listReformsByEvento } from "@/lib/api/reforms";
-import type { Evento } from "@/types/evento";
-import type { Aval } from "@/types/aval";
+import { eventoTieneFondosPublicos, type Evento } from "@/types/evento";
+import type { Aval, TipoAval } from "@/types/aval";
 import { calcularTotalEvento } from "@/types/evento";
 import {
   formatEventScheduleLabel,
@@ -54,6 +55,7 @@ export default function EventoDetailForAvalPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
 
@@ -110,6 +112,14 @@ export default function EventoDetailForAvalPage() {
     void fetchPendingReform();
   }, [evento?.id, evento?.tieneReformaPendiente]);
 
+  useEffect(() => {
+    if (!evento) return;
+    if (eventoTieneFondosPublicos(evento)) return;
+    if (tipoAval === "FONDOS_PUBLICOS") {
+      setTipoAval("AUTOGESTION");
+    }
+  }, [evento, tipoAval]);
+
   if (loading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto">
@@ -150,13 +160,21 @@ export default function EventoDetailForAvalPage() {
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
 
+    if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
+      throw new Error(
+        "Este evento no tiene presupuesto. Solo puedes crear avales por autogestión o solo resultados.",
+      );
+    }
+
     const response = await uploadConvocatoria(
       evento.id,
       convocatoria,
       certificadoMedico,
+      { tipoAval },
     );
     setUploadModalOpen(false);
-    router.push(`/avales/${response.data.id}/crear-solicitud`);
+    const params = new URLSearchParams({ tipoAval });
+    router.push(`/avales/${response.data.id}/crear-solicitud?${params.toString()}`);
   };
 
   const isAvailable = evento.estado === "DISPONIBLE";
@@ -182,8 +200,14 @@ export default function EventoDetailForAvalPage() {
         onClose={() => setUploadModalOpen(false)}
         onUpload={handleUploadConvocatoria}
         title="Subir documentos obligatorios"
-        description="Sube la convocatoria y el certificado médico para crear la colección de aval."
-      />
+        description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
+      >
+        <AvalUploadOptions
+          evento={evento}
+          tipoAval={tipoAval}
+          onTipoAvalChange={setTipoAval}
+        />
+      </UploadModal>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

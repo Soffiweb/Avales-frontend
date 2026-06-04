@@ -20,14 +20,17 @@ import {
   Upload,
   ClipboardEdit,
   History,
+  Download,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import Breadcrumb from "@/components/ui/breadcrumb";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
+import { downloadEventsTemplate } from "@/lib/api/template-download";
 import {
   canAccessReforms,
   canCreateReforma,
@@ -36,9 +39,13 @@ import {
   isDTMUser,
 } from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
-import type { Evento } from "@/types/evento";
-import { calcularTotalEvento } from "@/types/evento";
-import type { Aval } from "@/types/aval";
+import {
+  calcularTotalEvento,
+  eventoTieneFondosPublicos,
+  type Evento,
+  type PresupuestoFuente,
+} from "@/types/evento";
+import type { Aval, TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   formatCurrency,
@@ -47,7 +54,11 @@ import {
   formatMonth,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import { getEventoTipoParticipacionLabel, getTipoAvalLabel, getModalidadParticipacionLabel } from "@/lib/constants";
+import {
+  getEventoTipoParticipacionLabel,
+  getTipoAvalLabel,
+  getModalidadParticipacionLabel,
+} from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   {
@@ -97,14 +108,14 @@ function getDaysUntilEvent(fechaInicio?: string | null) {
   now.setHours(0, 0, 0, 0);
   start.setHours(0, 0, 0, 0);
   const diff = Math.ceil(
-    (start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    (start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
   );
   return diff;
 }
 
 function getEventDuration(
   fechaInicio?: string | null,
-  fechaFin?: string | null
+  fechaFin?: string | null,
 ) {
   if (!fechaInicio || !fechaFin) return null;
   const start = new Date(fechaInicio);
@@ -130,7 +141,9 @@ export default function EventoDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
   const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -184,6 +197,14 @@ export default function EventoDetailPage() {
     void fetchPendingReform();
   }, [evento?.id, evento?.tieneReformaPendiente]);
 
+  useEffect(() => {
+    if (!evento) return;
+    if (eventoTieneFondosPublicos(evento)) return;
+    if (tipoAval === "FONDOS_PUBLICOS") {
+      setTipoAval("AUTOGESTION");
+    }
+  }, [evento, tipoAval]);
+
   const handleDelete = async () => {
     if (!evento) return;
     try {
@@ -198,6 +219,21 @@ export default function EventoDetailPage() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      setDownloadingTemplate(true);
+      await downloadEventsTemplate();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo descargar la plantilla.",
+      );
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
   const handleUploadConvocatoria = async ({
     convocatoria,
     certificadoMedico,
@@ -206,13 +242,24 @@ export default function EventoDetailPage() {
     certificadoMedico: File;
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
+
+    // if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
+    //   throw new Error(
+    //     "Este evento no tiene presupuesto. Solo puedes crear avales por autogestión o solo resultados.",
+    //   );
+    // }
+
     const response = await uploadConvocatoria(
       evento.id,
       convocatoria,
-      certificadoMedico
+      certificadoMedico,
+      { tipoAval },
     );
     setUploadModalOpen(false);
-    router.push(`/avales/${response.data.id}/crear-solicitud`);
+    const params = new URLSearchParams({ tipoAval });
+    router.push(
+      `/avales/${response.data.id}/crear-solicitud?${params.toString()}`,
+    );
   };
 
   if (loading) {
@@ -282,11 +329,15 @@ export default function EventoDetailPage() {
   );
 
   const presupuestoPorFuente = avalesEvento.reduce<
-    Record<string, { asignado: number; comprometido: number; disponible: number }>
+    Record<
+      string,
+      { asignado: number; comprometido: number; disponible: number }
+    >
   >((acc, aval) => {
     if (!aval.presupuesto) return acc;
     const fuente = aval.presupuesto.fuente ?? aval.tipoAval ?? "DESCONOCIDO";
-    if (!acc[fuente]) acc[fuente] = { asignado: 0, comprometido: 0, disponible: 0 };
+    if (!acc[fuente])
+      acc[fuente] = { asignado: 0, comprometido: 0, disponible: 0 };
     acc[fuente].asignado += aval.presupuesto.asignado;
     acc[fuente].comprometido += aval.presupuesto.comprometido;
     acc[fuente].disponible += aval.presupuesto.disponible;
@@ -296,7 +347,10 @@ export default function EventoDetailPage() {
   const canManageReforms = canCreateReforma(user) && !isDTM;
   const canViewReforms = canAccessReforms(user) || isDTM;
   const canStartAval =
-    canCreateAval && evento.estado === "DISPONIBLE" && !hasAval && !hasPendingReform;
+    canCreateAval &&
+    evento.estado === "DISPONIBLE" &&
+    !hasAval &&
+    !hasPendingReform;
   const canRequestReforma = canManageReforms && !hasPendingReform;
 
   return (
@@ -325,7 +379,13 @@ export default function EventoDetailPage() {
         onUpload={handleUploadConvocatoria}
         title="Subir documentos obligatorios"
         description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
-      />
+      >
+        <AvalUploadOptions
+          evento={evento}
+          tipoAval={tipoAval}
+          onTipoAvalChange={setTipoAval}
+        />
+      </UploadModal>
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-8xl mx-auto space-y-6">
         {hasPendingReform ? (
@@ -343,10 +403,12 @@ export default function EventoDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="mb-2">
-              <Breadcrumb items={[
-                { label: "Eventos", href: "/eventos" },
-                { label: evento.nombre },
-              ]} />
+              <Breadcrumb
+                items={[
+                  { label: "Eventos", href: "/eventos" },
+                  { label: evento.nombre },
+                ]}
+              />
             </div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
               {evento.nombre}
@@ -381,8 +443,8 @@ export default function EventoDetailPage() {
                         {hasAval
                           ? "Aval ya creado"
                           : hasPendingReform
-                          ? "Bloqueado por reforma pendiente"
-                          : "No disponible para crear aval"}
+                            ? "Bloqueado por reforma pendiente"
+                            : "No disponible para crear aval"}
                       </button>
                     )}
                     {hasAval && firstAvalId && (
@@ -393,33 +455,35 @@ export default function EventoDetailPage() {
                         Ver aval
                       </Link>
                     )}
-                    {canManageReforms ? canRequestReforma ? (
-                      <Link
-                        href={`/eventos/${evento.id}/reforma`}
-                        className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                      >
-                        <ClipboardEdit className="w-4 h-4 mr-2" />
-                        Solicitar reforma
-                      </Link>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          disabled
-                          className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
+                    {canManageReforms ? (
+                      canRequestReforma ? (
+                        <Link
+                          href={`/eventos/${evento.id}/reforma`}
+                          className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
                         >
                           <ClipboardEdit className="w-4 h-4 mr-2" />
-                          Reforma no disponible
-                        </button>
-                        {hasPendingReform && pendingReformId ? (
-                          <Link
-                            href={`/reformas/${pendingReformId}`}
-                            className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          Solicitar reforma
+                        </Link>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            disabled
+                            className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
                           >
-                            Ver reforma
-                          </Link>
-                        ) : null}
-                      </>
+                            <ClipboardEdit className="w-4 h-4 mr-2" />
+                            Reforma no disponible
+                          </button>
+                          {hasPendingReform && pendingReformId ? (
+                            <Link
+                              href={`/reformas/${pendingReformId}`}
+                              className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                            >
+                              Ver reforma
+                            </Link>
+                          ) : null}
+                        </>
+                      )
                     ) : null}
                     {canViewReforms ? (
                       <Link
@@ -435,31 +499,42 @@ export default function EventoDetailPage() {
               </div>
               {canCreateAval && hasAval && (
                 <div className="mt-2 space-y-1 px-1 text-xs text-gray-500 dark:text-gray-400">
-                  {hasAval ? <p>Este evento ya tiene un aval registrado.</p> : null}
+                  {hasAval ? (
+                    <p>Este evento ya tiene un aval registrado.</p>
+                  ) : null}
                 </div>
               )}
             </div>
           </div>
-            {canManageEvents && (
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex items-center gap-2">
-                <Link
-                  href={`/eventos/${evento.id}/editar`}
-                  className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Editar
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(true)}
-                  className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
-                </button>
-              </div>
-            )}
-          </div>
+          {canManageEvents && (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                disabled={downloadingTemplate}
+                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {downloadingTemplate ? "Descargando..." : "Plantilla"}
+              </button>
+              <Link
+                href={`/eventos/${evento.id}/editar`}
+                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar
+              </Link>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Estado y badges */}
         <div className="flex flex-wrap items-center gap-3">
@@ -491,7 +566,8 @@ export default function EventoDetailPage() {
           {evento.tipoParticipacion && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-sm">
               <UserCheck className="w-3.5 h-3.5" />
-              {getEventoTipoParticipacionLabel(evento.tipoParticipacion) ?? evento.tipoParticipacion}
+              {getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
+                evento.tipoParticipacion}
             </span>
           )}
         </div>
@@ -511,7 +587,9 @@ export default function EventoDetailPage() {
                 </div>
                 <div className="space-y-3 text-sm">
                   <div>
-                    <p className="text-gray-500 dark:text-gray-400">Programación</p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Programación
+                    </p>
                     <p className="text-gray-900 dark:text-gray-100 font-medium">
                       {formatEventScheduleLabel(evento)}
                     </p>
@@ -534,8 +612,8 @@ export default function EventoDetailPage() {
                           {daysUntil === 0
                             ? "¡Hoy!"
                             : daysUntil === 1
-                            ? "Mañana"
-                            : `En ${daysUntil} días`}
+                              ? "Mañana"
+                              : `En ${daysUntil} días`}
                         </span>
                       </div>
                     </div>
@@ -606,7 +684,7 @@ export default function EventoDetailPage() {
                     </p>
                     <p className="text-gray-900 dark:text-gray-100 font-medium">
                       {formatCategoryLabel(
-                        evento.categoria?.nombre ?? evento.categoriaCodigo
+                        evento.categoria?.nombre ?? evento.categoriaCodigo,
                       )}
                     </p>
                   </div>
@@ -777,12 +855,14 @@ export default function EventoDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
                           {eventoItem.valorUnitario
-                            ? formatCurrency(parseFloat(eventoItem.valorUnitario))
+                            ? formatCurrency(
+                                parseFloat(eventoItem.valorUnitario),
+                              )
                             : "-"}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                           {formatCurrency(
-                            parseFloat(eventoItem.presupuesto) || 0
+                            parseFloat(eventoItem.presupuesto) || 0,
                           )}
                         </td>
                       </tr>
@@ -814,6 +894,69 @@ export default function EventoDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Fuentes de financiamiento del evento */}
+        {evento.presupuestosFuente && evento.presupuestosFuente.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                Fuentes de financiamiento
+              </h3>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+              {evento.presupuestosFuente.map((pf: PresupuestoFuente) => (
+                <div key={pf.fuente} className="px-5 py-4">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                    {getTipoAvalLabel(pf.fuente)}
+                  </p>
+                  {pf.fuente === "AUTOGESTION" ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                      El PDA asigna el valor
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Asignado
+                        </p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">
+                          {formatCurrency(parseFloat(pf.montoAsignado))}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Comprometido
+                        </p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">
+                          {formatCurrency(parseFloat(pf.montoComprometido))}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Disponible
+                        </p>
+                        <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+                          {formatCurrency(parseFloat(pf.montoDisponible))}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Ejecutado
+                        </p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">
+                          {formatCurrency(parseFloat(pf.montoEjecutado))}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Resumen consolidado de avales */}
         {avalesEvento.length > 0 && (
@@ -905,17 +1048,19 @@ export default function EventoDetailPage() {
                     Por modalidad
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(modalidadCounts).map(([modalidad, count]) => (
-                      <span
-                        key={modalidad}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                      >
-                        {modalidad === "SIN_MODALIDAD"
-                          ? "Sin modalidad"
-                          : getModalidadParticipacionLabel(modalidad)}
-                        <span className="font-semibold">{count}</span>
-                      </span>
-                    ))}
+                    {Object.entries(modalidadCounts).map(
+                      ([modalidad, count]) => (
+                        <span
+                          key={modalidad}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                        >
+                          {modalidad === "SIN_MODALIDAD"
+                            ? "Sin modalidad"
+                            : getModalidadParticipacionLabel(modalidad)}
+                          <span className="font-semibold">{count}</span>
+                        </span>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -933,39 +1078,41 @@ export default function EventoDetailPage() {
                   </h3>
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {Object.entries(presupuestoPorFuente).map(([fuente, montos]) => (
-                    <div key={fuente} className="px-5 py-4">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                        {getTipoAvalLabel(fuente)}
-                      </p>
-                      <div className="grid grid-cols-3 gap-3 text-center text-sm">
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Asignado
-                          </p>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">
-                            {formatCurrency(montos.asignado)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Comprometido
-                          </p>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">
-                            {formatCurrency(montos.comprometido)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Disponible
-                          </p>
-                          <p className="font-semibold text-emerald-700 dark:text-emerald-400">
-                            {formatCurrency(montos.disponible)}
-                          </p>
+                  {Object.entries(presupuestoPorFuente).map(
+                    ([fuente, montos]) => (
+                      <div key={fuente} className="px-5 py-4">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                          {getTipoAvalLabel(fuente)}
+                        </p>
+                        <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Asignado
+                            </p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">
+                              {formatCurrency(montos.asignado)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Comprometido
+                            </p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">
+                              {formatCurrency(montos.comprometido)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Disponible
+                            </p>
+                            <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              {formatCurrency(montos.disponible)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
             )}

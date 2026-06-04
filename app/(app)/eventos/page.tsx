@@ -16,7 +16,7 @@ import { getDisciplinas } from "@/lib/api/catalog";
 import { listEventos, softDeleteEvento } from "@/lib/api/eventos";
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
-import { CONFIRM_CLEANUP_DELAY, DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { CONFIRM_CLEANUP_DELAY, EVENTOS_PAGE_SIZE } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
 import { useStatusToast } from "@/lib/hooks/use-status-toast";
@@ -53,7 +53,7 @@ export default function EventosPage() {
       queryFn: () =>
         listEventos({
           page,
-          limit: DEFAULT_PAGE_SIZE,
+          limit: EVENTOS_PAGE_SIZE,
           estado: filters.estado || undefined,
           search: filters.search.trim() || undefined,
           disciplinaId: disciplinaIdFilter,

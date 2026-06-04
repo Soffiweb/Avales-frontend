@@ -13,6 +13,8 @@ import {
   Stamp,
   Trophy,
   Users,
+  MapPin,
+  User,
 } from "lucide-react";
 
 import type { Aval, EtapaFlujo } from "@/types/aval";
@@ -28,7 +30,8 @@ import {
 } from "@/lib/approval-flow";
 import {
   formatDate,
-  formatMonthYear,
+  formatLocationWithProvince,
+  getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 
 type Props = {
@@ -176,8 +179,9 @@ export default function AvalListCard({
         const totalEntrenadores =
           (evento?.numEntrenadoresHombres || 0) +
           (evento?.numEntrenadoresMujeres || 0);
-        const mesProgramado = formatMonthYear(evento?.mesProgramado);
         const numeroAval = getAvalNumber(aval);
+        const ubicacionEvento = formatLocationWithProvince(evento);
+        const responsableAval = getResponsibleTrainerName(aval, "Por definir");
 
         return (
           <div
@@ -212,14 +216,12 @@ export default function AvalListCard({
                     </span>
                   )}
                 </div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate" title={aval.evento?.nombre}>
+                <h3
+                  className="font-semibold text-gray-900 dark:text-gray-100 leading-5 line-clamp-2 min-h-10"
+                  title={aval.evento?.nombre}
+                >
                   {aval.evento?.nombre || "Sin evento"}
                 </h3>
-                {aval.evento?.codigo && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Código: {aval.evento.codigo}
-                  </p>
-                )}
                 <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
                   <Trophy className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
@@ -245,8 +247,12 @@ export default function AvalListCard({
                   <span>Emisión: {aval.fechaEmision ? formatDate(aval.fechaEmision) : "-"}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
-                  <span>Mes programado: {mesProgramado}</span>
+                  <User className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                  <span className="truncate">Responsable: {responsableAval}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                  <span className="truncate">Ubicación: {ubicacionEvento}</span>
                 </div>
               </div>
 
@@ -279,11 +285,11 @@ export default function AvalListCard({
                   <>
                     <Link
                       href={`/avales/${aval.id}`}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50 transition-colors"
                       aria-label={`Ver detalle del aval de ${aval.evento?.nombre || "evento"}`}
                     >
                       <Eye className="w-4 h-4" />
-                      Ver detalle
+                      Ver detalles
                     </Link>
                     {!isSecretaria && (
                       <Link
@@ -299,11 +305,11 @@ export default function AvalListCard({
                   <>
                     <Link
                       href={`/avales/${aval.id}`}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-sky-100 hover:text-sky-600 dark:hover:bg-sky-900/40 dark:hover:text-sky-300 transition-colors"
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50 transition-colors"
                       aria-label={`Ver detalle del aval de ${aval.evento?.nombre || "evento"}`}
                     >
                       <Eye className="w-4 h-4" />
-                      Ver detalle
+                      Ver detalles
                     </Link>
                     {canPdaAct && (
                       <Link

@@ -12,6 +12,8 @@ import { APP_CATEGORIES } from "@/lib/utils/categories";
 
 /** Número de items por página en listados */
 export const DEFAULT_PAGE_SIZE = 10;
+export const EVENTOS_PAGE_SIZE = 9;
+export const AVALES_PAGE_SIZE = 9;
 
 /** Número máximo de resultados en búsquedas typeahead/inline */
 export const SEARCH_RESULTS_LIMIT = 20;

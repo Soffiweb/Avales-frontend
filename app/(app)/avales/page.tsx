@@ -22,7 +22,7 @@ import {
   isAvalReviewer,
 } from "@/lib/auth/access";
 import AvalListCard from "./_components/aval-list-card";
-import { DEFAULT_PAGE_SIZE, TIPO_AVAL_OPTIONS } from "@/lib/constants";
+import { AVALES_PAGE_SIZE, TIPO_AVAL_OPTIONS } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
 import { useStatusToast } from "@/lib/hooks/use-status-toast";
@@ -111,7 +111,7 @@ export default function AvalesPage() {
       queryFn: () => {
         const options: ListAvalesOptions = {
           page,
-          limit: DEFAULT_PAGE_SIZE,
+          limit: AVALES_PAGE_SIZE,
           estado: efectivoEstado ? (efectivoEstado as Aval["estado"]) : undefined,
           etapa: efectivoEtapa ? (efectivoEtapa as EtapaFlujo) : undefined,
           search: filters.search.trim() || undefined,

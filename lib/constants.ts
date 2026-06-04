@@ -373,7 +373,7 @@ export function getApprovalStageBadgeStyles(
   if (estado?.toUpperCase() === "RECHAZADO") {
     return STAGE_BADGE_RECHAZADO;
   }
-  if (etapa === "FINANCIERO") {
+  if (estado?.toUpperCase() === "ACEPTADO" || etapa === "FINANCIERO") {
     return STAGE_BADGE_FINANCIERO;
   }
   return STAGE_BADGE_DEFAULT;

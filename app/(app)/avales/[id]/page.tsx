@@ -49,8 +49,10 @@ import { getNormalizedRoles } from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
   getAvalCurrentEtapa,
+  getFinalApprovalStageForAval,
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
+  isAvalFlowApproved,
 } from "@/lib/approval-flow";
 import { getActionConfig } from "@/lib/aval-form-config";
 import { getSectionConfig } from "@/lib/aval-form-config";
@@ -184,12 +186,20 @@ const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
 };
 
 function StageTimeline({ currentStage, flowStages }: StageTimelineProps) {
+  const finalStage = flowStages[flowStages.length - 1] ?? currentStage;
+  const isFlowApproved = currentStage === finalStage;
   const stages = flowStages
     .filter((etapa) => etapa !== "SECRETARIA")
     .map((etapa) => ({
     etapa,
-    label: getApprovalStageLabel(etapa),
-    shortLabel: STAGE_SHORT_LABELS[etapa] ?? etapa,
+    label:
+      isFlowApproved && etapa === finalStage
+        ? "Aprobado"
+        : getApprovalStageLabel(etapa),
+    shortLabel:
+      isFlowApproved && etapa === finalStage
+        ? "Aprobado"
+        : (STAGE_SHORT_LABELS[etapa] ?? etapa),
   }));
   const timelineCurrentStage =
     stages.find((stage) => stage.etapa === currentStage)?.etapa ??
@@ -202,7 +212,6 @@ function StageTimeline({ currentStage, flowStages }: StageTimelineProps) {
     Math.max(rawIndex === -1 ? 0 : rawIndex, 0),
     Math.max(stages.length - 1, 0),
   );
-  const isFlowApproved = currentStage === "FINANCIERO";
   const progressPercent = isFlowApproved
     ? 100
     : stages.length > 1
@@ -442,7 +451,9 @@ export default function AvalDetailPage() {
     ? "FINANCIERO"
     : nextEtapa;
   const approvalEtapa = resolvedNextEtapa ?? currentEtapa;
-  const currentStageLabel = getApprovalStageLabel(currentEtapa);
+  const currentStageLabel = isAvalFlowApproved(aval)
+    ? "Aprobado"
+    : getApprovalStageLabel(currentEtapa);
   const nextStageLabel = getApprovalStageLabel(
     resolvedNextEtapa ?? currentEtapa,
   );
@@ -638,8 +649,10 @@ export default function AvalDetailPage() {
           : `Faltan ${daysUntil} días para el inicio del evento.`
       : null,
   ].filter((line): line is string => Boolean(line));
-  const isAvalCompleto =
-    aval.estado === "ACEPTADO" || currentEtapa === "FINANCIERO";
+  const isAvalCompleto = isAvalFlowApproved(aval);
+  const displayCurrentEtapa = isAvalCompleto
+    ? getFinalApprovalStageForAval(aval)
+    : currentEtapa;
   const canDownloadAvalCompleto = Boolean(aval.aval) || isAvalCompleto;
   const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-pdf`;
 
@@ -759,7 +772,7 @@ export default function AvalDetailPage() {
 
         {/* Estado del aval */}
         <div className="space-y-4">
-          <StageTimeline currentStage={currentEtapa} flowStages={flowStages} />
+          <StageTimeline currentStage={displayCurrentEtapa} flowStages={flowStages} />
           {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>
             <div className="pt-3">

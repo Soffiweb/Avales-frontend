@@ -26,7 +26,9 @@ import {
 import {
   getAvalCurrentEtapa,
   getApprovalFlowStages,
+  getFinalApprovalStageForAval,
   getPreviousApprovalStagesForAval,
+  isAvalFlowApproved,
 } from "@/lib/approval-flow";
 import {
   formatDate,
@@ -167,12 +169,18 @@ export default function AvalListCard({
               ? ("CONTROL_PREVIO" as EtapaFlujo)
               : ("REVISION_DTM" as EtapaFlujo),
           );
+        const isFlowApproved = isAvalFlowApproved(aval);
+        const displayStage = isFlowApproved
+          ? getFinalApprovalStageForAval(aval)
+          : etapaParaMostrar;
         const statusStyles = getApprovalStageBadgeStyles(
           aval.estado,
-          etapaParaMostrar,
+          displayStage,
         );
         const StatusIcon = getStatusIcon(aval.estado);
-        const stageLabel = getApprovalStageLabel(etapaParaMostrar);
+        const stageLabel = isFlowApproved
+          ? "Aprobado"
+          : getApprovalStageLabel(etapaParaMostrar);
         const evento = aval.evento;
         const totalDeportistas =
           (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);

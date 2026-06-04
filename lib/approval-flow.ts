@@ -54,12 +54,29 @@ export function getApprovalFlowStages(aval?: Pick<Aval, "flujo" | "tipoAval"> | 
   return APPROVAL_STAGE_FLOW;
 }
 
+export function getFinalApprovalStageForAval(
+  aval?: Pick<Aval, "flujo" | "tipoAval"> | null,
+): EtapaFlujo {
+  const stages = getApprovalFlowStages(aval);
+  return stages[stages.length - 1] ?? "FINANCIERO";
+}
+
 export function getAvalCurrentEtapa(aval?: Pick<Aval, "etapaActual" | "historial"> | null): EtapaFlujo {
   return (
     normalizeEtapaFlujo(aval?.etapaActual) ??
     normalizeEtapaFlujo(getCurrentEtapa(aval?.historial)) ??
     "SOLICITUD"
   );
+}
+
+export function isAvalFlowApproved(
+  aval?:
+    | Pick<Aval, "flujo" | "tipoAval" | "etapaActual" | "historial" | "estado">
+    | null,
+): boolean {
+  if (!aval) return false;
+  if (aval.estado === "ACEPTADO") return true;
+  return getAvalCurrentEtapa(aval) === "FINANCIERO";
 }
 
 export function getNextApprovalStageForAval(

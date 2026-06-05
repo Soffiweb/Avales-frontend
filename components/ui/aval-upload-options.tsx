@@ -54,7 +54,7 @@ export default function AvalUploadOptions({
                   ? "Usa presupuesto planificado del POA."
                   : option.value === "AUTOGESTION"
                     ? "Permite monto solicitado editable luego por PDA."
-                    : "No usa presupuesto."}
+                    : "Permite requerimientos manuales en la solicitud."}
               </p>
             </button>
           );

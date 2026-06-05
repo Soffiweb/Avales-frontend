@@ -31,6 +31,9 @@ export type EventoItem = {
   id: number;
   mes: number;
   presupuesto: string;
+  fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
+  montoComprometido: string;
+  montoEjecutado: string;
   valorUnitario?: string | null;
   item: EventoItemDetalle;
   createdAt?: string;
@@ -105,6 +108,9 @@ export type CreateEventoPayload = {
     itemId: number;
     mes: number;
     presupuesto: number;
+    fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
+    montoComprometido?: number;
+    montoEjecutado?: number;
   }[];
 };
 

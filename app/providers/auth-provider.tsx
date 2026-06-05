@@ -14,7 +14,11 @@ import { AuthContextType, RoleLike, User } from "../../types/user";
 import { getUserFromLoginResult } from "@/types/user";
 import { getProfile, switchRole as apiSwitchRole } from "@/lib/api/auth";
 import { ApiError, ensureFreshAccessToken } from "@/lib/api/client";
-import { AUTH_TOKENS_CLEARED_EVENT, getAccessToken } from "@/lib/auth/tokens";
+import {
+  AUTH_TOKENS_CLEARED_EVENT,
+  clearPendingRoleSelection,
+  getAccessToken,
+} from "@/lib/auth/tokens";
 import { authDebugLog, describeToken } from "@/lib/auth/debug";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const switchRole = useCallback(async (rol: RoleLike) => {
     const { data } = await apiSwitchRole(rol);
+    clearPendingRoleSelection();
     const nextUser = getUserFromLoginResult(data);
     if (nextUser) {
       setUser(nextUser);

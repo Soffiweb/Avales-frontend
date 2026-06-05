@@ -3,7 +3,12 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getAval } from "@/lib/api/avales";
-import type { Aval, ModalidadParticipacion, TipoAval } from "@/types/aval";
+import type {
+  Aval,
+  ModalidadParticipacion,
+  RubroPresupuestarioDto,
+  TipoAval,
+} from "@/types/aval";
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import { getTipoAvalLabel } from "@/lib/constants";
@@ -57,6 +62,8 @@ type FormData = {
   observaciones?: string;
   adjuntosSolicitud?: File[];
   tipoAval?: TipoAval;
+  requerimientos?: RubroPresupuestarioDto[];
+  montoSolicitado?: number;
 };
 
 const INITIAL_FORM_DATA: FormData = {
@@ -73,6 +80,8 @@ const INITIAL_FORM_DATA: FormData = {
   observaciones: "",
   adjuntosSolicitud: [],
   tipoAval: undefined,
+  requerimientos: [],
+  montoSolicitado: undefined,
 };
 
 export default function CrearSolicitudPage() {

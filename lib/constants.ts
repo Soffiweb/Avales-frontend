@@ -75,6 +75,7 @@ export const EVENTO_TAREA_OPTIONS = [
   { value: "JUEGOS", label: "Juegos" },
   { value: "SELECTIVOS", label: "Selectivos" },
   { value: "TODOS", label: "Todos" },
+  { value: "OTROS", label: "Otros" },
 ] as const;
 
 export const EVENTO_SECTOR_OPTIONS = [

@@ -31,6 +31,10 @@ export type CatalogItemSimple = {
   nombre: string;
 };
 
+export type OrigenAvalRequerimiento = "PDA" | "MANUAL";
+
+export type TipoCoberturaAval = "DINERO" | "ESPECIE";
+
 export type ActividadSimple = {
   id: number;
   nombre: string;
@@ -56,6 +60,9 @@ export type PresupuestoItem = {
   item: ItemSimple;
   mes: number;
   presupuesto: string;
+  fuente: FuentePresupuesto;
+  montoComprometido: string;
+  montoEjecutado: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -104,7 +111,14 @@ export type AvalCriterio = {
 
 export type RubroPresupuestario = {
   id: number;
-  rubroId: number;
+  rubroId?: number;
+  rubro?: CatalogItemSimple;
+  otroConcepto?: string;
+  origen?: OrigenAvalRequerimiento;
+  tipoCobertura?: TipoCoberturaAval;
+  cantidad?: string;
+  montoSolicitado?: string;
+  editable?: boolean;
   cantidadDias: string;
   valorUnitario?: number | null;
 };
@@ -312,9 +326,13 @@ export type CriterioDto = {
 };
 
 export type RubroPresupuestarioDto = {
-  rubroId: number;
-  cantidadDias: string;
-  valorUnitario?: number;
+  rubroId?: number;
+  origen?: OrigenAvalRequerimiento;
+  tipoCobertura?: TipoCoberturaAval;
+  otroConcepto?: string;
+  cantidad?: string;
+  montoSolicitado?: string;
+  editable?: boolean;
 };
 
 export type DeportistaAvalDto = {
@@ -351,6 +369,7 @@ export type CreateAvalPayload = {
   criterios: CriterioDto[];
   deportistas: DeportistaAvalDto[];
   entrenadores: EntrenadorAvalDto[];
+  requerimientos?: RubroPresupuestarioDto[];
   observaciones?: string;
 };
 

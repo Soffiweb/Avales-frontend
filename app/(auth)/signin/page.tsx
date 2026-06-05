@@ -7,6 +7,7 @@ import AuthImage from "../_components/aut-image";
 import LogoFedeLoja from "@/public/images/LogoFedeLoja.png";
 import { useAuth } from "@/app/providers/auth-provider";
 import { login, selectRole } from "@/lib/api/auth";
+import { clearPendingRoleSelection } from "@/lib/auth/tokens";
 import { loginRequiresSelection, type RoleLike } from "@/types/user";
 import { getRoleCode, getRoleName } from "@/lib/auth/roles";
 
@@ -73,6 +74,7 @@ export default function SignIn() {
         return;
       }
 
+      clearPendingRoleSelection();
       await refreshUser();
       router.push("/dashboard");
     } catch (err: unknown) {

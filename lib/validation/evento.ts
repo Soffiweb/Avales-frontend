@@ -12,6 +12,11 @@ export const eventoItemSchema = z.object({
   itemId: z.number().int().positive("Selecciona un item"),
   mes: z.number().int().min(1, "Mes minimo 1").max(12, "Mes maximo 12"),
   presupuesto: z.number().min(0, "Presupuesto no puede ser negativo"),
+  fuente: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION"], {
+    error: () => ({ message: "Selecciona una fuente" }),
+  }),
+  montoComprometido: z.number().min(0).optional(),
+  montoEjecutado: z.number().min(0).optional(),
 });
 
 const optionalDateSchema = z.string().optional().or(z.literal(""));
@@ -115,6 +120,9 @@ export type EventoItemPayload = {
   itemId: number;
   mes: number;
   presupuesto: number;
+  fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
+  montoComprometido?: number;
+  montoEjecutado?: number;
 };
 
 export type CreateEventoPayload = Omit<CreateEventoPayloadType, "eventoItems"> & {

@@ -1,13 +1,39 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
-import { FileText, DollarSign, Paperclip, X, Hash } from "lucide-react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  FileText,
+  DollarSign,
+  Paperclip,
+  X,
+  Hash,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
 import { createAval, uploadAdjuntosSolicitud } from "@/lib/api/avales";
 import { getTipoAvalLabel } from "@/lib/constants";
-import type { Aval, ModalidadParticipacion, TipoAval } from "@/types/aval";
+import type { CatalogItemPresupuestario } from "@/types/catalog";
+import type {
+  Aval,
+  ModalidadParticipacion,
+  RubroPresupuestarioDto,
+  TipoAval,
+  TipoCoberturaAval,
+} from "@/types/aval";
+import {
+  buildInitialManualRequirements,
+  getCatalogItemActivity,
+  getDraftSubtotal,
+  getDraftTitle,
+  getTotalOriginalManual,
+  serializeManualRequirements,
+  sumManualRequirementAmount,
+  type ManualRequirementDraft,
+} from "./paso-04-presupuesto.helpers";
 
 type FormData = {
   deportistas: Array<{
@@ -35,6 +61,8 @@ type FormData = {
   observaciones?: string;
   adjuntosSolicitud?: File[];
   tipoAval?: TipoAval;
+  requerimientos?: RubroPresupuestarioDto[];
+  montoSolicitado?: number;
 };
 
 const MAX_ADJUNTOS_SOLICITUD = 10;
@@ -64,28 +92,109 @@ export default function Paso04Presupuesto({
     formData.adjuntosSolicitud ?? [],
   );
   const [adjuntosWarning, setAdjuntosWarning] = useState<string | null>(null);
+  const [manualRequirements, setManualRequirements] = useState<
+    ManualRequirementDraft[]
+  >(() => buildInitialManualRequirements(formData.requerimientos));
+  const [itemsCatalogo, setItemsCatalogo] = useState<
+    CatalogItemPresupuestario[]
+  >([]);
   const [error, setError] = useState<string | null>(null);
   const [createdAvalIdWithError, setCreatedAvalIdWithError] = useState<
     number | null
   >(null);
   const [submitting, setSubmitting] = useState(false);
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
-  const isAutogestion = tipoAval === "AUTOGESTION";
   const isFondosPublicos = tipoAval === "FONDOS_PUBLICOS";
+  const usesManualRequirements =
+    tipoAval === "AUTOGESTION" || tipoAval === "SOLO_RESULTADO";
+
+  const serializedManualRequirements = useMemo(
+    () => serializeManualRequirements(manualRequirements),
+    [manualRequirements],
+  );
+  const totalMontoSolicitado = useMemo(
+    () => sumManualRequirementAmount(serializedManualRequirements),
+    [serializedManualRequirements],
+  );
 
   useEffect(() => {
-    onPreviewChange?.({ observaciones, adjuntosSolicitud });
-  }, [observaciones, adjuntosSolicitud, onPreviewChange]);
+    void getItemsPresupuestarios()
+      .then((response) => setItemsCatalogo(response.data ?? []))
+      .catch(() => setItemsCatalogo([]));
+  }, []);
 
-  // Obtener los items de presupuesto del evento asociado
-  const presupuestoItems = aval.evento?.presupuesto || [];
+  useEffect(() => {
+    onPreviewChange?.({
+      observaciones,
+      adjuntoSolicitud,
+      montoSolicitado: usesManualRequirements
+        ? totalMontoSolicitado
+        : undefined,
+      requerimientos: usesManualRequirements
+        ? serializedManualRequirements
+        : [],
+    });
+  }, [
+    observaciones,
+    adjuntoSolicitud,
+    onPreviewChange,
+    usesManualRequirements,
+    serializedManualRequirements,
+    totalMontoSolicitado,
+  ]);
 
-  const getTotalPresupuesto = () => {
-    return presupuestoItems.reduce((sum, item) => {
-      const valor = parseFloat(item.presupuesto) || 0;
-      return sum + valor;
-    }, 0);
+  const updateManualRequirementRubro = (id: string, rubroIdValue: string) => {
+    const rubroId = Number.parseInt(rubroIdValue, 10);
+    setManualRequirements((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        return {
+          ...item,
+          rubroId:
+            Number.isFinite(rubroId) && rubroId > 0 ? rubroId : undefined,
+          otroConcepto: "",
+        };
+      }),
+    );
   };
+
+  const toggleEspecie = (id: string) => {
+    setManualRequirements((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const newTipo: TipoCoberturaAval =
+          item.tipoCobertura === "ESPECIE" ? "DINERO" : "ESPECIE";
+        return {
+          ...item,
+          tipoCobertura: newTipo,
+          montoSolicitado: newTipo === "ESPECIE" ? "0.00" : "",
+        };
+      }),
+    );
+  };
+
+  const presupuestoFuente =
+    tipoAval === "FONDOS_PUBLICOS"
+      ? "FONDOS_PUBLICOS"
+      : tipoAval === "AUTOGESTION"
+        ? "AUTOGESTION"
+        : null;
+
+  const presupuestoItems = (aval.evento?.presupuesto ?? []).filter(
+    (item) => !presupuestoFuente || item.fuente === presupuestoFuente,
+  );
+
+  const getTotalPresupuesto = () =>
+    presupuestoItems.reduce((sum, item) => sum + (parseFloat(item.presupuesto) || 0), 0);
+
+  const totalOriginalManual = getTotalOriginalManual(
+    aval,
+    false,
+    getTotalPresupuesto(),
+  );
+  const totalDifferenceManual = Math.abs(
+    totalMontoSolicitado - totalOriginalManual,
+  );
 
   const formatBytes = (value: number) => {
     if (value < 1024) return `${value} B`;
@@ -126,6 +235,37 @@ export default function Paso04Presupuesto({
     setAdjuntosSolicitud((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addManualRequirement = (mode: "CATALOGO" | "CUSTOM") => {
+    setManualRequirements((prev) => [
+      ...prev,
+      {
+        id: `${mode}-${Date.now()}-${prev.length}`,
+        mode,
+        otroConcepto: "",
+        cantidad: "1",
+        montoSolicitado: "",
+        tipoCobertura: "DINERO",
+      },
+    ]);
+  };
+
+  const updateManualRequirement = (
+    id: string,
+    field: keyof Omit<ManualRequirementDraft, "id">,
+    value: string,
+  ) => {
+    setManualRequirements((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        return { ...item, [field]: value };
+      }),
+    );
+  };
+
+  const removeManualRequirement = (id: string) => {
+    setManualRequirements((prev) => prev.filter((item) => item.id !== id));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let createdAvalId: number | null = null;
@@ -135,10 +275,24 @@ export default function Paso04Presupuesto({
       setError(null);
       setCreatedAvalIdWithError(null);
 
+      if (
+        usesManualRequirements &&
+        serializedManualRequirements.some(
+          (item) => !item.rubroId && !item.otroConcepto?.trim(),
+        )
+      ) {
+        setError("Cada rubro debe tener item seleccionado o concepto.");
+        return;
+      }
+
       // Preparar el payload según la estructura esperada por la API
       const payload = {
         coleccionAvalId: avalId,
         tipoAval,
+        montoSolicitado:
+          usesManualRequirements && serializedManualRequirements.length > 0
+            ? totalMontoSolicitado
+            : undefined,
         fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
         numeroAval: numeroAval.trim() || undefined,
         fechaHoraSalida: formData.fechaHoraSalida,
@@ -171,6 +325,9 @@ export default function Paso04Presupuesto({
           rol: index === 0 ? "ENTRENADOR PRINCIPAL" : "ENTRENADOR",
           esPrincipal: index === 0,
         })),
+        requerimientos: usesManualRequirements
+          ? serializedManualRequirements
+          : undefined,
         observaciones: observaciones.trim() || undefined,
       };
 
@@ -251,7 +408,9 @@ export default function Paso04Presupuesto({
                 <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {presupuestoItems.length}{" "}
-                    {presupuestoItems.length === 1 ? "requerimiento" : "requerimientos"}
+                    {presupuestoItems.length === 1
+                      ? "requerimiento"
+                      : "requerimientos"}
                   </p>
                 </div>
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -291,49 +450,240 @@ export default function Paso04Presupuesto({
           </section>
         )}
 
-        {isAutogestion && (
+        {usesManualRequirements && (
           <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div className="mb-4 flex items-start gap-3">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                <DollarSign className="w-4 h-4" />
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Presupuesto / Rubros solicitados
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Edita los montos, elimina los que no apliquen o agrega rubros propios.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  Presupuesto disponible
-                </h2>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Fondos de autogestión asignados para esta solicitud.
+              <div className="text-right">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Monto solicitado
+                </p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  {formatCurrency(totalMontoSolicitado)}
                 </p>
               </div>
             </div>
 
-            {aval.presupuesto ? (
-              <div className="divide-y divide-gray-200 rounded-xl border border-gray-200 bg-gray-50/70 dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800/60">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Asignado</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">
-                    {formatCurrency(aval.presupuesto.asignado)}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Comprometido</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">
-                    {formatCurrency(aval.presupuesto.comprometido)}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900/60 rounded-b-xl">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Disponible</p>
-                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-                    {formatCurrency(aval.presupuesto.disponible)}
-                  </p>
-                </div>
+            {manualRequirements.length > 0 && totalOriginalManual > 0 && (
+              <div
+                className={`mb-4 rounded-xl border px-3 py-2 text-xs ${
+                  totalDifferenceManual < 0.01
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300"
+                }`}
+              >
+                <p>Total original: {formatCurrency(totalOriginalManual)}</p>
+                <p>Total editado: {formatCurrency(totalMontoSolicitado)}</p>
+                <p>Diferencia: {formatCurrency(totalDifferenceManual)}</p>
+              </div>
+            )}
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => addManualRequirement("CATALOGO")}
+                className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300"
+              >
+                <Plus className="h-4 w-4" />
+                Del catálogo
+              </button>
+              <button
+                type="button"
+                onClick={() => addManualRequirement("CUSTOM")}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+              >
+                <Plus className="h-4 w-4" />
+                Concepto propio
+              </button>
+            </div>
+
+            {manualRequirements.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-700 dark:bg-gray-800">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No hay requerimientos manuales agregados.
+                </p>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-700 dark:bg-gray-800">
-                <DollarSign className="mx-auto mb-2 h-8 w-8 text-gray-400" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  No hay información de presupuesto disponible.
-                </p>
+              <div className="space-y-3">
+                {manualRequirements.map((item, index) => {
+                  const isCatalog = item.mode === "CATALOGO";
+                  const isEspecie = item.tipoCobertura === "ESPECIE";
+                  const activity = getCatalogItemActivity(
+                    itemsCatalogo,
+                    item.rubroId,
+                  );
+                  return (
+                    <div
+                      key={item.id}
+                      className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-800/60"
+                    >
+                      <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900/60">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              isCatalog
+                                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                : isEspecie
+                                  ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                  : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            }`}
+                          >
+                            {isCatalog
+                              ? "Catálogo"
+                              : isEspecie
+                                ? "En especie"
+                                : "Propio"}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {getDraftTitle(item, index, itemsCatalogo)}
+                            </p>
+                            {activity && (
+                              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                                {activity}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeManualRequirement(item.id)}
+                          className="shrink-0 text-rose-500 hover:text-rose-600"
+                          aria-label={`Eliminar requerimiento ${index + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 p-4">
+                        {isCatalog ? (
+                          <label className="block">
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                              Rubro del catálogo
+                            </span>
+                            <select
+                              value={item.rubroId ?? ""}
+                              onChange={(e) =>
+                                updateManualRequirementRubro(
+                                  item.id,
+                                  e.target.value,
+                                )
+                              }
+                              className="form-select mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+                            >
+                              <option value="">Selecciona un rubro</option>
+                              {itemsCatalogo.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.numero} - {option.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : (
+                          <div>
+                            <label className="block">
+                              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                Concepto
+                              </span>
+                              <input
+                                type="text"
+                                value={item.otroConcepto}
+                                onChange={(e) =>
+                                  updateManualRequirement(
+                                    item.id,
+                                    "otroConcepto",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="Ej: Pesas, uniformes, fisioterapeuta..."
+                                className="form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+                              />
+                            </label>
+                            <label className="mt-2 flex cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isEspecie}
+                                onChange={() => toggleEspecie(item.id)}
+                                className="rounded border-gray-300 dark:border-gray-600"
+                              />
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Sin costo monetario
+                              </span>
+                            </label>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-end gap-3">
+                          <label className="block w-24 shrink-0">
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                              Cantidad
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={item.cantidad}
+                              onChange={(e) =>
+                                updateManualRequirement(
+                                  item.id,
+                                  "cantidad",
+                                  e.target.value
+                                    .replace(/[^0-9.,]/g, "")
+                                    .replace(",", "."),
+                                )
+                              }
+                              placeholder="1"
+                              className="form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+                            />
+                          </label>
+
+                          <label className="block min-w-35 flex-1">
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                              Monto solicitado
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={item.montoSolicitado}
+                              disabled={isEspecie}
+                              onChange={(e) =>
+                                updateManualRequirement(
+                                  item.id,
+                                  "montoSolicitado",
+                                  e.target.value
+                                    .replace(/[^0-9.,]/g, "")
+                                    .replace(",", "."),
+                                )
+                              }
+                              placeholder="0.00"
+                              className={`form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 ${isEspecie ? "cursor-not-allowed opacity-50" : ""}`}
+                            />
+                          </label>
+
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Total del rubro
+                            </p>
+                            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                              {formatCurrency(getDraftSubtotal(item))}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>

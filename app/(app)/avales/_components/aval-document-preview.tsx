@@ -36,6 +36,13 @@ type FormData = {
   criterios: string[];
   observaciones?: string;
   tipoAval?: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO";
+  requerimientos?: Array<{
+    otroConcepto?: string;
+    cantidad?: string;
+    montoSolicitado?: string;
+    tipoCobertura?: "DINERO" | "ESPECIE";
+  }>;
+  montoSolicitado?: number;
 };
 
 type AvalDocumentPreviewProps = {
@@ -80,10 +87,26 @@ export default function AvalDocumentPreview({
     Boolean(formData.transporteRetorno) ||
     formData.objetivos.length > 0 ||
     formData.criterios.length > 0 ||
-    Boolean(formData.observaciones?.trim());
+    Boolean(formData.observaciones?.trim()) ||
+    Boolean(formData.requerimientos?.length);
   const showNomina = mode !== "solicitud";
   const showSolicitud = mode !== "nomina" && (showDetallePage || mode === "solicitud");
-  const showRequerimientos = formData.tipoAval !== "SOLO_RESULTADO";
+  const manualRequerimientos = (formData.requerimientos ?? []).filter(
+    (item) => {
+      const monto = Number.parseFloat(item.montoSolicitado ?? "0");
+      return (
+        Boolean(item.otroConcepto?.trim()) ||
+        Boolean(item.cantidad?.trim()) ||
+        (Boolean(item.montoSolicitado?.trim()) && Number.isFinite(monto) && monto !== 0)
+      );
+    },
+  );
+  const showRequerimientos =
+    formData.tipoAval !== "SOLO_RESULTADO" || manualRequerimientos.length > 0;
+  const totalManualRequerimientos = manualRequerimientos.reduce((sum, item) => {
+    const monto = Number.parseFloat(item.montoSolicitado ?? "0");
+    return sum + (Number.isFinite(monto) ? monto : 0);
+  }, 0);
 
   return (
     <div className="w-full space-y-6 text-slate-900">
@@ -448,16 +471,47 @@ export default function AvalDocumentPreview({
                     N.º
                   </th>
                   <th className="border border-slate-400 px-2 py-1 text-left">RUBRO</th>
+                  <th className="w-24 border border-slate-400 px-2 py-1 text-right">
+                    CANT.
+                  </th>
                   <th className="w-28 border border-slate-400 px-2 py-1 text-right">
                     VALOR
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {presupuestoItems.length === 0 ? (
+                {formData.tipoAval === "SOLO_RESULTADO" ? (
+                  manualRequerimientos.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="border border-slate-400 px-2 py-2 text-slate-500"
+                      >
+                        Sin requerimientos manuales registrados.
+                      </td>
+                    </tr>
+                  ) : (
+                    manualRequerimientos.map((item, index) => (
+                      <tr key={`req-${index}`}>
+                        <td className="border border-slate-400 px-2 py-1">
+                          {index + 1}
+                        </td>
+                        <td className="border border-slate-400 px-2 py-1">
+                          {item.otroConcepto || "-"}
+                        </td>
+                        <td className="border border-slate-400 px-2 py-1 text-right">
+                          {item.cantidad?.trim() || "0"}
+                        </td>
+                        <td className="border border-slate-400 px-2 py-1 text-right">
+                          {formatCurrencyFromString(item.montoSolicitado || "0")}
+                        </td>
+                      </tr>
+                    ))
+                  )
+                ) : presupuestoItems.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={4}
                       className="border border-slate-400 px-2 py-2 text-slate-500"
                     >
                       Sin items presupuestarios en este evento.
@@ -473,24 +527,30 @@ export default function AvalDocumentPreview({
                         {item.item.nombre}
                       </td>
                       <td className="border border-slate-400 px-2 py-1 text-right">
+                        1
+                      </td>
+                      <td className="border border-slate-400 px-2 py-1 text-right">
                         {formatCurrencyFromString(item.presupuesto)}
                       </td>
                     </tr>
                   ))
                 )}
-                {presupuestoItems.length > 0 && (
+                {(formData.tipoAval === "SOLO_RESULTADO"
+                  ? manualRequerimientos.length > 0
+                  : presupuestoItems.length > 0) && (
                   <tr>
                     <td className="border border-slate-400 px-2 py-1" />
                     <td className="border border-slate-400 px-2 py-1 font-semibold">TOTAL</td>
+                    <td className="border border-slate-400 px-2 py-1" />
                     <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
-                      {formatCurrencyFromString(
-                        String(
-                          presupuestoItems.reduce(
-                            (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
-                            0,
-                          ),
-                        ),
-                      )}
+                      {formatCurrencyFromString(String(
+                        formData.tipoAval === "SOLO_RESULTADO"
+                          ? totalManualRequerimientos
+                          : presupuestoItems.reduce(
+                              (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
+                              0,
+                            ),
+                      ))}
                     </td>
                   </tr>
                 )}

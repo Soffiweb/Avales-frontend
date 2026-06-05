@@ -605,107 +605,174 @@ export default function EventoForm({
         {fields.map((field, index) => (
           <div
             key={field.id}
-            className="grid grid-cols-12 gap-3 items-start p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
+            className="space-y-2 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
           >
-            <div className="col-span-5">
-              {index === 0 && (
-                <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                  Item
-                </label>
-              )}
-              <select
-                className="form-select w-full text-sm"
-                {...register(`eventoItems.${index}.itemId`, {
-                  setValueAs: (v) => (v === "" ? undefined : Number(v)),
-                })}
-              >
-                <option value="">Seleccionar item...</option>
-                {Object.entries(itemsByActividad).map(([actName, items]) => (
-                  <optgroup key={actName} label={actName}>
-                    {items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.numero} - {item.nombre}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              {errors.eventoItems?.[index]?.itemId && (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.eventoItems[index].itemId?.message}
-                </p>
-              )}
+            {/* Fila 1: Item + Fuente + Delete */}
+            <div className="grid grid-cols-12 gap-3 items-start">
+              <div className="col-span-7">
+                {index === 0 && (
+                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                    Item
+                  </label>
+                )}
+                <select
+                  className="form-select w-full text-sm"
+                  {...register(`eventoItems.${index}.itemId`, {
+                    setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                  })}
+                >
+                  <option value="">Seleccionar item...</option>
+                  {Object.entries(itemsByActividad).map(([actName, items]) => (
+                    <optgroup key={actName} label={actName}>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.numero} - {item.nombre}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {errors.eventoItems?.[index]?.itemId && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.eventoItems[index].itemId?.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="col-span-4">
+                {index === 0 && (
+                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                    Fuente
+                  </label>
+                )}
+                <select
+                  className="form-select w-full text-sm"
+                  {...register(`eventoItems.${index}.fuente`)}
+                >
+                  <option value="FONDOS_PUBLICOS">Fondos Públicos</option>
+                  <option value="AUTOGESTION">Autogestión</option>
+                </select>
+                {errors.eventoItems?.[index]?.fuente && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.eventoItems[index].fuente?.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="col-span-1 flex items-end">
+                {index === 0 && (
+                  <span className="block text-xs mb-1 text-transparent select-none">.</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  title="Eliminar item"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="col-span-3">
-              {index === 0 && (
-                <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                  Mes
-                </label>
-              )}
-              <select
-                className="form-select w-full text-sm"
-                {...register(`eventoItems.${index}.mes`, {
-                  setValueAs: (v) => (v === "" ? undefined : Number(v)),
-                })}
-              >
-                <option value="">Mes...</option>
-                {EVENTO_MES_OPTIONS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              {errors.eventoItems?.[index]?.mes && (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.eventoItems[index].mes?.message}
-                </p>
-              )}
-            </div>
+            {/* Fila 2: Mes + Presupuesto + MontoComprometido + MontoEjecutado */}
+            <div className="grid grid-cols-4 gap-3 items-start">
+              <div>
+                {index === 0 && (
+                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                    Mes
+                  </label>
+                )}
+                <select
+                  className="form-select w-full text-sm"
+                  {...register(`eventoItems.${index}.mes`, {
+                    setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                  })}
+                >
+                  <option value="">Mes...</option>
+                  {EVENTO_MES_OPTIONS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.eventoItems?.[index]?.mes && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.eventoItems[index].mes?.message}
+                  </p>
+                )}
+              </div>
 
-            <div className="col-span-3">
-              {index === 0 && (
-                <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                  Presupuesto ($)
-                </label>
-              )}
-              <input
-                className="form-input w-full text-sm"
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                {...register(`eventoItems.${index}.presupuesto`, {
-                  setValueAs: parseDecimalInput,
-                })}
-              />
-              {errors.eventoItems?.[index]?.presupuesto && (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.eventoItems[index].presupuesto?.message}
-                </p>
-              )}
-            </div>
+              <div>
+                {index === 0 && (
+                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                    Presupuesto ($)
+                  </label>
+                )}
+                <input
+                  className="form-input w-full text-sm"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  {...register(`eventoItems.${index}.presupuesto`, {
+                    setValueAs: parseDecimalInput,
+                  })}
+                />
+                {errors.eventoItems?.[index]?.presupuesto && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.eventoItems[index].presupuesto?.message}
+                  </p>
+                )}
+              </div>
 
-            <div className="col-span-1 flex items-end">
-              {index === 0 && (
-                <label className="block text-xs font-medium mb-1 text-transparent">
-                  &nbsp;
-                </label>
-              )}
-              <button
-                type="button"
-                onClick={() => remove(index)}
-                className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                title="Eliminar item"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div>
+                {index === 0 && (
+                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                    Comprometido ($)
+                  </label>
+                )}
+                <input
+                  className="form-input w-full text-sm"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  {...register(`eventoItems.${index}.montoComprometido`, {
+                    setValueAs: parseDecimalInput,
+                  })}
+                />
+              </div>
+
+              <div>
+                {index === 0 && (
+                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
+                    Ejecutado ($)
+                  </label>
+                )}
+                <input
+                  className="form-input w-full text-sm"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  {...register(`eventoItems.${index}.montoEjecutado`, {
+                    setValueAs: parseDecimalInput,
+                  })}
+                />
+              </div>
             </div>
           </div>
         ))}
 
         <button
           type="button"
-          onClick={() => append({ itemId: 0, mes: 1, presupuesto: 0 })}
+          onClick={() =>
+            append({
+              itemId: 0,
+              mes: 1,
+              presupuesto: 0,
+              fuente: "FONDOS_PUBLICOS",
+              montoComprometido: 0,
+              montoEjecutado: 0,
+            })
+          }
           className="flex items-center gap-2 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
         >
           <Plus className="w-4 h-4" />

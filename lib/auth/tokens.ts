@@ -2,6 +2,8 @@ import { authDebugLog, describeToken } from "@/lib/auth/debug";
 
 const ACCESS_TOKEN_KEY = "avales:accessToken";
 const LEGACY_REFRESH_TOKEN_KEY = "avales:refreshToken";
+const ROLE_SELECTION_KEY = "avales:rolesToSelect";
+const SELECTION_TOKEN_KEY = "avales:selectionToken";
 
 export const AUTH_TOKENS_CLEARED_EVENT = "avales:auth-tokens-cleared";
 
@@ -39,7 +41,16 @@ export function clearAuthTokens() {
   });
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  clearPendingRoleSelection();
   window.dispatchEvent(new Event(AUTH_TOKENS_CLEARED_EVENT));
+}
+
+export function clearPendingRoleSelection() {
+  if (typeof window === "undefined" || typeof sessionStorage === "undefined") {
+    return;
+  }
+  sessionStorage.removeItem(ROLE_SELECTION_KEY);
+  sessionStorage.removeItem(SELECTION_TOKEN_KEY);
 }
 
 function getStringProp(value: unknown, key: string) {

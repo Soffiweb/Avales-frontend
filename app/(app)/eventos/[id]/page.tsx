@@ -238,7 +238,7 @@ export default function EventoDetailPage() {
     convocatoria,
     certificadoMedico,
   }: {
-    convocatoria: File;
+    convocatoria: File[];
     certificadoMedico: File;
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");

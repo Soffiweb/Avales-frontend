@@ -102,6 +102,9 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
         itemId: item.item.id,
         mes: item.mes,
         presupuesto: Number.parseFloat(item.presupuesto) || 0,
+        fuente: item.fuente ?? "FONDOS_PUBLICOS",
+        montoComprometido: Number.parseFloat(item.montoComprometido ?? "0") || 0,
+        montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
       })) ?? [],
   };
 }

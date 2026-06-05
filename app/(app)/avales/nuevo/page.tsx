@@ -153,7 +153,7 @@ export default function NuevoAvalPage() {
     convocatoria,
     certificadoMedico,
   }: {
-    convocatoria: File;
+    convocatoria: File[];
     certificadoMedico: File;
   }) => {
     if (!selectedEvento) {

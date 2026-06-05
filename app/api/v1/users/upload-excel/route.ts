@@ -7,14 +7,17 @@ export async function POST(request: NextRequest) {
     process.env.BACKEND_URL ?? "http://localhost:3000";
 
   const authorization = request.headers.get("authorization") ?? "";
+  const cookie = request.headers.get("cookie") ?? "";
 
   const body = await request.arrayBuffer();
 
   const res = await fetch(`${backendUrl}/api/v1/users/upload-excel`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "content-type": request.headers.get("content-type") ?? "",
       ...(authorization ? { authorization } : {}),
+      ...(cookie ? { cookie } : {}),
     },
     body,
   });

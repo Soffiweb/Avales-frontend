@@ -277,7 +277,7 @@ export async function apiFetch<T>(
           msg,
         });
         window.location.assign("/select-role");
-      } else if (shouldUseAuth && !isAuthPath(path, "/auth/profile")) {
+      } else if (shouldUseAuth) {
         authDebugLog("apiFetch: 401 autenticado, limpiando sesion", {
           path,
           msg,

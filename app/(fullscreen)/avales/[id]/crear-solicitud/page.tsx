@@ -55,7 +55,7 @@ type FormData = {
 
   // Paso 4: Observaciones
   observaciones?: string;
-  adjuntoSolicitud?: File | null;
+  adjuntosSolicitud?: File[];
   tipoAval?: TipoAval;
 };
 
@@ -71,7 +71,7 @@ const INITIAL_FORM_DATA: FormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
-  adjuntoSolicitud: null,
+  adjuntosSolicitud: [],
   tipoAval: undefined,
 };
 

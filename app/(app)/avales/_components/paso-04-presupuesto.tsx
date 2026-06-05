@@ -33,9 +33,11 @@ type FormData = {
   objetivos: string[];
   criterios: string[];
   observaciones?: string;
-  adjuntoSolicitud?: File | null;
+  adjuntosSolicitud?: File[];
   tipoAval?: TipoAval;
 };
+
+const MAX_ADJUNTOS_SOLICITUD = 10;
 
 type Paso04PresupuestoProps = {
   formData: FormData;
@@ -58,9 +60,10 @@ export default function Paso04Presupuesto({
   const [observaciones, setObservaciones] = useState(
     formData.observaciones || "",
   );
-  const [adjuntoSolicitud, setAdjuntoSolicitud] = useState<File | null>(
-    formData.adjuntoSolicitud ?? null,
+  const [adjuntosSolicitud, setAdjuntosSolicitud] = useState<File[]>(
+    formData.adjuntosSolicitud ?? [],
   );
+  const [adjuntosWarning, setAdjuntosWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdAvalIdWithError, setCreatedAvalIdWithError] = useState<
     number | null
@@ -71,8 +74,8 @@ export default function Paso04Presupuesto({
   const isFondosPublicos = tipoAval === "FONDOS_PUBLICOS";
 
   useEffect(() => {
-    onPreviewChange?.({ observaciones, adjuntoSolicitud });
-  }, [observaciones, adjuntoSolicitud, onPreviewChange]);
+    onPreviewChange?.({ observaciones, adjuntosSolicitud });
+  }, [observaciones, adjuntosSolicitud, onPreviewChange]);
 
   // Obtener los items de presupuesto del evento asociado
   const presupuestoItems = aval.evento?.presupuesto || [];
@@ -90,9 +93,37 @@ export default function Paso04Presupuesto({
     return `${(value / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const handleAdjuntoSolicitudChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setAdjuntoSolicitud(file);
+  const handleAdjuntosSolicitudChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(e.target.files ?? []);
+    if (incoming.length === 0) return;
+
+    setAdjuntosWarning(null);
+    setAdjuntosSolicitud((prev) => {
+      // Evitar duplicados por nombre + tamaño (heurística simple)
+      const existingKeys = new Set(prev.map((f) => `${f.name}_${f.size}`));
+      const fresh = incoming.filter(
+        (f) => !existingKeys.has(`${f.name}_${f.size}`),
+      );
+
+      const combined = [...prev, ...fresh];
+      if (combined.length > MAX_ADJUNTOS_SOLICITUD) {
+        setAdjuntosWarning(
+          `Solo podes subir hasta ${MAX_ADJUNTOS_SOLICITUD} archivos. Se descartaron ${
+            combined.length - MAX_ADJUNTOS_SOLICITUD
+          } archivo(s).`,
+        );
+        return combined.slice(0, MAX_ADJUNTOS_SOLICITUD);
+      }
+      return combined;
+    });
+
+    // Limpiar el input para permitir re-seleccionar el mismo archivo si el usuario quiere
+    e.target.value = "";
+  };
+
+  const handleRemoveAdjunto = (index: number) => {
+    setAdjuntosWarning(null);
+    setAdjuntosSolicitud((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,8 +177,8 @@ export default function Paso04Presupuesto({
       const response = await createAval(payload);
       createdAvalId = response.data.id;
 
-      if (adjuntoSolicitud) {
-        await uploadAdjuntosSolicitud(createdAvalId, [adjuntoSolicitud]);
+      if (adjuntosSolicitud.length > 0) {
+        await uploadAdjuntosSolicitud(createdAvalId, adjuntosSolicitud);
       }
 
       router.push(`/avales/${createdAvalId}?status=created`);
@@ -309,48 +340,67 @@ export default function Paso04Presupuesto({
         )}
 
         <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="mb-3 flex items-start gap-3">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-              <Paperclip className="w-4 h-4" />
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                <Paperclip className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Documentos adjuntos a la solicitud
+                </h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Subi uno o varios archivos de respaldo opcionales para
+                  complementar esta solicitud.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                Documento adjunto a la solicitud
-              </h2>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Sube un archivo de respaldo opcional para complementar esta
-                solicitud.
-              </p>
-            </div>
+            <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              {adjuntosSolicitud.length}/{MAX_ADJUNTOS_SOLICITUD}
+            </span>
           </div>
           <input
             type="file"
-            onChange={handleAdjuntoSolicitudChange}
-            className="form-input w-full border-gray-200 bg-white file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:border-gray-700 dark:bg-gray-950 dark:file:bg-gray-800 dark:file:text-gray-200"
+            multiple
+            onChange={handleAdjuntosSolicitudChange}
+            disabled={adjuntosSolicitud.length >= MAX_ADJUNTOS_SOLICITUD}
+            className="form-input w-full border-gray-200 bg-white file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-950 dark:file:bg-gray-800 dark:file:text-gray-200"
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Puedes adjuntar un solo archivo importante de respaldo para esta
-            solicitud.
+            Podes adjuntar hasta {MAX_ADJUNTOS_SOLICITUD} archivos de respaldo
+            para esta solicitud.
           </p>
-          {adjuntoSolicitud && (
-            <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800">
-              <div className="min-w-0">
-                <p className="truncate font-medium text-gray-900 dark:text-gray-100">
-                  {adjuntoSolicitud.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatBytes(adjuntoSolicitud.size)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAdjuntoSolicitud(null)}
-                className="text-gray-400 hover:text-rose-600 dark:hover:text-rose-400"
-                aria-label="Quitar documento adjunto"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          {adjuntosWarning && (
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              {adjuntosWarning}
+            </p>
+          )}
+          {adjuntosSolicitud.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {adjuntosSolicitud.map((archivo, index) => (
+                <li
+                  key={`${archivo.name}_${archivo.size}_${index}`}
+                  className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-gray-900 dark:text-gray-100">
+                      {archivo.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {formatBytes(archivo.size)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAdjunto(index)}
+                    className="shrink-0 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400"
+                    aria-label={`Quitar ${archivo.name}`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 

@@ -50,9 +50,9 @@ export const GENERO_OPTIONS = [
 ] as const;
 
 export const EVENTO_TIPO_PARTICIPACION_OPTIONS = [
-  { value: "participación", label: "Participación" },
-  { value: "organización", label: "Organización" },
-  { value: "ejecución y adquisición", label: "Ejecución y adquisición" },
+  { value: "PARTICIPACION", label: "Participación" },
+  { value: "ORGANIZACION", label: "Organización" },
+  { value: "EJECUCION_Y_ADQUISICION", label: "Ejecución y adquisición" },
 ] as const;
 
 export type EventoTipoParticipacion =
@@ -120,16 +120,17 @@ export const EVENTO_CATEGORIA_OPTIONS = [
 ] as const;
 
 const EVENTO_TIPO_PARTICIPACION_ALIASES: Record<string, EventoTipoParticipacion> = {
-  PARTICIPACION: "participación",
-  PARTICIPACIÓN: "participación",
-  ORGANIZACION: "organización",
-  ORGANIZACIÓN: "organización",
-  EJECUCION: "ejecución y adquisición",
-  EJECUCIÓN: "ejecución y adquisición",
-  ADQUISICION: "ejecución y adquisición",
-  ADQUISICIÓN: "ejecución y adquisición",
-  "EJECUCION Y ADQUISICION": "ejecución y adquisición",
-  "EJECUCIÓN Y ADQUISICIÓN": "ejecución y adquisición",
+  PARTICIPACION: "PARTICIPACION",
+  PARTICIPACIÓN: "PARTICIPACION",
+  ORGANIZACION: "ORGANIZACION",
+  ORGANIZACIÓN: "ORGANIZACION",
+  EJECUCION: "EJECUCION_Y_ADQUISICION",
+  EJECUCIÓN: "EJECUCION_Y_ADQUISICION",
+  ADQUISICION: "EJECUCION_Y_ADQUISICION",
+  ADQUISICIÓN: "EJECUCION_Y_ADQUISICION",
+  "EJECUCION Y ADQUISICION": "EJECUCION_Y_ADQUISICION",
+  "EJECUCIÓN Y ADQUISICIÓN": "EJECUCION_Y_ADQUISICION",
+  EJECUCION_Y_ADQUISICION: "EJECUCION_Y_ADQUISICION",
 };
 
 export function normalizeEventoTipoParticipacion(

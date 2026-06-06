@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppProvider } from "@/app/providers/app-provider";
 import { useSelectedLayoutSegments } from "next/navigation";
 import { useWindowWidth } from "@/components/utils/use-window-width";
@@ -25,8 +25,12 @@ export default function Sidebar({
     useAppProvider();
   const segments = useSelectedLayoutSegments();
   const breakpoint = useWindowWidth();
+  // Hover-to-expand: solo cuando el usuario NO lo expandió manualmente.
+  // Si ya está expanded, no hay nada que hacer en hover.
+  const [isHovering, setIsHovering] = useState(false);
+  const effectivelyExpanded = sidebarExpanded || isHovering;
   const expandOnly =
-    !sidebarExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
+    !effectivelyExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
   const { user, loading } = useAuth();
   const items = user ? filterSidebarItems(SIDEBAR_ITEMS, user) : [];
   const shouldRender =
@@ -61,7 +65,14 @@ export default function Sidebar({
   if (!shouldRender) return null;
 
   return (
-    <div className={`min-w-fit ${sidebarExpanded ? "sidebar-expanded" : ""}`}>
+    <div
+      className={`min-w-fit ${effectivelyExpanded ? "sidebar-expanded" : ""}`}
+      onMouseEnter={() => {
+        // Solo activar hover si el sidebar NO está expandido manualmente.
+        if (!sidebarExpanded) setIsHovering(true);
+      }}
+      onMouseLeave={() => setIsHovering(false)}
+    >
       {/* Sidebar backdrop (mobile only) */}
       <div
         className={`fixed inset-0 bg-gray-900/30 z-40 lg:hidden lg:z-auto transition-opacity duration-200 ${

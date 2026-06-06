@@ -247,6 +247,7 @@ export type Aval = {
   comentario?: string | null;
   convocatoriaUrl?: string | null;
   certificadoMedicoUrl?: string | null;
+  pronosticoDeportistasUrl?: string | null;
   avalTecnicoPdfUrl?: string | null;
   escuelaIniciacionPdfUrl?: string | null;
   dtmUrl?: string | null;

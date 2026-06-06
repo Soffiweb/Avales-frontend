@@ -237,9 +237,11 @@ export default function EventoDetailPage() {
   const handleUploadConvocatoria = async ({
     convocatoria,
     certificadoMedico,
+    pronosticoDeportistas,
   }: {
     convocatoria: File[];
     certificadoMedico: File;
+    pronosticoDeportistas: File;
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
 
@@ -253,6 +255,7 @@ export default function EventoDetailPage() {
       evento.id,
       convocatoria,
       certificadoMedico,
+      pronosticoDeportistas,
       { tipoAval },
     );
     setUploadModalOpen(false);

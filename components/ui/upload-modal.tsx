@@ -11,7 +11,10 @@ import { X, Upload, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 type UploadFiles = {
   convocatoria: File[];
   certificadoMedico: File;
+  pronosticoDeportistas: File;
 };
+
+type DraggingTarget = "convocatoria" | "certificado" | "pronostico";
 
 type UploadModalProps = {
   isOpen: boolean;
@@ -28,7 +31,7 @@ export default function UploadModal({
   onClose,
   onUpload,
   title = "Subir documentos obligatorios",
-  description = "Sube la convocatoria y el certificado médico para crear el borrador del aval.",
+  description = "Sube la convocatoria, el certificado médico y el pronóstico de deportistas para crear el borrador del aval.",
   acceptedTypes = ".pdf",
   children,
 }: UploadModalProps) {
@@ -37,16 +40,17 @@ export default function UploadModal({
   const [convocatoriaFiles, setConvocatoriaFiles] = useState<File[]>([]);
   const [certificadoMedicoFile, setCertificadoMedicoFile] =
     useState<File | null>(null);
-  const [draggingOver, setDraggingOver] = useState<
-    "convocatoria" | "certificado" | null
-  >(null);
+  const [pronosticoFile, setPronosticoFile] = useState<File | null>(null);
+  const [draggingOver, setDraggingOver] = useState<DraggingTarget | null>(null);
   const convocatoriaInputRef = useRef<HTMLInputElement>(null);
   const certificadoInputRef = useRef<HTMLInputElement>(null);
+  const pronosticoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setConvocatoriaFiles([]);
       setCertificadoMedicoFile(null);
+      setPronosticoFile(null);
       setError(null);
       setUploading(false);
       setDraggingOver(null);
@@ -79,7 +83,10 @@ export default function UploadModal({
     }
   };
 
-  const handleCertificadoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setSingleFileFromInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (file: File) => void,
+  ) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (!isPdf(file)) {
@@ -87,15 +94,18 @@ export default function UploadModal({
         e.currentTarget.value = "";
         return;
       }
-      setCertificadoMedicoFile(file);
+      setter(file);
       setError(null);
     }
   };
 
-  const handleDragOver = (
-    e: React.DragEvent,
-    type: "convocatoria" | "certificado",
-  ) => {
+  const handleCertificadoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setSingleFileFromInput(e, setCertificadoMedicoFile);
+
+  const handlePronosticoChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setSingleFileFromInput(e, setPronosticoFile);
+
+  const handleDragOver = (e: React.DragEvent, type: DraggingTarget) => {
     e.preventDefault();
     e.stopPropagation();
     if (!uploading) setDraggingOver(type);
@@ -107,10 +117,7 @@ export default function UploadModal({
     setDraggingOver(null);
   };
 
-  const handleDrop = (
-    e: React.DragEvent,
-    type: "convocatoria" | "certificado",
-  ) => {
+  const handleDrop = (e: React.DragEvent, type: DraggingTarget) => {
     e.preventDefault();
     e.stopPropagation();
     setDraggingOver(null);
@@ -119,23 +126,28 @@ export default function UploadModal({
     if (type === "convocatoria") {
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) addConvocatoriaFiles(files);
-    } else {
-      const file = e.dataTransfer.files?.[0];
-      if (file) {
-        if (!isPdf(file)) {
-          setError("Solo se permiten archivos PDF.");
-          return;
-        }
-        setCertificadoMedicoFile(file);
-        setError(null);
-      }
+      return;
     }
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!isPdf(file)) {
+      setError("Solo se permiten archivos PDF.");
+      return;
+    }
+    if (type === "certificado") setCertificadoMedicoFile(file);
+    else if (type === "pronostico") setPronosticoFile(file);
+    setError(null);
   };
 
   const handleUpload = async () => {
-    if (convocatoriaFiles.length === 0 || !certificadoMedicoFile) {
+    if (
+      convocatoriaFiles.length === 0 ||
+      !certificadoMedicoFile ||
+      !pronosticoFile
+    ) {
       setError(
-        "Debes seleccionar al menos una convocatoria y el certificado médico para continuar.",
+        "Debes subir la convocatoria, el certificado médico y el pronóstico de deportistas para continuar.",
       );
       return;
     }
@@ -146,6 +158,7 @@ export default function UploadModal({
       await onUpload({
         convocatoria: convocatoriaFiles,
         certificadoMedico: certificadoMedicoFile,
+        pronosticoDeportistas: pronosticoFile,
       });
     } catch (err: unknown) {
       const message =
@@ -156,7 +169,7 @@ export default function UploadModal({
     }
   };
 
-  const dropzoneClass = (type: "convocatoria" | "certificado") =>
+  const dropzoneClass = (type: DraggingTarget) =>
     `relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors min-h-[120px] flex items-center justify-center ${
       draggingOver === type
         ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
@@ -317,6 +330,50 @@ export default function UploadModal({
                 )}
               </div>
 
+              {/* Pronóstico de deportistas — único */}
+              <div
+                onClick={() => pronosticoInputRef.current?.click()}
+                onDragOver={(e) => handleDragOver(e, "pronostico")}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, "pronostico")}
+                className={dropzoneClass("pronostico")}
+              >
+                <input
+                  ref={pronosticoInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={acceptedTypes}
+                  onChange={handlePronosticoChange}
+                  disabled={uploading}
+                />
+                {pronosticoFile ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <FileText className="w-8 h-8 text-indigo-500" />
+                    <div className="text-left">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Pronóstico de deportistas
+                      </p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {pronosticoFile.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {(pronosticoFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                      Subir pronóstico de deportistas
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Arrastra un PDF aquí o haz clic para seleccionar
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Archivos soportados: PDF
               </p>
@@ -343,7 +400,10 @@ export default function UploadModal({
               type="button"
               onClick={handleUpload}
               disabled={
-                convocatoriaFiles.length === 0 || !certificadoMedicoFile || uploading
+                convocatoriaFiles.length === 0 ||
+                !certificadoMedicoFile ||
+                !pronosticoFile ||
+                uploading
               }
               className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >

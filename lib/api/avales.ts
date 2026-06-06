@@ -85,6 +85,7 @@ export async function uploadConvocatoria(
   eventoId: number,
   convocatoria: File | File[],
   certificadoMedico: File,
+  pronosticoDeportistas: File,
   options?: {
     tipoAval?: CreateColeccionAvalPayload["tipoAval"];
     montoSolicitado?: number;
@@ -97,6 +98,7 @@ export async function uploadConvocatoria(
     formData.append("convocatoria", file);
   }
   formData.append("certificadoMedico", certificadoMedico);
+  formData.append("pronosticoDeportistas", pronosticoDeportistas);
   if (options?.tipoAval) {
     formData.append("tipoAval", options.tipoAval);
   }
@@ -150,6 +152,16 @@ export async function uploadAdjuntosSolicitud(id: number, archivos: File[]) {
   });
 
   return apiFetch<Aval>(`/avales/${id}/adjuntos`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export async function uploadPronosticoDeportistas(id: number, archivo: File) {
+  const formData = new FormData();
+  formData.append("pronosticoDeportistas", archivo);
+
+  return apiFetch<Aval>(`/avales/${id}/pronostico-deportistas`, {
     method: "PATCH",
     body: formData,
   });

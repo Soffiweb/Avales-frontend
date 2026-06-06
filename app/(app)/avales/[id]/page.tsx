@@ -8,12 +8,14 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  ClipboardCheck,
   MapPin,
   Users,
   Trophy,
   FileText,
   DollarSign,
   Download,
+  HeartPulse,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -684,6 +686,16 @@ export default function AvalDetailPage() {
       label: "Descargar convocatoria",
       url: aval.convocatoriaUrl,
       icon: Download,
+    },
+    {
+      label: "Descargar certificado médico",
+      url: aval.certificadoMedicoUrl,
+      icon: HeartPulse,
+    },
+    {
+      label: "Descargar pronóstico de deportistas",
+      url: aval.pronosticoDeportistasUrl,
+      icon: ClipboardCheck,
     },
   ];
   const canShowPresupuestoSalida =

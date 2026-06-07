@@ -45,7 +45,7 @@ export default function EventoFileUpload({
       >
         <input
           type="file"
-          accept=".jpg,.jpeg,.png,.pdf"
+          accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv"
           onChange={onFileChange}
           className="hidden"
         />

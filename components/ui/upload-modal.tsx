@@ -32,7 +32,7 @@ export default function UploadModal({
   onUpload,
   title = "Subir documentos obligatorios",
   description = "Sube la convocatoria, el certificado médico y el pronóstico de deportistas para crear el borrador del aval.",
-  acceptedTypes = ".pdf",
+  acceptedTypes = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv",
   children,
 }: UploadModalProps) {
   const [uploading, setUploading] = useState(false);
@@ -59,13 +59,25 @@ export default function UploadModal({
 
   if (!isOpen) return null;
 
-  const isPdf = (file: File) =>
-    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  const ALLOWED_EXTENSIONS = [
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".xlsx",
+    ".xls",
+    ".csv",
+  ];
+
+  const isAllowedFile = (file: File) => {
+    const name = file.name.toLowerCase();
+    return ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
+  };
 
   const addConvocatoriaFiles = (files: File[]) => {
-    const valid = files.filter(isPdf);
+    const valid = files.filter(isAllowedFile);
     if (valid.length < files.length) {
-      setError("Solo se permiten archivos PDF.");
+      setError("Formatos permitidos: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV.");
       return;
     }
     setConvocatoriaFiles((prev) => [...prev, ...valid]);
@@ -89,8 +101,8 @@ export default function UploadModal({
   ) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (!isPdf(file)) {
-        setError("Solo se permiten archivos PDF.");
+      if (!isAllowedFile(file)) {
+        setError("Formatos permitidos: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV.");
         e.currentTarget.value = "";
         return;
       }
@@ -131,8 +143,8 @@ export default function UploadModal({
 
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    if (!isPdf(file)) {
-      setError("Solo se permiten archivos PDF.");
+    if (!isAllowedFile(file)) {
+      setError("Formatos permitidos: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV.");
       return;
     }
     if (type === "certificado") setCertificadoMedicoFile(file);
@@ -277,7 +289,7 @@ export default function UploadModal({
                           Subir convocatoria
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Arrastra PDFs aquí o haz clic para seleccionar
+                          Arrastra archivos aquí o haz clic para seleccionar
                         </p>
                       </>
                     )}
@@ -324,7 +336,7 @@ export default function UploadModal({
                       Subir certificado medico
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Arrastra un PDF aqui o haz clic para seleccionar
+                      Arrastra un archivo aquí o haz clic para seleccionar
                     </p>
                   </div>
                 )}
@@ -368,14 +380,14 @@ export default function UploadModal({
                       Subir pronóstico de deportistas
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Arrastra un PDF aquí o haz clic para seleccionar
+                      Arrastra un archivo aquí o haz clic para seleccionar
                     </p>
                   </div>
                 )}
               </div>
 
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Archivos soportados: PDF
+                Archivos soportados: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV
               </p>
             </div>
 

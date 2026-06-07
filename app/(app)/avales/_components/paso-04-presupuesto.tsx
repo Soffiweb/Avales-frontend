@@ -126,7 +126,7 @@ export default function Paso04Presupuesto({
   useEffect(() => {
     onPreviewChange?.({
       observaciones,
-      adjuntoSolicitud,
+      adjuntosSolicitud,
       montoSolicitado: usesManualRequirements
         ? totalMontoSolicitado
         : undefined,
@@ -136,7 +136,7 @@ export default function Paso04Presupuesto({
     });
   }, [
     observaciones,
-    adjuntoSolicitud,
+    adjuntosSolicitud,
     onPreviewChange,
     usesManualRequirements,
     serializedManualRequirements,

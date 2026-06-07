@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Calendar,
@@ -18,13 +18,20 @@ import {
 
 import AlertBanner from "@/components/ui/alert-banner";
 import AvalUploadOptions from "@/components/ui/aval-upload-options";
+import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import UploadModal from "@/components/ui/upload-modal";
 import { useAuth } from "@/app/providers/auth-provider";
 import { canCreateReforma } from "@/lib/auth/access";
 import { getEvento } from "@/lib/api/eventos";
 import { uploadConvocatoria, getAvalesByEvento } from "@/lib/api/avales";
 import { listReformsByEvento } from "@/lib/api/reforms";
-import { eventoTieneFondosPublicos, type Evento } from "@/types/evento";
+import {
+  eventoTieneFondosPublicos,
+  getEventoMissingFieldLabel,
+  getEventoMissingFields,
+  isEventoIncompleto,
+  type Evento,
+} from "@/types/evento";
 import type { Aval, TipoAval } from "@/types/aval";
 import { calcularTotalEvento } from "@/types/evento";
 import {
@@ -47,6 +54,7 @@ function getTotalParticipants(evento: Evento) {
 export default function EventoDetailForAvalPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const id = Number(params.id);
 
@@ -58,6 +66,7 @@ export default function EventoDetailForAvalPage() {
   const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
+  const completedStatus = searchParams.get("status") === "completed";
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) {
@@ -161,6 +170,14 @@ export default function EventoDetailForAvalPage() {
     pronosticoDeportistas: File;
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
+    if (isEventoIncompleto(evento)) {
+      router.push(
+        `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
+          `/avales/nuevo/eventos/${evento.id}`,
+        )}`,
+      );
+      throw new Error("Completa los datos faltantes del evento antes de crear el aval.");
+    }
 
     if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
       throw new Error(
@@ -182,9 +199,14 @@ export default function EventoDetailForAvalPage() {
 
   const isAvailable = evento.estado === "DISPONIBLE";
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
-  const canCreateAval = isAvailable && !hasPendingReform;
+  const eventoIncompleto = isEventoIncompleto(evento);
+  const missingFields = getEventoMissingFields(evento);
+  const canCreateAval = isAvailable && !hasPendingReform && !eventoIncompleto;
   const canManageReforms = canCreateReforma(user);
   const canRequestReforma = canManageReforms && !hasPendingReform;
+  const completionHref = `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
+    `/avales/nuevo/eventos/${evento.id}`,
+  )}`;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto space-y-6">
@@ -194,6 +216,16 @@ export default function EventoDetailForAvalPage() {
             variant="error"
             message={submitError}
             onClose={() => setSubmitError(null)}
+          />
+        </div>
+      )}
+      {completedStatus && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
+          <AlertBanner
+            variant="success"
+            message="Datos del evento completados."
+            description="Ya puedes continuar con la creación del aval."
+            onClose={() => router.replace(`/avales/nuevo/eventos/${evento.id}`)}
           />
         </div>
       )}
@@ -224,32 +256,47 @@ export default function EventoDetailForAvalPage() {
           <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
             {evento.nombre}
           </h1>
+          {eventoIncompleto ? (
+            <div className="mt-2">
+              <EventoIncompletoBadge />
+            </div>
+          ) : null}
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {evento.codigo || "Sin código"}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (!canCreateAval) {
-                if (hasPendingReform) {
-                  setSubmitError(
-                    "Este evento tiene una reforma pendiente. No se puede crear un aval hasta que se apruebe o rechace.",
-                  );
+          {eventoIncompleto ? (
+            <Link
+              href={completionHref}
+              className="btn bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Completar datos
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (!canCreateAval) {
+                  if (hasPendingReform) {
+                    setSubmitError(
+                      "Este evento tiene una reforma pendiente. No se puede crear un aval hasta que se apruebe o rechace.",
+                    );
+                    return;
+                  }
+                  setSubmitError("Solo puedes crear aval para eventos disponibles.");
                   return;
                 }
-                setSubmitError("Solo puedes crear aval para eventos disponibles.");
-                return;
-              }
-              setUploadModalOpen(true);
-            }}
-            className="btn bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Crear aval
-          </button>
+                setUploadModalOpen(true);
+              }}
+              className="btn bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Crear aval
+            </button>
+          )}
           {canManageReforms ? canRequestReforma ? (
             <Link
               href={`/eventos/${evento.id}/reforma`}
@@ -280,6 +327,14 @@ export default function EventoDetailForAvalPage() {
           ) : null}
         </div>
       </div>
+
+      {eventoIncompleto && (
+        <AlertBanner
+          variant="error"
+          message="Completa los datos faltantes del evento antes de crear el aval."
+          description={`Faltan: ${missingFields.map(getEventoMissingFieldLabel).join(", ")}.`}
+        />
+      )}
 
       {hasPendingReform ? (
         <AlertBanner

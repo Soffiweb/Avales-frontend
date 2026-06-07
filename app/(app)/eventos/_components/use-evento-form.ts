@@ -131,6 +131,26 @@ export function useEventoForm({
     [eventoItemsValues],
   );
 
+  const totalPresupuestoFondosPublicos = useMemo(
+    () =>
+      eventoItemsValues.reduce(
+        (sum, item) =>
+          sum + (item?.fuente === "FONDOS_PUBLICOS" ? item?.presupuesto || 0 : 0),
+        0,
+      ),
+    [eventoItemsValues],
+  );
+
+  const totalPresupuestoAutogestion = useMemo(
+    () =>
+      eventoItemsValues.reduce(
+        (sum, item) =>
+          sum + (item?.fuente === "AUTOGESTION" ? item?.presupuesto || 0 : 0),
+        0,
+      ),
+    [eventoItemsValues],
+  );
+
   useEffect(() => {
     if (mode !== "edit" || !evento || catalogLoading) {
       return;
@@ -345,9 +365,25 @@ export function useEventoForm({
       ? "Guardar cambios"
       : "Guardar evento";
 
+  const appendBudgetItem = useCallback(
+    (fuente: "FONDOS_PUBLICOS" | "AUTOGESTION") => {
+      append({
+        itemId: 0,
+        mes: 1,
+        presupuesto: 0,
+        fuente,
+        montoComprometido: 0,
+        montoEjecutado: 0,
+      });
+    },
+    [append],
+  );
+
   return {
     archivo,
     archivoPreview,
+    append,
+    appendBudgetItem,
     buttonLabel,
     catalogError,
     catalogLoading,
@@ -369,11 +405,13 @@ export function useEventoForm({
     itemsByActividad,
     mode,
     onSubmit,
+    eventoItemsValues,
     register,
     remove,
-    append,
     removeFile,
     submitError,
+    totalPresupuestoAutogestion,
+    totalPresupuestoFondosPublicos,
     totalPresupuesto,
   };
 }

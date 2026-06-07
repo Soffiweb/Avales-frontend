@@ -3,6 +3,12 @@ import type { EventoTipoParticipacion } from "@/lib/constants";
 
 export type EventoGenero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
 export type EventoEstado = "DISPONIBLE" | "SOLICITADO" | "RECHAZADO" | "ACEPTADO";
+export type EventoMissingField =
+  | "genero"
+  | "alcance"
+  | "tipoParticipacion"
+  | "categoriaId"
+  | "tipoEvento";
 export type EventoCategoriaCodigo =
   | "FORMACIÓN"
   | "MENORES"
@@ -52,14 +58,14 @@ export type Evento = {
   id: number;
   codigo: string;
   nombre: string;
-  tipoParticipacion: string;
-  tipoEvento: string;
+  tipoParticipacion?: string | null;
+  tipoEvento?: string | null;
   lugar: string;
   provincia: string;
   ciudad: string;
   pais: string;
-  genero: EventoGenero;
-  alcance: string;
+  genero?: EventoGenero | null;
+  alcance?: string | null;
   fechaInicio?: string | null;
   fechaFin?: string | null;
   mesProgramado?: number | null;
@@ -78,10 +84,13 @@ export type Evento = {
   disciplinaId: number;
   disciplinaCodigo?: string | null;
   categoria?: CatalogItem | null;
-  categoriaId: number;
+  categoriaId?: number | null;
   categoriaCodigo?: string | null;
   eventoItems?: EventoItem[];
   presupuestosFuente?: PresupuestoFuente[];
+  eventoIncompleto?: boolean;
+  missingFields?: EventoMissingField[];
+  editableFields?: EventoMissingField[];
 };
 
 export type CreateEventoPayload = {
@@ -146,4 +155,57 @@ export function eventoTieneFondosPublicos(evento?: Evento | null): boolean {
         ),
     ) ?? false
   );
+}
+
+const EVENTO_REQUIRED_FIELDS: EventoMissingField[] = [
+  "genero",
+  "alcance",
+  "tipoParticipacion",
+  "categoriaId",
+  "tipoEvento",
+];
+
+export function getEventoMissingFields(evento?: Evento | null): EventoMissingField[] {
+  if (!evento) return [];
+  if (evento.missingFields?.length) return evento.missingFields;
+
+  return EVENTO_REQUIRED_FIELDS.filter((field) => {
+    if (field === "categoriaId") return !evento.categoriaId;
+    const value = evento[field];
+    return value === null || value === undefined || String(value).trim() === "";
+  });
+}
+
+export function getEventoEditableCompletionFields(
+  evento?: Evento | null
+): EventoMissingField[] {
+  if (!evento) return [];
+  return evento.editableFields?.length
+    ? evento.editableFields
+    : getEventoMissingFields(evento);
+}
+
+export function isEventoIncompleto(evento?: Evento | null): boolean {
+  if (!evento) return false;
+  if (typeof evento.eventoIncompleto === "boolean") {
+    return evento.eventoIncompleto;
+  }
+  return getEventoMissingFields(evento).length > 0;
+}
+
+export function getEventoMissingFieldLabel(field: EventoMissingField): string {
+  switch (field) {
+    case "genero":
+      return "género";
+    case "alcance":
+      return "alcance";
+    case "tipoParticipacion":
+      return "tipo de participación";
+    case "categoriaId":
+      return "categoría";
+    case "tipoEvento":
+      return "tipo de evento";
+    default:
+      return field;
+  }
 }

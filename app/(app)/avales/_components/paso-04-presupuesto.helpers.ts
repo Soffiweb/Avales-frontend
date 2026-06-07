@@ -117,8 +117,8 @@ export function getDraftSubtotal(item: ManualRequirementDraft): number {
 
 export function getTotalOriginalManual(
   _aval: Aval,
-  _isAutogestion: boolean,
+  isAutogestion: boolean,
   totalPresupuesto: number,
 ): number {
-  return totalPresupuesto;
+  return isAutogestion ? totalPresupuesto : 0;
 }

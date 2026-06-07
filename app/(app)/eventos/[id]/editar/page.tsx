@@ -2,22 +2,30 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import EventoCompletionForm from "../../_components/evento-completion-form";
 import EventoForm from "../../_components/evento-form";
 import EventoFormSkeleton from "../../_components/evento-form-skeleton";
 import { getEvento } from "@/lib/api/eventos";
-import type { Evento } from "@/types/evento";
+import {
+  getEventoMissingFields,
+  getEventoMissingFieldLabel,
+  isEventoIncompleto,
+  type Evento,
+} from "@/types/evento";
 
 export default function EditarEventoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams();
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const next = searchParams.get("next");
 
   useEffect(() => {
     const loadEvento = async () => {
@@ -39,6 +47,14 @@ export default function EditarEventoPage() {
   }, [id]);
 
   const handleUpdated = async () => {
+    router.push("/eventos?status=updated");
+  };
+
+  const handleCompleted = async (_evento: Evento) => {
+    if (next) {
+      router.push(`${next}${next.includes("?") ? "&" : "?"}status=updated`);
+      return;
+    }
     router.push("/eventos?status=updated");
   };
 
@@ -84,14 +100,28 @@ export default function EditarEventoPage() {
           Volver a eventos
         </Link>
         <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-          Editar evento
+          {isEventoIncompleto(evento) ? "Completar evento" : "Editar evento"}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Modifica los datos del evento {evento.nombre}.
+          {isEventoIncompleto(evento)
+            ? `Completa los datos faltantes de ${evento.nombre} para habilitar la creación del aval.`
+            : `Modifica los datos del evento ${evento.nombre}.`}
         </p>
       </div>
 
-      <EventoForm mode="edit" evento={evento} onUpdated={handleUpdated} />
+      {isEventoIncompleto(evento) ? (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
+            <p className="font-medium">Este evento aún no está listo para aval.</p>
+            <p className="mt-1">
+              Campos faltantes: {getEventoMissingFields(evento).map(getEventoMissingFieldLabel).join(", ")}.
+            </p>
+          </div>
+          <EventoCompletionForm evento={evento} onCompleted={handleCompleted} />
+        </div>
+      ) : (
+        <EventoForm mode="edit" evento={evento} onUpdated={handleUpdated} />
+      )}
     </div>
   );
 }

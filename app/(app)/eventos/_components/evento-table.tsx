@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 
+import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import type { Evento } from "@/types/evento";
+import { isEventoIncompleto } from "@/types/evento";
 import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
@@ -120,6 +122,11 @@ export default function EventoTable({
                       <div className="font-semibold text-gray-800 dark:text-gray-100">
                         {evento.nombre || "-"}
                       </div>
+                      {isEventoIncompleto(evento) && (
+                        <div className="mt-1">
+                          <EventoIncompletoBadge compact />
+                        </div>
+                      )}
                       {evento.codigo && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {evento.codigo}

@@ -174,6 +174,14 @@ export type UpdateEventoPayload = {
   eventoItems?: EventoItemPayload[];
 };
 
+export type CompleteEventoDatosPayload = {
+  genero?: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
+  alcance?: string;
+  tipoParticipacion?: string;
+  categoriaId?: number;
+  tipoEvento?: string;
+};
+
 export async function updateEvento(
   id: number,
   values: UpdateEventoPayload,
@@ -206,6 +214,24 @@ export async function updateEvento(
   }
 
   return apiFetch<Evento>(`/events/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(cleanPayload),
+  });
+}
+
+export async function completeEventoDatos(
+  id: number,
+  values: CompleteEventoDatosPayload,
+) {
+  const cleanPayload = Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== undefined)
+  ) as CompleteEventoDatosPayload;
+
+  if (!Object.keys(cleanPayload).length) {
+    throw new Error("No hay datos pendientes por completar.");
+  }
+
+  return apiFetch<Evento>(`/events/${id}/completar-datos`, {
     method: "PATCH",
     body: JSON.stringify(cleanPayload),
   });

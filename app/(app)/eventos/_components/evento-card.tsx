@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, CalendarDays, MapPin, Users, Pencil, Trash2, DollarSign } from "lucide-react";
 
+import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import type { Evento } from "@/types/evento";
-import { calcularTotalEvento } from "@/types/evento";
+import { calcularTotalEvento, isEventoIncompleto } from "@/types/evento";
 import {
   formatCurrency,
   formatEventScheduleLabel,
@@ -114,6 +115,7 @@ export default function EventoCard({
                 >
                   {evento.estado || "Sin estado"}
                 </span>
+                {isEventoIncompleto(evento) ? <EventoIncompletoBadge compact /> : null}
                 {evento.alcance && (
                   <span className="text-xs text-gray-400 dark:text-gray-500">
                     {evento.alcance}

@@ -27,6 +27,7 @@ import AlertBanner from "@/components/ui/alert-banner";
 import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import Breadcrumb from "@/components/ui/breadcrumb";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
@@ -42,6 +43,9 @@ import { listReformsByEvento } from "@/lib/api/reforms";
 import {
   calcularTotalEvento,
   eventoTieneFondosPublicos,
+  getEventoMissingFieldLabel,
+  getEventoMissingFields,
+  isEventoIncompleto,
   type Evento,
   type PresupuestoFuente,
 } from "@/types/evento";
@@ -244,6 +248,14 @@ export default function EventoDetailPage() {
     pronosticoDeportistas: File;
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
+    if (isEventoIncompleto(evento)) {
+      router.push(
+        `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
+          `/eventos/${evento.id}`,
+        )}`,
+      );
+      throw new Error("Completa los datos faltantes del evento antes de crear el aval.");
+    }
 
     // if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
     //   throw new Error(
@@ -347,14 +359,20 @@ export default function EventoDetailPage() {
     return acc;
   }, {});
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
+  const eventoIncompleto = isEventoIncompleto(evento);
+  const missingFields = getEventoMissingFields(evento);
   const canManageReforms = canCreateReforma(user) && !isDTM;
   const canViewReforms = canAccessReforms(user) || isDTM;
   const canStartAval =
     canCreateAval &&
     evento.estado === "DISPONIBLE" &&
     !hasAval &&
-    !hasPendingReform;
+    !hasPendingReform &&
+    !eventoIncompleto;
   const canRequestReforma = canManageReforms && !hasPendingReform;
+  const completionHref = `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
+    `/eventos/${evento.id}`,
+  )}`;
 
   return (
     <>
@@ -402,6 +420,16 @@ export default function EventoDetailPage() {
             }
           />
         ) : null}
+        {eventoIncompleto ? (
+          <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-800/70 dark:bg-amber-900/30 dark:text-amber-100">
+            <p className="text-sm font-medium">
+              Este evento tiene datos faltantes y no puede usarse para crear aval todavía.
+            </p>
+            <p className="mt-1 text-xs opacity-80">
+              Completa: {missingFields.map(getEventoMissingFieldLabel).join(", ")}.
+            </p>
+          </div>
+        ) : null}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -416,6 +444,11 @@ export default function EventoDetailPage() {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
               {evento.nombre}
             </h1>
+            {eventoIncompleto ? (
+              <div className="mt-2">
+                <EventoIncompletoBadge />
+              </div>
+            ) : null}
             {evento.codigo && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Código: {evento.codigo}
@@ -427,7 +460,15 @@ export default function EventoDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {canCreateAval && (
                   <>
-                    {canStartAval ? (
+                    {eventoIncompleto ? (
+                      <Link
+                        href={completionHref}
+                        className="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Completar datos para aval
+                      </Link>
+                    ) : canStartAval ? (
                       <button
                         type="button"
                         onClick={() => setUploadModalOpen(true)}
@@ -505,6 +546,11 @@ export default function EventoDetailPage() {
                   {hasAval ? (
                     <p>Este evento ya tiene un aval registrado.</p>
                   ) : null}
+                </div>
+              )}
+              {canCreateAval && eventoIncompleto && (
+                <div className="mt-2 space-y-1 px-1 text-xs text-amber-700 dark:text-amber-300">
+                  <p>Debes completar los datos obligatorios del evento antes de crear el aval.</p>
                 </div>
               )}
             </div>

@@ -32,7 +32,7 @@ export default function EventoForm({
   onUpdated,
 }: Props) {
   const {
-    append,
+    appendBudgetItem,
     archivo,
     archivoPreview,
     buttonLabel,
@@ -42,6 +42,7 @@ export default function EventoForm({
     disciplinas,
     draggingArchivo,
     errors,
+    eventoItemsValues,
     fields,
     generateCodigoError,
     generatingCodigo,
@@ -58,6 +59,8 @@ export default function EventoForm({
     remove,
     removeFile,
     submitError,
+    totalPresupuestoAutogestion,
+    totalPresupuestoFondosPublicos,
     totalPresupuesto,
   } = useEventoForm({
     mode,
@@ -65,6 +68,23 @@ export default function EventoForm({
     onCreated,
     onUpdated,
   });
+
+  const presupuestoSections = [
+    {
+      fuente: "FONDOS_PUBLICOS" as const,
+      title: "Fondos públicos",
+      description: "Items financiados con presupuesto público.",
+      total: totalPresupuestoFondosPublicos,
+      empty: "No hay items de fondos públicos.",
+    },
+    {
+      fuente: "AUTOGESTION" as const,
+      title: "Fondos de autogestión",
+      description: "Items financiados con recursos de autogestión.",
+      total: totalPresupuestoAutogestion,
+      empty: "No hay items de autogestión.",
+    },
+  ];
 
   return (
     <form
@@ -602,188 +622,201 @@ export default function EventoForm({
       </div>
 
       <div className="p-5 space-y-3">
-        {fields.map((field, index) => (
-          <div
-            key={field.id}
-            className="space-y-2 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg"
-          >
-            {/* Fila 1: Item + Fuente + Delete */}
-            <div className="grid grid-cols-12 gap-3 items-start">
-              <div className="col-span-7">
-                {index === 0 && (
-                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                    Item
-                  </label>
-                )}
-                <select
-                  className="form-select w-full text-sm"
-                  {...register(`eventoItems.${index}.itemId`, {
-                    setValueAs: (v) => (v === "" ? undefined : Number(v)),
-                  })}
-                >
-                  <option value="">Seleccionar item...</option>
-                  {Object.entries(itemsByActividad).map(([actName, items]) => (
-                    <optgroup key={actName} label={actName}>
-                      {items.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.numero} - {item.nombre}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                {errors.eventoItems?.[index]?.itemId && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.eventoItems[index].itemId?.message}
+        {presupuestoSections.map((section) => {
+          const sectionItems = fields
+            .map((field, index) => ({
+              field,
+              index,
+              fuente: eventoItemsValues[index]?.fuente ?? "FONDOS_PUBLICOS",
+            }))
+            .filter((item) => item.fuente === section.fuente);
+
+          return (
+            <div
+              key={section.fuente}
+              className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700/60 dark:bg-gray-900/20"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-medium text-gray-800 dark:text-gray-100">
+                    {section.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {section.description}
                   </p>
-                )}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Total
+                  </p>
+                  <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                    ${section.total.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
 
-              <div className="col-span-4">
-                {index === 0 && (
-                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                    Fuente
-                  </label>
-                )}
-                <select
-                  className="form-select w-full text-sm"
-                  {...register(`eventoItems.${index}.fuente`)}
-                >
-                  <option value="FONDOS_PUBLICOS">Fondos Públicos</option>
-                  <option value="AUTOGESTION">Autogestión</option>
-                </select>
-                {errors.eventoItems?.[index]?.fuente && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.eventoItems[index].fuente?.message}
-                  </p>
-                )}
-              </div>
+              <div className="space-y-3">
+                {sectionItems.map(({ field, index }, sectionIndex) => (
+                  <div
+                    key={field.id}
+                    className="space-y-2 rounded-lg bg-white p-3 dark:bg-gray-800/70"
+                  >
+                    <input
+                      type="hidden"
+                      {...register(`eventoItems.${index}.fuente`)}
+                      value={section.fuente}
+                    />
 
-              <div className="col-span-1 flex items-end">
-                {index === 0 && (
-                  <span className="block text-xs mb-1 text-transparent select-none">.</span>
-                )}
+                    <div className="grid grid-cols-12 gap-3 items-start">
+                      <div className="col-span-11">
+                        {sectionIndex === 0 && (
+                          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Item
+                          </label>
+                        )}
+                        <select
+                          className="form-select w-full text-sm"
+                          {...register(`eventoItems.${index}.itemId`, {
+                            setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                          })}
+                        >
+                          <option value="">Seleccionar item...</option>
+                          {Object.entries(itemsByActividad).map(([actName, items]) => (
+                            <optgroup key={actName} label={actName}>
+                              {items.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.numero} - {item.nombre}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                        {errors.eventoItems?.[index]?.itemId && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.eventoItems[index].itemId?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="col-span-1 flex items-end">
+                        {sectionIndex === 0 && (
+                          <span className="mb-1 block select-none text-xs text-transparent">.</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          className="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+                          title="Eliminar item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-4 items-start">
+                      <div>
+                        {sectionIndex === 0 && (
+                          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Mes
+                          </label>
+                        )}
+                        <select
+                          className="form-select w-full text-sm"
+                          {...register(`eventoItems.${index}.mes`, {
+                            setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                          })}
+                        >
+                          <option value="">Mes...</option>
+                          {EVENTO_MES_OPTIONS.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.eventoItems?.[index]?.mes && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.eventoItems[index].mes?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        {sectionIndex === 0 && (
+                          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Presupuesto ($)
+                          </label>
+                        )}
+                        <input
+                          className="form-input w-full text-sm"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          {...register(`eventoItems.${index}.presupuesto`, {
+                            setValueAs: parseDecimalInput,
+                          })}
+                        />
+                        {errors.eventoItems?.[index]?.presupuesto && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {errors.eventoItems[index].presupuesto?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        {sectionIndex === 0 && (
+                          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Comprometido ($)
+                          </label>
+                        )}
+                        <input
+                          className="form-input w-full text-sm"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          {...register(`eventoItems.${index}.montoComprometido`, {
+                            setValueAs: parseDecimalInput,
+                          })}
+                        />
+                      </div>
+
+                      <div>
+                        {sectionIndex === 0 && (
+                          <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Ejecutado ($)
+                          </label>
+                        )}
+                        <input
+                          className="form-input w-full text-sm"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          {...register(`eventoItems.${index}.montoEjecutado`, {
+                            setValueAs: parseDecimalInput,
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
                 <button
                   type="button"
-                  onClick={() => remove(index)}
-                  className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  title="Eliminar item"
+                  onClick={() => appendBudgetItem(section.fuente)}
+                  className="flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Plus className="h-4 w-4" />
+                  Agregar item de {section.title.toLowerCase()}
                 </button>
-              </div>
-            </div>
 
-            {/* Fila 2: Mes + Presupuesto + MontoComprometido + MontoEjecutado */}
-            <div className="grid grid-cols-4 gap-3 items-start">
-              <div>
-                {index === 0 && (
-                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                    Mes
-                  </label>
-                )}
-                <select
-                  className="form-select w-full text-sm"
-                  {...register(`eventoItems.${index}.mes`, {
-                    setValueAs: (v) => (v === "" ? undefined : Number(v)),
-                  })}
-                >
-                  <option value="">Mes...</option>
-                  {EVENTO_MES_OPTIONS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.eventoItems?.[index]?.mes && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.eventoItems[index].mes?.message}
+                {sectionItems.length === 0 && (
+                  <p className="text-sm italic text-gray-400 dark:text-gray-500">
+                    {section.empty}
                   </p>
                 )}
               </div>
-
-              <div>
-                {index === 0 && (
-                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                    Presupuesto ($)
-                  </label>
-                )}
-                <input
-                  className="form-input w-full text-sm"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  {...register(`eventoItems.${index}.presupuesto`, {
-                    setValueAs: parseDecimalInput,
-                  })}
-                />
-                {errors.eventoItems?.[index]?.presupuesto && (
-                  <p className="mt-1 text-xs text-red-600">
-                    {errors.eventoItems[index].presupuesto?.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                {index === 0 && (
-                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                    Comprometido ($)
-                  </label>
-                )}
-                <input
-                  className="form-input w-full text-sm"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  {...register(`eventoItems.${index}.montoComprometido`, {
-                    setValueAs: parseDecimalInput,
-                  })}
-                />
-              </div>
-
-              <div>
-                {index === 0 && (
-                  <label className="block text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">
-                    Ejecutado ($)
-                  </label>
-                )}
-                <input
-                  className="form-input w-full text-sm"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  {...register(`eventoItems.${index}.montoEjecutado`, {
-                    setValueAs: parseDecimalInput,
-                  })}
-                />
-              </div>
             </div>
-          </div>
-        ))}
-
-        <button
-          type="button"
-          onClick={() =>
-            append({
-              itemId: 0,
-              mes: 1,
-              presupuesto: 0,
-              fuente: "FONDOS_PUBLICOS",
-              montoComprometido: 0,
-              montoEjecutado: 0,
-            })
-          }
-          className="flex items-center gap-2 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Agregar item presupuestario
-        </button>
-
-        {fields.length === 0 && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-            No hay items presupuestarios asignados.
-          </p>
-        )}
+          );
+        })}
       </div>
 
       {/* Seccion: Archivo */}

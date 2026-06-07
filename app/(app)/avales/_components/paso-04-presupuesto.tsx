@@ -105,6 +105,7 @@ export default function Paso04Presupuesto({
   const [submitting, setSubmitting] = useState(false);
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
   const isFondosPublicos = tipoAval === "FONDOS_PUBLICOS";
+  const isSoloResultado = tipoAval === "SOLO_RESULTADO";
   const usesManualRequirements =
     tipoAval === "AUTOGESTION" || tipoAval === "SOLO_RESULTADO";
 
@@ -189,7 +190,7 @@ export default function Paso04Presupuesto({
 
   const totalOriginalManual = getTotalOriginalManual(
     aval,
-    false,
+    tipoAval === "AUTOGESTION",
     getTotalPresupuesto(),
   );
   const totalDifferenceManual = Math.abs(
@@ -236,15 +237,16 @@ export default function Paso04Presupuesto({
   };
 
   const addManualRequirement = (mode: "CATALOGO" | "CUSTOM") => {
+    const nextMode = isSoloResultado ? "CUSTOM" : mode;
     setManualRequirements((prev) => [
       ...prev,
       {
-        id: `${mode}-${Date.now()}-${prev.length}`,
-        mode,
+        id: `${nextMode}-${Date.now()}-${prev.length}`,
+        mode: nextMode,
         otroConcepto: "",
         cantidad: "1",
-        montoSolicitado: "",
-        tipoCobertura: "DINERO",
+        montoSolicitado: isSoloResultado ? "0.00" : "",
+        tipoCobertura: isSoloResultado ? "ESPECIE" : "DINERO",
       },
     ]);
   };
@@ -282,6 +284,23 @@ export default function Paso04Presupuesto({
         )
       ) {
         setError("Cada rubro debe tener item seleccionado o concepto.");
+        return;
+      }
+
+      if (
+        isSoloResultado &&
+        serializedManualRequirements.some((item) => {
+          const monto = Number.parseFloat(item.montoSolicitado ?? "0");
+          return (
+            Boolean(item.rubroId) ||
+            item.tipoCobertura !== "ESPECIE" ||
+            (Number.isFinite(monto) && monto > 0)
+          );
+        })
+      ) {
+        setError(
+          "En avales solo por resultado solo se permiten conceptos propios sin costo monetario.",
+        );
         return;
       }
 
@@ -459,10 +478,12 @@ export default function Paso04Presupuesto({
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Presupuesto / Rubros solicitados
+                    Requerimientos / Rubros solicitados
                   </h2>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Edita los montos, elimina los que no apliquen o agrega rubros propios.
+                    {isSoloResultado
+                      ? "Agrega conceptos propios obligatoriamente sin costo monetario."
+                      : "Edita los montos, elimina los que no apliquen o agrega rubros propios."}
                   </p>
                 </div>
               </div>
@@ -476,7 +497,9 @@ export default function Paso04Presupuesto({
               </div>
             </div>
 
-            {manualRequirements.length > 0 && totalOriginalManual > 0 && (
+            {!isSoloResultado &&
+              manualRequirements.length > 0 &&
+              totalOriginalManual > 0 && (
               <div
                 className={`mb-4 rounded-xl border px-3 py-2 text-xs ${
                   totalDifferenceManual < 0.01
@@ -491,14 +514,16 @@ export default function Paso04Presupuesto({
             )}
 
             <div className="mb-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => addManualRequirement("CATALOGO")}
-                className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300"
-              >
-                <Plus className="h-4 w-4" />
-                Del catálogo
-              </button>
+              {!isSoloResultado && (
+                <button
+                  type="button"
+                  onClick={() => addManualRequirement("CATALOGO")}
+                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300"
+                >
+                  <Plus className="h-4 w-4" />
+                  Del catálogo
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => addManualRequirement("CUSTOM")}
@@ -519,7 +544,8 @@ export default function Paso04Presupuesto({
               <div className="space-y-3">
                 {manualRequirements.map((item, index) => {
                   const isCatalog = item.mode === "CATALOGO";
-                  const isEspecie = item.tipoCobertura === "ESPECIE";
+                  const isEspecie =
+                    isSoloResultado || item.tipoCobertura === "ESPECIE";
                   const activity = getCatalogItemActivity(
                     itemsCatalogo,
                     item.rubroId,
@@ -611,17 +637,23 @@ export default function Paso04Presupuesto({
                                 className="form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
                               />
                             </label>
-                            <label className="mt-2 flex cursor-pointer items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={isEspecie}
-                                onChange={() => toggleEspecie(item.id)}
-                                className="rounded border-gray-300 dark:border-gray-600"
-                              />
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {isSoloResultado ? (
+                              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
                                 Sin costo monetario
-                              </span>
-                            </label>
+                              </p>
+                            ) : (
+                              <label className="mt-2 flex cursor-pointer items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isEspecie}
+                                  onChange={() => toggleEspecie(item.id)}
+                                  className="rounded border-gray-300 dark:border-gray-600"
+                                />
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  Sin costo monetario
+                                </span>
+                              </label>
+                            )}
                           </div>
                         )}
 

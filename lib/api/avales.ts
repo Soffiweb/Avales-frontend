@@ -85,7 +85,7 @@ export async function uploadConvocatoria(
   eventoId: number,
   convocatoria: File | File[],
   certificadoMedico: File,
-  pronosticoDeportistas: File,
+  pronosticoDeportistas: File | File[],
   options?: {
     tipoAval?: CreateColeccionAvalPayload["tipoAval"];
     montoSolicitado?: number;
@@ -93,12 +93,19 @@ export async function uploadConvocatoria(
 ) {
   const formData = new FormData();
   formData.append("eventoId", String(eventoId));
-  const convocatoriaFiles = Array.isArray(convocatoria) ? convocatoria : [convocatoria];
+  const convocatoriaFiles = Array.isArray(convocatoria)
+    ? convocatoria
+    : [convocatoria];
   for (const file of convocatoriaFiles) {
     formData.append("convocatoria", file);
   }
   formData.append("certificadoMedico", certificadoMedico);
-  formData.append("pronosticoDeportistas", pronosticoDeportistas);
+  const pronosticoFiles = Array.isArray(pronosticoDeportistas)
+    ? pronosticoDeportistas
+    : [pronosticoDeportistas];
+  for (const file of pronosticoFiles) {
+    formData.append("pronosticoDeportistas", file);
+  }
   if (options?.tipoAval) {
     formData.append("tipoAval", options.tipoAval);
   }
@@ -108,6 +115,26 @@ export async function uploadConvocatoria(
 
   return apiFetch<Aval>("/avales/convocatoria", {
     method: "POST",
+    body: formData,
+  });
+}
+
+export async function uploadConvocatoriaPrincipal(id: number, archivo: File) {
+  const formData = new FormData();
+  formData.append("convocatoria", archivo);
+
+  return apiFetch<Aval>(`/avales/${id}/convocatoria`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export async function uploadCertificadoMedico(id: number, archivo: File) {
+  const formData = new FormData();
+  formData.append("certificadoMedico", archivo);
+
+  return apiFetch<Aval>(`/avales/${id}/certificado-medico`, {
+    method: "PATCH",
     body: formData,
   });
 }

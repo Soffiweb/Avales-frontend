@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ComponentType,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type React from "react";
@@ -17,8 +24,10 @@ import {
   Download,
   HeartPulse,
   Loader2,
+  Pencil,
   RefreshCw,
 } from "lucide-react";
+import type { LucideProps } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import ApprovalFlowCard from "../_components/approval-flow-card";
@@ -33,6 +42,9 @@ import {
   getAval,
   rechazarAval,
   regenerarAvalPdfs,
+  uploadCertificadoMedico,
+  uploadConvocatoriaPrincipal,
+  uploadPronosticoDeportistas,
 } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
 import {
@@ -389,6 +401,110 @@ function HistorialTimeline({
   );
 }
 
+type DocumentAction = {
+  label: string;
+  url?: string | null;
+  icon: ComponentType<LucideProps>;
+  replaceHandler?: (file: File) => Promise<Aval>;
+  replaceLabel?: string;
+};
+
+type DocumentActionRowProps = {
+  item: DocumentAction;
+  onReplaced: (aval: Aval) => void;
+  onError: (message: string) => void;
+  acceptedTypes: string;
+};
+
+function DocumentActionRow({
+  item,
+  onReplaced,
+  onError,
+  acceptedTypes,
+}: DocumentActionRowProps) {
+  const [replacing, setReplacing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const Icon = item.icon;
+
+  if (!item.url) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
+      >
+        <Icon className="w-4 h-4 mr-2" />
+        {item.label}
+      </button>
+    );
+  }
+
+  const handleReplaceClick = () => {
+    if (replacing) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !item.replaceHandler) return;
+    try {
+      setReplacing(true);
+      const updated = await item.replaceHandler(file);
+      onReplaced(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo reemplazar el archivo";
+      onError(message);
+    } finally {
+      setReplacing(false);
+    }
+  };
+
+  return (
+    <div className="flex gap-2">
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noreferrer noopener"
+        download
+        className="btn flex-1 justify-center bg-indigo-500 text-white hover:bg-indigo-600"
+      >
+        <Icon className="w-4 h-4 mr-2" />
+        {item.label}
+      </a>
+      {item.replaceHandler && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept={acceptedTypes}
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={handleReplaceClick}
+            disabled={replacing}
+            title={item.replaceLabel ?? "Reemplazar archivo"}
+            aria-label={item.replaceLabel ?? "Reemplazar archivo"}
+            className="btn shrink-0 border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            {replacing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Pencil className="w-4 h-4" />
+            )}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+const DOCUMENT_ACTION_ACCEPTED_TYPES =
+  ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv";
+
 export default function AvalDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -676,7 +792,7 @@ export default function AvalDetailPage() {
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
   const solicitudAvalUrl =
     aval.solicitudUrl ?? aval.avalTecnicoPdfUrl ?? aval.avalTecnico?.archivo;
-  const documentActions = [
+  const documentActions: DocumentAction[] = [
     {
       label: "Descargar solicitud del aval",
       url: solicitudAvalUrl,
@@ -686,16 +802,25 @@ export default function AvalDetailPage() {
       label: "Descargar convocatoria",
       url: aval.convocatoriaUrl,
       icon: Download,
+      replaceHandler: (file) =>
+        uploadConvocatoriaPrincipal(aval.id, file).then((r) => r.data),
+      replaceLabel: "Reemplazar convocatoria",
     },
     {
       label: "Descargar certificado médico",
       url: aval.certificadoMedicoUrl,
       icon: HeartPulse,
+      replaceHandler: (file) =>
+        uploadCertificadoMedico(aval.id, file).then((r) => r.data),
+      replaceLabel: "Reemplazar certificado médico",
     },
     {
       label: "Descargar pronóstico de deportistas",
       url: aval.pronosticoDeportistasUrl,
       icon: ClipboardCheck,
+      replaceHandler: (file) =>
+        uploadPronosticoDeportistas(aval.id, file).then((r) => r.data),
+      replaceLabel: "Reemplazar pronóstico de deportistas",
     },
   ];
   const canShowPresupuestoSalida =
@@ -1234,36 +1359,23 @@ export default function AvalDetailPage() {
 
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
               <div className="space-y-2">
-                {documentActions.map((item) => {
-                  const Icon = item.icon;
-                  if (!item.url) {
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        disabled
-                        className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
-                      >
-                        <Icon className="w-4 h-4 mr-2" />
-                        {item.label}
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <a
-                      key={item.label}
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      download
-                      className="btn w-full justify-center bg-indigo-500 text-white hover:bg-indigo-600"
-                    >
-                      <Icon className="w-4 h-4 mr-2" />
-                      {item.label}
-                    </a>
-                  );
-                })}
+                {documentActions.map((item) => (
+                  <DocumentActionRow
+                    key={item.label}
+                    item={item}
+                    acceptedTypes={DOCUMENT_ACTION_ACCEPTED_TYPES}
+                    onReplaced={(updated) => {
+                      setAval(updated);
+                      setToast({
+                        variant: "success",
+                        message: "Archivo reemplazado correctamente.",
+                      });
+                    }}
+                    onError={(message) =>
+                      setToast({ variant: "error", message })
+                    }
+                  />
+                ))}
               </div>
             </div>
 

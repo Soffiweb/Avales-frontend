@@ -156,7 +156,7 @@ export default function NuevoAvalPage() {
   }: {
     convocatoria: File[];
     certificadoMedico: File;
-    pronosticoDeportistas: File;
+    pronosticoDeportistas: File[];
   }) => {
     if (!selectedEvento) {
       throw new Error("No se ha seleccionado un evento.");

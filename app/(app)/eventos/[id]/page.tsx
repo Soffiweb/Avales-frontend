@@ -245,7 +245,7 @@ export default function EventoDetailPage() {
   }: {
     convocatoria: File[];
     certificadoMedico: File;
-    pronosticoDeportistas: File;
+    pronosticoDeportistas: File[];
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
     if (isEventoIncompleto(evento)) {

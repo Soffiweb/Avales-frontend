@@ -11,13 +11,22 @@ type Props = {
   aval: Aval;
   draft: {
     descripcionCertificacion: string;
+    periodoComision: string;
     firmanteNombre: string;
     firmanteCargo: string;
     fechaEmision: string;
   };
 };
 
-function InfoTable({ aval, year }: { aval: Aval; year: number }) {
+function InfoTable({
+  aval,
+  year,
+  periodoComision,
+}: {
+  aval: Aval;
+  year: number;
+  periodoComision: string;
+}) {
   const evento = aval.evento;
   const entrenadores =
     (evento?.numEntrenadoresHombres || 0) +
@@ -38,6 +47,7 @@ function InfoTable({ aval, year }: { aval: Aval; year: number }) {
     ["# PARTICIPANTES", participantesText],
     ["LUGAR DE COMPETENCIA", (formatLocationWithProvince(evento) || "-").toUpperCase()],
     ["FECHA DE SALIDA", formatEventScheduleLabel(evento)],
+    ["FECHA DE COMISION", periodoComision ? formatDate(periodoComision) : "-"],
     ["RESPONSABLE ANTICIPO", "-"],
     ["C. I. RESPON. ANTICIPO", "-"],
     [`ACTIVIDADES POA ${year}`, "005 EVENTOS DE PREPARACION Y COMPETENCIA"],
@@ -89,7 +99,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
           }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`}
       </p>
 
-      <InfoTable aval={aval} year={year} />
+      <InfoTable aval={aval} year={year} periodoComision={draft.periodoComision} />
 
       <p className="text-[11px]">
         Por un valor de USD$ {formatCurrency(total, { locale: "en-US" })} - dolares de acuerdo al

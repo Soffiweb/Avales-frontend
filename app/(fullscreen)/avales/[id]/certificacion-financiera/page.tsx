@@ -21,6 +21,7 @@ import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
+  periodoComision: string;
   firmanteNombre: string;
   firmanteCargo: string;
   fechaEmision: string;
@@ -29,6 +30,7 @@ type FinancieroDraft = {
 
 const INITIAL_DRAFT: FinancieroDraft = {
   descripcionCertificacion: "",
+  periodoComision: "",
   firmanteNombre: "",
   firmanteCargo: "",
   fechaEmision: new Date().toISOString().slice(0, 10),
@@ -51,6 +53,13 @@ function joinWithCommaAndY(items: string[]) {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} y ${items[1]}`;
   return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function toInputDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
 }
 
 export default function CertificacionFinancieraPage() {
@@ -158,6 +167,10 @@ export default function CertificacionFinancieraPage() {
     }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`;
   }, [aval]);
 
+  const defaultPeriodoComision = useMemo(() => {
+    return toInputDate(aval?.avalTecnico?.fechaHoraSalida);
+  }, [aval]);
+
   // Populate description from aval once available
   useEffect(() => {
     if (!defaultDescripcionCertificacion) return;
@@ -166,6 +179,14 @@ export default function CertificacionFinancieraPage() {
       return { ...prev, descripcionCertificacion: defaultDescripcionCertificacion };
     });
   }, [defaultDescripcionCertificacion]);
+
+  useEffect(() => {
+    if (!defaultPeriodoComision) return;
+    setDraft((prev) => {
+      if (prev.periodoComision.trim()) return prev;
+      return { ...prev, periodoComision: defaultPeriodoComision };
+    });
+  }, [defaultPeriodoComision]);
 
   // Initialize notes once aval loads
   useEffect(() => {
@@ -332,6 +353,20 @@ export default function CertificacionFinancieraPage() {
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Fecha de comision
+                  </span>
+                  <input
+                    type="date"
+                    className="form-input w-full mt-1"
+                    value={draft.periodoComision}
+                    onChange={(e) =>
+                      setDraft((prev) => ({ ...prev, periodoComision: e.target.value }))
+                    }
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Fecha
                   </span>
                   <input
@@ -429,7 +464,7 @@ export default function CertificacionFinancieraPage() {
             <PreviewCollapsible title="Certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Presupuesto salida anticipo">
+            <PreviewCollapsible title="Presupuesto salida anticipo" defaultOpen>
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
                 draft={{

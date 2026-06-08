@@ -25,6 +25,8 @@ type Props = {
 export default function PdaPreview({ aval, draft }: Props) {
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
+  const fondosLabel =
+    aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "PUBLICOS";
   const participantesEntrenadores =
     (evento?.numEntrenadoresHombres ?? 0) + (evento?.numEntrenadoresMujeres ?? 0);
   const participantesDeportistas =
@@ -114,7 +116,7 @@ export default function PdaPreview({ aval, draft }: Props) {
           </tr>
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">FONDOS</td>
-            <td className="border border-slate-400 px-2 py-1 font-semibold">PUBLICOS</td>
+            <td className="border border-slate-400 px-2 py-1 font-semibold">{fondosLabel}</td>
           </tr>
         </tbody>
       </table>

@@ -193,7 +193,10 @@ function getDraftItemTotal(item: BudgetDraftItem) {
 
 function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   const requerimientos = aval.avalTecnico?.requerimientos ?? [];
-  return (aval.evento?.presupuesto ?? []).map((item) => {
+  const fuenteObjetivo = aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
+  return (aval.evento?.presupuesto ?? [])
+    .filter((item) => item.fuente === fuenteObjetivo)
+    .map((item) => {
     const totalOriginal = roundCurrency(Number.parseFloat(item.presupuesto ?? "0") || 0);
     const requerimiento = requerimientos.find(
       (c) => c.rubroId === item.item.id || c.rubroId === item.id,
@@ -213,7 +216,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       actividad: item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
       dias: [{ numeroDia: 1, cantidad: 1, valorUnitario }],
     };
-  });
+    });
 }
 
 function PresupuestoFuenteWidget({ presupuesto }: { presupuesto: AvalPresupuestoFuente }) {
@@ -300,7 +303,6 @@ export default function CertificarAvalPage() {
         if (Math.abs(monto - montoOriginal) >= 0.01 && !justificacionAjuste.trim()) {
           return "Debes justificar el ajuste del monto solicitado.";
         }
-        return null;
       }
 
       const invalidItems = budgetDraftItems.filter(
@@ -333,19 +335,17 @@ export default function CertificarAvalPage() {
       async ({ aval: a, userId, approvalEtapa }) => {
         const isAutogestion = a.tipoAval === "AUTOGESTION";
 
-        const items = isAutogestion
-          ? []
-          : budgetDraftItems
-              .map((item) => ({
-                itemId: item.itemId,
-                presupuesto: getDraftItemTotal(item),
-                dias: item.dias.map((dia) => ({
-                  numeroDia: dia.numeroDia,
-                  cantidad: dia.cantidad!,
-                  valorUnitario: dia.valorUnitario!,
-                })),
-              }))
-              .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
+        const items = budgetDraftItems
+          .map((item) => ({
+            itemId: item.itemId,
+            presupuesto: getDraftItemTotal(item),
+            dias: item.dias.map((dia) => ({
+              numeroDia: dia.numeroDia,
+              cantidad: dia.cantidad!,
+              valorUnitario: dia.valorUnitario!,
+            })),
+          }))
+          .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
 
         const monto = isAutogestion
           ? normalizePositiveNumber(montoAsignado)
@@ -407,10 +407,10 @@ export default function CertificarAvalPage() {
     });
   }, [user, defaultSignerName, defaultSignerCargo]);
 
-  // Build budget items — only for FONDOS_PUBLICOS
+  // Build budget items by aval funding source
   useEffect(() => {
     if (!aval) return;
-    if (aval.tipoAval === "AUTOGESTION" || aval.tipoAval === "SOLO_RESULTADO") {
+    if (aval.tipoAval === "SOLO_RESULTADO") {
       setBudgetDraftItems([]);
       return;
     }
@@ -433,7 +433,11 @@ export default function CertificarAvalPage() {
     [aval],
   );
 
-  const presupuestoItems = aval?.evento?.presupuesto ?? [];
+  const presupuestoItems = useMemo(() => {
+    if (!aval) return [];
+    const fuenteObjetivo = aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
+    return (aval.evento?.presupuesto ?? []).filter((item) => item.fuente === fuenteObjetivo);
+  }, [aval]);
   const totalPresupuestoOriginal = useMemo(
     () =>
       presupuestoItems.reduce(
@@ -707,11 +711,6 @@ export default function CertificarAvalPage() {
                     </p>
                   </div>
 
-                  {/* Presupuesto disponible */}
-                  {aval.presupuesto && (
-                    <PresupuestoFuenteWidget presupuesto={aval.presupuesto} />
-                  )}
-
                   {/* Monto aprobado por PDA */}
                   <label className="block">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -751,14 +750,13 @@ export default function CertificarAvalPage() {
                 </div>
               )}
 
-              {/* Presupuesto por fuente para FONDOS_PUBLICOS */}
-              {!isAutogestion && aval.presupuesto && (
+              {/* Presupuesto por fuente */}
+              {aval.presupuesto && (
                 <div className="max-w-xl">
                   <PresupuestoFuenteWidget presupuesto={aval.presupuesto} />
                 </div>
               )}
 
-              {!isAutogestion && (
               <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40">
                 <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
                   <div>
@@ -924,7 +922,6 @@ export default function CertificarAvalPage() {
                   </div>
                 )}
               </div>
-              )}
 
               {isEditable && (
                 <div className="max-w-xl rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
@@ -1014,7 +1011,7 @@ export default function CertificarAvalPage() {
                   ...aval,
                   evento: {
                     ...aval.evento,
-                    presupuesto: aval.evento.presupuesto.map((item) => {
+                    presupuesto: presupuestoItems.map((item) => {
                       const budgetItem = budgetDraftItems.find((d) => d.id === item.id);
                       return {
                         ...item,

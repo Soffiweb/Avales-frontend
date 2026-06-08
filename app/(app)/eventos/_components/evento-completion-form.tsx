@@ -5,7 +5,10 @@ import { useForm } from "react-hook-form";
 
 import { ApiError } from "@/lib/api/client";
 import { getCatalog } from "@/lib/api/catalog";
-import { updateEvento, type UpdateEventoPayload } from "@/lib/api/eventos";
+import {
+  completeEventoDatos,
+  type CompleteEventoDatosPayload,
+} from "@/lib/api/eventos";
 import { EVENTO_ALCANCE_OPTIONS, EVENTO_TAREA_OPTIONS } from "@/lib/constants";
 import { getCategoryIdOptions } from "@/lib/utils/categories";
 import { formatDateInput } from "@/lib/utils/formatters/dates";
@@ -101,7 +104,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
 
-    const payload: UpdateEventoPayload = {};
+    const payload: CompleteEventoDatosPayload = {};
 
     editableFields.forEach((field) => {
       const value = values[field as keyof CompletionFormValues];
@@ -143,7 +146,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
     }
 
     try {
-      const response = await updateEvento(evento.id, payload);
+      const response = await completeEventoDatos(evento.id, payload);
       await onCompleted?.(response.data);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.problem?.field) {

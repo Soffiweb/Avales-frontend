@@ -3,7 +3,7 @@
 import { EVENTO_CATEGORIA_OPTIONS, normalizeEventoTipoParticipacion } from "@/lib/constants";
 import { getCanonicalCategory, normalizeCategoryValue } from "@/lib/utils/categories";
 import { getCatalogItemCode } from "@/lib/utils/catalog";
-import { formatDateInput } from "@/lib/utils/formatters/dates";
+import { formatDateInput, getCalendarMonth } from "@/lib/utils/formatters/dates";
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import type { CreateEventoPayload, EventoFormValues } from "@/lib/validation/evento";
@@ -35,10 +35,8 @@ export const EMPTY_FORM_VALUES: EventoFormValues = {
 export function getDefaultMesProgramado(evento?: Evento | null) {
   if (evento?.mesProgramado) return evento.mesProgramado;
   if (evento?.fechaInicio) {
-    const start = new Date(evento.fechaInicio);
-    if (!Number.isNaN(start.getTime())) {
-      return start.getMonth() + 1;
-    }
+    const month = getCalendarMonth(evento.fechaInicio);
+    if (month) return month;
   }
   return new Date().getMonth() + 1;
 }

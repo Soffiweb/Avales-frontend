@@ -53,9 +53,11 @@ import type { Aval, TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   formatCurrency,
+  formatDateInput,
   formatGenero,
   formatEventScheduleLabel,
   formatMonth,
+  getCalendarDayDiff,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 import {
@@ -106,15 +108,7 @@ function getStatusStyles(status?: string | null) {
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
   if (!fechaInicio) return null;
-  const start = new Date(fechaInicio);
-  if (Number.isNaN(start.getTime())) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  start.setHours(0, 0, 0, 0);
-  const diff = Math.ceil(
-    (start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-  );
-  return diff;
+  return getCalendarDayDiff(formatDateInput(new Date().toISOString()), fechaInicio);
 }
 
 function getEventDuration(
@@ -122,12 +116,8 @@ function getEventDuration(
   fechaFin?: string | null,
 ) {
   if (!fechaInicio || !fechaFin) return null;
-  const start = new Date(fechaInicio);
-  const end = new Date(fechaFin);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  const diff =
-    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  return diff;
+  const diff = getCalendarDayDiff(fechaInicio, fechaFin);
+  return diff === null ? null : diff + 1;
 }
 
 export default function EventoDetailPage() {

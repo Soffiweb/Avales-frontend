@@ -17,6 +17,7 @@ import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
+  getCalendarDateTimestamp,
 } from "@/lib/utils/formatters";
 
 const PAGE_SIZE = 6;
@@ -32,12 +33,10 @@ function getTotalParticipants(evento: Evento) {
 }
 
 function getEventSortTimestamp(evento: Evento) {
-  const start = evento.fechaInicio
-    ? new Date(evento.fechaInicio).getTime()
-    : NaN;
-  if (!Number.isNaN(start)) return start;
-  const end = evento.fechaFin ? new Date(evento.fechaFin).getTime() : NaN;
-  if (!Number.isNaN(end)) return end;
+  const start = getCalendarDateTimestamp(evento.fechaInicio);
+  if (start !== null) return start;
+  const end = getCalendarDateTimestamp(evento.fechaFin);
+  if (end !== null) return end;
   if (evento.mesProgramado) {
     return new Date(
       new Date().getFullYear(),

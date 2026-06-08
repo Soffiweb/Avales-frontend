@@ -1,6 +1,7 @@
 const DEFAULT_LOCALE = "es-EC";
 const DEFAULT_TIME_ZONE = "America/Guayaquil";
 const PLAIN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -26,6 +27,80 @@ type DateFormatOptions = Intl.DateTimeFormatOptions & {
   fallback?: string;
   locale?: string;
 };
+
+type CalendarDateParts = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+function padDateSegment(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function buildDateInputValue(parts: CalendarDateParts) {
+  return `${parts.year}-${padDateSegment(parts.month)}-${padDateSegment(parts.day)}`;
+}
+
+export function isPlainDateString(value?: string | null) {
+  return Boolean(value && PLAIN_DATE_RE.test(value));
+}
+
+export function getCalendarDateParts(
+  value?: string | null,
+): CalendarDateParts | null {
+  if (!value) return null;
+
+  if (PLAIN_DATE_RE.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return { year, month, day };
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DEFAULT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  if (!year || !month || !day) return null;
+
+  return { year, month, day };
+}
+
+export function getCalendarDateTimestamp(value?: string | null): number | null {
+  const parts = getCalendarDateParts(value);
+  if (!parts) return null;
+  return Date.UTC(parts.year, parts.month - 1, parts.day);
+}
+
+export function getCalendarMonth(value?: string | null): number | null {
+  return getCalendarDateParts(value)?.month ?? null;
+}
+
+export function getCalendarDayDiff(
+  startValue?: string | null,
+  endValue?: string | null,
+): number | null {
+  const start = getCalendarDateTimestamp(startValue);
+  const end = getCalendarDateTimestamp(endValue);
+  if (start === null || end === null) return null;
+  return Math.round((end - start) / MS_PER_DAY);
+}
+
+export function formatDateInputFromDate(date: Date): string {
+  return `${date.getFullYear()}-${padDateSegment(date.getMonth() + 1)}-${padDateSegment(
+    date.getDate(),
+  )}`;
+}
 
 function parseDate(value?: string | null) {
   if (!value) return null;
@@ -149,23 +224,13 @@ export function formatMonthYear(
 }
 
 export function formatDateInput(value?: string | null): string {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (PLAIN_DATE_RE.test(trimmed)) return trimmed;
-  const maybePlain = trimmed.slice(0, 10);
-  if (PLAIN_DATE_RE.test(maybePlain)) return maybePlain;
-  const date = parseDate(trimmed);
-  if (!date) return "";
-  return date.toISOString().slice(0, 10);
+  const parts = getCalendarDateParts(value?.trim());
+  if (!parts) return "";
+  return buildDateInputValue(parts);
 }
 
 export function getTodayDateInputValue(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInput(new Date().toISOString());
 }
 
 export function formatDateDMY(value?: string | null): string {

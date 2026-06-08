@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
+import { formatDateInputFromDate } from "@/lib/utils/formatters";
 import {
   Popover,
   PopoverContent,
@@ -92,7 +93,7 @@ export default function DatePicker({
     mode === "range" ? Boolean(selectedRange?.from) : Boolean(selectedDate);
 
   const handleSelectSingle = (selected: Date | undefined) => {
-    onChange(selected ? selected.toISOString() : undefined);
+    onChange(selected ? formatDateInputFromDate(selected) : undefined);
   };
 
   const handleSelectRange = (selected: DateRange | undefined) => {

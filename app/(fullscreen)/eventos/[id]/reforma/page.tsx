@@ -341,10 +341,10 @@ export default function EventoReformaPage() {
     }
     if (generalForm.pais !== evento.pais) payload.pais = generalForm.pais;
     if (generalForm.fechaInicio !== formatDateInput(evento.fechaInicio)) {
-      payload.fechaInicio = new Date(generalForm.fechaInicio).toISOString();
+      payload.fechaInicio = formatDateInput(generalForm.fechaInicio);
     }
     if (generalForm.fechaFin !== formatDateInput(evento.fechaFin)) {
-      payload.fechaFin = new Date(generalForm.fechaFin).toISOString();
+      payload.fechaFin = formatDateInput(generalForm.fechaFin);
     }
 
     if (participantsForm.numAtletasHombres !== evento.numAtletasHombres) {

@@ -38,6 +38,7 @@ import {
   getNormalizedRoles,
   isAdminUser,
   isDTMUser,
+  isPdaUser,
 } from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
 import {
@@ -126,6 +127,7 @@ export default function EventoDetailPage() {
   const { user } = useAuth();
   const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
+  const canEditEvents = isAdminUser(user) || isPdaUser(user);
   const isDTM = isDTMUser(user);
   const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS") && !isDTM;
   const id = Number(params.id);
@@ -545,7 +547,7 @@ export default function EventoDetailPage() {
               )}
             </div>
           </div>
-          {canManageEvents && (
+          {canEditEvents && (
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex items-center gap-2">
               <button
                 type="button"
@@ -563,14 +565,16 @@ export default function EventoDetailPage() {
                 <Pencil className="w-4 h-4 mr-2" />
                 Editar
               </Link>
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(true)}
-                className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar
-              </button>
+              {canManageEvents && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(true)}
+                  className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar
+                </button>
+              )}
             </div>
           )}
         </div>

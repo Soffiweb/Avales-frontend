@@ -70,7 +70,7 @@ import {
   getTipoAvalLabel,
   getApprovalStageLabel,
 } from "@/lib/constants";
-import { getNormalizedRoles } from "@/lib/auth/access";
+import { getNormalizedRoles, isTrainerUser } from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
   getAvalCurrentEtapa,
@@ -413,6 +413,7 @@ type DocumentActionRowProps = {
   onReplaced: (aval: Aval) => void;
   onError: (message: string) => void;
   acceptedTypes: string;
+  canEdit: boolean;
 };
 
 function DocumentActionRow({
@@ -420,12 +421,13 @@ function DocumentActionRow({
   onReplaced,
   onError,
   acceptedTypes,
+  canEdit,
 }: DocumentActionRowProps) {
   const [replacing, setReplacing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const Icon = item.icon;
   const hasFile = Boolean(item.url);
-  const canUpload = Boolean(item.replaceHandler);
+  const canUpload = canEdit && Boolean(item.replaceHandler);
 
   const handleReplaceClick = () => {
     if (replacing) return;
@@ -546,6 +548,7 @@ type AdjuntoExtraRowProps = {
   adjunto: AdjuntoSolicitud;
   onUpdated: (aval: Aval) => void;
   onError: (message: string) => void;
+  canEdit: boolean;
 };
 
 function AdjuntoExtraRow({
@@ -553,6 +556,7 @@ function AdjuntoExtraRow({
   adjunto,
   onUpdated,
   onError,
+  canEdit,
 }: AdjuntoExtraRowProps) {
   const [busy, setBusy] = useState<"replace" | "delete" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -627,34 +631,38 @@ function AdjuntoExtraRow({
         accept={DOCUMENT_ACTION_ACCEPTED_TYPES}
         onChange={handleFileChange}
       />
-      <button
-        type="button"
-        onClick={handleReplaceClick}
-        disabled={busy !== null}
-        title="Reemplazar"
-        aria-label="Reemplazar"
-        className="p-1 text-gray-500 hover:text-indigo-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-indigo-400"
-      >
-        {busy === "replace" ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Pencil className="w-4 h-4" />
-        )}
-      </button>
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={busy !== null}
-        title="Eliminar"
-        aria-label="Eliminar"
-        className="p-1 text-gray-500 hover:text-rose-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-rose-400"
-      >
-        {busy === "delete" ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Trash2 className="w-4 h-4" />
-        )}
-      </button>
+      {canEdit && (
+        <>
+          <button
+            type="button"
+            onClick={handleReplaceClick}
+            disabled={busy !== null}
+            title="Reemplazar"
+            aria-label="Reemplazar"
+            className="p-1 text-gray-500 hover:text-indigo-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-indigo-400"
+          >
+            {busy === "replace" ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Pencil className="w-4 h-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={busy !== null}
+            title="Eliminar"
+            aria-label="Eliminar"
+            className="p-1 text-gray-500 hover:text-rose-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-rose-400"
+          >
+            {busy === "delete" ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+          </button>
+        </>
+      )}
     </li>
   );
 }
@@ -684,6 +692,7 @@ export default function AvalDetailPage() {
   const userRoles = getNormalizedRoles(user);
   const isAdminLike =
     userRoles.includes("ADMIN") || userRoles.includes("SUPER_ADMIN");
+  const canEditAvalFiles = isTrainerUser(user);
 
   const handleRegeneratePdfs = useCallback(async () => {
     if (!aval || regenerating) return;
@@ -1519,6 +1528,7 @@ export default function AvalDetailPage() {
                   <DocumentActionRow
                     key={item.label}
                     item={item}
+                    canEdit={canEditAvalFiles}
                     acceptedTypes={DOCUMENT_ACTION_ACCEPTED_TYPES}
                     onReplaced={(updated) => {
                       setAval(updated);
@@ -1546,6 +1556,7 @@ export default function AvalDetailPage() {
                         key={adj.id}
                         avalId={aval.id}
                         adjunto={adj}
+                        canEdit={canEditAvalFiles}
                         onUpdated={(updated) => {
                           setAval(updated);
                           setToast({
@@ -1574,6 +1585,7 @@ export default function AvalDetailPage() {
                         key={adj.id}
                         avalId={aval.id}
                         adjunto={adj}
+                        canEdit={canEditAvalFiles}
                         onUpdated={(updated) => {
                           setAval(updated);
                           setToast({

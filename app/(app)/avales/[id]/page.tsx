@@ -27,6 +27,7 @@ import {
   Pencil,
   RefreshCw,
   Trash2,
+  Upload,
 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 
@@ -423,19 +424,8 @@ function DocumentActionRow({
   const [replacing, setReplacing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const Icon = item.icon;
-
-  if (!item.url) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
-      >
-        <Icon className="w-4 h-4 mr-2" />
-        {item.label}
-      </button>
-    );
-  }
+  const hasFile = Boolean(item.url);
+  const canUpload = Boolean(item.replaceHandler);
 
   const handleReplaceClick = () => {
     if (replacing) return;
@@ -452,17 +442,65 @@ function DocumentActionRow({
       onReplaced(updated);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "No se pudo reemplazar el archivo";
+        err instanceof Error ? err.message : "No se pudo subir el archivo";
       onError(message);
     } finally {
       setReplacing(false);
     }
   };
 
+  // Caso: sin archivo y sin posibilidad de subir (ej. "Solicitud del aval"
+  // que se autogenera). Botón único disabled, como antes.
+  if (!hasFile && !canUpload) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
+      >
+        <Icon className="w-4 h-4 mr-2" />
+        {item.label}
+      </button>
+    );
+  }
+
+  // Caso: sin archivo PERO se puede subir → un solo botón "Subir X" clickeable
+  // que abre el file picker directamente.
+  if (!hasFile && canUpload) {
+    const uploadLabel =
+      item.replaceLabel?.replace(/^Reemplazar/i, "Subir") ??
+      item.label.replace(/^Descargar/i, "Subir");
+    return (
+      <div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept={acceptedTypes}
+          onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          onClick={handleReplaceClick}
+          disabled={replacing}
+          className="btn w-full justify-center bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
+        >
+          {replacing ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Upload className="w-4 h-4 mr-2" />
+          )}
+          {replacing ? "Subiendo..." : uploadLabel}
+        </button>
+      </div>
+    );
+  }
+
+  // Caso: archivo cargado → botón Descargar + botón ✏️ Reemplazar al lado.
   return (
     <div className="flex gap-2">
       <a
-        href={item.url}
+        href={item.url ?? "#"}
         target="_blank"
         rel="noreferrer noopener"
         download
@@ -471,7 +509,7 @@ function DocumentActionRow({
         <Icon className="w-4 h-4 mr-2" />
         {item.label}
       </a>
-      {item.replaceHandler && (
+      {canUpload && (
         <>
           <input
             ref={fileInputRef}

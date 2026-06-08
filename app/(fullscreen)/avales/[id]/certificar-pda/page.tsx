@@ -170,6 +170,15 @@ function normalizePositiveNumber(value: string, fallback?: number) {
   return parsed;
 }
 
+function normalizePositiveInteger(value: string, fallback?: number) {
+  if (!value.trim()) return fallback;
+  const digitsOnly = value.replace(/\D/g, "");
+  if (!digitsOnly) return fallback;
+  const parsed = Number.parseInt(digitsOnly, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -440,7 +449,23 @@ export default function CertificarAvalPage() {
   const totalMatches = Math.abs(totalDifference) < 0.01;
 
   const budgetPreviewItems = useMemo(
-    () => budgetDraftItems.map((item) => ({ id: item.id, nombre: item.nombre, total: getDraftItemTotal(item) })),
+    () =>
+      budgetDraftItems.map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        total: getDraftItemTotal(item),
+        dias: item.dias
+          .filter(
+            (dia): dia is { numeroDia: number; cantidad: number; valorUnitario: number } =>
+              typeof dia.cantidad === "number" &&
+              typeof dia.valorUnitario === "number",
+          )
+          .map((dia) => ({
+            numeroDia: dia.numeroDia,
+            cantidad: dia.cantidad,
+            valorUnitario: dia.valorUnitario,
+          })),
+      })),
     [budgetDraftItems],
   );
 
@@ -453,7 +478,13 @@ export default function CertificarAvalPage() {
             ...item,
             dias: item.dias.map((dia) => {
               if (dia.numeroDia !== numeroDia) return dia;
-              return { ...dia, [field]: normalizePositiveNumber(value) };
+              return {
+                ...dia,
+                [field]:
+                  field === "cantidad"
+                    ? normalizePositiveInteger(value)
+                    : normalizePositiveNumber(value),
+              };
             }),
           };
         }),
@@ -821,7 +852,7 @@ export default function CertificarAvalPage() {
                                       readOnly={!isEditable}
                                       disabled={!isEditable}
                                       onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9.]/g, "");
+                                        const value = e.target.value.replace(/\D/g, "");
                                         handleDiaChange(item.id, dia.numeroDia, "cantidad", value);
                                       }}
                                     />
@@ -1003,7 +1034,11 @@ export default function CertificarAvalPage() {
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
                 items={budgetPreviewItems}
-                draft={{ notas: [] }}
+                draft={{
+                  notas: [],
+                  codigoActividad: draft.codigoActividad,
+                  numeroAval: draft.numeroAval,
+                }}
               />
             </PreviewCollapsible>
           </div>

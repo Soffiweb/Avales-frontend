@@ -10,7 +10,11 @@ import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import UploadModal from "@/components/ui/upload-modal";
 import { uploadConvocatoria } from "@/lib/api/avales";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
-import { eventoTieneFondosPublicos, type Evento } from "@/types/evento";
+import {
+  eventoTieneFondosPublicos,
+  isEventoIncompleto,
+  type Evento,
+} from "@/types/evento";
 import type { TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
@@ -141,6 +145,14 @@ export default function NuevoAvalPage() {
   const handleEventSelect = (evento: Evento) => {
     if (isComprasPublicas) {
       setSubmitError("Tu rol no tiene permisos para crear avales.");
+      return;
+    }
+
+    if (isEventoIncompleto(evento)) {
+      const next = `/avales/nuevo/eventos/${evento.id}`;
+      router.push(
+        `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(next)}`,
+      );
       return;
     }
 

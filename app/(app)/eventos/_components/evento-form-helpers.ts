@@ -1,7 +1,11 @@
 "use client";
 
 import { EVENTO_CATEGORIA_OPTIONS, normalizeEventoTipoParticipacion } from "@/lib/constants";
-import { getCanonicalCategory, normalizeCategoryValue } from "@/lib/utils/categories";
+import {
+  getCanonicalCategory,
+  getCategoryByCatalogValue,
+  normalizeCategoryValue,
+} from "@/lib/utils/categories";
 import { getCatalogItemCode } from "@/lib/utils/catalog";
 import { formatDateInput, getCalendarMonth } from "@/lib/utils/formatters/dates";
 import type { CatalogItem } from "@/types/catalog";
@@ -53,16 +57,7 @@ export function resolveCategoriaCatalogItem(
   categorias: CatalogItem[],
   categoriaCodigo: string,
 ) {
-  const normalizedValue = normalizeCategoryValue(categoriaCodigo);
-  return categorias.find((item) => {
-    const normalizedCode = normalizeCategoryValue(item.codigo);
-    const normalizedName = normalizeCategoryValue(item.nombre);
-    return (
-      normalizedCode === normalizedValue ||
-      normalizedName === normalizedValue ||
-      String(item.id) === categoriaCodigo
-    );
-  });
+  return getCategoryByCatalogValue(categorias, categoriaCodigo);
 }
 
 export function mapEventoToFormValues(evento: Evento): EventoFormValues {

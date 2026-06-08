@@ -51,6 +51,7 @@ const categoryAliases = new Map<string, AppCategory>([
   ["MENORES", "MENORES"],
   ["JUVENIL", "JUVENIL"],
   ["SENIOR", "SENIOR"],
+  ["PRE_JUVENIL", "PREJUVENIL"],
   ["ESCUELAS_DE_INICIACION", "ESCUELAS_INICIACION"],
   ["ESCUELAS_INICIACION", "ESCUELAS_INICIACION"],
   ["TODOS", "TODOS"],

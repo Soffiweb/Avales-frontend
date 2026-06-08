@@ -9,6 +9,7 @@ import { aprobarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
+import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
@@ -32,6 +33,15 @@ const INITIAL_DRAFT: FinancieroDraft = {
   firmanteCargo: "",
   fechaEmision: new Date().toISOString().slice(0, 10),
   notas: ["", "", ""],
+};
+
+const EMPTY_PDA_DRAFT: PdaDraft = {
+  descripcion: "",
+  numeroPda: "",
+  numeroAval: "",
+  codigoActividad: "005",
+  nombreFirmante: "",
+  cargoFirmante: "",
 };
 
 const APPROVAL_ETAPA: EtapaFlujo = "FINANCIERO";
@@ -111,6 +121,18 @@ export default function CertificacionFinancieraPage() {
   const financieroSection = getSectionConfig(formConfig, "FINANCIERO");
   const approveAction = getActionConfig(formConfig, "APROBAR");
   const rejectAction = getActionConfig(formConfig, "RECHAZAR");
+  const pdaDraft = useMemo(() => {
+    if (!aval?.pda) return EMPTY_PDA_DRAFT;
+    const pda = aval.pda;
+    return {
+      descripcion: pda.descripcion ?? "",
+      numeroPda: pda.numeroPda ?? "",
+      numeroAval: pda.numeroAval ?? "",
+      codigoActividad: pda.codigoActividad ?? "005",
+      nombreFirmante: pda.nombreFirmante ?? "",
+      cargoFirmante: pda.cargoFirmante ?? "",
+    };
+  }, [aval]);
 
   // Reset local state on aval navigation
   useEffect(() => {
@@ -401,11 +423,21 @@ export default function CertificacionFinancieraPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
+            <PreviewCollapsible title="Certificacion PDA">
+              <PdaPreview aval={aval} draft={pdaDraft} />
+            </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Presupuesto salida anticipo">
-              <PresupuestoSalidaAnticipoPreview aval={aval} draft={draft} />
+              <PresupuestoSalidaAnticipoPreview
+                aval={aval}
+                draft={{
+                  notas: draft.notas,
+                  codigoActividad: pdaDraft.codigoActividad,
+                  numeroAval: pdaDraft.numeroAval,
+                }}
+              />
             </PreviewCollapsible>
           </div>
         </div>

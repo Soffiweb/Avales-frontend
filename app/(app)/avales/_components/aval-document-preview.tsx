@@ -4,6 +4,7 @@ import {
   formatDateDMY,
   formatEventScheduleDocumentLabel,
   formatGenero,
+  getCalendarDateParts,
   formatLocationWithProvince,
   formatTimeCompact,
   formatTransport,
@@ -52,6 +53,27 @@ type AvalDocumentPreviewProps = {
 };
 
 export type AvalPreviewFormData = FormData;
+
+const PREVIEW_MONTHS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+function formatPreviewBirthDate(value?: string | null) {
+  const parts = getCalendarDateParts(value);
+  if (!parts) return "-";
+  return `${parts.day} ${PREVIEW_MONTHS[parts.month - 1]} ${parts.year}`;
+}
 
 export default function AvalDocumentPreview({
   aval,
@@ -262,7 +284,7 @@ export default function AvalDocumentPreview({
                       {deportista.cedula ?? "-"}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 align-top">
-                      {formatDateDMY(deportista.fechaNacimiento)}
+                      {formatPreviewBirthDate(deportista.fechaNacimiento)}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 align-top font-semibold">
                       {deportista.observacion ?? "AFILIADO/A 2026"}

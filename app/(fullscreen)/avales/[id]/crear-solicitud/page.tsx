@@ -22,6 +22,7 @@ import Paso02Logistica from "@/app/(app)/avales/_components/paso-02-logistica";
 import Paso03Objetivos from "@/app/(app)/avales/_components/paso-03-objetivos";
 import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuesto";
 import { Loader2 } from "lucide-react";
+import { inferEventoGenero } from "@/types/evento";
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -134,6 +135,19 @@ export default function CrearSolicitudPage() {
 
   const handlePreviewDataChange = useCallback((stepData: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...stepData }));
+    if (!stepData.deportistas?.length) return;
+
+    const genero = inferEventoGenero(stepData.deportistas);
+    if (!genero) return;
+
+    setAval((prev) =>
+      prev
+        ? {
+            ...prev,
+            evento: prev.evento ? { ...prev.evento, genero } : prev.evento,
+          }
+        : prev,
+    );
   }, []);
 
   const handleBack = useCallback(() => {

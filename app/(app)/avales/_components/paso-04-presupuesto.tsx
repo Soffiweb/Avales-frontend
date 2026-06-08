@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
 import { createAval, uploadAdjuntosSolicitud } from "@/lib/api/avales";
+import { updateEvento } from "@/lib/api/eventos";
 import { getTipoAvalLabel } from "@/lib/constants";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type {
@@ -24,6 +25,7 @@ import type {
   TipoAval,
   TipoCoberturaAval,
 } from "@/types/aval";
+import { inferEventoGenero } from "@/types/evento";
 import {
   buildInitialManualRequirements,
   getCatalogItemActivity,
@@ -305,6 +307,15 @@ export default function Paso04Presupuesto({
       }
 
       // Preparar el payload según la estructura esperada por la API
+      const generoEvento = inferEventoGenero(formData.deportistas);
+      if (
+        aval.evento?.id &&
+        generoEvento &&
+        aval.evento.genero !== generoEvento
+      ) {
+        await updateEvento(aval.evento.id, { genero: generoEvento });
+      }
+
       const payload = {
         coleccionAvalId: avalId,
         tipoAval,

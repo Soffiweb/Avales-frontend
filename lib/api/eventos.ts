@@ -180,8 +180,6 @@ export type CompleteEventoDatosPayload = {
   tipoParticipacion?: string;
   categoriaId?: number;
   tipoEvento?: string;
-  fechaInicio?: string | null;
-  fechaFin?: string | null;
 };
 
 export async function updateEvento(

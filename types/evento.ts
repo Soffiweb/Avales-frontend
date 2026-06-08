@@ -164,12 +164,11 @@ const EVENTO_REQUIRED_FIELDS: EventoMissingField[] = [
   "categoriaId",
   "alcance",
   "tipoEvento",
-  "fechaInicio",
-  "fechaFin",
 ];
 
 export function getEventoMissingFields(evento?: Evento | null): EventoMissingField[] {
   if (!evento) return [];
+  if (evento.missingFields?.length) return evento.missingFields;
 
   return EVENTO_REQUIRED_FIELDS.filter((field) => {
     if (field === "categoriaId") return !evento.categoriaId;
@@ -182,11 +181,15 @@ export function getEventoEditableCompletionFields(
   evento?: Evento | null
 ): EventoMissingField[] {
   if (!evento) return [];
+  if (evento.editableFields?.length) return evento.editableFields;
   return getEventoMissingFields(evento);
 }
 
 export function isEventoIncompleto(evento?: Evento | null): boolean {
   if (!evento) return false;
+  if (typeof evento.eventoIncompleto === "boolean") {
+    return evento.eventoIncompleto;
+  }
   return getEventoMissingFields(evento).length > 0;
 }
 

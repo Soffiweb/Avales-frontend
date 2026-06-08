@@ -143,6 +143,7 @@ export default function AvalesPage() {
           const candidates = [
             aval.evento?.nombre,
             aval.evento?.codigo,
+            aval.evento?.disciplina?.nombre,
             aval.avalTecnico?.numeroAval ?? aval.numeroColeccion ?? aval.aval ?? String(aval.id),
           ];
           return candidates.some((c) => (c ?? "").toLowerCase().includes(term));
@@ -199,7 +200,7 @@ export default function AvalesPage() {
           <div className="grid grid-flow-row sm:grid-flow-col sm:auto-cols-max sm:justify-end gap-2 w-full sm:w-auto">
             <SearchInput
               className="w-full sm:w-64"
-              placeholder="Buscar por evento, código o número de aval"
+              placeholder="Buscar por evento, disciplina, código o número de aval"
               value={filters.search}
               onChange={(v) => setFilter("search", v)}
             />

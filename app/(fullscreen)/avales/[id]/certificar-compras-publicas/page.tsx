@@ -463,35 +463,44 @@ export default function CertificarComprasPublicasPage() {
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Código de necesidad
+                    Código(s) de necesidad
                   </span>
-                  <input
-                    className="form-input w-full mt-1"
+                  <textarea
+                    className="form-textarea w-full mt-1"
+                    rows={2}
                     value={draft.codigoNecesidad}
                     readOnly={!isEditable || !requiresContratacionData}
                     disabled={!isEditable || !requiresContratacionData}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, codigoNecesidad: e.target.value }))
                     }
-                    placeholder="Ej: CN-2026-001"
+                    placeholder="Ej: CN-2026-001, CN-2026-002, CN-2026-003"
                   />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Si existen varios códigos, sepáralos por coma y mantén el mismo orden de
+                    sus descripciones.
+                  </p>
                 </label>
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Objeto de contratación
+                    Objeto(s) de contratación
                   </span>
                   <textarea
                     className="form-textarea w-full mt-1"
-                    rows={3}
+                    rows={4}
                     value={draft.objetoContratacion}
                     readOnly={!isEditable || !requiresContratacionData}
                     disabled={!isEditable || !requiresContratacionData}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, objetoContratacion: e.target.value }))
                     }
-                    placeholder="Describe el objeto de contratación..."
+                    placeholder="Ej: Servicio A, Servicio B, Servicio C"
                   />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Si ingresas varios objetos, sepáralos por coma y colócalos en el mismo
+                    orden que los códigos de necesidad.
+                  </p>
                 </label>
 
                 <label className="block md:col-span-2">

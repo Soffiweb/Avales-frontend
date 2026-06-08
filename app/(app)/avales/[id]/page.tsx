@@ -898,7 +898,9 @@ export default function AvalDetailPage() {
     ? getFinalApprovalStageForAval(aval)
     : currentEtapa;
   const canDownloadAvalCompleto = Boolean(aval.aval) || isAvalCompleto;
-  const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-pdf`;
+  // Endpoint ZIP: incluye el PDF mergeado + cualquier adjunto NO-PDF/NO-imagen
+  // (Excel, CSV) suelto dentro del archivo.
+  const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-zip`;
 
   const totalAtletas = evento
     ? (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0)

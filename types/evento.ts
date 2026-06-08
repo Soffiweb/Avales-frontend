@@ -211,8 +211,23 @@ export function getEventoMissingFieldLabel(field: EventoMissingField): string {
   }
 }
 
+function extractGeneroFromParticipante(deportista: {
+  genero?: string | null;
+  payload?: Record<string, unknown> | null;
+}) {
+  if (typeof deportista.genero === "string") {
+    return deportista.genero.toUpperCase();
+  }
+
+  const payloadGenero = deportista.payload?.genero;
+  return typeof payloadGenero === "string" ? payloadGenero.toUpperCase() : null;
+}
+
 export function inferEventoGenero(
-  deportistas?: Array<{ genero?: string | null }> | null,
+  deportistas?: Array<{
+    genero?: string | null;
+    payload?: Record<string, unknown> | null;
+  }> | null,
 ): EventoGenero | null {
   if (!deportistas?.length) return null;
 
@@ -220,7 +235,7 @@ export function inferEventoGenero(
   let hasFemenino = false;
 
   deportistas.forEach((deportista) => {
-    const genero = deportista.genero?.toUpperCase();
+    const genero = extractGeneroFromParticipante(deportista);
     if (genero === "MASCULINO") hasMasculino = true;
     if (genero === "FEMENINO") hasFemenino = true;
   });

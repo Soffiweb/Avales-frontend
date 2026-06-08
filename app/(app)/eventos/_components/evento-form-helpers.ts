@@ -181,6 +181,44 @@ export function buildUpdateEventoPayload(
   };
 }
 
+export function buildUpdateEventoPayloadFromForm(
+  values: EventoFormValues,
+  disciplinaId?: number,
+  categoriaId?: number,
+): UpdateEventoPayload | null {
+  const tipoParticipacion =
+    normalizeEventoTipoParticipacion(values.tipoParticipacion) ?? undefined;
+
+  if (!tipoParticipacion || !values.tipoEvento || !values.genero) {
+    return null;
+  }
+
+  return {
+    codigo: values.codigo.trim(),
+    tipoParticipacion,
+    tipoEvento: values.tipoEvento.trim(),
+    nombre: values.nombre.trim(),
+    lugar: values.lugar.trim(),
+    genero: values.genero,
+    disciplinaId,
+    categoriaId: categoriaId ?? null,
+    mesProgramado: values.mesProgramado,
+    provincia: values.provincia.trim(),
+    ciudad: values.ciudad.trim(),
+    pais: values.pais.trim(),
+    alcance: values.alcance.trim() ? values.alcance.trim() : null,
+    fechaInicio: values.fechaInicio?.trim()
+      ? formatDateInput(values.fechaInicio)
+      : null,
+    fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
+    numEntrenadoresHombres: values.numEntrenadoresHombres,
+    numEntrenadoresMujeres: values.numEntrenadoresMujeres,
+    numAtletasHombres: values.numAtletasHombres,
+    numAtletasMujeres: values.numAtletasMujeres,
+    eventoItems: values.eventoItems?.length ? values.eventoItems : undefined,
+  };
+}
+
 export function parseIntegerInput(value: unknown) {
   return Number(String(value).replace(/\D/g, "")) || 0;
 }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { useAuth } from "@/app/providers/auth-provider";
+import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import EventoCompletionForm from "../../_components/evento-completion-form";
 import EventoForm from "../../_components/evento-form";
 import EventoFormSkeleton from "../../_components/evento-form-skeleton";
@@ -20,7 +22,10 @@ export default function EditarEventoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
+  const { user } = useAuth();
   const id = Number(params.id);
+  const userRoles = getNormalizedRoles(user);
+  const canManageEvents = isAdminUser(user);
 
   const [evento, setEvento] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +94,11 @@ export default function EditarEventoPage() {
     );
   }
 
+  const shouldShowCompletionForm =
+    isEventoIncompleto(evento) &&
+    userRoles.includes("ENTRENADOR") &&
+    !canManageEvents;
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
       <div className="mb-8">
@@ -100,16 +110,16 @@ export default function EditarEventoPage() {
           Volver a eventos
         </Link>
         <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-          {isEventoIncompleto(evento) ? "Completar evento" : "Editar evento"}
+          {shouldShowCompletionForm ? "Completar evento" : "Editar evento"}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {isEventoIncompleto(evento)
+          {shouldShowCompletionForm
             ? `Completa los datos faltantes de ${evento.nombre} para habilitar la creación del aval.`
             : `Modifica los datos del evento ${evento.nombre}.`}
         </p>
       </div>
 
-      {isEventoIncompleto(evento) ? (
+      {shouldShowCompletionForm ? (
         <div className="space-y-4">
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
             <p className="font-medium">Este evento aún no está listo para aval.</p>

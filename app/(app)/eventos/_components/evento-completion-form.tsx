@@ -5,17 +5,10 @@ import { useForm } from "react-hook-form";
 
 import { ApiError } from "@/lib/api/client";
 import { getCatalog } from "@/lib/api/catalog";
-import {
-  completeEventoDatos,
-  type CompleteEventoDatosPayload,
-} from "@/lib/api/eventos";
-import {
-  EVENTO_ALCANCE_OPTIONS,
-  EVENTO_GENERO_OPTIONS,
-  EVENTO_TAREA_OPTIONS,
-  EVENTO_TIPO_PARTICIPACION_OPTIONS,
-} from "@/lib/constants";
+import { updateEvento, type UpdateEventoPayload } from "@/lib/api/eventos";
+import { EVENTO_ALCANCE_OPTIONS, EVENTO_TAREA_OPTIONS } from "@/lib/constants";
 import { getCategoryIdOptions } from "@/lib/utils/categories";
+import { formatDateInput } from "@/lib/utils/formatters/dates";
 import type { CatalogItem } from "@/types/catalog";
 import {
   getEventoEditableCompletionFields,
@@ -26,11 +19,11 @@ import {
 } from "@/types/evento";
 
 type CompletionFormValues = {
-  genero: "" | "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
-  alcance: string;
-  tipoParticipacion: string;
   categoriaId: number | "";
+  alcance: string;
   tipoEvento: string;
+  fechaInicio: string;
+  fechaFin: string;
 };
 
 type Props = {
@@ -39,11 +32,13 @@ type Props = {
 };
 
 const FIELD_HELPERS: Record<EventoMissingField, string> = {
-  genero: "Selecciona el género oficial del evento.",
-  alcance: "Indica si el evento es nacional o internacional.",
-  tipoParticipacion: "Define la modalidad de participación del evento.",
+  genero: "Se calculará automáticamente según los deportistas seleccionados.",
+  alcance: "Este campo ya no se completa en este flujo.",
+  tipoParticipacion: "Este campo ya no se completa en este flujo.",
   categoriaId: "Selecciona la categoría deportiva correspondiente.",
-  tipoEvento: "Selecciona el tipo de evento registrado.",
+  tipoEvento: "Este campo ya no se completa en este flujo.",
+  fechaInicio: "Registra la fecha de inicio del evento.",
+  fechaFin: "Registra la fecha de fin del evento.",
 };
 
 export default function EventoCompletionForm({ evento, onCompleted }: Props) {
@@ -71,11 +66,11 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
     formState: { errors, isSubmitting },
   } = useForm<CompletionFormValues>({
     defaultValues: {
-      genero: evento.genero ?? "",
-      alcance: evento.alcance ?? "",
-      tipoParticipacion: evento.tipoParticipacion ?? "",
       categoriaId: evento.categoriaId ?? "",
+      alcance: evento.alcance ?? "",
       tipoEvento: evento.tipoEvento ?? "",
+      fechaInicio: formatDateInput(evento.fechaInicio),
+      fechaFin: formatDateInput(evento.fechaFin),
     },
   });
 
@@ -90,7 +85,9 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
         setCategorias(response.data?.categorias ?? []);
       } catch (err: unknown) {
         setCatalogError(
-          err instanceof Error ? err.message : "No se pudieron cargar las categorías.",
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las categorías.",
         );
         setCategorias([]);
       } finally {
@@ -104,48 +101,53 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
 
-    const payload: Partial<CompleteEventoDatosPayload> = {};
+    const payload: UpdateEventoPayload = {};
 
     editableFields.forEach((field) => {
-      const value = values[field];
+      const value = values[field as keyof CompletionFormValues];
       if (value === "" || value === undefined || value === null) {
-        setError(field, {
+        setError(field as keyof CompletionFormValues, {
           type: "required",
           message: `Completa ${getEventoMissingFieldLabel(field)}.`,
         });
         return;
       }
+
       if (field === "categoriaId") {
-        payload[field] = Number(value);
+        payload.categoriaId = Number(value);
         return;
       }
-      if (field === "genero") {
-        payload.genero = value as CompleteEventoDatosPayload["genero"];
+
+      if (field === "fechaInicio") {
+        payload.fechaInicio = String(value);
         return;
       }
+
+      if (field === "fechaFin") {
+        payload.fechaFin = String(value);
+        return;
+      }
+
       if (field === "alcance") {
         payload.alcance = String(value);
         return;
       }
-      if (field === "tipoParticipacion") {
-        payload.tipoParticipacion = String(value);
-        return;
-      }
+
       if (field === "tipoEvento") {
         payload.tipoEvento = String(value);
       }
     });
 
-    if (editableFields.some((field) => !payload[field])) {
+    if (editableFields.some((field) => payload[field] === undefined)) {
       return;
     }
 
     try {
-      const response = await completeEventoDatos(evento.id, payload);
+      const response = await updateEvento(evento.id, payload);
       await onCompleted?.(response.data);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.problem?.field) {
-        const field = err.problem.field as EventoMissingField;
+        const field = err.problem.field as keyof CompletionFormValues;
         setError(field, {
           type: "server",
           message: err.problem.detail ?? err.problem.title ?? err.message,
@@ -154,7 +156,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
 
       setSubmitError(
         err instanceof ApiError
-          ? err.problem?.detail ?? err.problem?.title ?? err.message
+          ? (err.problem?.detail ?? err.problem?.title ?? err.message)
           : err instanceof Error
             ? err.message
             : "No se pudieron completar los datos del evento.",
@@ -172,112 +174,33 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
           Completar datos del evento
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Completa los campos obligatorios para continuar con la creación del aval.
+          Completa los campos obligatorios para continuar con la creación del
+          aval.
         </p>
       </div>
 
       <div className="space-y-5 p-5">
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
-          <p className="font-medium">Faltan datos obligatorios en este evento.</p>
+          <p className="font-medium">
+            Faltan datos obligatorios en este evento.
+          </p>
           <p className="mt-1">
             Debes completar:{" "}
             {missingFields.map(getEventoMissingFieldLabel).join(", ")}.
           </p>
         </div>
 
-        {editableFields.includes("genero") && (
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="genero">
-              Género
-            </label>
-            <select
-              id="genero"
-              className="form-select w-full"
-              {...register("genero", { required: "Completa género." })}
-            >
-              <option value="">Selecciona una opción</option>
-              {EVENTO_GENERO_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {FIELD_HELPERS.genero}
-            </p>
-            {errors.genero && (
-              <p className="mt-1 text-xs text-red-600">{errors.genero.message}</p>
-            )}
-          </div>
-        )}
-
-        {editableFields.includes("alcance") && (
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="alcance">
-              Alcance
-            </label>
-            <select
-              id="alcance"
-              className="form-select w-full"
-              {...register("alcance", { required: "Completa alcance." })}
-            >
-              <option value="">Selecciona una opción</option>
-              {EVENTO_ALCANCE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {FIELD_HELPERS.alcance}
-            </p>
-            {errors.alcance && (
-              <p className="mt-1 text-xs text-red-600">{errors.alcance.message}</p>
-            )}
-          </div>
-        )}
-
-        {editableFields.includes("tipoParticipacion") && (
+        {editableFields.includes("categoriaId") && (
           <div>
             <label
               className="mb-1 block text-sm font-medium"
-              htmlFor="tipoParticipacion"
+              htmlFor="categoriaId"
             >
-              Tipo de participación
-            </label>
-            <select
-              id="tipoParticipacion"
-              className="form-select w-full"
-              {...register("tipoParticipacion", {
-                required: "Completa tipo de participación.",
-              })}
-            >
-              <option value="">Selecciona una opción</option>
-              {EVENTO_TIPO_PARTICIPACION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {FIELD_HELPERS.tipoParticipacion}
-            </p>
-            {errors.tipoParticipacion && (
-              <p className="mt-1 text-xs text-red-600">
-                {errors.tipoParticipacion.message}
-              </p>
-            )}
-          </div>
-        )}
-
-        {editableFields.includes("categoriaId") && (
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="categoriaId">
               Categoría
             </label>
             <select
               id="categoriaId"
-              className="form-select w-full"
+              className="form-select w-full max-w-lg"
               disabled={catalogLoading}
               {...register("categoriaId", {
                 required: "Completa categoría.",
@@ -285,7 +208,9 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
               })}
             >
               <option value="">
-                {catalogLoading ? "Cargando categorías..." : "Selecciona una categoría"}
+                {catalogLoading
+                  ? "Cargando categorías..."
+                  : "Selecciona una categoría"}
               </option>
               {categoriaOptions.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -307,6 +232,34 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
           </div>
         )}
 
+        {editableFields.includes("alcance") && (
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="alcance">
+              Alcance
+            </label>
+            <select
+              id="alcance"
+              className="form-select w-full max-w-xs"
+              {...register("alcance", {
+                required: "Completa alcance.",
+              })}
+            >
+              <option value="">Selecciona una opción</option>
+              {EVENTO_ALCANCE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {FIELD_HELPERS.alcance}
+            </p>
+            {errors.alcance && (
+              <p className="mt-1 text-xs text-red-600">{errors.alcance.message}</p>
+            )}
+          </div>
+        )}
+
         {editableFields.includes("tipoEvento") && (
           <div>
             <label className="mb-1 block text-sm font-medium" htmlFor="tipoEvento">
@@ -314,8 +267,10 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
             </label>
             <select
               id="tipoEvento"
-              className="form-select w-full"
-              {...register("tipoEvento", { required: "Completa tipo de evento." })}
+              className="form-select w-full max-w-xs"
+              {...register("tipoEvento", {
+                required: "Completa tipo de evento.",
+              })}
             >
               <option value="">Selecciona una opción</option>
               {EVENTO_TAREA_OPTIONS.map((option) => (
@@ -329,6 +284,60 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
             </p>
             {errors.tipoEvento && (
               <p className="mt-1 text-xs text-red-600">{errors.tipoEvento.message}</p>
+            )}
+          </div>
+        )}
+
+        {editableFields.includes("fechaInicio") && (
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium"
+              htmlFor="fechaInicio"
+            >
+              Fecha de inicio
+            </label>
+            <input
+              id="fechaInicio"
+              type="date"
+              className="form-input w-full max-w-xs"
+              {...register("fechaInicio", {
+                required: "Completa fecha de inicio.",
+              })}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {FIELD_HELPERS.fechaInicio}
+            </p>
+            {errors.fechaInicio && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.fechaInicio.message}
+              </p>
+            )}
+          </div>
+        )}
+
+        {editableFields.includes("fechaFin") && (
+          <div>
+            <label
+              className="mb-1 block text-sm font-medium"
+              htmlFor="fechaFin"
+            >
+              Fecha de fin
+            </label>
+            <input
+              id="fechaFin"
+              type="date"
+              className="form-input w-full max-w-xs"
+              {...register("fechaFin", {
+                required: "Completa fecha de fin.",
+              })}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {FIELD_HELPERS.fechaFin}
+            </p>
+            {errors.fechaFin && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.fechaFin.message}
+              </p>
             )}
           </div>
         )}

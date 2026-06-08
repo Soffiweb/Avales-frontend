@@ -18,7 +18,7 @@ import type { CatalogItem, CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import {
   buildCreateEventoPayload,
-  buildUpdateEventoPayload,
+  buildUpdateEventoPayloadFromForm,
   EMPTY_FORM_VALUES,
   getDefaultMesProgramado,
   mapEventoToFormValues,
@@ -276,12 +276,6 @@ export function useEventoForm({
         categorias,
         values.categoriaCodigo,
       );
-      const payload = buildCreateEventoPayload(values);
-
-      if (!payload) {
-        setSubmitError("Completa los campos obligatorios del evento.");
-        return;
-      }
 
       try {
         if (mode === "edit") {
@@ -289,13 +283,29 @@ export function useEventoForm({
             throw new Error("No se pudo identificar el evento a editar.");
           }
 
+          const updatePayload = buildUpdateEventoPayloadFromForm(
+            values,
+            disciplina?.id,
+            categoria?.id,
+          );
+          if (!updatePayload) {
+            setSubmitError("Completa los campos obligatorios del evento.");
+            return;
+          }
+
           await updateEvento(
             evento.id,
-            buildUpdateEventoPayload(payload, disciplina?.id, categoria?.id),
+            updatePayload,
             archivo ?? undefined,
           );
           if (onUpdated) await onUpdated();
         } else {
+          const payload = buildCreateEventoPayload(values);
+          if (!payload) {
+            setSubmitError("Completa los campos obligatorios del evento.");
+            return;
+          }
+
           await createEvento(payload, archivo ?? undefined);
           reset(EMPTY_FORM_VALUES);
           removeFile();

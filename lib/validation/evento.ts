@@ -61,10 +61,7 @@ export const eventoSchema = z.object({
     .enum(
       EVENTO_CATEGORIA_OPTIONS.map((option) => option.value) as [string, ...string[]]
     )
-    .or(z.literal(""))
-    .refine((value) => value !== "", {
-      message: "Selecciona una categoría válida",
-    }),
+    .or(z.literal("")),
   mesProgramado: z
     .number()
     .int()
@@ -77,10 +74,7 @@ export const eventoSchema = z.object({
     .enum(
       EVENTO_ALCANCE_OPTIONS.map((option) => option.value) as [string, ...string[]]
     )
-    .or(z.literal(""))
-    .refine((value) => value !== "", {
-      message: "Selecciona un alcance válido",
-    }),
+    .or(z.literal("")),
   fechaInicio: optionalDateSchema,
   fechaFin: optionalDateSchema,
   numEntrenadoresHombres: z

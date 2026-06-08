@@ -8,15 +8,18 @@ export type EventoMissingField =
   | "alcance"
   | "tipoParticipacion"
   | "categoriaId"
-  | "tipoEvento";
+  | "tipoEvento"
+  | "fechaInicio"
+  | "fechaFin";
 export type EventoCategoriaCodigo =
-  | "FORMACIÓN"
+  | "PERSONAS_CON_DISCAPACIDAD"
   | "MENORES"
-  | "PREJUVENIL"
   | "JUVENIL"
   | "SENIOR"
-  | "PERSONAS CON DISCAPACIDAD"
-  | "ESCUELAS DE INICIACIÓN"
+  | "ESCUELAS_INICIACION"
+  | "TODOS"
+  | "FORMACION"
+  | "PREJUVENIL"
   | "TODAS";
 
 export type EventoItemActividad = {
@@ -158,16 +161,15 @@ export function eventoTieneFondosPublicos(evento?: Evento | null): boolean {
 }
 
 const EVENTO_REQUIRED_FIELDS: EventoMissingField[] = [
-  "genero",
-  "alcance",
-  "tipoParticipacion",
   "categoriaId",
+  "alcance",
   "tipoEvento",
+  "fechaInicio",
+  "fechaFin",
 ];
 
 export function getEventoMissingFields(evento?: Evento | null): EventoMissingField[] {
   if (!evento) return [];
-  if (evento.missingFields?.length) return evento.missingFields;
 
   return EVENTO_REQUIRED_FIELDS.filter((field) => {
     if (field === "categoriaId") return !evento.categoriaId;
@@ -180,16 +182,11 @@ export function getEventoEditableCompletionFields(
   evento?: Evento | null
 ): EventoMissingField[] {
   if (!evento) return [];
-  return evento.editableFields?.length
-    ? evento.editableFields
-    : getEventoMissingFields(evento);
+  return getEventoMissingFields(evento);
 }
 
 export function isEventoIncompleto(evento?: Evento | null): boolean {
   if (!evento) return false;
-  if (typeof evento.eventoIncompleto === "boolean") {
-    return evento.eventoIncompleto;
-  }
   return getEventoMissingFields(evento).length > 0;
 }
 
@@ -205,7 +202,31 @@ export function getEventoMissingFieldLabel(field: EventoMissingField): string {
       return "categoría";
     case "tipoEvento":
       return "tipo de evento";
+    case "fechaInicio":
+      return "fecha de inicio";
+    case "fechaFin":
+      return "fecha de fin";
     default:
       return field;
   }
+}
+
+export function inferEventoGenero(
+  deportistas?: Array<{ genero?: string | null }> | null,
+): EventoGenero | null {
+  if (!deportistas?.length) return null;
+
+  let hasMasculino = false;
+  let hasFemenino = false;
+
+  deportistas.forEach((deportista) => {
+    const genero = deportista.genero?.toUpperCase();
+    if (genero === "MASCULINO") hasMasculino = true;
+    if (genero === "FEMENINO") hasFemenino = true;
+  });
+
+  if (hasMasculino && hasFemenino) return "MASCULINO_FEMENINO";
+  if (hasMasculino) return "MASCULINO";
+  if (hasFemenino) return "FEMENINO";
+  return null;
 }

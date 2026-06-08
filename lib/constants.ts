@@ -110,14 +110,15 @@ export const EVENTO_MES_OPTIONS = [
 ] as const;
 
 export const EVENTO_CATEGORIA_OPTIONS = [
-  { value: APP_CATEGORIES[0], label: "Formación" },
+  { value: APP_CATEGORIES[0], label: "Personas con discapacidad" },
   { value: APP_CATEGORIES[1], label: "Menores" },
-  { value: APP_CATEGORIES[2], label: "Prejuvenil" },
-  { value: APP_CATEGORIES[3], label: "Juvenil" },
-  { value: APP_CATEGORIES[4], label: "Senior" },
-  { value: APP_CATEGORIES[5], label: "Personas con discapacidad" },
-  { value: APP_CATEGORIES[6], label: "Escuelas de iniciación" },
-  { value: APP_CATEGORIES[7], label: "Todas" },
+  { value: APP_CATEGORIES[2], label: "Juvenil" },
+  { value: APP_CATEGORIES[3], label: "Senior" },
+  { value: APP_CATEGORIES[4], label: "Escuelas de iniciación" },
+  { value: APP_CATEGORIES[5], label: "Todos" },
+  { value: APP_CATEGORIES[6], label: "Formación" },
+  { value: APP_CATEGORIES[7], label: "Prejuvenil" },
+  { value: APP_CATEGORIES[8], label: "Todas" },
 ] as const;
 
 const EVENTO_TIPO_PARTICIPACION_ALIASES: Record<string, EventoTipoParticipacion> = {

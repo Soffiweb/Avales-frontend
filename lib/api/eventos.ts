@@ -159,12 +159,12 @@ export type UpdateEventoPayload = {
   lugar?: string;
   genero?: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
   disciplinaId?: number;
-  categoriaId?: number;
+  categoriaId?: number | null;
   mesProgramado?: number;
   provincia?: string;
   ciudad?: string;
   pais?: string;
-  alcance?: string;
+  alcance?: string | null;
   fechaInicio?: string | null;
   fechaFin?: string | null;
   numEntrenadoresHombres?: number;

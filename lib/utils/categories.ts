@@ -1,13 +1,14 @@
 import type { CatalogItem } from "@/types/catalog";
 
 export const APP_CATEGORIES = [
-  "FORMACIÓN",
+  "PERSONAS_CON_DISCAPACIDAD",
   "MENORES",
-  "PREJUVENIL",
   "JUVENIL",
   "SENIOR",
-  "PERSONAS CON DISCAPACIDAD",
-  "ESCUELAS DE INICIACIÓN",
+  "ESCUELAS_INICIACION",
+  "TODOS",
+  "FORMACION",
+  "PREJUVENIL",
   "TODAS",
 ] as const;
 
@@ -24,7 +25,9 @@ export function normalizeCategoryValue(value?: string | null) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, " ");
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 const categoryOrder = new Map(
@@ -32,25 +35,37 @@ const categoryOrder = new Map(
 );
 
 const categoryLabels = new Map<AppCategory, string>([
-  ["FORMACIÓN", "Formación"],
+  ["PERSONAS_CON_DISCAPACIDAD", "Personas con discapacidad"],
   ["MENORES", "Menores"],
-  ["PREJUVENIL", "Prejuvenil"],
   ["JUVENIL", "Juvenil"],
   ["SENIOR", "Senior"],
-  ["PERSONAS CON DISCAPACIDAD", "Personas con discapacidad"],
-  ["ESCUELAS DE INICIACIÓN", "Escuelas de iniciación"],
+  ["ESCUELAS_INICIACION", "Escuelas de iniciación"],
+  ["TODOS", "Todos"],
+  ["FORMACION", "Formación"],
+  ["PREJUVENIL", "Prejuvenil"],
   ["TODAS", "Todas"],
 ]);
 
+const categoryAliases = new Map<string, AppCategory>([
+  ["PERSONAS_CON_DISCAPACIDAD", "PERSONAS_CON_DISCAPACIDAD"],
+  ["MENORES", "MENORES"],
+  ["JUVENIL", "JUVENIL"],
+  ["SENIOR", "SENIOR"],
+  ["ESCUELAS_DE_INICIACION", "ESCUELAS_INICIACION"],
+  ["ESCUELAS_INICIACION", "ESCUELAS_INICIACION"],
+  ["TODOS", "TODOS"],
+  ["FORMACION", "FORMACION"],
+  ["PREJUVENIL", "PREJUVENIL"],
+  ["TODAS", "TODAS"],
+]);
+
 export function isValidAppCategory(value?: string | null) {
-  return categoryOrder.has(normalizeCategoryValue(value));
+  return Boolean(getCanonicalCategory(value));
 }
 
 export function getCanonicalCategory(value?: string | null) {
   const normalized = normalizeCategoryValue(value);
-  return APP_CATEGORIES.find(
-    (category) => normalizeCategoryValue(category) === normalized
-  );
+  return categoryAliases.get(normalized);
 }
 
 export function formatCategoryLabel(value?: string | null, fallback = "-") {
@@ -74,16 +89,19 @@ export function getCategoryByCatalogValue(
   items: CatalogItem[],
   value?: string | number | null
 ) {
-  const normalized = normalizeCategoryValue(
+  const normalizedInput = normalizeCategoryValue(
     value === undefined || value === null ? "" : String(value)
   );
+  const canonicalInput = categoryAliases.get(normalizedInput) ?? normalizedInput;
 
   return items.find((item) => {
-    const code = normalizeCategoryValue(item.codigo);
-    const name = normalizeCategoryValue(item.nombre);
+    const code = categoryAliases.get(normalizeCategoryValue(item.codigo)) ??
+      normalizeCategoryValue(item.codigo);
+    const name = categoryAliases.get(normalizeCategoryValue(item.nombre)) ??
+      normalizeCategoryValue(item.nombre);
     return (
-      code === normalized ||
-      name === normalized ||
+      code === canonicalInput ||
+      name === canonicalInput ||
       String(item.id) === String(value ?? "")
     );
   });

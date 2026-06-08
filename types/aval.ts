@@ -254,6 +254,8 @@ export type Aval = {
   pdaUrl?: string | null;
   solicitudUrl?: string | null;
   adjuntosSolicitud: AdjuntoSolicitud[];
+  convocatoriaAdjuntos?: AdjuntoSolicitud[];
+  pronosticoDeportistasAdjuntos?: AdjuntoSolicitud[];
   aval?: string | null;
   numeroColeccion?: string | null;
   pda?: {

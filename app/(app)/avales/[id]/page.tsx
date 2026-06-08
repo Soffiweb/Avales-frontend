@@ -26,6 +26,7 @@ import {
   Loader2,
   Pencil,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 
@@ -39,14 +40,21 @@ import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   aprobarAval,
+  deleteAdjuntoSolicitud,
   getAval,
   rechazarAval,
   regenerarAvalPdfs,
+  replaceAdjuntoSolicitud,
   uploadCertificadoMedico,
   uploadConvocatoriaPrincipal,
   uploadPronosticoDeportistas,
 } from "@/lib/api/avales";
-import type { Aval, EtapaFlujo, Historial } from "@/types/aval";
+import type {
+  AdjuntoSolicitud,
+  Aval,
+  EtapaFlujo,
+  Historial,
+} from "@/types/aval";
 import {
   formatDate,
   formatEventScheduleLabel,
@@ -504,6 +512,124 @@ function DocumentActionRow({
 
 const DOCUMENT_ACTION_ACCEPTED_TYPES =
   ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv";
+
+type AdjuntoExtraRowProps = {
+  avalId: number;
+  adjunto: AdjuntoSolicitud;
+  onUpdated: (aval: Aval) => void;
+  onError: (message: string) => void;
+};
+
+function AdjuntoExtraRow({
+  avalId,
+  adjunto,
+  onUpdated,
+  onError,
+}: AdjuntoExtraRowProps) {
+  const [busy, setBusy] = useState<"replace" | "delete" | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReplaceClick = () => {
+    if (busy) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      setBusy("replace");
+      const updated = await replaceAdjuntoSolicitud(
+        avalId,
+        adjunto.id,
+        file,
+      ).then((r) => r.data);
+      onUpdated(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo reemplazar el archivo";
+      onError(message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (busy) return;
+    if (
+      !window.confirm(`¿Eliminar el archivo "${adjunto.nombreOriginal}"?`)
+    ) {
+      return;
+    }
+    try {
+      setBusy("delete");
+      const updated = await deleteAdjuntoSolicitud(avalId, adjunto.id).then(
+        (r) => r.data,
+      );
+      onUpdated(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo eliminar el archivo";
+      onError(message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <li className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800">
+      <a
+        href={adjunto.url}
+        target="_blank"
+        rel="noreferrer noopener"
+        download
+        className="flex-1 min-w-0 flex items-center gap-2 hover:text-indigo-600 dark:hover:text-indigo-400"
+        title={`Descargar ${adjunto.nombreOriginal}`}
+      >
+        <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
+        <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+          {adjunto.nombreOriginal}
+        </span>
+      </a>
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept={DOCUMENT_ACTION_ACCEPTED_TYPES}
+        onChange={handleFileChange}
+      />
+      <button
+        type="button"
+        onClick={handleReplaceClick}
+        disabled={busy !== null}
+        title="Reemplazar"
+        aria-label="Reemplazar"
+        className="p-1 text-gray-500 hover:text-indigo-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-indigo-400"
+      >
+        {busy === "replace" ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Pencil className="w-4 h-4" />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={busy !== null}
+        title="Eliminar"
+        aria-label="Eliminar"
+        className="p-1 text-gray-500 hover:text-rose-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-rose-400"
+      >
+        {busy === "delete" ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Trash2 className="w-4 h-4" />
+        )}
+      </button>
+    </li>
+  );
+}
 
 export default function AvalDetailPage() {
   const params = useParams();
@@ -1377,6 +1503,62 @@ export default function AvalDetailPage() {
                   />
                 ))}
               </div>
+
+              {/* Adicionales de convocatoria — editables individualmente */}
+              {(aval.convocatoriaAdjuntos?.length ?? 0) > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Convocatorias adicionales
+                  </p>
+                  <ul className="space-y-2">
+                    {aval.convocatoriaAdjuntos?.map((adj) => (
+                      <AdjuntoExtraRow
+                        key={adj.id}
+                        avalId={aval.id}
+                        adjunto={adj}
+                        onUpdated={(updated) => {
+                          setAval(updated);
+                          setToast({
+                            variant: "success",
+                            message: "Archivo actualizado correctamente.",
+                          });
+                        }}
+                        onError={(message) =>
+                          setToast({ variant: "error", message })
+                        }
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Adicionales de pronóstico — editables individualmente */}
+              {(aval.pronosticoDeportistasAdjuntos?.length ?? 0) > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Pronósticos de deportistas adicionales
+                  </p>
+                  <ul className="space-y-2">
+                    {aval.pronosticoDeportistasAdjuntos?.map((adj) => (
+                      <AdjuntoExtraRow
+                        key={adj.id}
+                        avalId={aval.id}
+                        adjunto={adj}
+                        onUpdated={(updated) => {
+                          setAval(updated);
+                          setToast({
+                            variant: "success",
+                            message: "Archivo actualizado correctamente.",
+                          });
+                        }}
+                        onError={(message) =>
+                          setToast({ variant: "error", message })
+                        }
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {showApprovalPanel ? (

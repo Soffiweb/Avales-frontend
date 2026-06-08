@@ -184,6 +184,29 @@ export async function uploadAdjuntosSolicitud(id: number, archivos: File[]) {
   });
 }
 
+export async function replaceAdjuntoSolicitud(
+  avalId: number,
+  adjuntoId: number,
+  archivo: File,
+) {
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+
+  return apiFetch<Aval>(`/avales/${avalId}/adjuntos/${adjuntoId}`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export async function deleteAdjuntoSolicitud(
+  avalId: number,
+  adjuntoId: number,
+) {
+  return apiFetch<Aval>(`/avales/${avalId}/adjuntos/${adjuntoId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function uploadPronosticoDeportistas(id: number, archivo: File) {
   const formData = new FormData();
   formData.append("pronosticoDeportistas", archivo);

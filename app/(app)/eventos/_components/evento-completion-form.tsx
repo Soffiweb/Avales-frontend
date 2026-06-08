@@ -46,6 +46,18 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
     () => getEventoEditableCompletionFields(evento),
     [evento],
   );
+  const completionFields = useMemo(
+    () =>
+      editableFields.filter(
+        (field): field is keyof CompleteEventoDatosPayload =>
+          field === "categoriaId" ||
+          field === "alcance" ||
+          field === "tipoEvento" ||
+          field === "tipoParticipacion" ||
+          field === "genero",
+      ),
+    [editableFields],
+  );
   const missingFields = useMemo(() => getEventoMissingFields(evento), [evento]);
   const needsCategoria = editableFields.includes("categoriaId");
 
@@ -101,7 +113,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
 
     const payload: CompleteEventoDatosPayload = {};
 
-    editableFields.forEach((field) => {
+    completionFields.forEach((field) => {
       const value = values[field as keyof CompletionFormValues];
       if (value === "" || value === undefined || value === null) {
         setError(field as keyof CompletionFormValues, {
@@ -126,7 +138,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
       }
     });
 
-    if (editableFields.some((field) => payload[field] === undefined)) {
+    if (completionFields.some((field) => payload[field] === undefined)) {
       return;
     }
 

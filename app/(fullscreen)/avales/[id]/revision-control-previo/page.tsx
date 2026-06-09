@@ -43,6 +43,7 @@ import {
   mergeReviewStateFromApi,
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
+import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -409,6 +410,7 @@ export default function RevisionControlPrevioPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
+            <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Lista deportistas" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>

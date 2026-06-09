@@ -33,6 +33,7 @@ import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
+import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -999,6 +1000,7 @@ export default function CertificarAvalPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
+            <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>

@@ -50,6 +50,7 @@ import {
 import { isMetodologoUser } from "@/lib/auth/access";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
+import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -791,6 +792,7 @@ export default function RevisionMetodologoPage() {
       <div className="hidden lg:block lg:w-[55%] bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
+            <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>

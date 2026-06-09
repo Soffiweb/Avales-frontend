@@ -26,6 +26,7 @@ const FLOW_BY_TIPO_AVAL: Record<TipoAval, EtapaFlujo[]> = {
   AUTOGESTION: [
     "SOLICITUD",
     "PDA",
+    "COMPRAS_PUBLICAS",
     "REVISION_METODOLOGO",
     "REVISION_DTM",
     "CONTROL_PREVIO",

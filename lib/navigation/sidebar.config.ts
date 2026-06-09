@@ -106,7 +106,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/eventos",
     segment: "eventos",
     icon: "eventos",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE", "METODOLOGO"],
   },
   {
     type: "link",

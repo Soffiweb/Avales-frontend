@@ -1,6 +1,5 @@
 import type { Aval } from "@/types/aval";
 import {
-  formatAvalDepartureDate,
   formatCurrencyFromString,
   formatCurrentLongDate,
   formatDate,
@@ -97,7 +96,9 @@ export default function PdaPreview({ aval, draft }: Props) {
           </tr>
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
-            <td className="border border-slate-400 px-2 py-1">{formatAvalDepartureDate(aval)}</td>
+            <td className="border border-slate-400 px-2 py-1">
+              {formatDate(aval.avalTecnico?.fechaHoraSalida) || "-"}
+            </td>
           </tr>
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">PERÍODO DE COMISIÓN</td>

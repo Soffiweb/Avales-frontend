@@ -9,7 +9,12 @@ import {
   completeEventoDatos,
   type CompleteEventoDatosPayload,
 } from "@/lib/api/eventos";
-import { EVENTO_ALCANCE_OPTIONS, EVENTO_TAREA_OPTIONS } from "@/lib/constants";
+import {
+  EVENTO_ALCANCE_OPTIONS,
+  EVENTO_TAREA_OPTIONS,
+  normalizeEventoAlcance,
+  normalizeEventoTipoEvento,
+} from "@/lib/constants";
 import { getCategoryIdOptions } from "@/lib/utils/categories";
 import type { CatalogItem } from "@/types/catalog";
 import {
@@ -24,6 +29,8 @@ type CompletionFormValues = {
   categoriaId: number | "";
   alcance: string;
   tipoEvento: string;
+  fechaInicio: string;
+  fechaFin: string;
 };
 
 type Props = {
@@ -37,8 +44,8 @@ const FIELD_HELPERS: Record<EventoMissingField, string> = {
   tipoParticipacion: "Este campo ya no se completa en este flujo.",
   categoriaId: "Selecciona la categoría deportiva correspondiente.",
   tipoEvento: "Este campo ya no se completa en este flujo.",
-  fechaInicio: "Este campo no se completa en este flujo.",
-  fechaFin: "Este campo no se completa en este flujo.",
+  fechaInicio: "Registra la fecha inicial del evento.",
+  fechaFin: "Registra la fecha final del evento.",
 };
 
 export default function EventoCompletionForm({ evento, onCompleted }: Props) {
@@ -54,7 +61,9 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
           field === "alcance" ||
           field === "tipoEvento" ||
           field === "tipoParticipacion" ||
-          field === "genero",
+          field === "genero" ||
+          field === "fechaInicio" ||
+          field === "fechaFin",
       ),
     [editableFields],
   );
@@ -79,8 +88,10 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
   } = useForm<CompletionFormValues>({
     defaultValues: {
       categoriaId: evento.categoriaId ?? "",
-      alcance: evento.alcance ?? "",
-      tipoEvento: evento.tipoEvento ?? "",
+      alcance: normalizeEventoAlcance(evento.alcance) ?? "",
+      tipoEvento: normalizeEventoTipoEvento(evento.tipoEvento) ?? "",
+      fechaInicio: evento.fechaInicio ?? "",
+      fechaFin: evento.fechaFin ?? "",
     },
   });
 
@@ -129,12 +140,22 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
       }
 
       if (field === "alcance") {
-        payload.alcance = String(value);
+        payload.alcance = normalizeEventoAlcance(String(value)) ?? String(value);
         return;
       }
 
       if (field === "tipoEvento") {
-        payload.tipoEvento = String(value);
+        payload.tipoEvento = normalizeEventoTipoEvento(String(value)) ?? String(value);
+        return;
+      }
+
+      if (field === "fechaInicio") {
+        payload.fechaInicio = String(value);
+        return;
+      }
+
+      if (field === "fechaFin") {
+        payload.fechaFin = String(value);
       }
     });
 
@@ -256,6 +277,50 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
             </p>
             {errors.alcance && (
               <p className="mt-1 text-xs text-red-600">{errors.alcance.message}</p>
+            )}
+          </div>
+        )}
+
+        {editableFields.includes("fechaInicio") && (
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="fechaInicio">
+              Fecha de inicio
+            </label>
+            <input
+              id="fechaInicio"
+              type="date"
+              className="form-input w-full max-w-xs"
+              {...register("fechaInicio", {
+                required: "Completa fecha de inicio.",
+              })}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {FIELD_HELPERS.fechaInicio}
+            </p>
+            {errors.fechaInicio && (
+              <p className="mt-1 text-xs text-red-600">{errors.fechaInicio.message}</p>
+            )}
+          </div>
+        )}
+
+        {editableFields.includes("fechaFin") && (
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="fechaFin">
+              Fecha de fin
+            </label>
+            <input
+              id="fechaFin"
+              type="date"
+              className="form-input w-full max-w-xs"
+              {...register("fechaFin", {
+                required: "Completa fecha de fin.",
+              })}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {FIELD_HELPERS.fechaFin}
+            </p>
+            {errors.fechaFin && (
+              <p className="mt-1 text-xs text-red-600">{errors.fechaFin.message}</p>
             )}
           </div>
         )}

@@ -17,7 +17,6 @@ export type EventoCategoriaCodigo =
   | "JUVENIL"
   | "SENIOR"
   | "ESCUELAS_INICIACION"
-  | "TODOS"
   | "FORMACION"
   | "PREJUVENIL"
   | "TODAS";
@@ -164,25 +163,30 @@ const EVENTO_REQUIRED_FIELDS: EventoMissingField[] = [
   "categoriaId",
   "alcance",
   "tipoEvento",
+  "fechaInicio",
+  "fechaFin",
 ];
 
 export function getEventoMissingFields(evento?: Evento | null): EventoMissingField[] {
   if (!evento) return [];
-  if (evento.missingFields?.length) return evento.missingFields;
-
-  return EVENTO_REQUIRED_FIELDS.filter((field) => {
+  const localMissingFields = EVENTO_REQUIRED_FIELDS.filter((field) => {
     if (field === "categoriaId") return !evento.categoriaId;
     const value = evento[field];
     return value === null || value === undefined || String(value).trim() === "";
   });
+
+  if (!evento.missingFields?.length) return localMissingFields;
+
+  return Array.from(new Set([...evento.missingFields, ...localMissingFields]));
 }
 
 export function getEventoEditableCompletionFields(
   evento?: Evento | null
 ): EventoMissingField[] {
   if (!evento) return [];
-  if (evento.editableFields?.length) return evento.editableFields;
-  return getEventoMissingFields(evento);
+  const missingFields = getEventoMissingFields(evento);
+  if (!evento.editableFields?.length) return missingFields;
+  return Array.from(new Set([...evento.editableFields, ...missingFields]));
 }
 
 export function isEventoIncompleto(evento?: Evento | null): boolean {

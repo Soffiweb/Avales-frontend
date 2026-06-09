@@ -3,7 +3,12 @@ import type {
   ModalidadParticipacion,
   TipoAval,
 } from "@/types/aval";
-import { APP_CATEGORIES } from "@/lib/utils/categories";
+import {
+  EVENTO_CATEGORIA_OPTIONS as EVENTO_CATEGORIA_OPTIONS_SOURCE,
+  EVENTO_ALCANCE_OPTIONS as EVENTO_ALCANCE_OPTIONS_SOURCE,
+  EVENTO_TAREA_OPTIONS as EVENTO_TAREA_OPTIONS_SOURCE,
+  EVENTO_TIPO_PARTICIPACION_OPTIONS as EVENTO_TIPO_PARTICIPACION_OPTIONS_SOURCE,
+} from "@/lib/domain/evento-options";
 
 /**
  * Constantes globales de la aplicación.
@@ -49,11 +54,8 @@ export const GENERO_OPTIONS = [
   { value: "otro", label: "Otro" },
 ] as const;
 
-export const EVENTO_TIPO_PARTICIPACION_OPTIONS = [
-  { value: "PARTICIPACION", label: "Participación" },
-  { value: "ORGANIZACION", label: "Organización" },
-  { value: "EJECUCION_Y_ADQUISICION", label: "Ejecución y adquisición" },
-] as const;
+export const EVENTO_TIPO_PARTICIPACION_OPTIONS =
+  EVENTO_TIPO_PARTICIPACION_OPTIONS_SOURCE;
 
 export type EventoTipoParticipacion =
   (typeof EVENTO_TIPO_PARTICIPACION_OPTIONS)[number]["value"];
@@ -68,25 +70,29 @@ export const EVENTO_ACTIVIDAD_OPTIONS = [
   { value: "EVENTOS_DE_PREPARACIÓN_COMPETENCIA_Y_CAPACITACIÓN_DEPORTIVA_009", label: "Eventos de preparación competencia y capacitación deportiva 009" },
 ] as const;
 
-export const EVENTO_TAREA_OPTIONS = [
-  { value: "BASE_DE_ENTRENAMIENTO", label: "Base de entrenamiento" },
-  { value: "CAMPEONATOS", label: "Campeonatos" },
-  { value: "CONCENTRADOS", label: "Concentrados" },
-  { value: "JUEGOS", label: "Juegos" },
-  { value: "SELECTIVOS", label: "Selectivos" },
-  { value: "TODOS", label: "Todos" },
-  { value: "OTROS", label: "Otros" },
-] as const;
+export const EVENTO_TAREA_OPTIONS = EVENTO_TAREA_OPTIONS_SOURCE;
 
 export const EVENTO_SECTOR_OPTIONS = [
   { value: "CONVENCIONAL", label: "Convencional" },
   { value: "DISCAPACIDAD", label: "Discapacidad" },
 ] as const;
 
-export const EVENTO_ALCANCE_OPTIONS = [
-  { value: "NACIONAL", label: "Nacional" },
-  { value: "INTERNACIONAL", label: "Internacional" },
-] as const;
+export const EVENTO_ALCANCE_OPTIONS = EVENTO_ALCANCE_OPTIONS_SOURCE;
+export const EVENTO_CATEGORIA_OPTIONS = EVENTO_CATEGORIA_OPTIONS_SOURCE;
+
+function normalizeOptionKey(value?: string | null) {
+  return value
+    ?.trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+const EVENTO_TIPO_EVENTO_ALIASES: Record<string, string> = {
+  BASES_DE_ENTRENAMIENTO: "BASE_DE_ENTRENAMIENTO",
+  BASE_DE_ENTRENAMIENTOS: "BASE_DE_ENTRENAMIENTO",
+  OTROS: "OTRO",
+};
 
 export const EVENTO_GENERO_OPTIONS = [
   { value: "MASCULINO", label: "Varones" },
@@ -107,18 +113,6 @@ export const EVENTO_MES_OPTIONS = [
   { value: 10, label: "Octubre" },
   { value: 11, label: "Noviembre" },
   { value: 12, label: "Diciembre" },
-] as const;
-
-export const EVENTO_CATEGORIA_OPTIONS = [
-  { value: APP_CATEGORIES[0], label: "Personas con discapacidad" },
-  { value: APP_CATEGORIES[1], label: "Menores" },
-  { value: APP_CATEGORIES[2], label: "Juvenil" },
-  { value: APP_CATEGORIES[3], label: "Senior" },
-  { value: APP_CATEGORIES[4], label: "Escuelas de iniciación" },
-  { value: APP_CATEGORIES[5], label: "Todos" },
-  { value: APP_CATEGORIES[6], label: "Formación" },
-  { value: APP_CATEGORIES[7], label: "Prejuvenil" },
-  { value: APP_CATEGORIES[8], label: "Todas" },
 ] as const;
 
 const EVENTO_TIPO_PARTICIPACION_ALIASES: Record<string, EventoTipoParticipacion> = {
@@ -165,6 +159,31 @@ export function getEventoTipoParticipacionLabel(
       (option) => option.value === normalized,
     )?.label ?? normalized
   );
+}
+
+export function normalizeEventoTipoEvento(value?: string | null): string | undefined {
+  const rawNormalized = normalizeOptionKey(value);
+  const normalized = rawNormalized
+    ? (EVENTO_TIPO_EVENTO_ALIASES[rawNormalized] ?? rawNormalized)
+    : undefined;
+  if (!normalized) return undefined;
+
+  return EVENTO_TAREA_OPTIONS.find((option) => {
+    const optionValue = normalizeOptionKey(option.value);
+    const optionLabel = normalizeOptionKey(option.label);
+    return optionValue === normalized || optionLabel === normalized;
+  })?.value;
+}
+
+export function normalizeEventoAlcance(value?: string | null): string | undefined {
+  const normalized = normalizeOptionKey(value);
+  if (!normalized) return undefined;
+
+  return EVENTO_ALCANCE_OPTIONS.find((option) => {
+    const optionValue = normalizeOptionKey(option.value);
+    const optionLabel = normalizeOptionKey(option.label);
+    return optionValue === normalized || optionLabel === normalized;
+  })?.value;
 }
 
 /** Estados de eventos */

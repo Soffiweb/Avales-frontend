@@ -1,16 +1,12 @@
 import type { CatalogItem } from "@/types/catalog";
+import {
+  EVENTO_CATEGORIA_ALIASES,
+  EVENTO_CATEGORIA_LABELS,
+  EVENTO_CATEGORIA_OPTIONS,
+  EVENTO_CATEGORIA_VALUES,
+} from "@/lib/domain/evento-options";
 
-export const APP_CATEGORIES = [
-  "PERSONAS_CON_DISCAPACIDAD",
-  "MENORES",
-  "JUVENIL",
-  "SENIOR",
-  "ESCUELAS_INICIACION",
-  "TODOS",
-  "FORMACION",
-  "PREJUVENIL",
-  "TODAS",
-] as const;
+export const APP_CATEGORIES = EVENTO_CATEGORIA_VALUES;
 
 export type AppCategory = (typeof APP_CATEGORIES)[number];
 
@@ -34,31 +30,13 @@ const categoryOrder = new Map(
   APP_CATEGORIES.map((name, index) => [normalizeCategoryValue(name), index])
 );
 
-const categoryLabels = new Map<AppCategory, string>([
-  ["PERSONAS_CON_DISCAPACIDAD", "Personas con discapacidad"],
-  ["MENORES", "Menores"],
-  ["JUVENIL", "Juvenil"],
-  ["SENIOR", "Senior"],
-  ["ESCUELAS_INICIACION", "Escuelas de iniciación"],
-  ["TODOS", "Todos"],
-  ["FORMACION", "Formación"],
-  ["PREJUVENIL", "Prejuvenil"],
-  ["TODAS", "Todas"],
-]);
+const categoryLabels = new Map<AppCategory, string>(
+  Object.entries(EVENTO_CATEGORIA_LABELS) as Array<[AppCategory, string]>,
+);
 
-const categoryAliases = new Map<string, AppCategory>([
-  ["PERSONAS_CON_DISCAPACIDAD", "PERSONAS_CON_DISCAPACIDAD"],
-  ["MENORES", "MENORES"],
-  ["JUVENIL", "JUVENIL"],
-  ["SENIOR", "SENIOR"],
-  ["PRE_JUVENIL", "PREJUVENIL"],
-  ["ESCUELAS_DE_INICIACION", "ESCUELAS_INICIACION"],
-  ["ESCUELAS_INICIACION", "ESCUELAS_INICIACION"],
-  ["TODOS", "TODOS"],
-  ["FORMACION", "FORMACION"],
-  ["PREJUVENIL", "PREJUVENIL"],
-  ["TODAS", "TODAS"],
-]);
+const categoryAliases = new Map<string, AppCategory>(
+  Object.entries(EVENTO_CATEGORIA_ALIASES) as Array<[string, AppCategory]>,
+);
 
 export function isValidAppCategory(value?: string | null) {
   return Boolean(getCanonicalCategory(value));
@@ -76,9 +54,9 @@ export function formatCategoryLabel(value?: string | null, fallback = "-") {
 }
 
 export function getCategoryOptions(): CategoryOption[] {
-  return APP_CATEGORIES.map((category) => ({
-    value: category,
-    label: formatCategoryLabel(category, category),
+  return EVENTO_CATEGORIA_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
   }));
 }
 

@@ -1,6 +1,11 @@
 "use client";
 
-import { EVENTO_CATEGORIA_OPTIONS, normalizeEventoTipoParticipacion } from "@/lib/constants";
+import {
+  EVENTO_CATEGORIA_OPTIONS,
+  normalizeEventoAlcance,
+  normalizeEventoTipoEvento,
+  normalizeEventoTipoParticipacion,
+} from "@/lib/constants";
 import {
   getCanonicalCategory,
   getCategoryByCatalogValue,
@@ -65,7 +70,7 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
     codigo: evento.codigo ?? "",
     tipoParticipacion:
       normalizeEventoTipoParticipacion(evento.tipoParticipacion) ?? "",
-    tipoEvento: evento.tipoEvento ?? "",
+    tipoEvento: normalizeEventoTipoEvento(evento.tipoEvento) ?? "",
     nombre: evento.nombre ?? "",
     lugar: evento.lugar ?? "",
     genero: evento.genero ?? (undefined as unknown as EventoFormValues["genero"]),
@@ -83,7 +88,7 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
     provincia: evento.provincia ?? "",
     ciudad: evento.ciudad ?? "",
     pais: evento.pais ?? "Ecuador",
-    alcance: evento.alcance ?? "",
+    alcance: normalizeEventoAlcance(evento.alcance) ?? "",
     fechaInicio: formatDateInput(evento.fechaInicio),
     fechaFin: formatDateInput(evento.fechaFin),
     numEntrenadoresHombres: evento.numEntrenadoresHombres ?? 0,
@@ -122,7 +127,7 @@ export function buildCreateEventoPayload(
   return {
     codigo: values.codigo.trim(),
     tipoParticipacion,
-    tipoEvento: values.tipoEvento.trim(),
+    tipoEvento: normalizeEventoTipoEvento(values.tipoEvento) ?? values.tipoEvento.trim(),
     nombre: values.nombre.trim(),
     lugar: values.lugar.trim(),
     genero: values.genero,
@@ -132,7 +137,7 @@ export function buildCreateEventoPayload(
     provincia: values.provincia.trim(),
     ciudad: values.ciudad.trim(),
     pais: values.pais.trim(),
-    alcance: values.alcance.trim(),
+    alcance: normalizeEventoAlcance(values.alcance) ?? values.alcance.trim(),
     fechaInicio: values.fechaInicio?.trim()
       ? formatDateInput(values.fechaInicio)
       : null,
@@ -191,7 +196,7 @@ export function buildUpdateEventoPayloadFromForm(
   return {
     codigo: values.codigo.trim(),
     tipoParticipacion,
-    tipoEvento: values.tipoEvento.trim(),
+    tipoEvento: normalizeEventoTipoEvento(values.tipoEvento) ?? values.tipoEvento.trim(),
     nombre: values.nombre.trim(),
     lugar: values.lugar.trim(),
     genero: values.genero,
@@ -202,7 +207,9 @@ export function buildUpdateEventoPayloadFromForm(
     provincia: values.provincia.trim(),
     ciudad: values.ciudad.trim(),
     pais: values.pais.trim(),
-    alcance: values.alcance.trim() ? values.alcance.trim() : null,
+    alcance: values.alcance.trim()
+      ? (normalizeEventoAlcance(values.alcance) ?? values.alcance.trim())
+      : null,
     fechaInicio: values.fechaInicio?.trim()
       ? formatDateInput(values.fechaInicio)
       : null,

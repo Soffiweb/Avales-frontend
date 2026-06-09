@@ -1,10 +1,10 @@
 import {
-  EVENTO_TIPO_PARTICIPACION_OPTIONS,
-  EVENTO_TAREA_OPTIONS,
-  EVENTO_ALCANCE_OPTIONS,
-  EVENTO_CATEGORIA_OPTIONS,
+  EVENTO_ALCANCE_VALUES,
+  EVENTO_CATEGORIA_VALUES,
+  EVENTO_TIPO_EVENTO_VALUES,
+  EVENTO_TIPO_PARTICIPACION_VALUES,
   type EventoTipoParticipacion
-} from "@/lib/constants";
+} from "@/lib/domain/evento-options";
 import { z } from "zod";
 import type { CreateEventoPayload as CreateEventoPayloadType } from "@/types/evento";
 
@@ -28,7 +28,7 @@ export const eventoSchema = z.object({
     .max(50, "Codigo: maximo 50 caracteres"),
   tipoParticipacion: z
     .enum(
-      EVENTO_TIPO_PARTICIPACION_OPTIONS.map((option) => option.value) as [
+      EVENTO_TIPO_PARTICIPACION_VALUES as [
         EventoTipoParticipacion,
         ...EventoTipoParticipacion[],
       ]
@@ -39,7 +39,7 @@ export const eventoSchema = z.object({
     }),
   tipoEvento: z
     .enum(
-      EVENTO_TAREA_OPTIONS.map((option) => option.value) as [string, ...string[]]
+      EVENTO_TIPO_EVENTO_VALUES as [string, ...string[]]
     )
     .or(z.literal(""))
     .refine((value) => value !== "", {
@@ -59,7 +59,7 @@ export const eventoSchema = z.object({
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   categoriaCodigo: z
     .enum(
-      EVENTO_CATEGORIA_OPTIONS.map((option) => option.value) as [string, ...string[]]
+      EVENTO_CATEGORIA_VALUES as [string, ...string[]]
     )
     .or(z.literal("")),
   mesProgramado: z
@@ -72,7 +72,7 @@ export const eventoSchema = z.object({
   pais: z.string().min(1, "Pais requerido").max(100),
   alcance: z
     .enum(
-      EVENTO_ALCANCE_OPTIONS.map((option) => option.value) as [string, ...string[]]
+      EVENTO_ALCANCE_VALUES as [string, ...string[]]
     )
     .or(z.literal("")),
   fechaInicio: optionalDateSchema,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -121,6 +121,10 @@ function getEventDuration(
   return diff === null ? null : diff + 1;
 }
 
+function getEventoItemsTotal(items: Evento["eventoItems"] = []) {
+  return items.reduce((sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0), 0);
+}
+
 export default function EventoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -200,6 +204,24 @@ export default function EventoDetailPage() {
       setTipoAval("AUTOGESTION");
     }
   }, [evento, tipoAval]);
+
+  const presupuestoPlaneadoPorFuente = useMemo(() => {
+    const fuentes: Array<PresupuestoFuente["fuente"]> = [
+      "FONDOS_PUBLICOS",
+      "AUTOGESTION",
+    ];
+
+    return fuentes
+      .map((fuente) => {
+        const items = (evento?.eventoItems ?? []).filter((item) => item.fuente === fuente);
+        return {
+          fuente,
+          items,
+          total: getEventoItemsTotal(items),
+        };
+      })
+      .filter((group) => group.items.length > 0);
+  }, [evento?.eventoItems]);
 
   const handleDelete = async () => {
     if (!evento) return;
@@ -847,10 +869,10 @@ export default function EventoDetailPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                  Items Presupuestarios
+                  Presupuesto planificado
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {evento.eventoItems?.length || 0} items asignados
+                  {evento.eventoItems?.length || 0} items previstos
                 </p>
               </div>
             </div>
@@ -858,76 +880,105 @@ export default function EventoDetailPage() {
 
           {evento.eventoItems && evento.eventoItems.length > 0 ? (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/30">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Item</th>
-                      <th className="px-4 py-3 text-left">Actividad</th>
-                      <th className="px-4 py-3 text-left">Descripción</th>
-                      <th className="px-4 py-3 text-center">Mes</th>
-                      <th className="px-4 py-3 text-right">V. Unitario</th>
-                      <th className="px-4 py-3 text-right">Presupuesto</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                    {evento.eventoItems.map((eventoItem) => (
-                      <tr key={eventoItem.id} className="text-sm">
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">
-                            {eventoItem.item.numero}. {eventoItem.item.nombre}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                          {eventoItem.item.actividad ? (
-                            <span>
-                              {eventoItem.item.actividad.numero}.{" "}
-                              {eventoItem.item.actividad.nombre}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-xs truncate">
-                          {eventoItem.item.descripcion || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                            {formatMonth(eventoItem.mes)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
-                          {eventoItem.valorUnitario
-                            ? formatCurrency(
-                                parseFloat(eventoItem.valorUnitario),
-                              )
-                            : "-"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                          {formatCurrency(
-                            parseFloat(eventoItem.presupuesto) || 0,
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-6 p-5">
+                {presupuestoPlaneadoPorFuente.map((grupo) => (
+                  <div
+                    key={grupo.fuente}
+                    className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60"
+                  >
+                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/30">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {getTipoAvalLabel(grupo.fuente)}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {grupo.items.length} items planificados
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                        {formatCurrency(grupo.total)}
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/30">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Item</th>
+                            <th className="px-4 py-3 text-left">Actividad</th>
+                            <th className="px-4 py-3 text-left">Descripción</th>
+                            <th className="px-4 py-3 text-center">Mes</th>
+                            <th className="px-4 py-3 text-right">V. Unitario</th>
+                            <th className="px-4 py-3 text-right">Presupuesto</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                          {grupo.items.map((eventoItem) => (
+                            <tr key={eventoItem.id} className="text-sm">
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-gray-900 dark:text-gray-100">
+                                  {eventoItem.item.numero}. {eventoItem.item.nombre}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                {eventoItem.item.actividad ? (
+                                  <span>
+                                    {eventoItem.item.actividad.numero}.{" "}
+                                    {eventoItem.item.actividad.nombre}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-xs truncate">
+                                {eventoItem.item.descripcion || "-"}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                  {formatMonth(eventoItem.mes)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                                {eventoItem.valorUnitario
+                                  ? formatCurrency(
+                                      parseFloat(eventoItem.valorUnitario),
+                                    )
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {formatCurrency(
+                                  parseFloat(eventoItem.presupuesto) || 0,
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* Total */}
               <div className="px-5 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-t border-emerald-100 dark:border-emerald-800/40">
-                <div className="flex items-center justify-between">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {presupuestoPlaneadoPorFuente.map((grupo) => (
+                    <div key={grupo.fuente}>
+                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                        {getTipoAvalLabel(grupo.fuente)}
+                      </p>
+                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                        {formatCurrency(grupo.total)}
+                      </p>
+                    </div>
+                  ))}
                   <div>
                     <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      Total Presupuesto
+                      Total general
                     </p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                      Suma de todos los items asignados
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                      {formatCurrency(calcularTotalEvento(evento))}
                     </p>
                   </div>
-                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-                    {formatCurrency(calcularTotalEvento(evento))}
-                  </p>
                 </div>
               </div>
             </>

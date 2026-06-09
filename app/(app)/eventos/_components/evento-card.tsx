@@ -50,6 +50,21 @@ function getTotalParticipants(evento: Evento) {
   );
 }
 
+function parseMonto(value?: string | null) {
+  return Number.parseFloat(value ?? "0") || 0;
+}
+
+function getBudgetBySource(evento: Evento, fuente: "FONDOS_PUBLICOS" | "AUTOGESTION") {
+  const totalFromItems = (evento.eventoItems ?? [])
+    .filter((item) => item.fuente === fuente)
+    .reduce((sum, item) => sum + parseMonto(item.presupuesto), 0);
+
+  if (totalFromItems > 0) return totalFromItems;
+
+  const presupuestoFuente = evento.presupuestosFuente?.find((item) => item.fuente === fuente);
+  return parseMonto(presupuestoFuente?.montoAsignado);
+}
+
 export default function EventoCard({
   eventos,
   loading,
@@ -98,12 +113,21 @@ export default function EventoCard({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {eventos.map((evento) => (
-        <div
-          key={evento.id}
-          onClick={() => router.push(`/eventos/${evento.id}`)}
-          className="group cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
-        >
+      {eventos.map((evento) => {
+        const totalFondosPublicos = getBudgetBySource(evento, "FONDOS_PUBLICOS");
+        const totalAutogestion = getBudgetBySource(evento, "AUTOGESTION");
+        const totalPresupuesto = Math.max(
+          calcularTotalEvento(evento),
+          totalFondosPublicos + totalAutogestion,
+        );
+        const hasBudget = totalPresupuesto > 0;
+
+        return (
+          <div
+            key={evento.id}
+            onClick={() => router.push(`/eventos/${evento.id}`)}
+            className="group cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+          >
           {/* Header con estado */}
           <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -180,16 +204,30 @@ export default function EventoCard({
             </div>
 
             {/* Total presupuesto */}
-            {evento.eventoItems && evento.eventoItems.length > 0 && (
+            {hasBudget && (
               <div className="pt-3 border-t border-gray-100 dark:border-gray-700/60">
-                <div className="flex items-center justify-between">
+                <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     <DollarSign className="w-4 h-4" />
                     <span>Presupuesto</span>
                   </div>
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(calcularTotalEvento(evento))}
+                    {formatCurrency(totalPresupuesto)}
                   </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-300">
+                    <p className="font-medium">Fondos públicos</p>
+                    <p className="mt-0.5 text-sm font-semibold">
+                      {formatCurrency(totalFondosPublicos)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-700 dark:border-gray-700 dark:bg-gray-900/20 dark:text-gray-300">
+                    <p className="font-medium">Autogestión</p>
+                    <p className="mt-0.5 text-sm font-semibold">
+                      {formatCurrency(totalAutogestion)}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -239,8 +277,9 @@ export default function EventoCard({
             )}
             </div>
           </div>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

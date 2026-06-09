@@ -169,6 +169,19 @@ export type EntrenadorAval = {
   entrenadorId: number;
   rol: string;
   esPrincipal?: boolean;
+  nombre?: string;
+  apellido?: string;
+  cedula?: string;
+  entrenador?: {
+    nombre?: string;
+    apellido?: string;
+    cedula?: string;
+  };
+  usuario?: {
+    nombre?: string;
+    apellido?: string;
+    cedula?: string;
+  };
 };
 
 export type AvalTecnico = {
@@ -375,6 +388,10 @@ export type CreateAvalPayload = {
   entrenadores: EntrenadorAvalDto[];
   requerimientos?: RubroPresupuestarioDto[];
   observaciones?: string;
+};
+
+export type EditAvalPayload = Omit<CreateAvalPayload, "coleccionAvalId"> & {
+  montoAsignado?: number;
 };
 
 export type CreateColeccionAvalPayload = {

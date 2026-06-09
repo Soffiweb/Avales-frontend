@@ -6,6 +6,7 @@ import type {
   AvalParticipante,
   CreateColeccionAvalPayload,
   CreateAvalPayload,
+  EditAvalPayload,
   Estado,
   EtapaFlujo,
   Historial,
@@ -143,6 +144,19 @@ export async function createAval(payload: CreateAvalPayload) {
   return apiFetch<Aval>("/avales", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAvalRequest(id: number, payload: EditAvalPayload) {
+  return apiFetch<Aval>(`/avales/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAvalRequest(id: number) {
+  return apiFetch<Aval>(`/avales/${id}`, {
+    method: "DELETE",
   });
 }
 
@@ -343,6 +357,18 @@ export type ApproveFinancieroNotasPayload = {
     mostrarDatosFacturacion?: boolean;
   }>;
 };
+
+export type UpdateNumeracionPayload = {
+  periodoComision?: string;
+  periodoComisionFin?: string;
+};
+
+export async function updateNumeracion(id: number, payload: UpdateNumeracionPayload) {
+  return apiFetch<Aval>(`/avales/${id}/numeracion`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
 
 export async function aprobarAval(
   id: number,

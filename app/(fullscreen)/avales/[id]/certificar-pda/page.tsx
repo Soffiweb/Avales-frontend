@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import { aprobarAval, createPda } from "@/lib/api/avales";
@@ -615,30 +615,6 @@ export default function CertificarAvalPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Completa los datos del modelo PDA. El parrafo principal se agregara despues.
                 </p>
-              </div>
-
-              <div className="max-w-xl">
-                {aval.convocatoriaUrl ? (
-                  <a
-                    href={aval.convocatoriaUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="btn w-full justify-center bg-indigo-500 text-white hover:bg-indigo-600 sm:w-auto"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Ver convocatoria
-                    <ExternalLink className="w-4 h-4 ml-2" />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 sm:w-auto"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Convocatoria no disponible
-                  </button>
-                )}
               </div>
 
               <div className="grid max-w-xl grid-cols-1 gap-4 md:grid-cols-2">

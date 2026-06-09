@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/eventos";
 import {
   EVENTO_ALCANCE_OPTIONS,
+  EVENTO_GENERO_OPTIONS,
   EVENTO_TAREA_OPTIONS,
   normalizeEventoAlcance,
   normalizeEventoTipoEvento,
@@ -27,6 +28,7 @@ import {
 
 type CompletionFormValues = {
   categoriaId: number | "";
+  genero: string;
   alcance: string;
   tipoEvento: string;
   fechaInicio: string;
@@ -39,7 +41,7 @@ type Props = {
 };
 
 const FIELD_HELPERS: Record<EventoMissingField, string> = {
-  genero: "Se calculará automáticamente según los deportistas seleccionados.",
+  genero: "Selecciona el género correspondiente del evento.",
   alcance: "Este campo ya no se completa en este flujo.",
   tipoParticipacion: "Este campo ya no se completa en este flujo.",
   categoriaId: "Selecciona la categoría deportiva correspondiente.",
@@ -88,6 +90,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
   } = useForm<CompletionFormValues>({
     defaultValues: {
       categoriaId: evento.categoriaId ?? "",
+      genero: evento.genero ?? "",
       alcance: normalizeEventoAlcance(evento.alcance) ?? "",
       tipoEvento: normalizeEventoTipoEvento(evento.tipoEvento) ?? "",
       fechaInicio: evento.fechaInicio ?? "",
@@ -122,7 +125,7 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
 
-    const payload: CompleteEventoDatosPayload = {};
+    const payload: Partial<CompleteEventoDatosPayload> = {};
 
     completionFields.forEach((field) => {
       const value = values[field as keyof CompletionFormValues];
@@ -141,6 +144,11 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
 
       if (field === "alcance") {
         payload.alcance = normalizeEventoAlcance(String(value)) ?? String(value);
+        return;
+      }
+
+      if (field === "genero") {
+        payload.genero = String(value) as CompleteEventoDatosPayload["genero"];
         return;
       }
 
@@ -164,7 +172,10 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
     }
 
     try {
-      const response = await completeEventoDatos(evento.id, payload);
+      const response = await completeEventoDatos(
+        evento.id,
+        payload as CompleteEventoDatosPayload,
+      );
       await onCompleted?.(response.data);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.problem?.field) {
@@ -249,6 +260,34 @@ export default function EventoCompletionForm({ evento, onCompleted }: Props) {
               <p className="mt-1 text-xs text-red-600">
                 {errors.categoriaId.message}
               </p>
+            )}
+          </div>
+        )}
+
+        {editableFields.includes("genero") && (
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="genero">
+              Género
+            </label>
+            <select
+              id="genero"
+              className="form-select w-full max-w-xs"
+              {...register("genero", {
+                required: "Completa género.",
+              })}
+            >
+              <option value="">Selecciona una opción</option>
+              {EVENTO_GENERO_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {FIELD_HELPERS.genero}
+            </p>
+            {errors.genero && (
+              <p className="mt-1 text-xs text-red-600">{errors.genero.message}</p>
             )}
           </div>
         )}

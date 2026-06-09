@@ -48,6 +48,8 @@ type Props = {
   isControlPrevio?: boolean;
   isFinanciero?: boolean;
   isComprasPublicas?: boolean;
+  isTrainer?: boolean;
+  userId?: number;
 };
 
 const STATUS_ICONS: Record<string, typeof Clock> = {
@@ -84,6 +86,8 @@ export default function AvalListCard({
   isControlPrevio = false,
   isFinanciero = false,
   isComprasPublicas = false,
+  isTrainer = false,
+  userId,
 }: Props) {
   if (loading) {
     return (
@@ -149,6 +153,14 @@ export default function AvalListCard({
         const stageMatchesRole = (role: EtapaFlujo) =>
           isProcessable && !wasRecentlyRejected && etapaParaMostrar === role;
         const canPdaAct = isPda && stageMatchesRole("SOLICITUD" as EtapaFlujo);
+        const isAvalOwner =
+          isTrainer &&
+          userId !== undefined &&
+          aval.entrenadores.some((e) => e.entrenadorId === userId);
+        const canEditSolicitud =
+          isAvalOwner &&
+          (aval.estado === "BORRADOR" ||
+            (aval.estado === "SOLICITADO" && etapaParaMostrar === "SOLICITUD"));
         const canComprasAct =
           flowStages.includes("COMPRAS_PUBLICAS") &&
           isComprasPublicas &&
@@ -289,7 +301,7 @@ export default function AvalListCard({
             {/* Footer con acción */}
             <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/30 border-t border-gray-100 dark:border-gray-700/60 flex flex-col gap-2">
               <div className="flex items-center justify-end gap-2">
-                {!isAdmin && aval.estado === "BORRADOR" ? (
+                {canEditSolicitud ? (
                   <>
                     <Link
                       href={`/avales/${aval.id}`}
@@ -299,15 +311,13 @@ export default function AvalListCard({
                       <Eye className="w-4 h-4" />
                       Ver detalles
                     </Link>
-                    {!isSecretaria && (
-                      <Link
-                        href={`/avales/${aval.id}/crear-solicitud`}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
-                      >
-                        <FileEdit className="w-4 h-4" />
-                        Editar solicitud
-                      </Link>
-                    )}
+                    <Link
+                      href={`/avales/${aval.id}/crear-solicitud`}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
+                    >
+                      <FileEdit className="w-4 h-4" />
+                      Editar solicitud
+                    </Link>
                   </>
                 ) : (
                   <>

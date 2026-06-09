@@ -20,6 +20,7 @@ import {
   isFinancieroUser,
   isSecretariaUser,
   isAvalReviewer,
+  isTrainerUser,
 } from "@/lib/auth/access";
 import AvalListCard from "./_components/aval-list-card";
 import { AVALES_PAGE_SIZE, TIPO_AVAL_OPTIONS } from "@/lib/constants";
@@ -61,6 +62,7 @@ export default function AvalesPage() {
   const isFinanciero = isFinancieroUser(user);
   const isSecretaria = isSecretariaUser(user);
   const isComprasPublicas = isComprasPublicasUser(user);
+  const isTrainer = isTrainerUser(user);
   const isReviewer = isAvalReviewer(user);
   const isReviewerWithDefaults = isMetodologo || isPda || isControlPrevio || isComprasPublicas || isFinanciero;
 
@@ -314,6 +316,8 @@ export default function AvalesPage() {
           isControlPrevio={isControlPrevio}
           isFinanciero={isFinanciero}
           isComprasPublicas={isComprasPublicas}
+          isTrainer={isTrainer}
+          userId={user?.id}
         />
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-6">

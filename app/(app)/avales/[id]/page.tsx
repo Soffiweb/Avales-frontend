@@ -41,6 +41,7 @@ import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   aprobarAval,
+  deleteAvalRequest,
   deleteAdjuntoSolicitud,
   getAval,
   rechazarAval,
@@ -686,7 +687,7 @@ export default function AvalDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  const [deletingRequest, setDeletingRequest] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
   const userRoles = getNormalizedRoles(user);
@@ -779,16 +780,17 @@ export default function AvalDetailPage() {
     void fetchAval();
   }, [fetchAval]);
 
-  const handleCancel = async () => {
+  const handleDeleteRequest = async () => {
     if (!aval) return;
     try {
-      setCancelling(true);
-      router.push("/avales?status=cancelled");
+      setDeletingRequest(true);
+      await deleteAvalRequest(aval.id);
+      router.push("/avales?status=deleted");
     } catch (err: any) {
-      setError(err?.message ?? "No se pudo cancelar el aval.");
+      setError(err?.message ?? "No se pudo eliminar la solicitud del aval.");
       setConfirmOpen(false);
     } finally {
-      setCancelling(false);
+      setDeletingRequest(false);
     }
   };
 
@@ -935,6 +937,18 @@ export default function AvalDetailPage() {
     ? getFinalApprovalStageForAval(aval)
     : currentEtapa;
   const canDownloadAvalCompleto = Boolean(aval.aval) || isAvalCompleto;
+  const isAvalOwner =
+    isTrainerUser(user) &&
+    user?.id !== undefined &&
+    aval.entrenadores.some((e) => e.entrenadorId === user.id);
+  const canEditSolicitud =
+    isAvalOwner &&
+    (aval.estado === "BORRADOR" ||
+      (aval.estado === "SOLICITADO" && currentEtapa === "SOLICITUD"));
+  const canDeleteSolicitud =
+    isAvalOwner &&
+    (aval.estado === "BORRADOR" ||
+      (aval.estado === "SOLICITADO" && currentEtapa === "SOLICITUD"));
   // Endpoint ZIP: incluye el PDF mergeado + cualquier adjunto NO-PDF/NO-imagen
   // (Excel, CSV) suelto dentro del archivo.
   const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-zip`;
@@ -1042,6 +1056,25 @@ export default function AvalDetailPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
+            {canEditSolicitud && (
+              <Link
+                href={`/avales/${aval.id}/crear-solicitud`}
+                className="btn border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar solicitud
+              </Link>
+            )}
+            {canDeleteSolicitud && (
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                className="btn border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar solicitud
+              </button>
+            )}
             {isAdminLike && (
               <button
                 type="button"
@@ -1664,14 +1697,14 @@ export default function AvalDetailPage() {
 
       <ConfirmModal
         open={confirmOpen}
-        title="Cancelar solicitud de aval"
-        description="¿Seguro que quieres cancelar esta solicitud de aval? Esta acción no se puede deshacer."
-        confirmLabel="Cancelar solicitud"
+        title="Eliminar solicitud de aval"
+        description="¿Seguro que quieres eliminar esta solicitud de aval? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar solicitud"
         cancelLabel="Volver"
-        loading={cancelling}
-        onConfirm={handleCancel}
+        loading={deletingRequest}
+        onConfirm={handleDeleteRequest}
         onClose={() => {
-          if (cancelling) return;
+          if (deletingRequest) return;
           setConfirmOpen(false);
         }}
       />

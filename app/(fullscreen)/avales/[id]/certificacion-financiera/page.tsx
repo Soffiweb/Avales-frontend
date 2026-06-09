@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval } from "@/lib/api/avales";
+import { aprobarAval, updateNumeracion } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
@@ -23,6 +23,7 @@ import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documento
 type FinancieroDraft = {
   descripcionCertificacion: string;
   periodoComision: string;
+  periodoComisionFin: string;
   firmanteNombre: string;
   firmanteCargo: string;
   fechaEmision: string;
@@ -32,6 +33,7 @@ type FinancieroDraft = {
 const INITIAL_DRAFT: FinancieroDraft = {
   descripcionCertificacion: "",
   periodoComision: "",
+  periodoComisionFin: "",
   firmanteNombre: "",
   firmanteCargo: "",
   fechaEmision: new Date().toISOString().slice(0, 10),
@@ -103,6 +105,13 @@ export default function CertificacionFinancieraPage() {
       getApprovalFlowStages(currentAval).includes("FINANCIERO"),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
+        const numeracionPayload: { periodoComision?: string; periodoComisionFin?: string } = {};
+        if (draft.periodoComision.trim()) numeracionPayload.periodoComision = draft.periodoComision.trim();
+        if (draft.periodoComisionFin.trim()) numeracionPayload.periodoComisionFin = draft.periodoComisionFin.trim();
+        if (numeracionPayload.periodoComision || numeracionPayload.periodoComisionFin) {
+          await updateNumeracion(a.id, numeracionPayload);
+        }
+
         const notasPayload = draft.notas
           .map((texto, index) => ({ titulo: `NOTA ${index + 1}`, texto: texto.trim() }))
           .filter((nota) => nota.texto.length > 0);
@@ -123,7 +132,7 @@ export default function CertificacionFinancieraPage() {
           notasSinCambios ? { notas: [] } : { notas: notasPayload },
         );
       },
-      [draft.notas],
+      [draft.notas, draft.periodoComision, draft.periodoComisionFin],
     ),
     approveSuccessMessage: "Certificación financiera aprobada correctamente.",
   });
@@ -352,9 +361,9 @@ export default function CertificacionFinancieraPage() {
                   />
                 </label>
 
-                <label className="block md:col-span-2">
+                <label className="block">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Fecha de comision
+                    Período de comisión - Inicio
                   </span>
                   <input
                     type="date"
@@ -362,6 +371,20 @@ export default function CertificacionFinancieraPage() {
                     value={draft.periodoComision}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, periodoComision: e.target.value }))
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Período de comisión - Fin
+                  </span>
+                  <input
+                    type="date"
+                    className="form-input w-full mt-1"
+                    value={draft.periodoComisionFin}
+                    onChange={(e) =>
+                      setDraft((prev) => ({ ...prev, periodoComisionFin: e.target.value }))
                     }
                   />
                 </label>

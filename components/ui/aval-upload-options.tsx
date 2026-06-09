@@ -1,17 +1,20 @@
 "use client";
 
 import { TIPO_AVAL_OPTIONS, getTipoAvalLabel } from "@/lib/constants";
+import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
 import { eventoTieneFondosPublicos, type Evento } from "@/types/evento";
-import type { TipoAval } from "@/types/aval";
+import type { Aval, TipoAval } from "@/types/aval";
 
 type AvalUploadOptionsProps = {
   evento?: Evento | null;
+  avales?: Aval[];
   tipoAval: TipoAval;
   onTipoAvalChange: (value: TipoAval) => void;
 };
 
 export default function AvalUploadOptions({
   evento,
+  avales = [],
   tipoAval,
   onTipoAvalChange,
 }: AvalUploadOptionsProps) {
@@ -35,16 +38,25 @@ export default function AvalUploadOptions({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {tipoAvalOptions.map((option) => {
           const active = tipoAval === option.value;
+          const blockedByCollection = !canCreateCollectionByType(
+            avales,
+            option.value,
+          );
+          const disabled = blockedByCollection;
           return (
             <button
               key={option.value}
               type="button"
-              onClick={() => onTipoAvalChange(option.value)}
+              onClick={() => {
+                if (disabled) return;
+                onTipoAvalChange(option.value);
+              }}
+              disabled={disabled}
               className={`rounded-xl border p-3 text-left transition ${
                 active
                   ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/30"
                   : "border-gray-200 bg-white hover:border-indigo-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-indigo-700"
-              }`}
+              } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
             >
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {option.label}
@@ -56,6 +68,11 @@ export default function AvalUploadOptions({
                     ? "Permite monto solicitado editable luego por PDA."
                     : "Permite requerimientos manuales en la solicitud."}
               </p>
+              {blockedByCollection && (
+                <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-300">
+                  Ya existe una colección activa de fondos públicos.
+                </p>
+              )}
             </button>
           );
         })}

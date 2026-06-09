@@ -17,11 +17,12 @@ import {
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import AvalCollectionList from "@/components/avales/aval-collection-list";
 import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import UploadModal from "@/components/ui/upload-modal";
 import { useAuth } from "@/app/providers/auth-provider";
-import { canCreateReforma } from "@/lib/auth/access";
+import { canCreateReforma, isTrainerUser } from "@/lib/auth/access";
 import { getEvento } from "@/lib/api/eventos";
 import { uploadConvocatoria, getAvalesByEvento } from "@/lib/api/avales";
 import { listReformsByEvento } from "@/lib/api/reforms";
@@ -35,12 +36,15 @@ import {
 import type { Aval, TipoAval } from "@/types/aval";
 import { calcularTotalEvento } from "@/types/evento";
 import {
+  canCreateCollectionByType,
+} from "@/lib/utils/aval-collections";
+import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
   formatCurrency,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import { getEventoTipoParticipacionLabel, getTipoAvalLabel, getApprovalStageLabel } from "@/lib/constants";
+import { getEventoTipoParticipacionLabel } from "@/lib/constants";
 
 function getTotalParticipants(evento: Evento) {
   return (
@@ -67,6 +71,7 @@ export default function EventoDetailForAvalPage() {
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
   const completedStatus = searchParams.get("status") === "completed";
+  const canManageCollectionActions = isTrainerUser(user);
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) {
@@ -123,11 +128,14 @@ export default function EventoDetailForAvalPage() {
 
   useEffect(() => {
     if (!evento) return;
-    if (eventoTieneFondosPublicos(evento)) return;
-    if (tipoAval === "FONDOS_PUBLICOS") {
+    if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
+      setTipoAval("AUTOGESTION");
+      return;
+    }
+    if (!canCreateCollectionByType(avalesEvento, tipoAval)) {
       setTipoAval("AUTOGESTION");
     }
-  }, [evento, tipoAval]);
+  }, [avalesEvento, evento, tipoAval]);
 
   if (loading) {
     return (
@@ -182,6 +190,11 @@ export default function EventoDetailForAvalPage() {
     if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
       throw new Error(
         "Este evento no tiene presupuesto. Solo puedes crear avales por autogestión o solo resultados.",
+      );
+    }
+    if (!canCreateCollectionByType(avalesEvento, tipoAval)) {
+      throw new Error(
+        "Ya existe un aval activo de fondos públicos para este evento.",
       );
     }
 
@@ -239,6 +252,7 @@ export default function EventoDetailForAvalPage() {
       >
         <AvalUploadOptions
           evento={evento}
+          avales={avalesEvento}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
         />
@@ -347,7 +361,6 @@ export default function EventoDetailForAvalPage() {
           }
         />
       ) : null}
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -513,50 +526,13 @@ export default function EventoDetailForAvalPage() {
             </span>
           )}
         </div>
-        {avalesEvento.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">
-            No hay avales creados para este evento todavía.
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-700">
-            {avalesEvento.map((aval) => (
-              <div key={aval.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center rounded-full bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                      {getTipoAvalLabel(aval.tipoAval)}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {getApprovalStageLabel(aval.etapaActual ?? "SOLICITUD")}
-                    </span>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        aval.estado === "ACEPTADO"
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                          : aval.estado === "RECHAZADO"
-                            ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
-                            : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                      }`}
-                    >
-                      {aval.estado}
-                    </span>
-                  </div>
-                  {typeof aval.montoSolicitado === "number" && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Solicitado: {formatCurrency(aval.montoSolicitado)}
-                    </p>
-                  )}
-                </div>
-                <Link
-                  href={`/avales/${aval.id}`}
-                  className="shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  Ver →
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="p-4">
+          <AvalCollectionList
+            avales={avalesEvento}
+            canManageRequestActions={canManageCollectionActions}
+            emptyMessage="No hay avales creados para este evento todavía."
+          />
+        </div>
       </div>
     </div>
   );

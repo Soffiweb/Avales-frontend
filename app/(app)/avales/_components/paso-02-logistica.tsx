@@ -43,6 +43,13 @@ const TRANSPORT_OPTIONS = [
   { value: "OTRO", label: "Otro", icon: Bus },
 ];
 
+function resolveTransportSelection(value?: string) {
+  if (!value) return { selected: "", custom: "" };
+  const match = TRANSPORT_OPTIONS.find((option) => option.value === value);
+  if (match) return { selected: value, custom: "" };
+  return { selected: "OTRO", custom: value };
+}
+
 function splitDateTime(value: string) {
   if (!value) return { date: "", time: "" };
   const [date = "", rawTime = ""] = value.split("T");
@@ -58,6 +65,8 @@ export default function Paso02Logistica({
 }: Paso02LogisticaProps) {
   const salidaInicial = splitDateTime(formData.fechaHoraSalida || "");
   const retornoInicial = splitDateTime(formData.fechaHoraRetorno || "");
+  const transporteSalidaInicial = resolveTransportSelection(formData.transporteSalida);
+  const transporteRetornoInicial = resolveTransportSelection(formData.transporteRetorno);
   const [fechaSalida, setFechaSalida] = useState(salidaInicial.date);
   const [horaSalida, setHoraSalida] = useState(salidaInicial.time);
   const [fechaRetorno, setFechaRetorno] = useState(retornoInicial.date);
@@ -65,13 +74,17 @@ export default function Paso02Logistica({
   const [lugarSalida, setLugarSalida] = useState(formData.lugarSalida || "");
   const [lugarRetorno, setLugarRetorno] = useState(formData.lugarRetorno || "");
   const [transporteSalida, setTransporteSalida] = useState(
-    formData.transporteSalida || ""
+    transporteSalidaInicial.selected,
   );
   const [transporteRetorno, setTransporteRetorno] = useState(
-    formData.transporteRetorno || ""
+    transporteRetornoInicial.selected,
   );
-  const [transporteSalidaOtro, setTransporteSalidaOtro] = useState("");
-  const [transporteRetornoOtro, setTransporteRetornoOtro] = useState("");
+  const [transporteSalidaOtro, setTransporteSalidaOtro] = useState(
+    transporteSalidaInicial.custom,
+  );
+  const [transporteRetornoOtro, setTransporteRetornoOtro] = useState(
+    transporteRetornoInicial.custom,
+  );
   const [error, setError] = useState<string | null>(null);
   const fechaHoraSalida =
     fechaSalida && horaSalida ? `${fechaSalida}T${horaSalida}` : "";

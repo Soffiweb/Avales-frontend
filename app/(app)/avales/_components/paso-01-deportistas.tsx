@@ -250,6 +250,11 @@ export default function Paso01Deportistas({
   }, [buildSelectedData, onPreviewChange]);
 
   useEffect(() => {
+    if (!formData.fechaEmision) return;
+    setFechaEmision(formData.fechaEmision);
+  }, [formData.fechaEmision]);
+
+  useEffect(() => {
     if (autoSelectEntrenadorRef.current) return;
     if (!user?.id) return;
     const isEntrenador =

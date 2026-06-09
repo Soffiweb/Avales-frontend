@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { getAval } from "@/lib/api/avales";
 import type {
   Aval,
+  DeportistaAval,
+  EntrenadorAval,
   ModalidadParticipacion,
   RubroPresupuestarioDto,
   TipoAval,
@@ -12,6 +14,7 @@ import type {
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import { getTipoAvalLabel } from "@/lib/constants";
+import { formatDateInput } from "@/lib/utils/formatters";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -85,6 +88,86 @@ const INITIAL_FORM_DATA: FormData = {
   montoSolicitado: undefined,
 };
 
+function getEditableSolicitudState(aval: Aval) {
+  return (
+    aval.estado === "BORRADOR" ||
+    (aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD")
+  );
+}
+
+function getDeportistaFormId(deportista: DeportistaAval, index: number) {
+  const parsedExternalId = Number.parseInt(deportista.deportistaExternoId ?? "", 10);
+  return deportista.deportista?.id || (Number.isFinite(parsedExternalId) ? parsedExternalId : index + 1);
+}
+
+function getEntrenadorDisplayName(entrenador: EntrenadorAval) {
+  return (
+    [
+      entrenador.entrenador?.nombre ??
+        entrenador.usuario?.nombre ??
+        entrenador.nombre,
+      entrenador.entrenador?.apellido ??
+        entrenador.usuario?.apellido ??
+        entrenador.apellido,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || `Entrenador ${entrenador.id}`
+  );
+}
+
+function buildInitialFormData(
+  aval: Aval,
+  tipoAvalFromQuery?: TipoAval | null,
+): FormData {
+  const deportistas = (aval.avalTecnico?.deportistasAval ?? []).map((item, index) => ({
+    id: getDeportistaFormId(item, index),
+    deportistaExternoId: item.deportistaExternoId,
+    nombre:
+      item.deportista?.nombre ??
+      item.deportista?.nombres ??
+      "",
+    apellido:
+      item.deportista?.apellido ??
+      item.deportista?.apellidos ??
+      "",
+    nombres: item.deportista?.nombres,
+    apellidos: item.deportista?.apellidos,
+    cedula: item.deportista?.cedula,
+    genero: item.deportista?.genero,
+    payload:
+      (item.deportista?.payload as Record<string, unknown> | undefined) ??
+      undefined,
+    rol: item.rol,
+    modalidadParticipacion: item.modalidadParticipacion ?? undefined,
+  }));
+
+  const entrenadores = [...(aval.entrenadores ?? [])]
+    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .map((item) => ({
+      id: item.entrenadorId ?? item.id,
+      nombre: getEntrenadorDisplayName(item),
+    }));
+
+  return {
+    deportistas,
+    entrenadores,
+    fechaHoraSalida: aval.avalTecnico?.fechaHoraSalida ?? "",
+    fechaHoraRetorno: aval.avalTecnico?.fechaHoraRetorno ?? "",
+    lugarSalida: aval.avalTecnico?.lugarSalida ?? "",
+    lugarRetorno: aval.avalTecnico?.lugarRetorno ?? "",
+    transporteSalida: aval.avalTecnico?.transporteSalida ?? "",
+    transporteRetorno: aval.avalTecnico?.transporteRetorno ?? "",
+    objetivos: (aval.avalTecnico?.objetivos ?? []).map((item) => item.descripcion),
+    criterios: (aval.avalTecnico?.criterios ?? []).map((item) => item.descripcion),
+    observaciones: aval.comentario ?? aval.avalTecnico?.observaciones ?? "",
+    adjuntosSolicitud: [],
+    tipoAval: aval.tipoAval ?? tipoAvalFromQuery ?? undefined,
+    requerimientos: aval.avalTecnico?.requerimientos ?? [],
+    montoSolicitado: aval.montoSolicitado ?? undefined,
+  };
+}
+
 export default function CrearSolicitudPage() {
   const params = useParams();
   const router = useRouter();
@@ -105,13 +188,12 @@ export default function CrearSolicitudPage() {
       const response = await getAval(avalId);
       const avalData = response.data;
       setAval(avalData);
-      setFormData((prev) => ({
-        ...prev,
-        tipoAval:
-          avalData.tipoAval ??
-          (searchParams.get("tipoAval") as TipoAval | null) ??
-          undefined,
-      }));
+      setFormData(
+        buildInitialFormData(
+          avalData,
+          searchParams.get("tipoAval") as TipoAval | null,
+        ),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar el aval");
     } finally {
@@ -179,12 +261,12 @@ export default function CrearSolicitudPage() {
     );
   }
 
-  if (aval.estado !== "BORRADOR") {
+  if (!getEditableSolicitudState(aval)) {
     return (
       <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl p-6 text-center">
-        <p className="font-medium mb-2">Este aval no está en estado BORRADOR</p>
+        <p className="font-medium mb-2">Esta solicitud no se puede editar</p>
         <p className="text-sm">
-          Solo puedes crear la solicitud técnica para avales en estado BORRADOR.
+          Solo puedes editar la solicitud cuando el aval está en BORRADOR o en SOLICITADO con etapa SOLICITUD.
         </p>
       </div>
     );

@@ -14,12 +14,17 @@ import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
-import { createAval, uploadAdjuntosSolicitud } from "@/lib/api/avales";
+import {
+  createAval,
+  updateAvalRequest,
+  uploadAdjuntosSolicitud,
+} from "@/lib/api/avales";
 import { updateEvento } from "@/lib/api/eventos";
 import { getTipoAvalLabel } from "@/lib/constants";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type {
   Aval,
+  EditAvalPayload,
   ModalidadParticipacion,
   RubroPresupuestarioDto,
   TipoAval,
@@ -86,7 +91,9 @@ export default function Paso04Presupuesto({
   aval,
 }: Paso04PresupuestoProps) {
   const router = useRouter();
-  const [numeroAval, setNumeroAval] = useState("");
+  const [numeroAval, setNumeroAval] = useState(
+    aval.avalTecnico?.numeroAval ?? "",
+  );
   const [observaciones, setObservaciones] = useState(
     formData.observaciones || "",
   );
@@ -198,6 +205,8 @@ export default function Paso04Presupuesto({
   const totalDifferenceManual = Math.abs(
     totalMontoSolicitado - totalOriginalManual,
   );
+  const isEditingSolicitud =
+    aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD";
 
   const formatBytes = (value: number) => {
     if (value < 1024) return `${value} B`;
@@ -316,13 +325,13 @@ export default function Paso04Presupuesto({
         await updateEvento(aval.evento.id, { genero: generoEvento });
       }
 
-      const payload = {
-        coleccionAvalId: avalId,
+      const payloadBase = {
         tipoAval,
         montoSolicitado:
           usesManualRequirements && serializedManualRequirements.length > 0
             ? totalMontoSolicitado
             : undefined,
+        montoAsignado: aval.montoAsignado ?? undefined,
         fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
         numeroAval: numeroAval.trim() || undefined,
         fechaHoraSalida: formData.fechaHoraSalida,
@@ -363,14 +372,24 @@ export default function Paso04Presupuesto({
         observaciones: observaciones.trim() || undefined,
       };
 
-      const response = await createAval(payload);
+      const { montoAsignado: _ignoredMontoAsignado, ...createPayloadBase } =
+        payloadBase;
+
+      const response = isEditingSolicitud
+        ? await updateAvalRequest(aval.id, payloadBase as EditAvalPayload)
+        : await createAval({
+            ...createPayloadBase,
+            coleccionAvalId: avalId,
+          });
       createdAvalId = response.data.id;
 
       if (adjuntosSolicitud.length > 0) {
         await uploadAdjuntosSolicitud(createdAvalId, adjuntosSolicitud);
       }
 
-      router.push(`/avales/${createdAvalId}?status=created`);
+      router.push(
+        `/avales/${createdAvalId}?status=${isEditingSolicitud ? "updated" : "created"}`,
+      );
     } catch (err: any) {
       console.error("Error al crear el aval:", err);
       if (createdAvalId) {

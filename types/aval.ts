@@ -351,7 +351,8 @@ export type DeportistaAvalDto = {
 };
 
 export type EntrenadorAvalDto = {
-  entrenadorId: number;
+  entrenadorId?: number;
+  entrenadorNombre?: string;
   rol: string;
   esPrincipal?: boolean;
 };

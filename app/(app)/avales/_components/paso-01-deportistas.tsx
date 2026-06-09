@@ -43,7 +43,7 @@ type FormData = {
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
-  entrenadores: Array<{ id: number; nombre: string }>;
+  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -69,7 +69,7 @@ type SelectedDeportista = Deportista & {
   rol?: string;
   modalidadParticipacion?: ModalidadParticipacion;
 };
-type SelectedEntrenador = User;
+type SelectedEntrenador = User | { id: number; nombre: string; apellido: string; cedula?: undefined; esTextoLibre: true };
 
 function formatDeportistaNombre(
   deportista: Pick<Deportista, "nombres" | "apellidos">
@@ -148,10 +148,19 @@ export default function Paso01Deportistas({
   const [entrenadores, setEntrenadores] = useState<User[]>([]);
   const [loadingEntrenadores, setLoadingEntrenadores] = useState(false);
   const [entrenadoresFocused, setEntrenadoresFocused] = useState(false);
+  const freeTextIdCounterRef = useRef(-1);
   const [selectedEntrenadores, setSelectedEntrenadores] = useState<
     SelectedEntrenador[]
   >(() =>
     (formData.entrenadores ?? []).map((e) => {
+      if (e.esTextoLibre) {
+        return {
+          id: e.id,
+          nombre: e.nombre,
+          apellido: "",
+          esTextoLibre: true as const,
+        };
+      }
       const [nombre = "", ...apellidoParts] = (e.nombre ?? "").split(" ");
       return {
         id: e.id,
@@ -160,6 +169,7 @@ export default function Paso01Deportistas({
       } as SelectedEntrenador;
     }),
   );
+  const [freeTextEntrenadorNombre, setFreeTextEntrenadorNombre] = useState("");
 
   const [principalEntrenadorId, setPrincipalEntrenadorId] = useState<
     number | null
@@ -219,7 +229,10 @@ export default function Paso01Deportistas({
       })),
       entrenadores: orderedEntrenadores.map((e) => ({
         id: e.id,
-        nombre: `${e.nombre} ${e.apellido}`.trim(),
+        nombre: "esTextoLibre" in e && e.esTextoLibre
+          ? e.nombre
+          : `${e.nombre} ${e.apellido ?? ""}`.trim(),
+        esTextoLibre: "esTextoLibre" in e && e.esTextoLibre ? true : undefined,
       })),
       fechaEmision,
       tipoAval,
@@ -242,7 +255,6 @@ export default function Paso01Deportistas({
     const isEntrenador =
       getNormalizedRoles(user).includes("ENTRENADOR") && !isAdminUser(user);
     if (!isEntrenador) return;
-    if (totalEntrenadoresRequeridos <= 0) return;
 
     const alreadySelected = selectedEntrenadores.some((e) => e.id === user.id);
     if (alreadySelected) {
@@ -365,7 +377,10 @@ export default function Paso01Deportistas({
 
   const handleAddEntrenador = (entrenador: User) => {
     const alreadySelected = selectedEntrenadores.some((e) => e.id === entrenador.id);
-    if (alreadySelected || selectedEntrenadores.length >= totalEntrenadoresRequeridos) {
+    const limitReached =
+      totalEntrenadoresRequeridos > 0 &&
+      selectedEntrenadores.length >= totalEntrenadoresRequeridos;
+    if (alreadySelected || limitReached) {
       return;
     }
 
@@ -374,6 +389,24 @@ export default function Paso01Deportistas({
       setPrincipalEntrenadorId(entrenador.id);
     }
     setSearchEntrenadores("");
+  };
+
+  const handleAddEntrenadorTextoLibre = () => {
+    const nombre = freeTextEntrenadorNombre.trim();
+    if (!nombre) return;
+    const freeTextId = freeTextIdCounterRef.current;
+    freeTextIdCounterRef.current -= 1;
+    const entry: SelectedEntrenador = {
+      id: freeTextId,
+      nombre,
+      apellido: "",
+      esTextoLibre: true,
+    };
+    setSelectedEntrenadores((prev) => [...prev, entry]);
+    if (principalEntrenadorId == null) {
+      setPrincipalEntrenadorId(freeTextId);
+    }
+    setFreeTextEntrenadorNombre("");
   };
 
   const handleRemoveEntrenador = (entrenadorId: number) => {
@@ -397,7 +430,10 @@ export default function Paso01Deportistas({
       return;
     }
 
-    if (selectedEntrenadores.length !== totalEntrenadoresRequeridos) {
+    if (
+      totalEntrenadoresRequeridos > 0 &&
+      selectedEntrenadores.length !== totalEntrenadoresRequeridos
+    ) {
       setError(
         `Debes seleccionar exactamente ${totalEntrenadoresRequeridos} ${
           totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"
@@ -615,50 +651,52 @@ export default function Paso01Deportistas({
   };
 
   const renderEntrenadorSearch = () => {
-    if (totalEntrenadoresRequeridos === 0) {
-      return (
-        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Este evento no requiere entrenadores para esta delegación.
-          </p>
-        </div>
-      );
-    }
+    const dropdownLimitReached =
+      totalEntrenadoresRequeridos > 0 &&
+      selectedEntrenadores.length >= totalEntrenadoresRequeridos;
 
     return (
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Entrenadores
-          </label>
-          <span
-            className={`text-sm font-medium ${
-              selectedEntrenadores.length === totalEntrenadoresRequeridos
-                ? "text-emerald-600 dark:text-emerald-400"
-                : selectedEntrenadores.length > totalEntrenadoresRequeridos
-                ? "text-rose-600 dark:text-rose-400"
-                : "text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            {selectedEntrenadores.length} / {totalEntrenadoresRequeridos}
-          </span>
-        </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          El evento requiere {totalEntrenadoresRequeridos}{" "}
-          {totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"}.
-        </p>
+        {totalEntrenadoresRequeridos > 0 && (
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Entrenadores
+            </label>
+            <span
+              className={`text-sm font-medium ${
+                selectedEntrenadores.length === totalEntrenadoresRequeridos
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : selectedEntrenadores.length > totalEntrenadoresRequeridos
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {selectedEntrenadores.length} / {totalEntrenadoresRequeridos}
+            </span>
+          </div>
+        )}
+        {totalEntrenadoresRequeridos > 0 ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            El evento requiere {totalEntrenadoresRequeridos}{" "}
+            {totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"}.
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Asigna al menos un entrenador responsable para continuar.
+          </p>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             className="form-input w-full pl-10 pr-10"
-            placeholder="Buscar entrenador..."
+            placeholder="Buscar entrenador registrado..."
             value={searchEntrenadores}
             onChange={(e) => setSearchEntrenadores(e.target.value)}
             onFocus={() => setEntrenadoresFocused(true)}
             onBlur={() => setTimeout(() => setEntrenadoresFocused(false), 150)}
-            disabled={selectedEntrenadores.length >= totalEntrenadoresRequeridos}
+            disabled={dropdownLimitReached}
           />
           {searchEntrenadores.trim() && (
             <button
@@ -686,9 +724,7 @@ export default function Paso01Deportistas({
                   const alreadySelected = selectedEntrenadores.some(
                     (e) => e.id === entrenador.id
                   );
-                  const limitReached =
-                    selectedEntrenadores.length >= totalEntrenadoresRequeridos;
-                  const isDisabled = alreadySelected || limitReached;
+                  const isDisabled = alreadySelected || dropdownLimitReached;
 
                   return (
                     <button
@@ -726,46 +762,90 @@ export default function Paso01Deportistas({
           )}
         </div>
 
+        {!dropdownLimitReached && (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              ¿El entrenador no está en el sistema?
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="form-input flex-1"
+                placeholder="Nombre completo del entrenador"
+                value={freeTextEntrenadorNombre}
+                onChange={(e) => setFreeTextEntrenadorNombre(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddEntrenadorTextoLibre();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddEntrenadorTextoLibre}
+                disabled={!freeTextEntrenadorNombre.trim()}
+                className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+        )}
+
         {selectedEntrenadores.length > 0 && (
           <div className="mt-3 space-y-2">
-            {selectedEntrenadores.map((entrenador) => (
-              <div
-                key={entrenador.id}
-                className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">
-                    {entrenador.nombre} {entrenador.apellido}
-                  </p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    {entrenador.cedula}
-                  </p>
-                  <div className="mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setPrincipalEntrenadorId(entrenador.id)}
-                      className={`text-[11px] font-semibold ${
-                        principalEntrenadorId === entrenador.id
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                      }`}
-                    >
-                      {principalEntrenadorId === entrenador.id
-                        ? "Principal"
-                        : "Marcar como principal"}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleRemoveEntrenador(entrenador.id)}
-                  className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
+            {selectedEntrenadores.map((entrenador) => {
+              const isFreeText = "esTextoLibre" in entrenador && entrenador.esTextoLibre;
+              const displayName = isFreeText
+                ? entrenador.nombre
+                : `${entrenador.nombre} ${entrenador.apellido ?? ""}`.trim();
+              return (
+                <div
+                  key={entrenador.id}
+                  className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
                 >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">
+                      {displayName}
+                    </p>
+                    {!isFreeText && entrenador.cedula && (
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {entrenador.cedula}
+                      </p>
+                    )}
+                    {isFreeText && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                        No registrado en el sistema
+                      </p>
+                    )}
+                    <div className="mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPrincipalEntrenadorId(entrenador.id)}
+                        className={`text-[11px] font-semibold ${
+                          principalEntrenadorId === entrenador.id
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                      >
+                        {principalEntrenadorId === entrenador.id
+                          ? "Principal"
+                          : "Marcar como principal"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEntrenador(entrenador.id)}
+                    className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

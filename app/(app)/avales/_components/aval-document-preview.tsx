@@ -25,7 +25,7 @@ type FormData = {
     observacion?: string;
     rol?: string;
   }>;
-  entrenadores: Array<{ id: number; nombre: string }>;
+  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;

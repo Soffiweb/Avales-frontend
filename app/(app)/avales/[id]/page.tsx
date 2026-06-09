@@ -32,6 +32,7 @@ import {
 import type { LucideProps } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
+import { ensureFreshAccessToken } from "@/lib/api/client";
 import ApprovalFlowCard from "../_components/approval-flow-card";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import AvalPresupuestoSection from "./_components/aval-presupuesto-section";
@@ -689,6 +690,7 @@ export default function AvalDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingRequest, setDeletingRequest] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [downloadingAval, setDownloadingAval] = useState(false);
 
   const userRoles = getNormalizedRoles(user);
   const isAdminLike =
@@ -953,6 +955,40 @@ export default function AvalDetailPage() {
   // (Excel, CSV) suelto dentro del archivo.
   const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-zip`;
 
+  // La descarga del aval completo es un endpoint protegido del backend. Un <a href>
+  // plano NO envía el header Authorization (el token vive en localStorage, no en
+  // cookie), por eso fallaba con 401. Se descarga vía fetch autenticado -> blob.
+  const handleDownloadAvalCompleto = async () => {
+    try {
+      setDownloadingAval(true);
+      const token = await ensureFreshAccessToken();
+      const res = await fetch(avalCompletoPdfUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `aval-${aval.id}-completo.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setToast({
+        variant: "error",
+        message:
+          "No se pudo descargar el aval completo. Volvé a iniciar sesión e intentá de nuevo.",
+      });
+    } finally {
+      setDownloadingAval(false);
+    }
+  };
+
   const totalAtletas = evento
     ? (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0)
     : 0;
@@ -1092,15 +1128,19 @@ export default function AvalDetailPage() {
               </button>
             )}
             {canDownloadAvalCompleto ? (
-              <a
-                href={avalCompletoPdfUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
+              <button
+                type="button"
+                onClick={handleDownloadAvalCompleto}
+                disabled={downloadingAval}
+                className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Descargar aval completo
-              </a>
+                {downloadingAval ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {downloadingAval ? "Descargando…" : "Descargar aval completo"}
+              </button>
             ) : (
               <button
                 type="button"

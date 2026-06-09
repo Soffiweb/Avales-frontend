@@ -951,6 +951,7 @@ export default function AvalDetailPage() {
     isAvalOwner &&
     (aval.estado === "BORRADOR" ||
       (aval.estado === "SOLICITADO" && currentEtapa === "SOLICITUD"));
+  const canDeleteAsAdmin = isAdminLike;
   // Endpoint ZIP: incluye el PDF mergeado + cualquier adjunto NO-PDF/NO-imagen
   // (Excel, CSV) suelto dentro del archivo.
   const avalCompletoPdfUrl = `/api/v1/avales/${aval.id}/aval-completo-zip`;
@@ -1101,14 +1102,14 @@ export default function AvalDetailPage() {
                 Editar solicitud
               </Link>
             )}
-            {canDeleteSolicitud && (
+            {(canDeleteSolicitud || canDeleteAsAdmin) && (
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
                 className="btn border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar solicitud
+                {canDeleteAsAdmin ? "Eliminar aval" : "Eliminar solicitud"}
               </button>
             )}
             {isAdminLike && (
@@ -1737,9 +1738,13 @@ export default function AvalDetailPage() {
 
       <ConfirmModal
         open={confirmOpen}
-        title="Eliminar solicitud de aval"
-        description="¿Seguro que quieres eliminar esta solicitud de aval? Esta acción no se puede deshacer."
-        confirmLabel="Eliminar solicitud"
+        title={canDeleteAsAdmin ? "Eliminar aval completo" : "Eliminar solicitud de aval"}
+        description={
+          canDeleteAsAdmin
+            ? "¿Seguro que quieres eliminar este aval? Se borrarán todos los datos, archivos en storage y el evento quedará disponible para crear un nuevo aval. Esta acción no se puede deshacer."
+            : "¿Seguro que quieres eliminar esta solicitud de aval? Esta acción no se puede deshacer."
+        }
+        confirmLabel={canDeleteAsAdmin ? "Eliminar aval" : "Eliminar solicitud"}
         cancelLabel="Volver"
         loading={deletingRequest}
         onConfirm={handleDeleteRequest}

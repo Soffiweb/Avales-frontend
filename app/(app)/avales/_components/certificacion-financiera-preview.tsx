@@ -4,6 +4,7 @@ import {
   formatDate,
   formatEventScheduleLabel,
   formatLocationWithProvince,
+  getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 
@@ -31,6 +32,7 @@ function InfoTable({
   periodoComisionFin: string;
 }) {
   const evento = aval.evento;
+  const responsable = getResponsibleTrainerData(aval);
   const entrenadores =
     (evento?.numEntrenadoresHombres || 0) +
     (evento?.numEntrenadoresMujeres || 0);
@@ -58,8 +60,8 @@ function InfoTable({
           : formatDate(periodoComision)
         : "-",
     ],
-    ["RESPONSABLE ANTICIPO", "-"],
-    ["C. I. RESPON. ANTICIPO", "-"],
+    ["RESPONSABLE ANTICIPO", responsable.nombre],
+    ["C. I. RESPON. ANTICIPO", responsable.cedula],
     [`ACTIVIDADES POA ${year}`, "005 EVENTOS DE PREPARACION Y COMPETENCIA"],
     ["AVAL TECNICO NUMERO", aval.avalTecnico?.numeroAval || aval.aval || aval.numeroColeccion || String(aval.id)],
     ["FONDOS", "PUBLICOS"],

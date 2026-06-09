@@ -79,10 +79,16 @@ export type ListReformasMultiQuery = {
   search?: string;
 };
 
+export type ReformaLineItemPayload = {
+  itemId: number;
+  mes: number;
+  monto: number;
+};
+
 export type CreateReformaMultiPayload = {
   motivo: string;
   mesEjecucion: number;
   fuente: FuentePresupuestoReforma;
-  eventosOrigen: Array<{ eventoId: number; monto: number }>;
-  eventosDestino: Array<{ eventoId: number; monto: number }>;
+  eventosOrigen: Array<{ eventoId: number; items: ReformaLineItemPayload[] }>;
+  eventosDestino: Array<{ eventoId: number; items: ReformaLineItemPayload[] }>;
 };

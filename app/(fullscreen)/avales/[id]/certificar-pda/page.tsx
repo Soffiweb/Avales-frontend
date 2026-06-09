@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
@@ -253,9 +253,6 @@ export default function CertificarAvalPage() {
 
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
   const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
-  const [montoAsignado, setMontoAsignado] = useState("");
-  const [justificacionAjuste, setJustificacionAjuste] = useState("");
-  const montoAsignadoInitialized = useRef(false);
 
   const totalPresupuestoDraft = useMemo(
     () => budgetDraftItems.reduce((total, item) => total + getDraftItemTotal(item), 0),
@@ -295,17 +292,6 @@ export default function CertificarAvalPage() {
       const pdaError = validatePdaDraft(draft);
       if (pdaError) return pdaError;
 
-      if (currentAval.tipoAval === "AUTOGESTION") {
-        const monto = Number.parseFloat(montoAsignado.replace(",", "."));
-        if (!Number.isFinite(monto) || monto <= 0) {
-          return "Debes ingresar el monto aprobado por PDA (mayor a 0).";
-        }
-        const montoOriginal = currentAval.montoSolicitado ?? 0;
-        if (Math.abs(monto - montoOriginal) >= 0.01 && !justificacionAjuste.trim()) {
-          return "Debes justificar el ajuste del monto solicitado.";
-        }
-      }
-
       const invalidItems = budgetDraftItems.filter(
         (item) =>
           item.dias.length === 0 ||
@@ -331,11 +317,9 @@ export default function CertificarAvalPage() {
       }
 
       return null;
-    }, [draft, budgetDraftItems, totalPresupuestoDraft, montoAsignado, justificacionAjuste]),
+    }, [draft, budgetDraftItems, totalPresupuestoDraft]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
-        const isAutogestion = a.tipoAval === "AUTOGESTION";
-
         const items = budgetDraftItems
           .map((item) => ({
             itemId: item.itemId,
@@ -348,10 +332,6 @@ export default function CertificarAvalPage() {
           }))
           .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
 
-        const monto = isAutogestion
-          ? normalizePositiveNumber(montoAsignado)
-          : undefined;
-
         const pdaPayload = {
           descripcion: draft.descripcion.trim(),
           numeroPda: draft.numeroPda?.trim() || undefined,
@@ -359,14 +339,13 @@ export default function CertificarAvalPage() {
           codigoActividad: draft.codigoActividad?.trim() || "005",
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
-          montoAsignado: monto,
           items: items.length > 0 ? items : undefined,
         };
 
         await createPda(a.id, pdaPayload);
         await aprobarAval(a.id, userId, approvalEtapa);
       },
-      [draft, budgetDraftItems, montoAsignado],
+      [draft, budgetDraftItems],
     ),
     approveSuccessMessage: "PDA aprobado correctamente.",
     rejectSuccessMessage: "PDA rechazado correctamente.",
@@ -376,9 +355,6 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);
     setBudgetDraftItems([]);
-    setMontoAsignado("");
-    setJustificacionAjuste("");
-    montoAsignadoInitialized.current = false;
   }, [avalId]);
 
   // Populate draft description and pda numbers from loaded aval
@@ -416,17 +392,6 @@ export default function CertificarAvalPage() {
       return;
     }
     setBudgetDraftItems(buildBudgetDraftItems(aval));
-  }, [aval]);
-
-  // Pre-populate montoAsignado for AUTOGESTION — useRef evita re-set al recargar aval
-  useEffect(() => {
-    if (!aval || aval.tipoAval !== "AUTOGESTION") return;
-    if (montoAsignadoInitialized.current) return;
-    const initial = aval.montoAsignado ?? aval.montoSolicitado;
-    if (initial != null && initial > 0) {
-      setMontoAsignado(String(initial));
-      montoAsignadoInitialized.current = true;
-    }
   }, [aval]);
 
   const trainerDocsData = useMemo(
@@ -575,16 +540,6 @@ export default function CertificarAvalPage() {
     );
   }
 
-  const isAutogestion = aval.tipoAval === "AUTOGESTION";
-  const montoAsignadoNum = Number.parseFloat(montoAsignado.replace(",", "."));
-  const montoSolicitadoNum = aval.montoSolicitado ?? 0;
-  const montoChanged =
-    isAutogestion &&
-    montoAsignado.trim() !== "" &&
-    Number.isFinite(montoAsignadoNum) &&
-    aval.montoSolicitado != null &&
-    Math.abs(montoAsignadoNum - montoSolicitadoNum) >= 0.01;
-
   return (
     <div className="h-screen flex">
       {toast && (
@@ -663,69 +618,6 @@ export default function CertificarAvalPage() {
                   />
                 </label>
               </div>
-
-              {/* Sección AUTOGESTION */}
-              {isAutogestion && (
-                <div className="max-w-xl space-y-4">
-                  <div>
-                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Presupuesto de autogestión
-                    </h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Revisa el monto solicitado y aprueba o ajusta el monto asignado.
-                    </p>
-                  </div>
-
-                  {/* Monto solicitado por entrenador */}
-                  <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20 px-4 py-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Monto solicitado por entrenador
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">
-                      {aval.montoSolicitado != null
-                        ? formatCurrency(aval.montoSolicitado)
-                        : "—"}
-                    </p>
-                  </div>
-
-                  {/* Monto aprobado por PDA */}
-                  <label className="block">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Monto aprobado por PDA *
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      className="form-input w-full mt-1"
-                      value={montoAsignado}
-                      readOnly={!isEditable}
-                      disabled={!isEditable}
-                      onChange={(e) => setMontoAsignado(e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </label>
-
-                  {/* Justificación si el monto cambia */}
-                  {montoChanged && (
-                    <label className="block">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Justificación del ajuste
-                      </span>
-                      <textarea
-                        className="form-textarea w-full mt-1"
-                        rows={3}
-                        value={justificacionAjuste}
-                        readOnly={!isEditable}
-                        disabled={!isEditable}
-                        onChange={(e) => setJustificacionAjuste(e.target.value)}
-                        placeholder="Explica por qué se ajustó el monto solicitado..."
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
 
               {/* Presupuesto por fuente */}
               {aval.presupuesto && (

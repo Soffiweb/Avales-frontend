@@ -149,7 +149,7 @@ export default function NuevoAvalPage() {
     }
 
     if (isEventoIncompleto(evento)) {
-      const next = `/avales/nuevo/eventos/${evento.id}`;
+      const next = `/eventos/${evento.id}`;
       router.push(
         `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(next)}`,
       );

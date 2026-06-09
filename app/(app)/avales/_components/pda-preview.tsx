@@ -3,6 +3,7 @@ import {
   formatAvalDepartureDate,
   formatCurrencyFromString,
   formatCurrentLongDate,
+  formatDate,
   formatLocationWithProvince,
   getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
@@ -15,6 +16,8 @@ export type PdaDraft = {
   codigoActividad: string;
   nombreFirmante: string;
   cargoFirmante: string;
+  periodoComision?: string;
+  periodoComisionFin?: string;
 };
 
 type Props = {
@@ -95,6 +98,16 @@ export default function PdaPreview({ aval, draft }: Props) {
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
             <td className="border border-slate-400 px-2 py-1">{formatAvalDepartureDate(aval)}</td>
+          </tr>
+          <tr>
+            <td className="border border-slate-400 px-2 py-1 font-semibold">PERÍODO DE COMISIÓN</td>
+            <td className="border border-slate-400 px-2 py-1">
+              {draft.periodoComision
+                ? draft.periodoComisionFin
+                  ? `${formatDate(draft.periodoComision)} - ${formatDate(draft.periodoComisionFin)}`
+                  : formatDate(draft.periodoComision)
+                : "-"}
+            </td>
           </tr>
           <tr>
             <td className="border border-slate-400 px-2 py-1 font-semibold">RESPONSABLE ANTICIPO</td>

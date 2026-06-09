@@ -391,7 +391,7 @@ export default function CertificacionFinancieraPage() {
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Fecha
+                    Fecha de salida
                   </span>
                   <input
                     type="date"
@@ -484,7 +484,14 @@ export default function CertificacionFinancieraPage() {
           <div className="space-y-6">
             <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Certificacion PDA">
-              <PdaPreview aval={aval} draft={pdaDraft} />
+              <PdaPreview
+                aval={aval}
+                draft={{
+                  ...pdaDraft,
+                  periodoComision: draft.periodoComision,
+                  periodoComisionFin: draft.periodoComisionFin,
+                }}
+              />
             </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />

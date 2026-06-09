@@ -50,7 +50,7 @@ type FormData = {
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
-  entrenadores: Array<{ id: number; nombre: string }>;
+  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -351,7 +351,9 @@ export default function Paso04Presupuesto({
           modalidadParticipacion: d.modalidadParticipacion,
         })),
         entrenadores: formData.entrenadores.map((e, index) => ({
-          entrenadorId: e.id,
+          ...(e.esTextoLibre
+            ? { entrenadorNombre: e.nombre }
+            : { entrenadorId: e.id }),
           rol: index === 0 ? "ENTRENADOR PRINCIPAL" : "ENTRENADOR",
           esPrincipal: index === 0,
         })),

@@ -25,7 +25,7 @@ type FormData = {
     observacion?: string;
     rol?: string;
   }>;
-  entrenadores: Array<{ id: number; nombre: string }>;
+  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -54,25 +54,26 @@ type AvalDocumentPreviewProps = {
 
 export type AvalPreviewFormData = FormData;
 
-const PREVIEW_MONTHS = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
+const PREVIEW_MONTHS_ABBR = [
+  "ENE",
+  "FEB",
+  "MAR",
+  "ABR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DIC",
 ];
 
 function formatPreviewBirthDate(value?: string | null) {
   const parts = getCalendarDateParts(value);
   if (!parts) return "-";
-  return `${parts.day} ${PREVIEW_MONTHS[parts.month - 1]} ${parts.year}`;
+  const dia = String(parts.day).padStart(2, "0");
+  return `${dia}/${PREVIEW_MONTHS_ABBR[parts.month - 1]}/${parts.year}`;
 }
 
 export default function AvalDocumentPreview({

@@ -45,7 +45,7 @@ type FormData = {
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
-  entrenadores: Array<{ id: number; nombre: string }>;
+  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
 
   // Paso 2: Logística
   fechaHoraSalida: string;

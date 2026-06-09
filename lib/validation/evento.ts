@@ -28,7 +28,7 @@ export const eventoSchema = z.object({
     .max(50, "Codigo: maximo 50 caracteres"),
   tipoParticipacion: z
     .enum(
-      EVENTO_TIPO_PARTICIPACION_VALUES as [
+      [...EVENTO_TIPO_PARTICIPACION_VALUES] as [
         EventoTipoParticipacion,
         ...EventoTipoParticipacion[],
       ]
@@ -39,7 +39,7 @@ export const eventoSchema = z.object({
     }),
   tipoEvento: z
     .enum(
-      EVENTO_TIPO_EVENTO_VALUES as [string, ...string[]]
+      [...EVENTO_TIPO_EVENTO_VALUES] as [string, ...string[]]
     )
     .or(z.literal(""))
     .refine((value) => value !== "", {
@@ -59,7 +59,7 @@ export const eventoSchema = z.object({
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   categoriaCodigo: z
     .enum(
-      EVENTO_CATEGORIA_VALUES as [string, ...string[]]
+      [...EVENTO_CATEGORIA_VALUES] as [string, ...string[]]
     )
     .or(z.literal("")),
   mesProgramado: z
@@ -72,7 +72,7 @@ export const eventoSchema = z.object({
   pais: z.string().min(1, "Pais requerido").max(100),
   alcance: z
     .enum(
-      EVENTO_ALCANCE_VALUES as [string, ...string[]]
+      [...EVENTO_ALCANCE_VALUES] as [string, ...string[]]
     )
     .or(z.literal("")),
   fechaInicio: optionalDateSchema,

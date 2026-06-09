@@ -93,10 +93,10 @@ export const EVENTO_TIPO_EVENTO_LABELS: Record<
 function toOptions<T extends readonly string[]>(
   values: T,
   labels: Record<T[number], string>,
-) {
+): { value: T[number]; label: string }[] {
   return values.map((value) => ({
-    value,
-    label: labels[value],
+    value: value as T[number],
+    label: labels[value as T[number]],
   }));
 }
 

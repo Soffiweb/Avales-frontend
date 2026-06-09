@@ -10,6 +10,11 @@ import { authDebugLog, describeToken } from "@/lib/auth/debug";
 
 export type ApiEnvelope<T> = ApiResponse<T>;
 
+let lastRequestId: string | null = null;
+export function getLastRequestId() {
+  return lastRequestId;
+}
+
 export class ApiError extends Error {
   status: number;
   problem?: ProblemDetails | null;
@@ -247,6 +252,9 @@ export async function apiFetch<T>(
       res = await request(token);
     }
   }
+
+  const rid = res.headers.get("X-Request-Id");
+  if (rid) lastRequestId = rid;
 
   const payload = (await res.json().catch(() => null)) as
     | ApiResponse<T>

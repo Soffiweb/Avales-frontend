@@ -1058,7 +1058,7 @@ export default function AvalDetailPage() {
                 {regenerating ? "Iniciando..." : "Regenerar PDFs"}
               </button>
             )}
-            {canDownloadAvalCompleto && (
+            {canDownloadAvalCompleto ? (
               <a
                 href={avalCompletoPdfUrl}
                 target="_blank"
@@ -1068,6 +1068,16 @@ export default function AvalDetailPage() {
                 <Download className="w-4 h-4 mr-2" />
                 Descargar aval completo
               </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="El aval completo estará disponible una vez aprobado en todas las etapas."
+                className="btn bg-indigo-500 text-white opacity-50 cursor-not-allowed"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Descargar aval completo
+              </button>
             )}
           </div>
         </div>

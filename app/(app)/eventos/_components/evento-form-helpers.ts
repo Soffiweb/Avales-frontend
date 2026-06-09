@@ -186,6 +186,8 @@ export function buildUpdateEventoPayloadFromForm(
     return null;
   }
 
+  const canonicalCategoriaCodigo = getCanonicalCategory(values.categoriaCodigo);
+
   return {
     codigo: values.codigo.trim(),
     tipoParticipacion,
@@ -195,6 +197,7 @@ export function buildUpdateEventoPayloadFromForm(
     genero: values.genero,
     disciplinaId,
     categoriaId: categoriaId ?? null,
+    ...(canonicalCategoriaCodigo ? { categoriaCodigo: canonicalCategoriaCodigo } : {}),
     mesProgramado: values.mesProgramado,
     provincia: values.provincia.trim(),
     ciudad: values.ciudad.trim(),

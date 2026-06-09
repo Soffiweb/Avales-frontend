@@ -38,6 +38,7 @@ import {
   formatRoles,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -600,6 +601,7 @@ export default function RevisionDtmPage() {
       <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
+            <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>

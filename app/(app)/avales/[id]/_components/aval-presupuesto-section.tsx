@@ -60,6 +60,15 @@ export default function AvalPresupuestoSection({
                 <Calendar className="w-3 h-3" />
                 {formatMonth(item.mes)}
               </span>
+              {item.fuente === "FONDOS_PUBLICOS" ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                  Fondos públicos
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                  Autogestión
+                </span>
+              )}
             </div>
           </div>
         ))}

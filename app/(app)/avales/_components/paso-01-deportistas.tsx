@@ -430,6 +430,11 @@ export default function Paso01Deportistas({
       return;
     }
 
+    if (selectedEntrenadores.length === 0) {
+      setError("Debe asignar al menos un entrenador responsable.");
+      return;
+    }
+
     if (
       totalEntrenadoresRequeridos > 0 &&
       selectedEntrenadores.length !== totalEntrenadoresRequeridos
@@ -442,7 +447,7 @@ export default function Paso01Deportistas({
       return;
     }
 
-    if (selectedEntrenadores.length > 0 && principalEntrenadorId == null) {
+    if (principalEntrenadorId == null) {
       setError("Debes seleccionar un entrenador principal.");
       return;
     }

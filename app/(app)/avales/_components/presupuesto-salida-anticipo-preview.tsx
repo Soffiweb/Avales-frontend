@@ -156,7 +156,9 @@ export default function PresupuestoSalidaAnticipoPreview({
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FONDOS</td>
-              <td className="border border-slate-400 px-2 py-1 font-semibold">PUBLICOS</td>
+              <td className="border border-slate-400 px-2 py-1 font-semibold">
+                {aval.tipoAval === "AUTOGESTION" ? "AUTOGESTIÓN" : "PÚBLICOS"}
+              </td>
             </tr>
           </tbody>
         </table>

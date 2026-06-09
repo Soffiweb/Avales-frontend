@@ -35,6 +35,9 @@ function InfoTable({
     (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
   const participantesText = `ENTRENADORES: ${entrenadores}   DEPORTISTAS: ${deportistas}`;
 
+  const fondosLabel =
+    aval.tipoAval === "AUTOGESTION" ? "AUTOGESTIÓN" : "PÚBLICOS";
+
   const rows: [string, string][] = [
     ["DISCIPLINA", evento?.disciplina?.nombre?.toUpperCase() || "-"],
     [
@@ -52,7 +55,7 @@ function InfoTable({
     ["C. I. RESPON. ANTICIPO", "-"],
     [`ACTIVIDADES POA ${year}`, "005 EVENTOS DE PREPARACION Y COMPETENCIA"],
     ["AVAL TECNICO NUMERO", aval.avalTecnico?.numeroAval || aval.aval || aval.numeroColeccion || String(aval.id)],
-    ["FONDOS", "PUBLICOS"],
+    ["FONDOS", fondosLabel],
   ];
 
   return (
@@ -81,6 +84,8 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
     return sum + (Number.isFinite(value) ? value : 0);
   }, 0);
   const year = new Date().getFullYear();
+  const fondosLabel =
+    aval.tipoAval === "AUTOGESTION" ? "AUTOGESTIÓN" : "PÚBLICOS";
 
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
@@ -96,7 +101,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
         {draft.descripcionCertificacion.trim() ||
           `De acuerdo a la sumilla Aval Nro. ${
             aval.avalTecnico?.numeroAval || aval.numeroColeccion || aval.aval || aval.id
-          }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`}
+          }, me permito certificar la disponibilidad presupuestaria de la cuenta de ${fondosLabel}.`}
       </p>
 
       <InfoTable aval={aval} year={year} periodoComision={draft.periodoComision} />

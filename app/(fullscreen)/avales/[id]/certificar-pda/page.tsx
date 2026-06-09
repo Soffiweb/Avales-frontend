@@ -18,17 +18,12 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, {
-  type PdaDraft,
-} from "@/app/(app)/avales/_components/pda-preview";
+import { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import AlertBanner from "@/components/ui/alert-banner";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import { isPdaUser } from "@/lib/auth/access";
-import {
-  getApprovalStageLabel,
-  getTipoAvalLabel,
-} from "@/lib/constants";
+import { getApprovalStageLabel, getTipoAvalLabel } from "@/lib/constants";
 import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
@@ -39,7 +34,7 @@ const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
   numeroPda: "",
   numeroAval: "",
-  codigoActividad: "005",
+  codigoActividad: "004",
   nombreFirmante: "",
   cargoFirmante: "",
 };
@@ -92,7 +87,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -102,8 +99,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       };
       const nombre = (
         [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
@@ -150,17 +151,18 @@ function buildDefaultDescripcion(aval: Aval) {
     aval.numeroColeccion ??
     String(aval.id);
 
-  return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por el ${entrenadorResponsable} Entrenador de la disciplina me permito certificar que el evento ${eventoNombre.toUpperCase()}${
+  return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por ${entrenadorResponsable} Entrenador de la disciplina me permito certificar que el evento ${eventoNombre.toUpperCase()}${
     categoria ? ` (${categoria.toUpperCase()})` : ""
   } consta en el PDA 2026 aprobado por el Ministerio del Deporte.`;
 }
 
-function validatePdaDraft(draft: PdaDraft): string | null {
-  if (!draft.descripcion.trim()) return "La descripción del certificado es obligatoria.";
-  if (draft.descripcion.includes("[NUMERO AVAL]"))
-    return "La descripción aún contiene [NUMERO AVAL]. Debes reemplazarlo.";
-  if (draft.descripcion.includes("[NOMBRE PRESIDENTE]"))
-    return "La descripción aún contiene [NOMBRE PRESIDENTE]. Debes reemplazarlo.";
+function validatePdaDraft(_draft: PdaDraft): string | null {
+  // descripcion comentada — la descripción se gestiona en Certificación Financiera
+  // if (!_draft.descripcion.trim()) return "La descripción del certificado es obligatoria.";
+  // if (_draft.descripcion.includes("[NUMERO AVAL]"))
+  //   return "La descripción aún contiene [NUMERO AVAL]. Debes reemplazarlo.";
+  // if (_draft.descripcion.includes("[NOMBRE PRESIDENTE]"))
+  //   return "La descripción aún contiene [NOMBRE PRESIDENTE]. Debes reemplazarlo.";
   return null;
 }
 
@@ -189,42 +191,53 @@ function getDraftItemDiaTotal(dia: BudgetDraftDia) {
 }
 
 function getDraftItemTotal(item: BudgetDraftItem) {
-  return roundCurrency(item.dias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0));
+  return roundCurrency(
+    item.dias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0),
+  );
 }
 
 function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   const requerimientos = aval.avalTecnico?.requerimientos ?? [];
-  const fuenteObjetivo = aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
+  const fuenteObjetivo =
+    aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
   return (aval.evento?.presupuesto ?? [])
     .filter((item) => item.fuente === fuenteObjetivo)
     .map((item) => {
-    const totalOriginal = roundCurrency(Number.parseFloat(item.presupuesto ?? "0") || 0);
-    const requerimiento = requerimientos.find(
-      (c) => c.rubroId === item.item.id || c.rubroId === item.id,
-    );
-    const cantidadDias =
-      normalizePositiveNumber(requerimiento?.cantidadDias ?? "1") || 1;
-    const valorUnitario = roundCurrency(
-      requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
-        ? requerimiento.valorUnitario
-        : totalOriginal / cantidadDias,
-    );
-    return {
-      id: item.id,
-      itemId: item.item.id,
-      codigo: item.item.numero,
-      nombre: item.item.nombre,
-      actividad: item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
-      dias: [{ numeroDia: 1, cantidad: 1, valorUnitario }],
-    };
+      const totalOriginal = roundCurrency(
+        Number.parseFloat(item.presupuesto ?? "0") || 0,
+      );
+      const requerimiento = requerimientos.find(
+        (c) => c.rubroId === item.item.id || c.rubroId === item.id,
+      );
+      const cantidadDias =
+        normalizePositiveNumber(requerimiento?.cantidadDias ?? "1") || 1;
+      const valorUnitario = roundCurrency(
+        requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
+          ? requerimiento.valorUnitario
+          : totalOriginal / cantidadDias,
+      );
+      return {
+        id: item.id,
+        itemId: item.item.id,
+        codigo: item.item.numero,
+        nombre: item.item.nombre,
+        actividad:
+          item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
+        dias: [{ numeroDia: 1, cantidad: 1, valorUnitario }],
+      };
     });
 }
 
-function PresupuestoFuenteWidget({ presupuesto }: { presupuesto: AvalPresupuestoFuente }) {
+function PresupuestoFuenteWidget({
+  presupuesto,
+}: {
+  presupuesto: AvalPresupuestoFuente;
+}) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3 space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Presupuesto{presupuesto.fuente ? ` — ${getTipoAvalLabel(presupuesto.fuente)}` : ""}
+        Presupuesto
+        {presupuesto.fuente ? ` — ${getTipoAvalLabel(presupuesto.fuente)}` : ""}
       </p>
       <div className="grid grid-cols-3 gap-3">
         {(
@@ -235,7 +248,9 @@ function PresupuestoFuenteWidget({ presupuesto }: { presupuesto: AvalPresupuesto
           ] as const
         ).map(({ label, value }) => (
           <div key={label}>
-            <p className="text-[0.65rem] text-gray-500 dark:text-gray-400">{label}</p>
+            <p className="text-[0.65rem] text-gray-500 dark:text-gray-400">
+              {label}
+            </p>
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {formatCurrency(value)}
             </p>
@@ -252,10 +267,16 @@ export default function CertificarAvalPage() {
   const avalId = Number(params.id);
 
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
-  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
+  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>(
+    [],
+  );
 
   const totalPresupuestoDraft = useMemo(
-    () => budgetDraftItems.reduce((total, item) => total + getDraftItemTotal(item), 0),
+    () =>
+      budgetDraftItems.reduce(
+        (total, item) => total + getDraftItemTotal(item),
+        0,
+      ),
     [budgetDraftItems],
   );
 
@@ -288,36 +309,39 @@ export default function CertificarAvalPage() {
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,
-    validateApprove: useCallback((currentAval: Aval) => {
-      const pdaError = validatePdaDraft(draft);
-      if (pdaError) return pdaError;
+    validateApprove: useCallback(
+      (currentAval: Aval) => {
+        const pdaError = validatePdaDraft(draft);
+        if (pdaError) return pdaError;
 
-      const invalidItems = budgetDraftItems.filter(
-        (item) =>
-          item.dias.length === 0 ||
-          item.dias.some(
-            (dia) =>
-              !dia.cantidad ||
-              !dia.valorUnitario ||
-              dia.cantidad <= 0 ||
-              dia.valorUnitario <= 0,
-          ),
-      );
-      if (invalidItems.length > 0) {
-        return "Todos los ítems deben tener al menos un día con cantidad y valor unitario mayores a 0.";
-      }
+        const invalidItems = budgetDraftItems.filter(
+          (item) =>
+            item.dias.length === 0 ||
+            item.dias.some(
+              (dia) =>
+                !dia.cantidad ||
+                !dia.valorUnitario ||
+                dia.cantidad <= 0 ||
+                dia.valorUnitario <= 0,
+            ),
+        );
+        if (invalidItems.length > 0) {
+          return "Todos los ítems deben tener al menos un día con cantidad y valor unitario mayores a 0.";
+        }
 
-      const totalOriginal = (currentAval?.evento?.presupuesto ?? []).reduce(
-        (t, item) => t + (Number.parseFloat(item.presupuesto ?? "0") || 0),
-        0,
-      );
-      const difference = roundCurrency(totalPresupuestoDraft - totalOriginal);
-      if (Math.abs(difference) >= 0.01) {
-        return "El total del presupuesto editado debe coincidir con el total original del evento.";
-      }
+        const totalOriginal = (currentAval?.evento?.presupuesto ?? []).reduce(
+          (t, item) => t + (Number.parseFloat(item.presupuesto ?? "0") || 0),
+          0,
+        );
+        const difference = roundCurrency(totalPresupuestoDraft - totalOriginal);
+        if (Math.abs(difference) >= 0.01) {
+          return "El total del presupuesto editado debe coincidir con el total original del evento.";
+        }
 
-      return null;
-    }, [draft, budgetDraftItems, totalPresupuestoDraft]),
+        return null;
+      },
+      [draft, budgetDraftItems, totalPresupuestoDraft],
+    ),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
         const items = budgetDraftItems
@@ -330,13 +354,15 @@ export default function CertificarAvalPage() {
               valorUnitario: dia.valorUnitario!,
             })),
           }))
-          .filter((item) => Number.isFinite(item.presupuesto) && item.itemId > 0);
+          .filter(
+            (item) => Number.isFinite(item.presupuesto) && item.itemId > 0,
+          );
 
         const pdaPayload = {
           descripcion: draft.descripcion.trim(),
           numeroPda: draft.numeroPda?.trim() || undefined,
           numeroAval: draft.numeroAval?.trim() || undefined,
-          codigoActividad: draft.codigoActividad?.trim() || "005",
+          codigoActividad: draft.codigoActividad?.trim() || "004",
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
           items: items.length > 0 ? items : undefined,
@@ -401,13 +427,17 @@ export default function CertificarAvalPage() {
 
   const presupuestoItems = useMemo(() => {
     if (!aval) return [];
-    const fuenteObjetivo = aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
-    return (aval.evento?.presupuesto ?? []).filter((item) => item.fuente === fuenteObjetivo);
+    const fuenteObjetivo =
+      aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
+    return (aval.evento?.presupuesto ?? []).filter(
+      (item) => item.fuente === fuenteObjetivo,
+    );
   }, [aval]);
   const totalPresupuestoOriginal = useMemo(
     () =>
       presupuestoItems.reduce(
-        (total, item) => total + (Number.parseFloat(item.presupuesto ?? "0") || 0),
+        (total, item) =>
+          total + (Number.parseFloat(item.presupuesto ?? "0") || 0),
         0,
       ),
     [presupuestoItems],
@@ -426,7 +456,13 @@ export default function CertificarAvalPage() {
         total: getDraftItemTotal(item),
         dias: item.dias
           .filter(
-            (dia): dia is { numeroDia: number; cantidad: number; valorUnitario: number } =>
+            (
+              dia,
+            ): dia is {
+              numeroDia: number;
+              cantidad: number;
+              valorUnitario: number;
+            } =>
               typeof dia.cantidad === "number" &&
               typeof dia.valorUnitario === "number",
           )
@@ -440,7 +476,12 @@ export default function CertificarAvalPage() {
   );
 
   const handleDiaChange = useCallback(
-    (itemId: number, numeroDia: number, field: "cantidad" | "valorUnitario", value: string) => {
+    (
+      itemId: number,
+      numeroDia: number,
+      field: "cantidad" | "valorUnitario",
+      value: string,
+    ) => {
       setBudgetDraftItems((prev) =>
         prev.map((item) => {
           if (item.id !== itemId) return item;
@@ -470,7 +511,10 @@ export default function CertificarAvalPage() {
         const maxDia = Math.max(...item.dias.map((d) => d.numeroDia), 0);
         return {
           ...item,
-          dias: [...item.dias, { numeroDia: maxDia + 1, cantidad: 1, valorUnitario: 0 }],
+          dias: [
+            ...item.dias,
+            { numeroDia: maxDia + 1, cantidad: 1, valorUnitario: 0 },
+          ],
         };
       }),
     );
@@ -481,7 +525,10 @@ export default function CertificarAvalPage() {
       prev.map((item) => {
         if (item.id !== itemId) return item;
         if (item.dias.length <= 1) return item;
-        return { ...item, dias: item.dias.filter((dia) => dia.numeroDia !== numeroDia) };
+        return {
+          ...item,
+          dias: item.dias.filter((dia) => dia.numeroDia !== numeroDia),
+        };
       }),
     );
   }, []);
@@ -491,7 +538,9 @@ export default function CertificarAvalPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Cargando sesión...
+          </p>
         </div>
       </div>
     );
@@ -534,7 +583,8 @@ export default function CertificarAvalPage() {
     return (
       <div className="px-6 py-8">
         <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl p-6 text-center">
-          Este aval es de tipo <strong>Solo por Resultados</strong> y no requiere certificación PDA.
+          Este aval es de tipo <strong>Solo por Resultados</strong> y no
+          requiere certificación PDA.
         </div>
       </div>
     );
@@ -568,11 +618,13 @@ export default function CertificarAvalPage() {
                   Certificacion PDA
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Completa los datos del modelo PDA. El parrafo principal se agregara despues.
+                  Completa los datos del modelo PDA. El parrafo principal se
+                  agregara despues.
                 </p>
               </div>
 
               <div className="grid max-w-xl grid-cols-1 gap-4 md:grid-cols-2">
+                {/* Descripcion comentada — se gestiona en Certificación Financiera
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Descripcion del certificado
@@ -587,6 +639,7 @@ export default function CertificarAvalPage() {
                     placeholder="Escribe la descripcion que va en la parte superior del certificado..."
                   />
                 </label>
+                */}
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Nombre firmante
@@ -597,7 +650,10 @@ export default function CertificarAvalPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, nombreFirmante: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        nombreFirmante: e.target.value,
+                      }))
                     }
                     placeholder="Ej: Lic. Juan Perez"
                   />
@@ -612,7 +668,10 @@ export default function CertificarAvalPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, cargoFirmante: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        cargoFirmante: e.target.value,
+                      }))
                     }
                     placeholder="Ej: Metodologo Provincial"
                   />
@@ -654,8 +713,12 @@ export default function CertificarAvalPage() {
                         : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300"
                     }`}
                   >
-                    <p>Total original: {formatCurrency(totalPresupuestoOriginal)}</p>
-                    <p>Total editado: {formatCurrency(totalPresupuestoDraft)}</p>
+                    <p>
+                      Total original: {formatCurrency(totalPresupuestoOriginal)}
+                    </p>
+                    <p>
+                      Total editado: {formatCurrency(totalPresupuestoDraft)}
+                    </p>
                     <p>
                       Diferencia: {formatCurrency(Math.abs(totalDifference))}
                       {!totalMatches ? " (debe quedar en 0)" : ""}
@@ -719,8 +782,16 @@ export default function CertificarAvalPage() {
                                       readOnly={!isEditable}
                                       disabled={!isEditable}
                                       onChange={(e) => {
-                                        const value = e.target.value.replace(/\D/g, "");
-                                        handleDiaChange(item.id, dia.numeroDia, "cantidad", value);
+                                        const value = e.target.value.replace(
+                                          /\D/g,
+                                          "",
+                                        );
+                                        handleDiaChange(
+                                          item.id,
+                                          dia.numeroDia,
+                                          "cantidad",
+                                          value,
+                                        );
                                       }}
                                     />
                                   </td>
@@ -752,7 +823,12 @@ export default function CertificarAvalPage() {
                                     {isEditable && item.dias.length > 1 && (
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoveDia(item.id, dia.numeroDia)}
+                                        onClick={() =>
+                                          handleRemoveDia(
+                                            item.id,
+                                            dia.numeroDia,
+                                          )
+                                        }
                                         className="text-rose-500 hover:text-rose-600 text-lg"
                                       >
                                         ×
@@ -816,7 +892,8 @@ export default function CertificarAvalPage() {
                     />
                   </label>
 
-                  {getPreviousApprovalStagesForAval(aval, currentEtapa).length > 0 && (
+                  {getPreviousApprovalStagesForAval(aval, currentEtapa).length >
+                    0 && (
                     <label className="block">
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                         Regresar a etapa (opcional)
@@ -827,7 +904,10 @@ export default function CertificarAvalPage() {
                         onChange={(e) => setEtapaDestino(e.target.value)}
                       >
                         <option value="">Etapa anterior (por defecto)</option>
-                        {getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => (
+                        {getPreviousApprovalStagesForAval(
+                          aval,
+                          currentEtapa,
+                        ).map((e) => (
                           <option key={e} value={e}>
                             {getApprovalStageLabel(e)}
                           </option>
@@ -837,7 +917,9 @@ export default function CertificarAvalPage() {
                   )}
 
                   {actionError && (
-                    <div className="text-xs text-rose-600 dark:text-rose-400">{actionError}</div>
+                    <div className="text-xs text-rose-600 dark:text-rose-400">
+                      {actionError}
+                    </div>
                   )}
 
                   <div className="flex items-center justify-end gap-2">
@@ -875,28 +957,6 @@ export default function CertificarAvalPage() {
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Certificacion PDA" defaultOpen>
-              <PdaPreview
-                aval={{
-                  ...aval,
-                  evento: {
-                    ...aval.evento,
-                    presupuesto: presupuestoItems.map((item) => {
-                      const budgetItem = budgetDraftItems.find((d) => d.id === item.id);
-                      return {
-                        ...item,
-                        presupuesto: String(
-                          budgetItem
-                            ? getDraftItemTotal(budgetItem)
-                            : Number.parseFloat(item.presupuesto ?? "0") || 0,
-                        ),
-                      };
-                    }),
-                  },
-                }}
-                draft={draft}
-              />
-            </PreviewCollapsible>
             <PreviewCollapsible title="Presupuesto de salida" defaultOpen>
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
@@ -905,6 +965,8 @@ export default function CertificarAvalPage() {
                   notas: [],
                   codigoActividad: draft.codigoActividad,
                   numeroAval: draft.numeroAval,
+                  pdaFirmanteNombre: draft.nombreFirmante,
+                  pdaFirmanteCargo: draft.cargoFirmante,
                 }}
               />
             </PreviewCollapsible>

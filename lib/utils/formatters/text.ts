@@ -52,6 +52,7 @@ export function formatRole(role?: string | null): string {
     ADMIN: "Administrador",
     ADMINISTRADOR: "Administrador",
     SECRETARIA: "Secretaría",
+    SECRETARIA_DTM: "Secretaría del DTM",
     DTM: "Director técnico metodológico",
     METODOLOGO: "Metodólogo",
     ENTRENADOR: "Entrenador",

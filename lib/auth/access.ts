@@ -127,7 +127,12 @@ export function isComprasPublicasUser(user: User | null | undefined) {
 }
 
 export function isSecretariaUser(user: User | null | undefined) {
-  return getNormalizedRoles(user).includes("SECRETARIA");
+  const roles = getNormalizedRoles(user);
+  return roles.includes("SECRETARIA") || roles.includes("SECRETARIA_DTM");
+}
+
+export function isSecretariaDtmUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("SECRETARIA_DTM");
 }
 
 export function isAvalReviewer(user: User | null | undefined) {

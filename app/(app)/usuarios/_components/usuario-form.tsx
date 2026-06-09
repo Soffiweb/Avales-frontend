@@ -36,6 +36,7 @@ import {
 const ROLE_OPTIONS: Role[] = [
   "ADMIN",
   "SECRETARIA",
+  "SECRETARIA_DTM",
   "DTM",
   "METODOLOGO",
   "ENTRENADOR",

@@ -14,11 +14,13 @@ import type {
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import { getTipoAvalLabel } from "@/lib/constants";
-import { formatDateInput } from "@/lib/utils/formatters";
-import {
-  ListaDeportistasPreview,
-  SolicitudAvalPreview,
-} from "@/app/(app)/avales/_components/aval-document-preview";
+import { SolicitudAvalPreview } from "@/app/(app)/avales/_components/aval-document-preview";
+import CertificacionAfiliacionesPreview, {
+  SECRETARIA_DTM_NOMBRE_DEFAULT,
+  SECRETARIA_DTM_CARGO_DEFAULT,
+} from "@/app/(app)/avales/_components/certificacion-afiliaciones-preview";
+import { listUsers } from "@/lib/api/user";
+import type { User } from "@/types/user";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import Paso01Deportistas from "@/app/(app)/avales/_components/paso-01-deportistas";
 import Paso02Logistica from "@/app/(app)/avales/_components/paso-02-logistica";
@@ -179,6 +181,8 @@ export default function CrearSolicitudPage() {
   const [aval, setAval] = useState<Aval | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [secretariaDtm, setSecretariaDtm] = useState<User | null>(null);
+  const [secretariaError, setSecretariaError] = useState<string | null>(null);
   const { config: formConfig } = useAvalFormConfig(aval);
 
   const loadAval = useCallback(async () => {
@@ -204,6 +208,32 @@ export default function CrearSolicitudPage() {
   useEffect(() => {
     loadAval();
   }, [loadAval]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSecretaria() {
+      try {
+        const res = await listUsers({ role: "SECRETARIA_DTM", limit: 1 });
+        if (!active) return;
+        const raw = res.data as unknown;
+        const users: User[] = Array.isArray(raw)
+          ? (raw as User[])
+          : Array.isArray((raw as Record<string, unknown>)?.items)
+          ? ((raw as Record<string, unknown>).items as User[])
+          : [];
+        if (users.length > 0) {
+          setSecretariaDtm(users[0]);
+        } else {
+          setSecretariaError("No hay usuario con rol SECRETARIA_DTM en el sistema.");
+        }
+      } catch (err) {
+        if (!active) return;
+        setSecretariaError(err instanceof Error ? err.message : "Error al buscar secretaria DTM.");
+      }
+    }
+    void loadSecretaria();
+    return () => { active = false; };
+  }, []);
 
   const handleStepComplete = useCallback(
     (stepData: Partial<FormData>) => {
@@ -386,8 +416,21 @@ export default function CrearSolicitudPage() {
       <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Escuela de iniciacion" defaultOpen>
-              <ListaDeportistasPreview aval={aval} formData={formData} />
+            <PreviewCollapsible title="Certificado de afiliación" defaultOpen>
+              <CertificacionAfiliacionesPreview
+                aval={aval}
+                secretariaNombre={secretariaDtm ? `${secretariaDtm.nombre} ${secretariaDtm.apellido}` : SECRETARIA_DTM_NOMBRE_DEFAULT}
+                secretariaCargo={SECRETARIA_DTM_CARGO_DEFAULT}
+                secretariaErrorDebug={secretariaError ?? undefined}
+                entrenadorNombreOverride={formData.entrenadores[0]?.nombre}
+                deportistasOverride={formData.deportistas.map((d) => ({
+                  id: d.id,
+                  nombre: d.nombre,
+                  cedula: d.cedula ?? "-",
+                  fechaNacimiento: d.fechaNacimiento,
+                  observacion: d.observacion,
+                }))}
+              />
             </PreviewCollapsible>
             <PreviewCollapsible title="Solicitud de aval" defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={formData} />

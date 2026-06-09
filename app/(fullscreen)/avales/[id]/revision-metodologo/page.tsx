@@ -21,15 +21,13 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, {
-  type PdaDraft,
-} from "@/app/(app)/avales/_components/pda-preview";
 import RevisionMetodologoPreview, {
   type ReviewItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
+import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import {
@@ -51,15 +49,6 @@ import { isMetodologoUser } from "@/lib/auth/access";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
-
-const INITIAL_PDA_DRAFT: PdaDraft = {
-  descripcion: "",
-  numeroPda: "",
-  numeroAval: "",
-  codigoActividad: "005",
-  nombreFirmante: "",
-  cargoFirmante: "",
-};
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -176,7 +165,6 @@ export default function RevisionMetodologoPage() {
   const router = useRouter();
   const avalId = Number(params.id);
 
-  const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
   const [reviewState, setReviewState] = useState(() =>
     buildInitialReviewState(DEFAULT_REVIEW_ITEMS),
@@ -271,7 +259,6 @@ export default function RevisionMetodologoPage() {
 
   // Reset local state on aval navigation
   useEffect(() => {
-    setDraft(INITIAL_PDA_DRAFT);
     setReviewState(buildInitialReviewState(reviewItems));
     setDtmName("");
     setDtmCargo("");
@@ -336,13 +323,6 @@ export default function RevisionMetodologoPage() {
     void loadDtmUser();
     return () => { active = false; };
   }, []);
-
-  // Populate descripcion default when aval loads
-  useEffect(() => {
-    if (!aval) return;
-    if (draft.descripcion.trim()) return;
-    setDraft((prev) => ({ ...prev, descripcion: buildDefaultDescripcion(aval) }));
-  }, [aval, draft.descripcion]);
 
   // Populate revisionHeader from API data or defaults when aval loads
   useEffect(() => {
@@ -428,15 +408,6 @@ export default function RevisionMetodologoPage() {
       fechaEmision: compras.fechaEmision ?? "",
     };
   }, [aval]);
-  const previewDraft = useMemo(
-    () => ({
-      ...draft,
-      descripcion: draft.descripcion?.trim() || revisionHeader.descripcionEncabezado,
-      nombreFirmante: draft.nombreFirmante || revisionFooter.firmanteNombre,
-      cargoFirmante: draft.cargoFirmante || revisionFooter.firmanteCargo,
-    }),
-    [draft, revisionHeader.descripcionEncabezado, revisionFooter],
-  );
   const noCumpleCount = reviewItems.filter((item) => {
     const state = reviewState[item.key];
     return !(state?.cumple ?? item.defaultCumple);
@@ -799,8 +770,8 @@ export default function RevisionMetodologoPage() {
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Certificacion PDA">
-              <PdaPreview aval={aval} draft={previewDraft} />
+            <PreviewCollapsible title="Presupuesto de salida">
+              <PresupuestoSalidaAnticipoPreview aval={aval} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion compras publicas">
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />

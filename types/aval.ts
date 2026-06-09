@@ -271,6 +271,8 @@ export type Aval = {
   pronosticoDeportistasAdjuntos?: AdjuntoSolicitud[];
   aval?: string | null;
   numeroColeccion?: string | null;
+  periodoComision?: string | null;
+  periodoComisionFin?: string | null;
   pda?: {
     descripcion?: string | null;
     numeroPda?: string | null;

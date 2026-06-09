@@ -11,19 +11,22 @@ import {
 } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
-  ListaDeportistasPreview,
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
+import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import RevisionMetodologoPreview, {
   type ReviewItem,
   type ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
-import RevisionDtmPreview from "@/app/(app)/avales/_components/revision-dtm-preview";
+import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
+import CertificacionAfiliacionesPreview, {
+  SECRETARIA_DTM_NOMBRE_DEFAULT,
+  SECRETARIA_DTM_CARGO_DEFAULT,
+} from "@/app/(app)/avales/_components/certificacion-afiliaciones-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
@@ -35,7 +38,6 @@ import { isDTMUser } from "@/lib/auth/access";
 import {
   formatEventScheduleSentence,
   formatLocationWithProvince,
-  formatRoles,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
@@ -54,15 +56,6 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   observaciones: "",
 };
 
-const EMPTY_PDA_DRAFT: PdaDraft = {
-  descripcion: "",
-  numeroPda: "",
-  numeroAval: "",
-  codigoActividad: "005",
-  nombreFirmante: "",
-  cargoFirmante: "",
-};
-
 const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
   realizoProceso: null,
@@ -76,7 +69,6 @@ const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
 type DtmDraft = {
   descripcion: string;
   observacion: string;
-  observacionFechaTramite: string;
   fechaPresentacion: string;
   firmanteNombre: string;
   firmanteCargo: string;
@@ -85,7 +77,6 @@ type DtmDraft = {
 const INITIAL_DTM_DRAFT: DtmDraft = {
   descripcion: "",
   observacion: "",
-  observacionFechaTramite: "",
   fechaPresentacion: new Date().toISOString().slice(0, 10),
   firmanteNombre: "",
   firmanteCargo: "",
@@ -102,7 +93,6 @@ function buildDtmDraft(
   return {
     descripcion: revisionDtm?.descripcion ?? "",
     observacion: revisionDtm?.observacion ?? "",
-    observacionFechaTramite: "",
     fechaPresentacion:
       revisionDtm?.fechaPresentacion ?? new Date().toISOString().slice(0, 10),
     firmanteNombre: revisionDtm?.firmanteNombre ?? defaults.firmanteNombre,
@@ -223,10 +213,6 @@ export default function RevisionDtmPage() {
     requiredRole: isDTMUser,
     editableEtapa: EDITABLE_ETAPA,
     approvalEtapa: APPROVAL_ETAPA,
-    validateApprove: useCallback((_aval: Aval) => {
-      if (!draft.descripcion.trim()) return "La descripción es obligatoria.";
-      return null;
-    }, [draft.descripcion]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
         const items = reviewItems.map((item) => {
@@ -299,18 +285,6 @@ export default function RevisionDtmPage() {
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
-  const pdaDraft = useMemo(() => {
-    if (!aval?.pda) return EMPTY_PDA_DRAFT;
-    const pda = aval.pda;
-    return {
-      descripcion: pda?.descripcion ?? "",
-      numeroPda: pda?.numeroPda ?? "",
-      numeroAval: pda?.numeroAval ?? "",
-      codigoActividad: pda?.codigoActividad ?? "005",
-      nombreFirmante: pda?.nombreFirmante ?? "",
-      cargoFirmante: pda?.cargoFirmante ?? "",
-    };
-  }, [aval]);
   const comprasDraft = useMemo(() => {
     if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
     const compras = aval.comprasPublicas;
@@ -343,23 +317,6 @@ export default function RevisionDtmPage() {
       firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
     }),
     [aval],
-  );
-  const dtmPreviewHeader = useMemo(
-    () => ({
-      ...revisionHeader,
-      descripcionEncabezado: draft.descripcion,
-      fechaRevision: draft.fechaPresentacion,
-      observacionFechaTramite: draft.observacionFechaTramite,
-    }),
-    [revisionHeader, draft.descripcion, draft.fechaPresentacion, draft.observacionFechaTramite],
-  );
-  const dtmPreviewFooter = useMemo(
-    () => ({
-      observacionesFinales: draft.observacion,
-      firmanteNombre: draft.firmanteNombre || defaultSignerName,
-      firmanteCargo: draft.firmanteCargo || defaultSignerCargo,
-    }),
-    [draft.observacion, draft.firmanteNombre, draft.firmanteCargo, defaultSignerName, defaultSignerCargo],
   );
 
   if (authLoading) {
@@ -441,7 +398,7 @@ export default function RevisionDtmPage() {
               <div className="grid grid-cols-1 gap-4">
                 <label className="block">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Fecha de presentación
+                    Fecha del documento
                   </span>
                   <input
                     type="date"
@@ -454,73 +411,44 @@ export default function RevisionDtmPage() {
                     }
                   />
                 </label>
-                <label className="block">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Observación de fecha de trámite
-                  </span>
-                  <textarea
-                    className="form-textarea w-full mt-1"
-                    rows={3}
-                    value={draft.observacionFechaTramite}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, observacionFechaTramite: e.target.value }))
-                    }
-                    placeholder="Escribe la observación para la fecha de trámite..."
-                  />
-                </label>
 
-                <label className="block">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Descripción
-                  </span>
-                  <textarea
-                    className="form-textarea w-full mt-1"
-                    rows={4}
-                    value={draft.descripcion}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, descripcion: e.target.value }))
-                    }
-                    placeholder="Describe la revisión DTM..."
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Firmante nombre
-                  </span>
-                  <input
-                    type="text"
-                    className="form-input w-full mt-1"
-                    value={draft.firmanteNombre}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, firmanteNombre: e.target.value }))
-                    }
-                    placeholder="Nombre del firmante"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Firmante cargo
-                  </span>
-                  <input
-                    type="text"
-                    className="form-input w-full mt-1"
-                    value={draft.firmanteCargo}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, firmanteCargo: e.target.value }))
-                    }
-                    placeholder="Cargo del firmante"
-                  />
-                </label>
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Firmante del aval técnico (DTM)
+                  </p>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Nombre
+                    </span>
+                    <input
+                      type="text"
+                      className="form-input w-full mt-1"
+                      value={draft.firmanteNombre}
+                      readOnly={!isEditable}
+                      disabled={!isEditable}
+                      onChange={(e) =>
+                        setDraft((prev) => ({ ...prev, firmanteNombre: e.target.value }))
+                      }
+                      placeholder="Nombre del DTM"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Cargo
+                    </span>
+                    <input
+                      type="text"
+                      className="form-input w-full mt-1"
+                      value={draft.firmanteCargo}
+                      readOnly={!isEditable}
+                      disabled={!isEditable}
+                      onChange={(e) =>
+                        setDraft((prev) => ({ ...prev, firmanteCargo: e.target.value }))
+                      }
+                      placeholder="Cargo del DTM"
+                    />
+                  </label>
+                </div>
 
                 <label className="block">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -605,11 +533,15 @@ export default function RevisionDtmPage() {
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Lista deportistas">
-              <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
+            <PreviewCollapsible title="Certificado de afiliación" defaultOpen>
+              <CertificacionAfiliacionesPreview
+                aval={aval}
+                secretariaNombre={SECRETARIA_DTM_NOMBRE_DEFAULT}
+                secretariaCargo={SECRETARIA_DTM_CARGO_DEFAULT}
+              />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Certificacion PDA">
-              <PdaPreview aval={aval} draft={pdaDraft} />
+            <PreviewCollapsible title="Presupuesto de salida">
+              <PresupuestoSalidaAnticipoPreview aval={aval} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion compras publicas">
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
@@ -624,14 +556,13 @@ export default function RevisionDtmPage() {
                 useDefaultObservations={false}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Revision DTM" defaultOpen>
-              <RevisionDtmPreview
+            <PreviewCollapsible title="Aval Técnico Competitivo" defaultOpen>
+              <AvalTecnicoCompetitivoPreview
                 aval={aval}
-                header={dtmPreviewHeader}
-                footer={dtmPreviewFooter}
-                reviewItems={reviewItems}
-                reviewState={reviewState}
-                useDefaultObservations={false}
+                fechaEmision={draft.fechaPresentacion}
+                observacion={draft.observacion}
+                firmanteNombre={draft.firmanteNombre || defaultSignerName}
+                firmanteCargo={draft.firmanteCargo || defaultSignerCargo}
               />
             </PreviewCollapsible>
           </div>

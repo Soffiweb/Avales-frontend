@@ -16,10 +16,10 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
+import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
 import SaveIndicator from "@/components/ui/save-indicator";
@@ -59,15 +59,6 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
-};
-
-const EMPTY_PDA_DRAFT: PdaDraft = {
-  descripcion: "",
-  numeroPda: "",
-  numeroAval: "",
-  codigoActividad: "005",
-  nombreFirmante: "",
-  cargoFirmante: "",
 };
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
@@ -304,19 +295,6 @@ export default function CertificarComprasPublicasPage() {
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
-  const pdaDraft = useMemo(() => {
-    if (!aval?.pda) return EMPTY_PDA_DRAFT;
-    const pda = aval.pda;
-    return {
-      descripcion: pda?.descripcion ?? "",
-      numeroPda: pda?.numeroPda ?? "",
-      numeroAval: pda?.numeroAval ?? "",
-      codigoActividad: pda?.codigoActividad ?? "005",
-      nombreFirmante: pda?.nombreFirmante ?? "",
-      cargoFirmante: pda?.cargoFirmante ?? "",
-    };
-  }, [aval]);
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -629,8 +607,8 @@ export default function CertificarComprasPublicasPage() {
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Certificacion PDA">
-              <PdaPreview aval={aval} draft={pdaDraft} />
+            <PreviewCollapsible title="Presupuesto de salida">
+              <PresupuestoSalidaAnticipoPreview aval={aval} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
               <ComprasPublicasPreview aval={aval} draft={draft} />

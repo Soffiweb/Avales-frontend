@@ -1,6 +1,6 @@
 import type { Aval } from "@/types/aval";
 import {
-  formatAvalDepartureDate,
+  formatDate,
   formatDecimal,
   formatLocationWithProvince,
   getResponsibleTrainerData,
@@ -26,6 +26,13 @@ type Props = {
     notas?: string[];
     codigoActividad?: string;
     numeroAval?: string;
+    fechaSalida?: string;
+    periodoComision?: string;
+    periodoComisionFin?: string;
+    pdaFirmanteNombre?: string;
+    pdaFirmanteCargo?: string;
+    financieroFirmanteNombre?: string;
+    financieroFirmanteCargo?: string;
   };
   items?: PresupuestoSalidaPreviewItem[];
 };
@@ -35,6 +42,20 @@ export default function PresupuestoSalidaAnticipoPreview({
   draft,
   items,
 }: Props) {
+  const periodoComision = draft?.periodoComision?.trim() ?? aval.periodoComision?.trim() ?? "";
+  const periodoComisionFin = draft?.periodoComisionFin?.trim() ?? aval.periodoComisionFin?.trim() ?? "";
+  const periodoLabel = periodoComision
+    ? periodoComisionFin
+      ? `${formatDate(periodoComision)} - ${formatDate(periodoComisionFin)}`
+      : formatDate(periodoComision)
+    : "Por definir";
+
+  const pdaFirmanteNombre =
+    draft?.pdaFirmanteNombre?.trim() ?? aval.pda?.nombreFirmante?.trim() ?? "";
+  const pdaFirmanteCargo =
+    draft?.pdaFirmanteCargo?.trim() ?? aval.pda?.cargoFirmante?.trim() ?? "";
+  const financieroFirmanteNombre = draft?.financieroFirmanteNombre?.trim() ?? "";
+  const financieroFirmanteCargo = draft?.financieroFirmanteCargo?.trim() ?? "";
   const formatCantidad = (value: number) => String(Math.trunc(value));
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
@@ -87,8 +108,9 @@ export default function PresupuestoSalidaAnticipoPreview({
     return sum + itemTotal;
   }, 0);
 
-  const codigoActividad =
-    draft?.codigoActividad?.trim() || aval.pda?.codigoActividad?.trim() || "005";
+  const codigoActividad = (
+    draft?.codigoActividad?.trim() || aval.pda?.codigoActividad?.trim() || "004"
+  ).replace("005", "004");
   const numeroAval =
     draft?.numeroAval?.trim() ||
     aval.pda?.numeroAval?.trim() ||
@@ -133,8 +155,12 @@ export default function PresupuestoSalidaAnticipoPreview({
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
               <td className="border border-slate-400 px-2 py-1">
-                {formatAvalDepartureDate(aval)}
+                {draft?.fechaSalida?.trim() ? formatDate(draft.fechaSalida) : "Por definir"}
               </td>
+            </tr>
+            <tr>
+              <td className="border border-slate-400 px-2 py-1 font-semibold">PERÍODO DE COMISIÓN</td>
+              <td className="border border-slate-400 px-2 py-1">{periodoLabel}</td>
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">RESPONSABLE ANTICIPO</td>
@@ -257,6 +283,23 @@ export default function PresupuestoSalidaAnticipoPreview({
             {nota.trim() || ""}
           </p>
         ))}
+      </div>
+
+      <div className="flex justify-between gap-4 pt-6 text-[11px]">
+        <div className="flex-1">
+          <p className="text-slate-400 text-[10px]">____________________________</p>
+          <p className="font-semibold uppercase mt-1">
+            {pdaFirmanteNombre || "NOMBRE FIRMANTE"}
+          </p>
+          <p className="uppercase">{pdaFirmanteCargo || "CARGO FIRMANTE"}</p>
+        </div>
+        <div className="flex-1 text-right">
+          <p className="text-slate-400 text-[10px]">____________________________</p>
+          <p className="font-semibold uppercase mt-1">
+            {financieroFirmanteNombre || "NOMBRE FIRMANTE"}
+          </p>
+          <p className="uppercase">{financieroFirmanteCargo || "CARGO FIRMANTE"}</p>
+        </div>
       </div>
     </div>
   );

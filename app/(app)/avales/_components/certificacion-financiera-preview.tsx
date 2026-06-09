@@ -2,7 +2,6 @@ import type { Aval } from "@/types/aval";
 import {
   formatCurrency,
   formatDate,
-  formatEventScheduleLabel,
   formatLocationWithProvince,
   getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
@@ -23,13 +22,17 @@ type Props = {
 function InfoTable({
   aval,
   year,
+  fechaEmision,
   periodoComision,
   periodoComisionFin,
+  codigoActividad,
 }: {
   aval: Aval;
   year: number;
+  fechaEmision: string;
   periodoComision: string;
   periodoComisionFin: string;
+  codigoActividad: string;
 }) {
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
@@ -51,7 +54,7 @@ function InfoTable({
     ["EVENTO", evento?.nombre?.toUpperCase() || "-"],
     ["# PARTICIPANTES", participantesText],
     ["LUGAR DE COMPETENCIA", (formatLocationWithProvince(evento) || "-").toUpperCase()],
-    ["FECHA DE SALIDA", formatEventScheduleLabel(evento)],
+    ["FECHA DE SALIDA", fechaEmision ? formatDate(fechaEmision) : "-"],
     [
       "FECHA DE COMISION",
       periodoComision
@@ -62,7 +65,7 @@ function InfoTable({
     ],
     ["RESPONSABLE ANTICIPO", responsable.nombre],
     ["C. I. RESPON. ANTICIPO", responsable.cedula],
-    [`ACTIVIDADES POA ${year}`, "005 EVENTOS DE PREPARACION Y COMPETENCIA"],
+    [`ACTIVIDADES POA ${year}`, `${codigoActividad} EVENTOS DE PREPARACION Y COMPETENCIA`],
     ["AVAL TECNICO NUMERO", aval.avalTecnico?.numeroAval || aval.aval || aval.numeroColeccion || String(aval.id)],
     ["FONDOS", "PUBLICOS"],
   ];
@@ -93,6 +96,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
     return sum + (Number.isFinite(value) ? value : 0);
   }, 0);
   const year = new Date().getFullYear();
+  const codigoActividad = (aval.pda?.codigoActividad?.trim() || "004").replace("005", "004");
 
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
@@ -111,7 +115,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
           }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`}
       </p>
 
-      <InfoTable aval={aval} year={year} periodoComision={draft.periodoComision} periodoComisionFin={draft.periodoComisionFin} />
+      <InfoTable aval={aval} year={year} fechaEmision={draft.fechaEmision} periodoComision={draft.periodoComision} periodoComisionFin={draft.periodoComisionFin} codigoActividad={codigoActividad} />
 
       <p className="text-[11px]">
         Por un valor de USD$ {formatCurrency(total, { locale: "en-US" })} - dolares de acuerdo al
@@ -132,7 +136,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
           <tbody>
             {presupuestoItems.map((item) => (
               <tr key={item.id}>
-                <td className="border border-slate-400 px-2 py-1 text-center">005</td>
+                <td className="border border-slate-400 px-2 py-1 text-center">{codigoActividad}</td>
                 <td className="border border-slate-400 px-2 py-1">
                   EVENTOS DE PREPARACION Y COMPETENCIA
                 </td>

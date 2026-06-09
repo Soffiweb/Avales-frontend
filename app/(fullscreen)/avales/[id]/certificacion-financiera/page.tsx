@@ -9,7 +9,7 @@ import { aprobarAval, updateNumeracion } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
-import PdaPreview, { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
+import { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
@@ -19,6 +19,10 @@ import { getApprovalFlowStages } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import {
+  formatEventScheduleSentence,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
@@ -44,7 +48,7 @@ const EMPTY_PDA_DRAFT: PdaDraft = {
   descripcion: "",
   numeroPda: "",
   numeroAval: "",
-  codigoActividad: "005",
+  codigoActividad: "004",
   nombreFirmante: "",
   cargoFirmante: "",
 };
@@ -71,7 +75,11 @@ export default function CertificacionFinancieraPage() {
   const avalId = Number(params.id);
 
   const [draft, setDraft] = useState<FinancieroDraft>(INITIAL_DRAFT);
-  const [editableNotas, setEditableNotas] = useState<boolean[]>([false, false, false]);
+  const [editableNotas, setEditableNotas] = useState<boolean[]>([
+    false,
+    false,
+    false,
+  ]);
   const [notesInitialized, setNotesInitialized] = useState(false);
 
   const {
@@ -105,15 +113,27 @@ export default function CertificacionFinancieraPage() {
       getApprovalFlowStages(currentAval).includes("FINANCIERO"),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
-        const numeracionPayload: { periodoComision?: string; periodoComisionFin?: string } = {};
-        if (draft.periodoComision.trim()) numeracionPayload.periodoComision = draft.periodoComision.trim();
-        if (draft.periodoComisionFin.trim()) numeracionPayload.periodoComisionFin = draft.periodoComisionFin.trim();
-        if (numeracionPayload.periodoComision || numeracionPayload.periodoComisionFin) {
+        const numeracionPayload: {
+          periodoComision?: string;
+          periodoComisionFin?: string;
+        } = {};
+        if (draft.periodoComision.trim())
+          numeracionPayload.periodoComision = draft.periodoComision.trim();
+        if (draft.periodoComisionFin.trim())
+          numeracionPayload.periodoComisionFin =
+            draft.periodoComisionFin.trim();
+        if (
+          numeracionPayload.periodoComision ||
+          numeracionPayload.periodoComisionFin
+        ) {
           await updateNumeracion(a.id, numeracionPayload);
         }
 
         const notasPayload = draft.notas
-          .map((texto, index) => ({ titulo: `NOTA ${index + 1}`, texto: texto.trim() }))
+          .map((texto, index) => ({
+            titulo: `NOTA ${index + 1}`,
+            texto: texto.trim(),
+          }))
           .filter((nota) => nota.texto.length > 0);
 
         const defaultNotas = buildDefaultNotas(a);
@@ -147,7 +167,7 @@ export default function CertificacionFinancieraPage() {
       descripcion: pda.descripcion ?? "",
       numeroPda: pda.numeroPda ?? "",
       numeroAval: pda.numeroAval ?? "",
-      codigoActividad: pda.codigoActividad ?? "005",
+      codigoActividad: (pda.codigoActividad ?? "004").replace("005", "004"),
       nombreFirmante: pda.nombreFirmante ?? "",
       cargoFirmante: pda.cargoFirmante ?? "",
     };
@@ -172,9 +192,25 @@ export default function CertificacionFinancieraPage() {
 
   const defaultDescripcionCertificacion = useMemo(() => {
     if (!aval) return "";
-    return `De acuerdo a la sumilla Aval Nro. ${
-      aval.avalTecnico?.numeroAval || aval.numeroColeccion || aval.aval || aval.id
-    }, me permito certificar la disponibilidad presupuestaria de la cuenta de PUBLICOS.`;
+    const evento = aval.evento;
+    const numeroAval =
+      aval.avalTecnico?.numeroAval ??
+      aval.aval ??
+      aval.numeroColeccion ??
+      String(aval.id);
+    const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
+    const fecha = formatEventScheduleSentence(evento);
+    const entrenador = getResponsibleTrainerName(
+      aval,
+      "[ENTRENADOR RESPONSABLE]",
+    );
+    const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
+    const categoria = evento?.categoria?.nombre ?? evento?.categoriaCodigo;
+    const esFondosPublicos = aval.tipoAval !== "AUTOGESTION";
+    const cierreFrase = esFondosPublicos
+      ? "consta en el PDA 2026 aprobado por el Ministerio del Deporte."
+      : "ha sido aprobado y cuenta con el financiamiento correspondiente.";
+    return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por el ${entrenador} Entrenador de ${disciplina} me permito certificar que el evento ${eventoNombre}${categoria ? ` (${categoria.toUpperCase()})` : ""} ${cierreFrase}`;
   }, [aval]);
 
   const defaultPeriodoComision = useMemo(() => {
@@ -186,7 +222,10 @@ export default function CertificacionFinancieraPage() {
     if (!defaultDescripcionCertificacion) return;
     setDraft((prev) => {
       if (prev.descripcionCertificacion.trim()) return prev;
-      return { ...prev, descripcionCertificacion: defaultDescripcionCertificacion };
+      return {
+        ...prev,
+        descripcionCertificacion: defaultDescripcionCertificacion,
+      };
     });
   }, [defaultDescripcionCertificacion]);
 
@@ -232,7 +271,9 @@ export default function CertificacionFinancieraPage() {
   }, []);
 
   const handleEnableNotaEdit = useCallback((index: number) => {
-    setEditableNotas((prev) => prev.map((editable, i) => (i === index ? true : editable)));
+    setEditableNotas((prev) =>
+      prev.map((editable, i) => (i === index ? true : editable)),
+    );
   }, []);
 
   if (authLoading) {
@@ -240,7 +281,9 @@ export default function CertificacionFinancieraPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Cargando sesión...
+          </p>
         </div>
       </div>
     );
@@ -306,7 +349,8 @@ export default function CertificacionFinancieraPage() {
                 Certificación Financiera
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Completa los datos y revisa los 2 documentos financieros antes de aprobar.
+                Completa los datos y revisa los 2 documentos financieros antes
+                de aprobar.
               </p>
             </div>
 
@@ -324,10 +368,14 @@ export default function CertificacionFinancieraPage() {
                   rows={3}
                   value={draft.descripcionCertificacion}
                   onChange={(e) =>
-                    setDraft((prev) => ({ ...prev, descripcionCertificacion: e.target.value }))
+                    setDraft((prev) => ({
+                      ...prev,
+                      descripcionCertificacion: e.target.value,
+                    }))
                   }
                   placeholder={
-                    defaultDescripcionCertificacion || "Describe la certificación presupuestaria..."
+                    defaultDescripcionCertificacion ||
+                    "Describe la certificación presupuestaria..."
                   }
                 />
               </label>
@@ -341,7 +389,10 @@ export default function CertificacionFinancieraPage() {
                     className="form-input w-full mt-1"
                     value={draft.firmanteNombre}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, firmanteNombre: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        firmanteNombre: e.target.value,
+                      }))
                     }
                     placeholder="Nombre completo"
                   />
@@ -355,7 +406,10 @@ export default function CertificacionFinancieraPage() {
                     className="form-input w-full mt-1"
                     value={draft.firmanteCargo}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, firmanteCargo: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        firmanteCargo: e.target.value,
+                      }))
                     }
                     placeholder="Cargo"
                   />
@@ -370,7 +424,10 @@ export default function CertificacionFinancieraPage() {
                     className="form-input w-full mt-1"
                     value={draft.periodoComision}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, periodoComision: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        periodoComision: e.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -384,7 +441,10 @@ export default function CertificacionFinancieraPage() {
                     className="form-input w-full mt-1"
                     value={draft.periodoComisionFin}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, periodoComisionFin: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        periodoComisionFin: e.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -398,7 +458,10 @@ export default function CertificacionFinancieraPage() {
                     className="form-input w-full mt-1"
                     value={draft.fechaEmision}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, fechaEmision: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        fechaEmision: e.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -483,16 +546,6 @@ export default function CertificacionFinancieraPage() {
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
             <AvalDocumentosSection aval={aval} />
-            <PreviewCollapsible title="Certificacion PDA">
-              <PdaPreview
-                aval={aval}
-                draft={{
-                  ...pdaDraft,
-                  periodoComision: draft.periodoComision,
-                  periodoComisionFin: draft.periodoComisionFin,
-                }}
-              />
-            </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
@@ -503,6 +556,13 @@ export default function CertificacionFinancieraPage() {
                   notas: draft.notas,
                   codigoActividad: pdaDraft.codigoActividad,
                   numeroAval: pdaDraft.numeroAval,
+                  fechaSalida: draft.fechaEmision,
+                  periodoComision: draft.periodoComision,
+                  periodoComisionFin: draft.periodoComisionFin,
+                  pdaFirmanteNombre: pdaDraft.nombreFirmante,
+                  pdaFirmanteCargo: pdaDraft.cargoFirmante,
+                  financieroFirmanteNombre: draft.firmanteNombre,
+                  financieroFirmanteCargo: draft.firmanteCargo,
                 }}
               />
             </PreviewCollapsible>

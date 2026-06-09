@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ChangeEvent, DragEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 
 import { ApiError } from "@/lib/api/client";
 import { getCatalog, getItemsPresupuestarios } from "@/lib/api/catalog";
@@ -65,7 +65,6 @@ export function useEventoForm({
     setError,
     setValue,
     getValues,
-    watch,
   } = useForm<EventoFormValues>({
     resolver: zodResolver(eventoSchema),
     defaultValues: initialValues,
@@ -120,7 +119,10 @@ export function useEventoForm({
     name: "eventoItems",
   });
 
-  const eventoItemsValues = watch("eventoItems") ?? [];
+  // Totales: useWatch (no watch()) para reflejar de forma fiable los valores del
+  // field array tras el reset() en edición. Con watch() el total quedaba en 0
+  // aunque los inputs de cada item sí mostraran su presupuesto (desync RHF).
+  const eventoItemsValues = useWatch({ control, name: "eventoItems" }) ?? [];
 
   const totalPresupuesto = useMemo(
     () =>

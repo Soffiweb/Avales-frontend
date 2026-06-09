@@ -8,6 +8,7 @@ import {
   UploadCloud,
   FolderKanban,
   History,
+  ShieldAlert,
 } from "lucide-react";
 
 export const SidebarIcons = {
@@ -20,6 +21,7 @@ export const SidebarIcons = {
   cargaMasiva: UploadCloud,
   catalogos: FolderKanban,
   miHistorial: History,
+  monitoreo: ShieldAlert,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

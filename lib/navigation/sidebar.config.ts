@@ -125,6 +125,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
+    type: "link",
+    label: "Monitoreo",
+    href: "/monitoreo",
+    segment: "monitoreo",
+    icon: "monitoreo",
+    roles: ADMIN_ACCESS_ROLES,
+  },
+  {
     type: "group",
     label: "Catálogos",
     segment: "catalogos",

@@ -160,6 +160,7 @@ export type UpdateEventoPayload = {
   genero?: "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
   disciplinaId?: number;
   categoriaId?: number | null;
+  categoriaCodigo?: string;
   mesProgramado?: number;
   provincia?: string;
   ciudad?: string;

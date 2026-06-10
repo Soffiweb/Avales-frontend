@@ -143,6 +143,24 @@ export default function NuevaReformaMultiPage() {
   const [destinos, setDestinos] = useState<SelectedEvento[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
+  function handleOrigenesChange(updated: SelectedEvento[]) {
+    setOrigenes(updated);
+    setDestinos((current) =>
+      current.filter(
+        (destino) => !updated.some((origen) => origen.eventoId === destino.eventoId),
+      ),
+    );
+  }
+
+  function handleDestinosChange(updated: SelectedEvento[]) {
+    setDestinos(updated);
+    setOrigenes((current) =>
+      current.filter(
+        (origen) => !updated.some((destino) => destino.eventoId === origen.eventoId),
+      ),
+    );
+  }
+
   const totalCortado = useMemo(
     () =>
       origenes
@@ -252,6 +270,7 @@ export default function NuevaReformaMultiPage() {
   }
 
   const origenEventoIds = origenes.map((e) => e.eventoId);
+  const destinoEventoIds = destinos.map((e) => e.eventoId);
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
@@ -337,6 +356,10 @@ export default function NuevaReformaMultiPage() {
                 <option value="FONDOS_PUBLICOS">Fondos Públicos</option>
                 <option value="AUTOGESTION">Autogestión</option>
               </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                La reforma solo mueve valores dentro de la fuente elegida. Si el evento destino ya
+                tiene ese ítem en otra fuente, se creará una línea separada para esta fuente.
+              </p>
             </div>
           </div>
         </div>
@@ -348,9 +371,10 @@ export default function NuevaReformaMultiPage() {
               label="Orígenes — se reducirá su presupuesto"
               fuente={fuente}
               selected={origenes}
-              onChange={setOrigenes}
+              onChange={handleOrigenesChange}
               mode="origen"
               defaultMes={mesEjecucion}
+              excludeEventoIds={destinoEventoIds}
             />
           </div>
 
@@ -359,10 +383,11 @@ export default function NuevaReformaMultiPage() {
               label="Destinos — recibirán presupuesto"
               fuente={fuente}
               selected={destinos}
-              onChange={setDestinos}
+              onChange={handleDestinosChange}
               mode="destino"
               defaultMes={mesEjecucion}
               highlightEventoIds={origenEventoIds}
+              excludeEventoIds={origenEventoIds}
             />
           </div>
         </div>
@@ -484,11 +509,14 @@ export default function NuevaReformaMultiPage() {
                                 <div className="mt-0.5 pl-2 space-y-0.5">
                                   {e.items.map((it) => (
                                     <div
-                                      key={`${it.itemId}-${it.mes}`}
+                                      key={`${it.itemId}-${it.mes}-${it.fuente}`}
                                       className="flex justify-between text-[0.65rem] text-gray-500 dark:text-gray-400"
                                     >
                                       <span>
-                                        {it.itemNombre} · {MES_NOMBRES[it.mes]}
+                                        {it.itemNombre} · {MES_NOMBRES[it.mes]} ·{" "}
+                                        {it.fuente === "FONDOS_PUBLICOS"
+                                          ? "Fondos Públicos"
+                                          : "Autogestión"}
                                       </span>
                                       <span>-{formatCurrency(it.monto)}</span>
                                     </div>
@@ -526,11 +554,14 @@ export default function NuevaReformaMultiPage() {
                                 <div className="mt-0.5 pl-2 space-y-0.5">
                                   {e.items.map((it) => (
                                     <div
-                                      key={`${it.itemId}-${it.mes}`}
+                                      key={`${it.itemId}-${it.mes}-${it.fuente}`}
                                       className="flex justify-between text-[0.65rem] text-gray-500 dark:text-gray-400"
                                     >
                                       <span>
-                                        {it.itemNombre} · {MES_NOMBRES[it.mes]}
+                                        {it.itemNombre} · {MES_NOMBRES[it.mes]} ·{" "}
+                                        {it.fuente === "FONDOS_PUBLICOS"
+                                          ? "Fondos Públicos"
+                                          : "Autogestión"}
                                       </span>
                                       <span>+{formatCurrency(it.monto)}</span>
                                     </div>

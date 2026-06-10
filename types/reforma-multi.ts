@@ -20,6 +20,30 @@ export type EventoResumen = {
   disciplina?: DisciplinaResumen;
 };
 
+export type ReformaMultiEventoDetalleItem = {
+  id: number;
+  nombre: string;
+  numero: number;
+};
+
+export type ReformaMultiOrigenLinea = {
+  id: number;
+  eventoId: number;
+  itemId: number;
+  mes: number;
+  montoCortado: string;
+  item?: ReformaMultiEventoDetalleItem | null;
+};
+
+export type ReformaMultiDestinoLinea = {
+  id: number;
+  eventoId: number;
+  itemId: number;
+  mes: number;
+  montoAsignado: string;
+  item?: ReformaMultiEventoDetalleItem | null;
+};
+
 export type EventoOrigenItem = {
   id: number;
   eventoId: number;
@@ -27,6 +51,7 @@ export type EventoOrigenItem = {
   totalEventoAntes: string;
   totalEventoDespues?: string | null;
   evento: EventoResumen;
+  items?: ReformaMultiOrigenLinea[];
 };
 
 export type EventoDestinoItem = {
@@ -36,6 +61,7 @@ export type EventoDestinoItem = {
   totalEventoAntes: string;
   totalEventoDespues?: string | null;
   evento: EventoResumen;
+  items?: ReformaMultiDestinoLinea[];
 };
 
 export type CambiosSnapshot = {

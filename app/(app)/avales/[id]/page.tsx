@@ -701,14 +701,54 @@ export default function AvalDetailPage() {
 
   const handleRegeneratePdfs = useCallback(async () => {
     if (!aval || regenerating) return;
+    const avalId = aval.id;
+    const initialUpdatedAt = aval.updatedAt ?? null;
     try {
       setRegenerating(true);
-      await regenerarAvalPdfs(aval.id);
+      await regenerarAvalPdfs(avalId);
       setToast({
         variant: "success",
         message:
-          "Regeneración iniciada en background. Los PDFs se actualizarán en unos segundos.",
+          "Regenerando PDFs en background… te avisamos cuando termine.",
       });
+
+      // Polling cada 3s hasta detectar cambio en updatedAt o agotar 90s.
+      const POLL_INTERVAL_MS = 3_000;
+      const MAX_ATTEMPTS = 30;
+      let attempts = 0;
+
+      const poll = async () => {
+        attempts += 1;
+        try {
+          const res = await getAval(avalId);
+          const next = res.data;
+          if (next && next.updatedAt && next.updatedAt !== initialUpdatedAt) {
+            setAval(next);
+            setToast({
+              variant: "success",
+              message: "PDFs actualizados.",
+            });
+            return;
+          }
+        } catch {
+          // Si falla el polling, no rompemos — reintentamos.
+        }
+        if (attempts < MAX_ATTEMPTS) {
+          setTimeout(() => {
+            void poll();
+          }, POLL_INTERVAL_MS);
+        } else {
+          setToast({
+            variant: "success",
+            message:
+              "La regeneración tarda más de lo esperado. Recargá la página en unos minutos para ver los PDFs nuevos.",
+          });
+        }
+      };
+
+      setTimeout(() => {
+        void poll();
+      }, POLL_INTERVAL_MS);
     } catch (err: unknown) {
       setToast({
         variant: "error",

@@ -1,0 +1,116 @@
+import { ensureFreshAccessToken } from "@/lib/api/client";
+import { getAccessToken } from "@/lib/auth/tokens";
+
+const API_BASE = "/api/v1";
+
+export type ComposableDocumentKey =
+  | "avalTecnico"
+  | "comprasPublicas"
+  | "revisionMetodologo"
+  | "revisionDtm"
+  | "controlPrevio"
+  | "presupuestoSalida"
+  | "certificacionPresupuestaria"
+  | "escuelaIniciacion"
+  | "convocatoria"
+  | "certificadoMedico"
+  | "pronosticoDeportistas";
+
+export const DOCUMENT_LABELS: Record<ComposableDocumentKey, string> = {
+  avalTecnico: "Aval técnico",
+  comprasPublicas: "Certificado compras públicas",
+  revisionMetodologo: "Revisión metodólogo",
+  revisionDtm: "Revisión DTM",
+  controlPrevio: "Control previo",
+  presupuestoSalida: "Presupuesto salida deportistas",
+  certificacionPresupuestaria: "Certificación presupuestaria",
+  escuelaIniciacion: "Escuela de iniciación",
+  convocatoria: "Convocatoria",
+  certificadoMedico: "Certificado médico",
+  pronosticoDeportistas: "Pronóstico deportistas",
+};
+
+/**
+ * Mapea cada documento composable al endpoint GET que genera su preview
+ * on-the-fly (sin cambiar estado). null = no hay preview directo
+ * (ej. el cert PDA fue removido; usar `presupuestoSalida` del financiero).
+ */
+export const PREVIEW_ENDPOINTS: Record<
+  ComposableDocumentKey,
+  string | null
+> = {
+  avalTecnico: "/aval-tecnico-pdf",
+  comprasPublicas: "/compras-publicas-pdf",
+  revisionMetodologo: "/revision-metodologo-pdf",
+  revisionDtm: "/revision-dtm-pdf",
+  controlPrevio: "/control-previo-pdf",
+  presupuestoSalida: "/financiero-pdf",
+  certificacionPresupuestaria: "/financiero-pdf",
+  escuelaIniciacion: "/escuela-iniciacion-pdf",
+  convocatoria: null,
+  certificadoMedico: null,
+  pronosticoDeportistas: null,
+};
+
+async function buildAuthHeader(): Promise<Record<string, string>> {
+  await ensureFreshAccessToken();
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
+ * Abre el PDF preview del paso indicado en una nueva pestaña.
+ * Usa fetch para inyectar el Bearer token y luego `window.open` con un blob URL.
+ */
+export async function openAvalPdfPreview(
+  avalId: number,
+  key: ComposableDocumentKey,
+): Promise<void> {
+  const endpoint = PREVIEW_ENDPOINTS[key];
+  if (!endpoint) {
+    throw new Error(
+      `No hay endpoint de preview directo para "${DOCUMENT_LABELS[key]}".`,
+    );
+  }
+  const url = `${API_BASE}/avales/${avalId}${endpoint}`;
+  const headers = await buildAuthHeader();
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`No se pudo cargar el PDF (HTTP ${res.status})`);
+  }
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  window.open(blobUrl, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Pide al backend componer un PDF con los documentos seleccionados y
+ * dispara la descarga al cliente.
+ */
+export async function downloadComposedPdf(
+  avalId: number,
+  documentos: ComposableDocumentKey[],
+): Promise<void> {
+  const url = `${API_BASE}/avales/${avalId}/compose-pdf`;
+  const authHeaders = await buildAuthHeader();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders,
+    },
+    body: JSON.stringify({ documentos }),
+  });
+  if (!res.ok) {
+    throw new Error(`No se pudo componer el PDF (HTTP ${res.status})`);
+  }
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = `aval-${avalId}-compuesto.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
+}

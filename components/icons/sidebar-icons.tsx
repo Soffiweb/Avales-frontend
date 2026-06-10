@@ -9,6 +9,7 @@ import {
   FolderKanban,
   History,
   ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 
 export const SidebarIcons = {
@@ -22,6 +23,7 @@ export const SidebarIcons = {
   catalogos: FolderKanban,
   miHistorial: History,
   monitoreo: ShieldAlert,
+  roles: ShieldCheck,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

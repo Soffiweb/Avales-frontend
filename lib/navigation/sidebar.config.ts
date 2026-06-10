@@ -68,6 +68,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
   {
     type: "link",
+    label: "Roles",
+    href: "/roles",
+    segment: "roles",
+    icon: "roles",
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    type: "link",
     label: "Avales",
     href: "/avales",
     segment: "avales",

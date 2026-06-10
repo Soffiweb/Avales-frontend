@@ -9,6 +9,7 @@ import { Dialog, Transition } from "@headlessui/react";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
+import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import {
   getReformaMulti,
   aprobarReformaMulti,
@@ -20,7 +21,12 @@ import {
 } from "@/lib/api/reforms-multi";
 import { canReviewReforms } from "@/lib/auth/access";
 import { formatCurrencyFromString, formatDateTime } from "@/lib/utils/formatters";
-import type { CambiosSnapshot } from "@/types/reforma-multi";
+import type { CatalogItemPresupuestario } from "@/types/catalog";
+import type {
+  CambiosSnapshot,
+  ReformaMultiDestinoLinea,
+  ReformaMultiOrigenLinea,
+} from "@/types/reforma-multi";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDIENTE:
@@ -36,6 +42,227 @@ function getStatusClasses(status?: string | null) {
   return (
     STATUS_STYLES[status.toUpperCase()] ??
     "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+  );
+}
+
+type SnapshotBudgetItem = {
+  itemId: number;
+  presupuesto: string;
+};
+
+type BudgetChangeRow = {
+  itemId: number;
+  before: number;
+  after: number;
+  diff: number;
+};
+
+function parseBudget(value?: string | null) {
+  return Number.parseFloat(value ?? "0") || 0;
+}
+
+function buildBudgetChangeRows(
+  before: SnapshotBudgetItem[],
+  after: SnapshotBudgetItem[],
+  mode: "decrease" | "increase",
+) {
+  const budgetMap = new Map<number, BudgetChangeRow>();
+
+  before.forEach((item) => {
+    budgetMap.set(item.itemId, {
+      itemId: item.itemId,
+      before: parseBudget(item.presupuesto),
+      after: 0,
+      diff: 0,
+    });
+  });
+
+  after.forEach((item) => {
+    const current = budgetMap.get(item.itemId);
+    if (current) {
+      current.after = parseBudget(item.presupuesto);
+      current.diff = current.after - current.before;
+      return;
+    }
+
+    budgetMap.set(item.itemId, {
+      itemId: item.itemId,
+      before: 0,
+      after: parseBudget(item.presupuesto),
+      diff: parseBudget(item.presupuesto),
+    });
+  });
+
+  return Array.from(budgetMap.values())
+    .filter((item) => {
+      if (mode === "decrease") return item.diff < 0;
+      return item.diff > 0;
+    })
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+}
+
+function getItemLabel(
+  itemId: number,
+  itemsCatalog: CatalogItemPresupuestario[],
+) {
+  const item = itemsCatalog.find((catalogItem) => catalogItem.id === itemId);
+  if (!item) return `Item #${itemId}`;
+  return `${item.numero} · ${item.nombre}`;
+}
+
+function getMonthLabel(month?: number | null) {
+  if (!month) return "-";
+  return MES_NOMBRES[month] ?? `Mes ${month}`;
+}
+
+function getDetailItemLabel(
+  item:
+    | ReformaMultiOrigenLinea["item"]
+    | ReformaMultiDestinoLinea["item"]
+    | undefined
+    | null,
+  itemId: number,
+  itemsCatalog: CatalogItemPresupuestario[],
+) {
+  if (item?.numero != null && item?.nombre) {
+    return `${item.numero} · ${item.nombre}`;
+  }
+
+  return getItemLabel(itemId, itemsCatalog);
+}
+
+function getDetailLineAmount(
+  line: ReformaMultiOrigenLinea | ReformaMultiDestinoLinea,
+  type: "origen" | "destino",
+) {
+  if (type === "origen") {
+    return "montoCortado" in line ? line.montoCortado : "0";
+  }
+
+  return "montoAsignado" in line ? line.montoAsignado : "0";
+}
+
+function ItemBudgetChanges({
+  before,
+  after,
+  mode,
+  itemsCatalog,
+}: {
+  before: SnapshotBudgetItem[];
+  after: SnapshotBudgetItem[];
+  mode: "decrease" | "increase";
+  itemsCatalog: CatalogItemPresupuestario[];
+}) {
+  const rows = buildBudgetChangeRows(before, after, mode);
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        No hay cambios por ítem para este evento.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
+      <table className="w-full border-collapse text-xs">
+        <thead className="bg-gray-50 dark:bg-gray-800/80">
+          <tr>
+            <th className="border-b border-gray-200 px-2 py-2 text-left font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              Ítem
+            </th>
+            <th className="border-b border-gray-200 px-2 py-2 text-right font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              Antes
+            </th>
+            <th className="border-b border-gray-200 px-2 py-2 text-right font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              Después
+            </th>
+            <th className="border-b border-gray-200 px-2 py-2 text-right font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              {mode === "decrease" ? "Corte" : "Incremento"}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((item) => (
+            <tr key={item.itemId}>
+              <td className="border-b border-gray-100 px-2 py-2 text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                {getItemLabel(item.itemId, itemsCatalog)}
+              </td>
+              <td className="border-b border-gray-100 px-2 py-2 text-right text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                {formatCurrencyFromString(String(item.before))}
+              </td>
+              <td className="border-b border-gray-100 px-2 py-2 text-right text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                {formatCurrencyFromString(String(item.after))}
+              </td>
+              <td
+                className={`border-b border-gray-100 px-2 py-2 text-right font-semibold dark:border-gray-800 ${
+                  mode === "decrease"
+                    ? "text-rose-700 dark:text-rose-400"
+                    : "text-emerald-700 dark:text-emerald-400"
+                }`}
+              >
+                {mode === "decrease" ? "-" : "+"}
+                {formatCurrencyFromString(String(Math.abs(item.diff)))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EventDetailItems({
+  items,
+  type,
+  itemsCatalog,
+}: {
+  items: ReformaMultiOrigenLinea[] | ReformaMultiDestinoLinea[];
+  type: "origen" | "destino";
+  itemsCatalog: CatalogItemPresupuestario[];
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
+      <table className="w-full border-collapse text-xs">
+        <thead className="bg-gray-50 dark:bg-gray-800/80">
+          <tr>
+            <th className="border-b border-gray-200 px-2 py-2 text-left font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              Ítem
+            </th>
+            <th className="border-b border-gray-200 px-2 py-2 text-left font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              Mes
+            </th>
+            <th className="border-b border-gray-200 px-2 py-2 text-right font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
+              {type === "origen" ? "Monto cortado" : "Monto asignado"}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((line) => (
+            <tr key={line.id}>
+              <td className="border-b border-gray-100 px-2 py-2 text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                {getDetailItemLabel(line.item, line.itemId, itemsCatalog)}
+              </td>
+              <td className="border-b border-gray-100 px-2 py-2 text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                {getMonthLabel(line.mes)}
+              </td>
+              <td
+                className={`border-b border-gray-100 px-2 py-2 text-right font-semibold dark:border-gray-800 ${
+                  type === "origen"
+                    ? "text-rose-700 dark:text-rose-400"
+                    : "text-emerald-700 dark:text-emerald-400"
+                }`}
+              >
+                {type === "origen" ? "-" : "+"}
+                {formatCurrencyFromString(getDetailLineAmount(line, type))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -64,6 +291,13 @@ export default function ReformaMultiDetailPage() {
   });
 
   const reform = data?.data;
+
+  const { data: itemsCatalogData } = useQuery({
+    queryKey: ["catalog-items-presupuestarios"],
+    queryFn: () => getItemsPresupuestarios(),
+  });
+
+  const itemsCatalog = itemsCatalogData?.data ?? [];
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["reforma-multi", id] });
@@ -330,34 +564,30 @@ export default function ReformaMultiDetailPage() {
                         ) : null}
                       </dl>
 
-                      {/* Before/after items from cambios */}
-                      {reform.estado === "APROBADA" && cambioOrigen && (
+                      {origen.items?.length ? (
+                        <details className="mt-2" open>
+                          <summary className="cursor-pointer text-xs text-indigo-600 dark:text-indigo-400">
+                            Ver items desde donde se cortó
+                          </summary>
+                          <EventDetailItems
+                            items={origen.items}
+                            type="origen"
+                            itemsCatalog={itemsCatalog}
+                          />
+                        </details>
+                      ) : null}
+
+                      {!origen.items?.length && cambioOrigen && (
                         <details className="mt-2">
                           <summary className="cursor-pointer text-xs text-indigo-600 dark:text-indigo-400">
-                            Ver cambios por ítem
+                            Ver items desde donde se cortó
                           </summary>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Antes
-                              </p>
-                              {cambioOrigen.before.map((b) => (
-                                <p key={b.itemId} className="text-xs text-gray-700 dark:text-gray-300">
-                                  Item #{b.itemId}: {formatCurrencyFromString(b.presupuesto)}
-                                </p>
-                              ))}
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                                Después
-                              </p>
-                              {cambioOrigen.after.map((a) => (
-                                <p key={a.itemId} className="text-xs text-gray-700 dark:text-gray-300">
-                                  Item #{a.itemId}: {formatCurrencyFromString(a.presupuesto)}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
+                          <ItemBudgetChanges
+                            before={cambioOrigen.before}
+                            after={cambioOrigen.after}
+                            mode="decrease"
+                            itemsCatalog={itemsCatalog}
+                          />
                         </details>
                       )}
                     </li>
@@ -418,34 +648,30 @@ export default function ReformaMultiDetailPage() {
                         ) : null}
                       </dl>
 
-                      {/* Before/after items from cambios */}
-                      {reform.estado === "APROBADA" && cambioDestino && (
+                      {destino.items?.length ? (
+                        <details className="mt-2" open>
+                          <summary className="cursor-pointer text-xs text-indigo-600 dark:text-indigo-400">
+                            Ver items en donde se agregó
+                          </summary>
+                          <EventDetailItems
+                            items={destino.items}
+                            type="destino"
+                            itemsCatalog={itemsCatalog}
+                          />
+                        </details>
+                      ) : null}
+
+                      {!destino.items?.length && cambioDestino && (
                         <details className="mt-2">
                           <summary className="cursor-pointer text-xs text-indigo-600 dark:text-indigo-400">
-                            Ver cambios por ítem
+                            Ver items en donde se agregó
                           </summary>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Antes
-                              </p>
-                              {cambioDestino.before.map((b) => (
-                                <p key={b.itemId} className="text-xs text-gray-700 dark:text-gray-300">
-                                  Item #{b.itemId}: {formatCurrencyFromString(b.presupuesto)}
-                                </p>
-                              ))}
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                                Después
-                              </p>
-                              {cambioDestino.after.map((a) => (
-                                <p key={a.itemId} className="text-xs text-gray-700 dark:text-gray-300">
-                                  Item #{a.itemId}: {formatCurrencyFromString(a.presupuesto)}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
+                          <ItemBudgetChanges
+                            before={cambioDestino.before}
+                            after={cambioDestino.after}
+                            mode="increase"
+                            itemsCatalog={itemsCatalog}
+                          />
                         </details>
                       )}
                     </li>

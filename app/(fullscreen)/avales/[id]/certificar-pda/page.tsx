@@ -310,7 +310,7 @@ export default function CertificarAvalPage() {
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,
     validateApprove: useCallback(
-      (currentAval: Aval) => {
+      () => {
         const pdaError = validatePdaDraft(draft);
         if (pdaError) return pdaError;
 
@@ -329,18 +329,9 @@ export default function CertificarAvalPage() {
           return "Todos los ítems deben tener al menos un día con cantidad y valor unitario mayores a 0.";
         }
 
-        const totalOriginal = (currentAval?.evento?.presupuesto ?? []).reduce(
-          (t, item) => t + (Number.parseFloat(item.presupuesto ?? "0") || 0),
-          0,
-        );
-        const difference = roundCurrency(totalPresupuestoDraft - totalOriginal);
-        if (Math.abs(difference) >= 0.01) {
-          return "El total del presupuesto editado debe coincidir con el total original del evento.";
-        }
-
         return null;
       },
-      [draft, budgetDraftItems, totalPresupuestoDraft],
+      [draft, budgetDraftItems],
     ),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
@@ -714,14 +705,15 @@ export default function CertificarAvalPage() {
                     }`}
                   >
                     <p>
-                      Total original: {formatCurrency(totalPresupuestoOriginal)}
+                      Presupuesto original:{" "}
+                      {formatCurrency(totalPresupuestoOriginal)}
                     </p>
                     <p>
-                      Total editado: {formatCurrency(totalPresupuestoDraft)}
+                      Presupuesto asignado:{" "}
+                      {formatCurrency(totalPresupuestoDraft)}
                     </p>
                     <p>
                       Diferencia: {formatCurrency(Math.abs(totalDifference))}
-                      {!totalMatches ? " (debe quedar en 0)" : ""}
                     </p>
                   </div>
                 </div>

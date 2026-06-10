@@ -14,6 +14,7 @@ export type EventoLineItem = {
   itemId: number;
   itemNombre: string;
   mes: number;
+  fuente: FuentePresupuestoReforma;
   monto: number;
   presupuesto: number;
   disponible: number;
@@ -39,7 +40,12 @@ type Props = {
   mode: "origen" | "destino";
   defaultMes?: number | "";
   highlightEventoIds?: number[];
+  excludeEventoIds?: number[];
 };
+
+function getFuenteLabel(fuente: FuentePresupuestoReforma) {
+  return fuente === "FONDOS_PUBLICOS" ? "Fondos Públicos" : "Autogestión";
+}
 
 function getItemDisponible(ei: EventoItem): number {
   const presupuesto = parseFloat(ei.presupuesto) || 0;
@@ -56,6 +62,7 @@ export default function EventoItemsPanel({
   mode,
   defaultMes,
   highlightEventoIds = [],
+  excludeEventoIds = [],
 }: Props) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -84,11 +91,18 @@ export default function EventoItemsPanel({
     async function fetchEvents() {
       setLoadingSearch(true);
       try {
-        const res = await listEventos({ search: debouncedSearch || undefined, limit: 20 });
+        const res = await listEventos({
+          search: debouncedSearch || undefined,
+          limit: 20,
+          sinAval: true,
+        });
         if (!cancelled) {
           setResults(
             (res.data ?? []).filter(
-              (e) => !selectedRef.current.some((s) => s.eventoId === e.id),
+              (e) =>
+                !e.tieneReformaPendiente &&
+                !selectedRef.current.some((s) => s.eventoId === e.id) &&
+                !excludeEventoIds.includes(e.id),
             ),
           );
         }
@@ -102,7 +116,7 @@ export default function EventoItemsPanel({
     void fetchEvents();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, fuente]);
+  }, [debouncedSearch, excludeEventoIds, fuente]);
 
   useEffect(() => {
     getItemsPresupuestarios()
@@ -129,6 +143,7 @@ export default function EventoItemsPanel({
           itemId: ei.item.id,
           itemNombre: ei.item.nombre,
           mes: ei.mes,
+          fuente: ei.fuente,
           monto: presupuesto,
           presupuesto,
           disponible,
@@ -152,7 +167,13 @@ export default function EventoItemsPanel({
     });
   }
 
-  function handleMontoChange(eventoId: number, itemId: number, mes: number, raw: string) {
+  function handleMontoChange(
+    eventoId: number,
+    itemId: number,
+    mes: number,
+    fuenteItem: FuentePresupuestoReforma,
+    raw: string,
+  ) {
     const parsed = parseFloat(raw);
     const monto = Number.isNaN(parsed) ? 0 : parsed;
     onChange(
@@ -162,19 +183,32 @@ export default function EventoItemsPanel({
           : {
               ...s,
               items: s.items.map((it) =>
-                it.itemId === itemId && it.mes === mes ? { ...it, monto } : it,
+                it.itemId === itemId && it.mes === mes && it.fuente === fuenteItem
+                  ? { ...it, monto }
+                  : it,
               ),
             },
       ),
     );
   }
 
-  function handleRemoveItem(eventoId: number, itemId: number, mes: number) {
+  function handleRemoveItem(
+    eventoId: number,
+    itemId: number,
+    mes: number,
+    fuenteItem: FuentePresupuestoReforma,
+  ) {
     onChange(
       selected.map((s) =>
         s.eventoId !== eventoId
           ? s
-          : { ...s, items: s.items.filter((it) => !(it.itemId === itemId && it.mes === mes)) },
+          : {
+              ...s,
+              items: s.items.filter(
+                (it) =>
+                  !(it.itemId === itemId && it.mes === mes && it.fuente === fuenteItem),
+              ),
+            },
       ),
     );
   }
@@ -188,7 +222,7 @@ export default function EventoItemsPanel({
 
   function handleConfirmAdd(eventoId: number) {
     const state = addingItem[eventoId];
-    if (!state?.itemId || !state.mes) return;
+    if (!state?.itemId || !state.mes || !fuente) return;
 
     const ev = selected.find((s) => s.eventoId === eventoId);
     if (!ev) return;
@@ -196,7 +230,7 @@ export default function EventoItemsPanel({
     const itemId = Number(state.itemId);
     const mes = Number(state.mes);
 
-    if (ev.items.some((it) => it.itemId === itemId && it.mes === mes)) {
+    if (ev.items.some((it) => it.itemId === itemId && it.mes === mes && it.fuente === fuente)) {
       setAddingItem((prev) => { const next = { ...prev }; delete next[eventoId]; return next; });
       return;
     }
@@ -208,6 +242,7 @@ export default function EventoItemsPanel({
       itemId,
       itemNombre: catalogItem.nombre,
       mes,
+      fuente,
       monto: 0,
       presupuesto: 0,
       disponible: 0,
@@ -337,7 +372,7 @@ export default function EventoItemsPanel({
 
               {ev.items.length === 0 && !adding && (
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  Sin ítems. Agrega uno abajo.
+                  No hay ítems de {fuente ? getFuenteLabel(fuente) : "esta fuente"}. Agrega uno abajo.
                 </p>
               )}
 
@@ -350,7 +385,7 @@ export default function EventoItemsPanel({
                     const hasPresupuesto = it.presupuesto > 0;
                     return (
                       <li
-                        key={`${it.itemId}-${it.mes}`}
+                        key={`${it.itemId}-${it.mes}-${it.fuente}`}
                         className="rounded-lg border border-gray-200 bg-white px-2.5 py-2 space-y-1.5 dark:border-gray-700 dark:bg-gray-800"
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -360,6 +395,7 @@ export default function EventoItemsPanel({
                             </p>
                             <p className="text-[0.65rem] text-gray-500 dark:text-gray-400">
                               {mesLabel}
+                              {` · ${getFuenteLabel(it.fuente)}`}
                               {isOrigen && hasPresupuesto
                                 ? ` · Disp: ${formatCurrency(it.disponible)}`
                                 : ""}
@@ -367,7 +403,9 @@ export default function EventoItemsPanel({
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleRemoveItem(ev.eventoId, it.itemId, it.mes)}
+                            onClick={() =>
+                              handleRemoveItem(ev.eventoId, it.itemId, it.mes, it.fuente)
+                            }
                             className="p-0.5 text-gray-400 hover:text-rose-500 shrink-0"
                             aria-label="Quitar ítem"
                           >
@@ -385,7 +423,13 @@ export default function EventoItemsPanel({
                             step="0.01"
                             value={it.monto === 0 && !hasPresupuesto ? "" : it.monto}
                             onChange={(e) =>
-                              handleMontoChange(ev.eventoId, it.itemId, it.mes, e.target.value)
+                              handleMontoChange(
+                                ev.eventoId,
+                                it.itemId,
+                                it.mes,
+                                it.fuente,
+                                e.target.value,
+                              )
                             }
                             className={`form-input w-full text-xs ${
                               overLimit ? "border-rose-400 dark:border-rose-500" : ""
@@ -432,6 +476,10 @@ export default function EventoItemsPanel({
 
               {adding ? (
                 <div className="rounded-lg border border-dashed border-indigo-300 bg-white p-2.5 space-y-2 dark:border-indigo-700 dark:bg-gray-800">
+                  <p className="text-[0.65rem] text-gray-500 dark:text-gray-400">
+                    El nuevo ítem se creará en {fuente ? getFuenteLabel(fuente) : "la fuente seleccionada"}.
+                    Si este evento ya tiene el mismo ítem en otra fuente, quedará como una línea separada.
+                  </p>
                   <select
                     className="form-select w-full text-xs"
                     value={adding.itemId}

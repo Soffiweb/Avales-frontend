@@ -540,9 +540,11 @@ export default function RevisionDtmPage() {
                 secretariaCargo={SECRETARIA_DTM_CARGO_DEFAULT}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Presupuesto de salida">
-              <PresupuestoSalidaAnticipoPreview aval={aval} />
-            </PreviewCollapsible>
+            {aval?.tipoAval !== "SOLO_RESULTADO" && (
+              <PreviewCollapsible title="Presupuesto de salida">
+                <PresupuestoSalidaAnticipoPreview aval={aval} />
+              </PreviewCollapsible>
+            )}
             <PreviewCollapsible title="Certificacion compras publicas">
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>

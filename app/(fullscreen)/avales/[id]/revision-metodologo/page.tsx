@@ -770,9 +770,11 @@ export default function RevisionMetodologoPage() {
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Presupuesto de salida">
-              <PresupuestoSalidaAnticipoPreview aval={aval} />
-            </PreviewCollapsible>
+            {aval?.tipoAval !== "SOLO_RESULTADO" && (
+              <PreviewCollapsible title="Presupuesto de salida">
+                <PresupuestoSalidaAnticipoPreview aval={aval} />
+              </PreviewCollapsible>
+            )}
             <PreviewCollapsible title="Certificacion compras publicas">
               <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>

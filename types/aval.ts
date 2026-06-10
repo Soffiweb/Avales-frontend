@@ -263,6 +263,12 @@ export type Aval = {
   pronosticoDeportistasUrl?: string | null;
   avalTecnicoPdfUrl?: string | null;
   escuelaIniciacionPdfUrl?: string | null;
+  comprasPublicasPdfUrl?: string | null;
+  revisionMetodologoUrl?: string | null;
+  revisionDtmUrl?: string | null;
+  controlPrevioUrl?: string | null;
+  presupuestoSalidaUrl?: string | null;
+  certificacionPresupuestariaUrl?: string | null;
   dtmUrl?: string | null;
   pdaUrl?: string | null;
   solicitudUrl?: string | null;

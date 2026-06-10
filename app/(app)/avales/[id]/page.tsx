@@ -38,6 +38,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import AvalPresupuestoSection from "./_components/aval-presupuesto-section";
 import AvalDeportistasSection from "./_components/aval-deportistas-section";
 import AvalLogisticaSection from "./_components/aval-logistica-section";
+import AvalPdfComposerModal from "./_components/aval-pdf-composer-modal";
 import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
@@ -691,6 +692,7 @@ export default function AvalDetailPage() {
   const [deletingRequest, setDeletingRequest] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [downloadingAval, setDownloadingAval] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const userRoles = getNormalizedRoles(user);
   const isAdminLike =
@@ -1128,6 +1130,15 @@ export default function AvalDetailPage() {
                 {regenerating ? "Iniciando..." : "Regenerar PDFs"}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setComposerOpen(true)}
+              className="btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              title="Vista previa o descarga combinada de documentos"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Documentos del aval
+            </button>
             {canDownloadAvalCompleto ? (
               <button
                 type="button"
@@ -1734,6 +1745,26 @@ export default function AvalDetailPage() {
             />
           </CollapsibleSection>
         </div>
+      ) : null}
+
+      {composerOpen ? (
+        <AvalPdfComposerModal
+          avalId={aval.id}
+          availableDocs={{
+            avalTecnico: aval.avalTecnicoPdfUrl,
+            comprasPublicas: aval.comprasPublicasPdfUrl,
+            revisionMetodologo: aval.revisionMetodologoUrl,
+            revisionDtm: aval.revisionDtmUrl,
+            controlPrevio: aval.controlPrevioUrl,
+            presupuestoSalida: aval.presupuestoSalidaUrl,
+            certificacionPresupuestaria: aval.certificacionPresupuestariaUrl,
+            escuelaIniciacion: aval.escuelaIniciacionPdfUrl,
+            convocatoria: aval.convocatoriaUrl,
+            certificadoMedico: aval.certificadoMedicoUrl,
+            pronosticoDeportistas: aval.pronosticoDeportistasUrl,
+          }}
+          onClose={() => setComposerOpen(false)}
+        />
       ) : null}
 
       <ConfirmModal

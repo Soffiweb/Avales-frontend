@@ -7,6 +7,7 @@ import { useWindowWidth } from "@/components/utils/use-window-width";
 import SidebarLinkGroup from "../ui/sidebar-link-group";
 import SidebarLink from "../ui/sidebar-link";
 import Logo from "../ui/logo";
+import VersionBadge from "../ui/version-badge";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   SIDEBAR_ITEMS,
@@ -274,8 +275,15 @@ export default function Sidebar({
           </div>
         </div>
 
+        {/* Version badge */}
+        <div className="mt-auto pt-3 px-4 pb-1 text-center">
+          <div className="block lg:hidden lg:sidebar-expanded:block 2xl:block">
+            <VersionBadge />
+          </div>
+        </div>
+
         {/* Expand / collapse button */}
-        <div className="pt-3 hidden lg:inline-flex 2xl:hidden justify-end mt-auto ">
+        <div className="pt-3 hidden lg:inline-flex 2xl:hidden justify-end ">
           <div className="w-12 pl-4 pr-3 py-2">
             <button
               className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 cursor-pointer"

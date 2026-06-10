@@ -691,6 +691,7 @@ export default function AvalDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletingRequest, setDeletingRequest] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [regenerationProgress, setRegenerationProgress] = useState(0);
   const [downloadingAval, setDownloadingAval] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
 
@@ -701,15 +702,17 @@ export default function AvalDetailPage() {
 
   const handleRegeneratePdfs = useCallback(async () => {
     if (!aval || regenerating) return;
+    const avalId = aval.id;
+    const initialUpdatedAt = aval.updatedAt ?? null;
+
+    setRegenerating(true);
+    setRegenerationProgress(0);
+
     try {
-      setRegenerating(true);
-      await regenerarAvalPdfs(aval.id);
-      setToast({
-        variant: "success",
-        message:
-          "Regeneración iniciada en background. Los PDFs se actualizarán en unos segundos.",
-      });
+      await regenerarAvalPdfs(avalId);
     } catch (err: unknown) {
+      setRegenerating(false);
+      setRegenerationProgress(0);
       setToast({
         variant: "error",
         message:
@@ -717,9 +720,70 @@ export default function AvalDetailPage() {
             ? err.message
             : "No se pudo iniciar la regeneración de PDFs.",
       });
-    } finally {
-      setRegenerating(false);
+      return;
     }
+
+    // Polling client-side: la barra de progreso avanza con cada intento
+    // y se completa cuando detectamos cambio en updatedAt o vencen los 90s.
+    const TOTAL_DURATION_MS = 90_000;
+    const POLL_INTERVAL_MS = 3_000;
+    const MAX_ATTEMPTS = Math.floor(TOTAL_DURATION_MS / POLL_INTERVAL_MS);
+
+    const startedAt = Date.now();
+    let attempts = 0;
+    let finished = false;
+
+    const finish = (success: boolean, message: string) => {
+      if (finished) return;
+      finished = true;
+      setRegenerationProgress(100);
+      setToast({
+        variant: success ? "success" : "error",
+        message,
+      });
+      // Pequeña pausa visual para que el usuario vea el 100% antes de cerrar.
+      setTimeout(() => {
+        setRegenerating(false);
+        setRegenerationProgress(0);
+      }, 600);
+    };
+
+    const poll = async () => {
+      if (finished) return;
+      attempts += 1;
+      const elapsedRatio = Math.min(
+        (Date.now() - startedAt) / TOTAL_DURATION_MS,
+        0.95,
+      );
+      setRegenerationProgress(Math.round(elapsedRatio * 100));
+
+      try {
+        const res = await getAval(avalId);
+        const next = res.data;
+        if (next && next.updatedAt && next.updatedAt !== initialUpdatedAt) {
+          setAval(next);
+          finish(true, "PDFs actualizados.");
+          return;
+        }
+      } catch {
+        // Si falla el polling, reintentamos.
+      }
+
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(() => {
+          void poll();
+        }, POLL_INTERVAL_MS);
+      } else {
+        finish(
+          true,
+          "La regeneración tarda más de lo esperado. Recargá la página en unos minutos para ver los PDFs nuevos.",
+        );
+      }
+    };
+
+    setTimeout(() => {
+      void poll();
+    }, POLL_INTERVAL_MS);
   }, [aval, regenerating]);
 
   const currentEtapa = getAvalCurrentEtapa(aval);
@@ -1073,6 +1137,28 @@ export default function AvalDetailPage() {
       )}
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-8">
+        {regenerating ? (
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800 dark:bg-indigo-950/40">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2 text-sm text-indigo-900 dark:text-indigo-200">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="font-medium">Regenerando PDFs…</span>
+                <span className="text-indigo-700 dark:text-indigo-300 hidden sm:inline">
+                  Esto puede tardar hasta 90 segundos. No cierres esta página.
+                </span>
+              </div>
+              <span className="text-xs font-mono tabular-nums text-indigo-700 dark:text-indigo-300">
+                {regenerationProgress}%
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-900/50">
+              <div
+                className="h-full bg-indigo-600 transition-all duration-300 ease-out"
+                style={{ width: `${regenerationProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -1127,7 +1213,9 @@ export default function AvalDetailPage() {
                 ) : (
                   <RefreshCw className="w-4 h-4 mr-2" />
                 )}
-                {regenerating ? "Iniciando..." : "Regenerar PDFs"}
+                {regenerating
+                  ? `Regenerando… ${regenerationProgress}%`
+                  : "Regenerar PDFs"}
               </button>
             )}
             <button

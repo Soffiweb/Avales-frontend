@@ -60,7 +60,10 @@ async function buildAuthHeader(): Promise<Record<string, string>> {
 
 /**
  * Abre el PDF preview del paso indicado en una nueva pestaña.
- * Usa fetch para inyectar el Bearer token y luego `window.open` con un blob URL.
+ *
+ * IMPORTANTE: la pestaña se abre **antes** del await del fetch. Los
+ * browsers bloquean los `window.open` que se llaman después de un await
+ * porque pierden el contexto del user gesture original.
  */
 export async function openAvalPdfPreview(
   avalId: number,
@@ -72,15 +75,29 @@ export async function openAvalPdfPreview(
       `No hay endpoint de preview directo para "${DOCUMENT_LABELS[key]}".`,
     );
   }
-  const url = `${API_BASE}/avales/${avalId}${endpoint}`;
-  const headers = await buildAuthHeader();
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    throw new Error(`No se pudo cargar el PDF (HTTP ${res.status})`);
+
+  // Abrimos la pestaña AHORA — adentro del click del usuario.
+  const newTab = window.open("about:blank", "_blank");
+  if (!newTab) {
+    throw new Error(
+      "Tu navegador bloqueó la pestaña nueva. Habilitá popups para este sitio y volvé a intentar.",
+    );
   }
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  window.open(blobUrl, "_blank", "noopener,noreferrer");
+
+  try {
+    const url = `${API_BASE}/avales/${avalId}${endpoint}`;
+    const headers = await buildAuthHeader();
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      throw new Error(`No se pudo cargar el PDF (HTTP ${res.status})`);
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    newTab.location.href = blobUrl;
+  } catch (err) {
+    newTab.close();
+    throw err;
+  }
 }
 
 /**

@@ -1,8 +1,10 @@
 const sha = process.env.NEXT_PUBLIC_GIT_SHA ?? "dev";
+const buildNumber = process.env.NEXT_PUBLIC_BUILD_NUMBER ?? "0";
 const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME ?? "";
 const repoUrl = process.env.NEXT_PUBLIC_GIT_REPO_URL ?? "";
 
 const shortSha = sha.slice(0, 7);
+const label = buildNumber !== "0" ? `v.${buildNumber}` : `v.${shortSha}`;
 const commitUrl =
   repoUrl && sha !== "dev" ? `${repoUrl}/commit/${sha}` : null;
 const tooltip = buildTime
@@ -22,7 +24,7 @@ export default function VersionBadge() {
         title={tooltip}
         className={className}
       >
-        v.{shortSha}
+        {label}
       </a>
     );
   }

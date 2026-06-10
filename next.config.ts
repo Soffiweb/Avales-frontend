@@ -20,7 +20,22 @@ function resolveGitSha(): string {
   }
 }
 
+function resolveBuildNumber(): string {
+  const fromEnv = process.env.BUILD_NUMBER ?? process.env.GITHUB_RUN_NUMBER;
+  if (fromEnv) return fromEnv;
+  try {
+    return execSync("git rev-list --count HEAD", {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return "0";
+  }
+}
+
 const gitSha = resolveGitSha();
+const buildNumber = resolveBuildNumber();
 const buildTime = new Date().toISOString();
 const repoUrl =
   process.env.NEXT_PUBLIC_GIT_REPO_URL ??
@@ -29,6 +44,7 @@ const repoUrl =
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_GIT_SHA: gitSha,
+    NEXT_PUBLIC_BUILD_NUMBER: buildNumber,
     NEXT_PUBLIC_BUILD_TIME: buildTime,
     NEXT_PUBLIC_GIT_REPO_URL: repoUrl,
   },

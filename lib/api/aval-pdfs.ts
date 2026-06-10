@@ -3,12 +3,14 @@ import { getAccessToken } from "@/lib/auth/tokens";
 
 const API_BASE = "/api/v1";
 
+// Nota: `controlPrevio` fue removido — el módulo solo emite un placeholder
+// con el número de revisión (página casi en blanco). Reactivar cuando exista
+// una plantilla real con contenido.
 export type ComposableDocumentKey =
   | "avalTecnico"
   | "comprasPublicas"
   | "revisionMetodologo"
   | "revisionDtm"
-  | "controlPrevio"
   | "presupuestoSalida"
   | "certificacionPresupuestaria"
   | "escuelaIniciacion"
@@ -21,7 +23,6 @@ export const DOCUMENT_LABELS: Record<ComposableDocumentKey, string> = {
   comprasPublicas: "Certificado compras públicas",
   revisionMetodologo: "Revisión metodólogo",
   revisionDtm: "Revisión DTM",
-  controlPrevio: "Control previo",
   presupuestoSalida: "Presupuesto salida deportistas",
   certificacionPresupuestaria: "Certificación presupuestaria",
   escuelaIniciacion: "Escuela de iniciación",
@@ -43,7 +44,6 @@ export const PREVIEW_ENDPOINTS: Record<
   comprasPublicas: "/compras-publicas-pdf",
   revisionMetodologo: "/revision-metodologo-pdf",
   revisionDtm: "/revision-dtm-pdf",
-  controlPrevio: "/control-previo-pdf",
   presupuestoSalida: "/financiero-pdf",
   certificacionPresupuestaria: "/financiero-pdf",
   escuelaIniciacion: "/escuela-iniciacion-pdf",

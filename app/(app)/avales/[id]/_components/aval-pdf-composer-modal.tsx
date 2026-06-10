@@ -28,7 +28,6 @@ const DOC_ORDER: ComposableDocumentKey[] = [
   "comprasPublicas",
   "revisionMetodologo",
   "revisionDtm",
-  "controlPrevio",
   "presupuestoSalida",
   "certificacionPresupuestaria",
 ];

@@ -56,6 +56,16 @@ function checkRole(user: User | null | undefined, check: RoleCheck): boolean {
   return roles.includes(check);
 }
 
+// Override de desarrollador: SUPER_ADMIN y ADMIN entran a cualquier paso
+// y pueden editar el formulario aunque la etapa ya haya pasado. Sirve para
+// arreglar datos sin tocar la BDD. El cambio de estado/etapa sigue gateado
+// por el backend — admin solo "ve y prepara"; el save sin advance de etapa
+// queda para endpoints admin dedicados (Phase 2).
+function isAdminOverride(user: User | null | undefined): boolean {
+  const roles = getNormalizedRoles(user);
+  return roles.includes("SUPER_ADMIN") || roles.includes("ADMIN");
+}
+
 export function useApprovalFlow({
   avalId,
   requiredRole,
@@ -92,9 +102,11 @@ export function useApprovalFlow({
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const hasRequiredRole = useMemo(
-    () => checkRole(user, requiredRole),
+    () => checkRole(user, requiredRole) || isAdminOverride(user),
     [user, requiredRole],
   );
+
+  const isAdmin = useMemo(() => isAdminOverride(user), [user]);
 
   const defaultSignerName = useMemo(() => {
     if (!user) return "";
@@ -149,9 +161,10 @@ export function useApprovalFlow({
     getNextApprovalStageForAval(aval, currentEtapa) ?? currentEtapa;
 
   const isEditable =
-    aval?.estado === "SOLICITADO" &&
-    currentEtapa === resolvedEditableEtapa &&
-    (additionalEditableCheck && aval ? additionalEditableCheck(aval) : true);
+    isAdmin ||
+    (aval?.estado === "SOLICITADO" &&
+      currentEtapa === resolvedEditableEtapa &&
+      (additionalEditableCheck && aval ? additionalEditableCheck(aval) : true));
 
   const summaryText = `El aval pasará de "${getApprovalStageLabel(currentEtapa)}" a "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}" y quedará en "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}".`;
 
@@ -232,6 +245,7 @@ export function useApprovalFlow({
     authLoading,
     user,
     hasRequiredRole,
+    isAdmin,
     defaultSignerName,
     defaultSignerCargo,
     // Aval fetch

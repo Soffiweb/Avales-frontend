@@ -185,9 +185,23 @@ function CollapsibleSection({
   );
 }
 
+// Mapa etapa -> URL del formulario de ese paso. Admin clickea el circulo del
+// stepper y entra a editar/ver. SECRETARIA no tiene pagina propia.
+const ETAPA_TO_PATH: Partial<Record<string, string>> = {
+  SOLICITUD: "crear-solicitud",
+  PDA: "certificar-pda",
+  COMPRAS_PUBLICAS: "certificar-compras-publicas",
+  REVISION_METODOLOGO: "revision-metodologo",
+  REVISION_DTM: "revision-dtm",
+  CONTROL_PREVIO: "revision-control-previo",
+  FINANCIERO: "certificacion-financiera",
+};
+
 type StageTimelineProps = {
   currentStage: EtapaFlujo;
   flowStages: EtapaFlujo[];
+  isAdmin?: boolean;
+  avalId?: number;
 };
 
 const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
@@ -201,7 +215,12 @@ const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
   SECRETARIA: "Secretaría",
 };
 
-function StageTimeline({ currentStage, flowStages }: StageTimelineProps) {
+function StageTimeline({
+  currentStage,
+  flowStages,
+  isAdmin = false,
+  avalId,
+}: StageTimelineProps) {
   const finalStage = flowStages[flowStages.length - 1] ?? currentStage;
   const isFlowApproved = currentStage === finalStage;
   const stages = flowStages
@@ -298,21 +317,39 @@ function StageTimeline({ currentStage, flowStages }: StageTimelineProps) {
                   ? "text-blue-700 dark:text-blue-300 font-semibold"
                   : "text-gray-500 dark:text-gray-400";
 
+            const stageHref = ETAPA_TO_PATH[stage.etapa];
+            const isClickable = isAdmin && avalId && stageHref;
+            const titleText = isClickable
+              ? `${stage.label} · click para editar (modo admin)`
+              : stage.label;
+
+            const circle = (
+              <div
+                className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${circleClasses} ${
+                  isClickable
+                    ? "cursor-pointer hover:scale-110 hover:shadow-md"
+                    : ""
+                }`}
+                title={titleText}
+              >
+                {status === "done" ? (
+                  <Check className="w-5 h-5" strokeWidth={3} />
+                ) : (
+                  <span className="text-sm font-bold">{idx + 1}</span>
+                )}
+              </div>
+            );
+
             return (
               <div
                 key={stage.etapa}
                 className="flex flex-col items-center text-center flex-1 min-w-0"
               >
-                <div
-                  className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${circleClasses}`}
-                  title={stage.label}
-                >
-                  {status === "done" ? (
-                    <Check className="w-5 h-5" strokeWidth={3} />
-                  ) : (
-                    <span className="text-sm font-bold">{idx + 1}</span>
-                  )}
-                </div>
+                {isClickable ? (
+                  <Link href={`/avales/${avalId}/${stageHref}`}>{circle}</Link>
+                ) : (
+                  circle
+                )}
                 <p
                   className={`mt-3 text-[11px] leading-tight px-1 transition-colors ${labelClasses}`}
                 >
@@ -1257,7 +1294,12 @@ export default function AvalDetailPage() {
 
         {/* Estado del aval */}
         <div className="space-y-4">
-          <StageTimeline currentStage={displayCurrentEtapa} flowStages={flowStages} />
+          <StageTimeline
+            currentStage={displayCurrentEtapa}
+            flowStages={flowStages}
+            isAdmin={isAdminLike}
+            avalId={aval.id}
+          />
           {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>
             <div className="pt-3">

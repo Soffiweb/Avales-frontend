@@ -200,9 +200,38 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   const requerimientos = aval.avalTecnico?.requerimientos ?? [];
   const fuenteObjetivo =
     aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
+
+  // Si ya hay un PDA guardado, los días/cantidad/valor unitario reales
+  // viven en aval.pda.items. Los preferimos por encima de los defaults
+  // derivados de evento.presupuesto + avalTecnico.requerimientos para que
+  // el form refleje lo último guardado al recargar (sino al editar se
+  // pierde la data y volvés a ver los defaults).
+  const pdaItemsByCatalog = new Map(
+    (aval.pda?.items ?? []).map((pdaItem) => [pdaItem.itemId, pdaItem]),
+  );
+
   return (aval.evento?.presupuesto ?? [])
     .filter((item) => item.fuente === fuenteObjetivo)
     .map((item) => {
+      const pdaItem = pdaItemsByCatalog.get(item.item.id);
+
+      if (pdaItem && Array.isArray(pdaItem.dias) && pdaItem.dias.length > 0) {
+        return {
+          id: item.id,
+          itemId: item.item.id,
+          codigo: item.item.numero,
+          nombre: item.item.nombre,
+          actividad:
+            item.item.actividad?.nombre ??
+            "EVENTOS DE PREPARACION Y COMPETENCIA",
+          dias: pdaItem.dias.map((dia) => ({
+            numeroDia: dia.numeroDia,
+            cantidad: Number(dia.cantidad ?? 0),
+            valorUnitario: roundCurrency(Number(dia.valorUnitario ?? 0)),
+          })),
+        };
+      }
+
       const totalOriginal = roundCurrency(
         Number.parseFloat(item.presupuesto ?? "0") || 0,
       );

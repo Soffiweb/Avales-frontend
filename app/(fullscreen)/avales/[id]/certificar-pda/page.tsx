@@ -311,7 +311,6 @@ export default function CertificarAvalPage() {
 
   const {
     authLoading,
-    user,
     hasRequiredRole: isPda,
     defaultSignerName,
     defaultSignerCargo,
@@ -408,7 +407,10 @@ export default function CertificarAvalPage() {
     setBudgetDraftItems([]);
   }, [avalId]);
 
-  // Populate draft description and pda numbers from loaded aval
+  // Populate draft description, numbers and firmante from the loaded aval.
+  // Si el PDA ya fue aprobado, preservamos el firmante original (no queremos
+  // que un admin editando data pise el nombre del PDA que lo aprobo). Si no
+  // hay PDA todavia, cae al usuario actual (defaultSigner*) como antes.
   useEffect(() => {
     if (!aval) return;
     if (draft.descripcion.trim()) return;
@@ -417,23 +419,18 @@ export default function CertificarAvalPage() {
       descripcion: buildDefaultDescripcion(aval),
       numeroPda: prev.numeroPda || aval.pda?.numeroPda || "",
       numeroAval: prev.numeroAval || aval.pda?.numeroAval || "",
+      nombreFirmante:
+        aval.pda?.nombreFirmante ||
+        prev.nombreFirmante ||
+        defaultSignerName ||
+        "",
+      cargoFirmante:
+        aval.pda?.cargoFirmante ||
+        prev.cargoFirmante ||
+        defaultSignerCargo ||
+        "",
     }));
-  }, [aval, draft.descripcion]);
-
-  // Populate signer fields from current user
-  useEffect(() => {
-    if (!user) return;
-    setDraft((prev) => {
-      const next = { ...prev };
-      if (!prev.nombreFirmante?.trim() && defaultSignerName) {
-        next.nombreFirmante = defaultSignerName;
-      }
-      if (!prev.cargoFirmante?.trim() && defaultSignerCargo) {
-        next.cargoFirmante = defaultSignerCargo;
-      }
-      return next;
-    });
-  }, [user, defaultSignerName, defaultSignerCargo]);
+  }, [aval, draft.descripcion, defaultSignerName, defaultSignerCargo]);
 
   // Build budget items by aval funding source
   useEffect(() => {

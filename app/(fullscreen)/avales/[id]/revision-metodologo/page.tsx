@@ -390,11 +390,20 @@ export default function RevisionMetodologoPage() {
     setRevisionFooter((prev) => ({
       ...prev,
       observacionesFinales:
-        prev.observacionesFinales || aval.revisionMetodologo?.observacionesFinales || "",
+        prev.observacionesFinales ||
+        aval.revisionMetodologo?.observacionesFinales ||
+        "",
+      // El firmante guardado tiene prioridad: si la revision ya fue
+      // firmada, no queremos que un admin editando data pise al metodologo
+      // original que aprobo.
       firmanteNombre:
-        prev.firmanteNombre || aval.revisionMetodologo?.firmanteNombre || "",
+        aval.revisionMetodologo?.firmanteNombre ||
+        prev.firmanteNombre ||
+        "",
       firmanteCargo:
-        prev.firmanteCargo || aval.revisionMetodologo?.firmanteCargo || "",
+        aval.revisionMetodologo?.firmanteCargo ||
+        prev.firmanteCargo ||
+        "",
     }));
   }, [aval, reviewItems]);
 

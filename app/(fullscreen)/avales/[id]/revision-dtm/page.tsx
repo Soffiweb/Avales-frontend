@@ -96,8 +96,12 @@ function buildDtmDraft(
     observacion: revisionDtm?.observacion ?? "",
     fechaPresentacion:
       revisionDtm?.fechaPresentacion ?? new Date().toISOString().slice(0, 10),
-    firmanteNombre: revisionDtm?.firmanteNombre ?? defaults.firmanteNombre,
-    firmanteCargo: revisionDtm?.firmanteCargo ?? defaults.firmanteCargo,
+    // Si la revisión ya fue firmada, mostramos al firmante original — no
+    // queremos que un admin editando data pise el nombre del DTM que
+    // aprobó. `||` (no `??`) para que un string vacio guardado tampoco
+    // gane sobre los defaults.
+    firmanteNombre: revisionDtm?.firmanteNombre || defaults.firmanteNombre,
+    firmanteCargo: revisionDtm?.firmanteCargo || defaults.firmanteCargo,
   };
 }
 

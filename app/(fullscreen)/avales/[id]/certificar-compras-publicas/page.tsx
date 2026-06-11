@@ -256,7 +256,10 @@ export default function CertificarComprasPublicasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditable, avalId]);
 
-  // Populate draft from existing comprasPublicas data
+  // Populate draft (incluye firmante) desde Compras Publicas guardado.
+  // Preserva el firmante original si ya hay uno. Si no, cae al usuario
+  // actual (defaultSigner*) para que el PDA aprobando por primera vez se
+  // autocomplete. Evita el bug de que un admin editando pise al firmante.
   useEffect(() => {
     if (!aval) return;
     const compras = aval.comprasPublicas;
@@ -269,26 +272,19 @@ export default function CertificarComprasPublicasPage() {
           : prev.realizoProceso,
       codigoNecesidad: compras?.codigoNecesidad ?? prev.codigoNecesidad,
       objetoContratacion: compras?.objetoContratacion ?? prev.objetoContratacion,
-      nombreFirmante: compras?.nombreFirmante ?? prev.nombreFirmante,
-      cargoFirmante: compras?.cargoFirmante ?? prev.cargoFirmante,
+      nombreFirmante:
+        compras?.nombreFirmante ||
+        prev.nombreFirmante ||
+        defaultSignerName ||
+        "",
+      cargoFirmante:
+        compras?.cargoFirmante ||
+        prev.cargoFirmante ||
+        defaultSignerCargo ||
+        "",
       fechaEmision: toInputDate(compras?.fechaEmision) || prev.fechaEmision,
     }));
-  }, [aval]);
-
-  // Populate signer defaults from user
-  useEffect(() => {
-    if (!user) return;
-    setDraft((prev) => {
-      const next = { ...prev };
-      if (!prev.nombreFirmante?.trim() && defaultSignerName) {
-        next.nombreFirmante = defaultSignerName;
-      }
-      if (!prev.cargoFirmante?.trim() && defaultSignerCargo) {
-        next.cargoFirmante = defaultSignerCargo;
-      }
-      return next;
-    });
-  }, [user, defaultSignerName, defaultSignerCargo]);
+  }, [aval, defaultSignerName, defaultSignerCargo]);
 
   const handleDiscardDraft = useCallback(() => {
     autosave.clear();

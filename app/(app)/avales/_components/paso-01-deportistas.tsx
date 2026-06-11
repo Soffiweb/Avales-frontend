@@ -20,7 +20,6 @@ import {
   getModalidadParticipacionLabel,
 } from "@/lib/constants";
 import type { ModalidadParticipacion, TipoAval } from "@/types/aval";
-import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
 
 const DEPORTISTA_SEARCH_MIN_LENGTH = 3;
 const DEPORTISTA_SEARCH_LIMIT = 10;
@@ -297,11 +296,6 @@ export default function Paso01Deportistas({
       const res = await listDeportistas(options);
       const items = sortDeportistasByApellido(res.data ?? []);
       setDeportistas(items);
-      avalFlowDebugLog("paso-01", "resultado busqueda deportistas", {
-        query: trimmed,
-        total: items.length,
-        ids: items.map((item) => item.id),
-      });
     } catch (err: any) {
       console.error("Error al cargar deportistas:", err);
     } finally {
@@ -329,11 +323,6 @@ export default function Paso01Deportistas({
           )
         : items;
       setEntrenadores(filtered);
-      avalFlowDebugLog("paso-01", "resultado busqueda entrenadores", {
-        query: trimmed,
-        total: filtered.length,
-        ids: filtered.map((item) => item.id),
-      });
     } catch (err: any) {
       console.error("Error al cargar entrenadores:", err);
     } finally {
@@ -468,9 +457,7 @@ export default function Paso01Deportistas({
       return;
     }
 
-    const selectedData = buildSelectedData();
-    avalFlowDebugLog("paso-01", "participantes confirmados", selectedData);
-    onComplete(selectedData);
+    onComplete(buildSelectedData());
   };
 
   const renderDeportistaSearch = () => {
@@ -886,6 +873,7 @@ export default function Paso01Deportistas({
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/*
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <div>
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -903,6 +891,7 @@ export default function Paso01Deportistas({
             required
           />
         </section>
+        */}
 
         <section className="space-y-4 rounded-xl border border-indigo-200/70 dark:border-indigo-800/70 bg-indigo-50/30 dark:bg-indigo-900/10 p-4">
           <div className="pb-2 border-b border-indigo-200 dark:border-indigo-800">

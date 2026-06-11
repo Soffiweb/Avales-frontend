@@ -410,16 +410,6 @@ export default function CertificarAvalPage() {
     rejectSuccessMessage: "PDA rechazado correctamente.",
   });
 
-  useEffect(() => {
-    if (!aval) return;
-    avalFlowDebugLog("pda", "snapshot de pantalla PDA", {
-      aval: summarizeAval(aval),
-      draft,
-      budgetDraftItems,
-      totalPresupuestoDraft,
-    });
-  }, [aval, draft, budgetDraftItems, totalPresupuestoDraft]);
-
   // Reset local state when navigating between avales
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);

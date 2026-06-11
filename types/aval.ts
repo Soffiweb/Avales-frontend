@@ -245,6 +245,7 @@ export type AdjuntoSolicitud = {
 export type Aval = {
   id: number;
   coleccionAvalId?: number | null;
+  userId?: number | null;
   descripcion?: string | null;
   fechaEmision?: string | null;
   estado: Estado;
@@ -275,6 +276,7 @@ export type Aval = {
   adjuntosSolicitud: AdjuntoSolicitud[];
   convocatoriaAdjuntos?: AdjuntoSolicitud[];
   pronosticoDeportistasAdjuntos?: AdjuntoSolicitud[];
+  numeroAval?: string | null;
   aval?: string | null;
   numeroColeccion?: string | null;
   periodoComision?: string | null;

@@ -6,7 +6,6 @@ import {
   DollarSign,
   Paperclip,
   X,
-  Hash,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -92,9 +91,7 @@ export default function Paso04Presupuesto({
   aval,
 }: Paso04PresupuestoProps) {
   const router = useRouter();
-  const [numeroAval, setNumeroAval] = useState(
-    aval.avalTecnico?.numeroAval ?? "",
-  );
+  const [numeroAval] = useState(aval.avalTecnico?.numeroAval ?? "");
   const [observaciones, setObservaciones] = useState(
     formData.observaciones || "",
   );
@@ -208,6 +205,10 @@ export default function Paso04Presupuesto({
   );
   const isEditingSolicitud =
     aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD";
+  const submitLabel = isEditingSolicitud ? "Editar aval" : "Crear aval técnico";
+  const submittingLabel = isEditingSolicitud
+    ? "Actualizando aval..."
+    : "Creando aval...";
 
   const formatBytes = (value: number) => {
     if (value < 1024) return `${value} B`;
@@ -429,10 +430,15 @@ export default function Paso04Presupuesto({
         setCreatedAvalIdWithError(createdAvalId);
         setError(
           err?.message ??
-            "El aval se creó, pero hubo un problema al subir el documento adjunto.",
+            `El aval se ${
+              isEditingSolicitud ? "actualizó" : "creó"
+            }, pero hubo un problema al subir el documento adjunto.`,
         );
       } else {
-        setError(err?.message ?? "No se pudo crear el aval técnico");
+        setError(
+          err?.message ??
+            `No se pudo ${isEditingSolicitud ? "actualizar" : "crear"} el aval técnico`,
+        );
       }
     } finally {
       setSubmitting(false);
@@ -851,7 +857,7 @@ export default function Paso04Presupuesto({
           )}
         </section>
 
-        {/* Número de Aval */}
+        {/*
         <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <div className="mb-3 flex items-start gap-3">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
@@ -874,6 +880,7 @@ export default function Paso04Presupuesto({
             className="form-input w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
           />
         </section>
+        */}
 
         {/* Observaciones generales */}
         <section className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/60">
@@ -930,7 +937,7 @@ export default function Paso04Presupuesto({
             disabled={submitting}
             className="btn bg-green-500 hover:bg-green-600 text-white disabled:opacity-50"
           >
-            {submitting ? "Creando aval..." : "Crear aval técnico"}
+            {submitting ? submittingLabel : submitLabel}
           </button>
         </div>
       </form>

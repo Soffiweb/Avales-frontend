@@ -191,22 +191,6 @@ export default function CertificacionFinancieraPage() {
     };
   }, [aval]);
 
-  useEffect(() => {
-    if (!aval) return;
-    avalFlowDebugLog("financiero", "snapshot final previo a aprobacion", {
-      aval: summarizeAval(aval),
-      draft,
-      pdaDraft,
-      documentos: {
-        solicitudUrl: aval.solicitudUrl,
-        convocatoriaUrl: aval.convocatoriaUrl,
-        certificadoMedicoUrl: aval.certificadoMedicoUrl,
-        pronosticoDeportistasUrl: aval.pronosticoDeportistasUrl,
-        avalTecnicoPdfUrl: aval.avalTecnicoPdfUrl,
-      },
-    });
-  }, [aval, draft, pdaDraft]);
-
   // Reset local state on aval navigation
   useEffect(() => {
     setDraft(INITIAL_DRAFT);

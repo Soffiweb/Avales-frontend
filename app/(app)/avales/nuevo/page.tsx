@@ -23,7 +23,7 @@ import {
   formatLocationWithProvince,
   getCalendarDateTimestamp,
 } from "@/lib/utils/formatters";
-import { avalFlowDebugLog, enableAvalFlowDebug } from "@/lib/debug/aval-flow";
+import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
 
 const PAGE_SIZE = 6;
 const FETCH_LIMIT = 20;
@@ -74,11 +74,6 @@ export default function NuevoAvalPage() {
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
   const eventoSeleccionadoTieneFondosPublicos =
     eventoTieneFondosPublicos(selectedEvento);
-
-  useEffect(() => {
-    enableAvalFlowDebug("session");
-    avalFlowDebugLog("nuevo-aval", "debug habilitado para flujo de aval");
-  }, []);
 
   useEffect(() => {
     if (!selectedEvento) return;

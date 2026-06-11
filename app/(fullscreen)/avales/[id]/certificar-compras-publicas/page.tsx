@@ -302,15 +302,6 @@ export default function CertificarComprasPublicasPage() {
 
   const requiresContratacionData = draft.realizoProceso === true;
 
-  useEffect(() => {
-    if (!aval) return;
-    avalFlowDebugLog("compras-publicas", "snapshot de pantalla compras", {
-      aval: summarizeAval(aval),
-      draft,
-      requiresContratacionData,
-    });
-  }, [aval, draft, requiresContratacionData]);
-
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],

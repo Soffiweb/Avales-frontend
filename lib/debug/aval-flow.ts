@@ -115,7 +115,11 @@ export function summarizeAval(aval: Aval | null | undefined) {
     flujo: aval.flujo,
     montoSolicitado: aval.montoSolicitado,
     montoAsignado: aval.montoAsignado,
-    numeroAval: aval.avalTecnico?.numeroAval ?? aval.numeroColeccion ?? aval.aval,
+    numeroAval:
+      aval.numeroAval ??
+      aval.avalTecnico?.numeroAval ??
+      aval.numeroColeccion ??
+      aval.aval,
     evento: aval.evento
       ? {
           id: aval.evento.id,

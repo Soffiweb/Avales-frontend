@@ -96,8 +96,7 @@ const INITIAL_FORM_DATA: FormData = {
 function getEditableSolicitudState(aval: Aval, isAdmin = false) {
   if (isAdmin) return true;
   return (
-    aval.estado === "BORRADOR" ||
-    (aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD")
+    aval.estado === "BORRADOR" || aval.etapaActual === "SOLICITUD"
   );
 }
 
@@ -263,10 +262,6 @@ export default function CrearSolicitudPage() {
   );
 
   const handlePreviewDataChange = useCallback((stepData: Partial<FormData>) => {
-    avalFlowDebugLog("crear-solicitud", "preview actualizado", {
-      currentStep,
-      stepData,
-    });
     setFormData((prev) => ({ ...prev, ...stepData }));
     if (!stepData.deportistas?.length) return;
 
@@ -317,7 +312,7 @@ export default function CrearSolicitudPage() {
       <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl p-6 text-center">
         <p className="font-medium mb-2">Esta solicitud no se puede editar</p>
         <p className="text-sm">
-          Solo puedes editar la solicitud cuando el aval está en BORRADOR o en SOLICITADO con etapa SOLICITUD.
+          Solo puedes editar la solicitud cuando el aval está en BORRADOR o su etapa actual es SOLICITUD.
         </p>
       </div>
     );

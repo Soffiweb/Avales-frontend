@@ -1020,8 +1020,10 @@ export default function AvalDetailPage() {
       : null;
   const summaryLines = [
     evento?.codigo ? `Evento ${evento.codigo}.` : null,
-    aval.avalTecnico?.numeroAval || aval.numeroColeccion
-      ? `Solicitud ${formatSolicitudNumber(aval.avalTecnico?.numeroAval ?? aval.numeroColeccion)}.`
+    aval.numeroAval || aval.avalTecnico?.numeroAval || aval.numeroColeccion
+      ? `Solicitud ${formatSolicitudNumber(
+          aval.numeroAval ?? aval.avalTecnico?.numeroAval ?? aval.numeroColeccion,
+        )}.`
       : null,
     !hasRealDates && evento
       ? `Programación: ${formatEventScheduleLabel(evento)}.`
@@ -1045,15 +1047,16 @@ export default function AvalDetailPage() {
   const isAvalOwner =
     isTrainerUser(user) &&
     user?.id !== undefined &&
-    aval.entrenadores.some((e) => e.entrenadorId === user.id);
+    (aval.userId === user.id ||
+      aval.entrenadores.some((e) => e.entrenadorId === user.id));
   const canEditSolicitud =
     isAvalOwner &&
-    (aval.estado === "BORRADOR" ||
-      (aval.estado === "SOLICITADO" && currentEtapa === "SOLICITUD"));
+    (aval.estado === "BORRADOR" || currentEtapa === "SOLICITUD");
   const canDeleteSolicitud =
     isAvalOwner &&
     (aval.estado === "BORRADOR" ||
       (aval.estado === "SOLICITADO" && currentEtapa === "SOLICITUD"));
+  const editSolicitudLabel = aval.avalTecnico ? "Editar aval" : "Crear aval";
   const canDeleteAsAdmin = isAdminLike;
   // Endpoint ZIP: incluye el PDF mergeado + cualquier adjunto NO-PDF/NO-imagen
   // (Excel, CSV) suelto dentro del archivo.
@@ -1224,7 +1227,7 @@ export default function AvalDetailPage() {
                 className="btn border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
               >
                 <Pencil className="w-4 h-4 mr-2" />
-                Editar solicitud
+                {editSolicitudLabel}
               </Link>
             )}
             {(canDeleteSolicitud || canDeleteAsAdmin) && (
@@ -1553,7 +1556,9 @@ export default function AvalDetailPage() {
                     {
                       label: "N° solicitud",
                       value: formatSolicitudNumber(
-                        aval.avalTecnico?.numeroAval ?? aval.numeroColeccion,
+                        aval.numeroAval ??
+                          aval.avalTecnico?.numeroAval ??
+                          aval.numeroColeccion,
                       ),
                     },
                   ]}

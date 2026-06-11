@@ -68,6 +68,7 @@ export type ListUsersOptions = {
 
 export type DirigidoRole =
   | "PDA"
+  | "FINANCIERO"
   | "COMPRAS_PUBLICAS"
   | "METODOLOGO"
   | "DTM"

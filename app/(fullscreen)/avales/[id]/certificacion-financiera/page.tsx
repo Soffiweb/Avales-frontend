@@ -19,6 +19,7 @@ import { getApprovalFlowStages } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { getDirigido } from "@/lib/api/user";
 import {
   formatEventScheduleSentence,
   getResponsibleTrainerName,
@@ -76,6 +77,10 @@ export default function CertificacionFinancieraPage() {
   const avalId = Number(params.id);
 
   const [draft, setDraft] = useState<FinancieroDraft>(INITIAL_DRAFT);
+  const [fixedSigner, setFixedSigner] = useState({
+    nombre: "",
+    cargo: "",
+  });
   const [editableNotas, setEditableNotas] = useState<boolean[]>([
     false,
     false,
@@ -85,8 +90,7 @@ export default function CertificacionFinancieraPage() {
 
   const {
     authLoading,
-    user,
-    hasRequiredRole: isFinanciero,
+    hasRequiredRole: hasFinancialAccess,
     defaultSignerName,
     defaultSignerCargo,
     aval,
@@ -194,19 +198,43 @@ export default function CertificacionFinancieraPage() {
   // Reset local state on aval navigation
   useEffect(() => {
     setDraft(INITIAL_DRAFT);
+    setFixedSigner({ nombre: "", cargo: "" });
     setEditableNotas([false, false, false]);
     setNotesInitialized(false);
   }, [avalId]);
 
-  // Populate signer defaults from user
   useEffect(() => {
-    if (!user) return;
-    setDraft((prev) => ({
-      ...prev,
-      firmanteNombre: prev.firmanteNombre || defaultSignerName,
-      firmanteCargo: prev.firmanteCargo || defaultSignerCargo,
-    }));
-  }, [user, defaultSignerName, defaultSignerCargo]);
+    let cancelled = false;
+
+    async function loadFixedSigner() {
+      try {
+        const signer = await getDirigido("FINANCIERO");
+        if (cancelled) return;
+        const nombre = [signer.nombre, signer.apellido].filter(Boolean).join(" ").trim();
+        const cargo = signer.cargo?.trim() || "";
+
+        setFixedSigner({ nombre, cargo });
+        setDraft((prev) => ({
+          ...prev,
+          firmanteNombre: nombre || prev.firmanteNombre || defaultSignerName,
+          firmanteCargo: cargo || prev.firmanteCargo || defaultSignerCargo,
+        }));
+      } catch {
+        if (cancelled) return;
+        setDraft((prev) => ({
+          ...prev,
+          firmanteNombre: prev.firmanteNombre || defaultSignerName,
+          firmanteCargo: prev.firmanteCargo || defaultSignerCargo,
+        }));
+      }
+    }
+
+    void loadFixedSigner();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [avalId, defaultSignerName, defaultSignerCargo]);
 
   const defaultDescripcionCertificacion = useMemo(() => {
     if (!aval) return "";
@@ -307,7 +335,7 @@ export default function CertificacionFinancieraPage() {
     );
   }
 
-  if (!isFinanciero) {
+  if (!hasFinancialAccess) {
     return (
       <div className="px-6 py-8">
         <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl p-6 text-center">
@@ -412,7 +440,7 @@ export default function CertificacionFinancieraPage() {
                         firmanteNombre: e.target.value,
                       }))
                     }
-                    placeholder="Nombre completo"
+                    placeholder={fixedSigner.nombre || "Nombre completo"}
                   />
                 </label>
 
@@ -429,7 +457,7 @@ export default function CertificacionFinancieraPage() {
                         firmanteCargo: e.target.value,
                       }))
                     }
-                    placeholder="Cargo"
+                    placeholder={fixedSigner.cargo || "Cargo"}
                   />
                 </label>
 

@@ -7,6 +7,58 @@ import {
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+// Espejo del `formatEventDateText` del backend para que el preview y el PDF
+// muestren la fecha de salida con el mismo formato.
+function formatEventDateRangeDoc(
+  inicio?: string | null,
+  fin?: string | null,
+): string {
+  if (!inicio || !fin) return "POR DEFINIR";
+  const parseParts = (raw: string) => {
+    const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch)
+      return {
+        year: Number(isoMatch[1]),
+        month: Number(isoMatch[2]),
+        day: Number(isoMatch[3]),
+      };
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      day: d.getDate(),
+    };
+  };
+  const a = parseParts(inicio);
+  const b = parseParts(fin);
+  if (!a || !b) return "POR DEFINIR";
+  const sameDay =
+    a.year === b.year && a.month === b.month && a.day === b.day;
+  if (sameDay) {
+    const meses = [
+      "ENERO",
+      "FEBRERO",
+      "MARZO",
+      "ABRIL",
+      "MAYO",
+      "JUNIO",
+      "JULIO",
+      "AGOSTO",
+      "SEPTIEMBRE",
+      "OCTUBRE",
+      "NOVIEMBRE",
+      "DICIEMBRE",
+    ];
+    return `${pad2(a.day)} DE ${meses[a.month - 1]} DE ${a.year}`;
+  }
+  return `DEL ${pad2(a.day)}/${pad2(a.month)}/${a.year} AL ${pad2(b.day)}/${pad2(b.month)}/${b.year}`;
+}
+
 export type PresupuestoSalidaPreviewDia = {
   numeroDia: number;
   cantidad: number;
@@ -119,6 +171,21 @@ export default function PresupuestoSalidaAnticipoPreview({
     aval.numeroColeccion ||
     String(aval.id);
 
+  const anioActividad = new Date().getFullYear();
+  const fondos =
+    aval.tipoAval === "AUTOGESTION"
+      ? "AUTOGESTION"
+      : aval.tipoAval === "SOLO_RESULTADO"
+        ? "SOLO RESULTADOS"
+        : "PUBLICOS";
+
+  // Mismo formato que el backend (`formatEventDateText`):
+  // "DEL DD/MM/YYYY AL DD/MM/YYYY" si hay rango, mismo día simple si coincide.
+  const fechaSalida = formatEventDateRangeDoc(
+    evento?.fechaInicio,
+    evento?.fechaFin,
+  );
+
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
       <h2 className="text-center text-[12px] font-semibold uppercase tracking-wide">
@@ -143,7 +210,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold"># PARTICIPANTES</td>
               <td className="border border-slate-400 px-2 py-1">
-                Entrenadores: {entrenadores} / Deportistas: {deportistas}
+                ENTRENADORES: {entrenadores}     DEPORTISTAS: {deportistas}
               </td>
             </tr>
             <tr>
@@ -154,9 +221,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
-              <td className="border border-slate-400 px-2 py-1">
-                {draft?.fechaSalida?.trim() ? formatDate(draft.fechaSalida) : "Por definir"}
-              </td>
+              <td className="border border-slate-400 px-2 py-1">{fechaSalida}</td>
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">PERÍODO DE COMISIÓN</td>
@@ -171,7 +236,7 @@ export default function PresupuestoSalidaAnticipoPreview({
               <td className="border border-slate-400 px-2 py-1">{responsable.cedula}</td>
             </tr>
             <tr>
-              <td className="border border-slate-400 px-2 py-1 font-semibold">ACTIVIDADES POA 2026</td>
+              <td className="border border-slate-400 px-2 py-1 font-semibold">{`ACTIVIDADES POA ${anioActividad}`}</td>
               <td className="border border-slate-400 px-2 py-1">
                 {codigoActividad} EVENTOS DE PREPARACION Y COMPETENCIA
               </td>
@@ -182,7 +247,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FONDOS</td>
-              <td className="border border-slate-400 px-2 py-1 font-semibold">PUBLICOS</td>
+              <td className="border border-slate-400 px-2 py-1 font-semibold">{fondos}</td>
             </tr>
           </tbody>
         </table>

@@ -286,8 +286,10 @@ export async function createPda(id: number, payload: CreatePdaPayload) {
 export type CreateComprasPublicasPayload = {
   numeroCertificado?: string;
   realizoProceso?: boolean;
-  codigoNecesidad?: string;
-  objetoContratacion?: string;
+  codigos?: Array<{
+    codigo: string;
+    descripcion: string;
+  }>;
   nombreFirmante?: string;
   cargoFirmante?: string;
   fechaEmision?: string;

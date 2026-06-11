@@ -298,6 +298,10 @@ export type Aval = {
   comprasPublicas?: {
     numeroCertificado?: string | null;
     realizoProceso?: boolean | null;
+    codigos?: Array<{
+      codigo: string;
+      descripcion: string;
+    }> | null;
     codigoNecesidad?: string | null;
     objetoContratacion?: string | null;
     nombreFirmante?: string | null;

@@ -69,8 +69,7 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
 const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
   realizoProceso: null,
-  codigoNecesidad: "",
-  objetoContratacion: "",
+  codigos: [],
   nombreFirmante: "",
   cargoFirmante: "",
   fechaEmision: "",
@@ -426,8 +425,11 @@ export default function RevisionMetodologoPage() {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
         typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
-      codigoNecesidad: compras.codigoNecesidad ?? "",
-      objetoContratacion: compras.objetoContratacion ?? "",
+      codigos:
+        compras.codigos?.map((item) => ({
+          codigo: item.codigo ?? "",
+          descripcion: item.descripcion ?? "",
+        })) ?? [],
       nombreFirmante: compras.nombreFirmante ?? "",
       cargoFirmante: compras.cargoFirmante ?? "",
       fechaEmision: compras.fechaEmision ?? "",

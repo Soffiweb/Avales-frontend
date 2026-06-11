@@ -42,6 +42,7 @@ import {
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -230,6 +231,13 @@ export default function RevisionDtmPage() {
           };
         });
         const payload = {
+        avalFlowDebugLog("revision-dtm", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          approvalEtapa,
+          draft,
+          items,
+        });
           descripcion: draft.descripcion.trim(),
           observacion: draft.observacion.trim() || undefined,
           fechaPresentacion: draft.fechaPresentacion,

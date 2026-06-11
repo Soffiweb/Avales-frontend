@@ -20,6 +20,7 @@ import {
   getModalidadParticipacionLabel,
 } from "@/lib/constants";
 import type { ModalidadParticipacion, TipoAval } from "@/types/aval";
+import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
 
 const DEPORTISTA_SEARCH_MIN_LENGTH = 3;
 const DEPORTISTA_SEARCH_LIMIT = 10;
@@ -294,7 +295,13 @@ export default function Paso01Deportistas({
       };
 
       const res = await listDeportistas(options);
-      setDeportistas(sortDeportistasByApellido(res.data ?? []));
+      const items = sortDeportistasByApellido(res.data ?? []);
+      setDeportistas(items);
+      avalFlowDebugLog("paso-01", "resultado busqueda deportistas", {
+        query: trimmed,
+        total: items.length,
+        ids: items.map((item) => item.id),
+      });
     } catch (err: any) {
       console.error("Error al cargar deportistas:", err);
     } finally {
@@ -312,17 +319,21 @@ export default function Paso01Deportistas({
       const res = await listEntrenadores(options);
       const items = res.data ?? [];
       const trimmed = searchEntrenadores.trim();
-      setEntrenadores(
-        trimmed
-          ? items.filter((entrenador) =>
-              matchesSearchTerm(trimmed, [
-                entrenador.nombre,
-                entrenador.apellido,
-                entrenador.cedula,
-              ]),
-            )
-          : items,
-      );
+      const filtered = trimmed
+        ? items.filter((entrenador) =>
+            matchesSearchTerm(trimmed, [
+              entrenador.nombre,
+              entrenador.apellido,
+              entrenador.cedula,
+            ]),
+          )
+        : items;
+      setEntrenadores(filtered);
+      avalFlowDebugLog("paso-01", "resultado busqueda entrenadores", {
+        query: trimmed,
+        total: filtered.length,
+        ids: filtered.map((item) => item.id),
+      });
     } catch (err: any) {
       console.error("Error al cargar entrenadores:", err);
     } finally {
@@ -457,7 +468,9 @@ export default function Paso01Deportistas({
       return;
     }
 
-    onComplete(buildSelectedData());
+    const selectedData = buildSelectedData();
+    avalFlowDebugLog("paso-01", "participantes confirmados", selectedData);
+    onComplete(selectedData);
   };
 
   const renderDeportistaSearch = () => {

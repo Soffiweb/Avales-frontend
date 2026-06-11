@@ -41,6 +41,7 @@ import {
   sumManualRequirementAmount,
   type ManualRequirementDraft,
 } from "./paso-04-presupuesto.helpers";
+import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
 
 type FormData = {
   deportistas: Array<{
@@ -317,11 +318,28 @@ export default function Paso04Presupuesto({
 
       // Preparar el payload según la estructura esperada por la API
       const generoEvento = inferEventoGenero(formData.deportistas);
+      avalFlowDebugLog("paso-04", "preparando submit final del aval", {
+        avalId,
+        tipoAval,
+        isEditingSolicitud,
+        generoEvento,
+        observaciones,
+        adjuntosSolicitud,
+        requerimientos: serializedManualRequirements,
+        totalMontoSolicitado,
+        formData,
+      });
+
       if (
         aval.evento?.id &&
         generoEvento &&
         aval.evento.genero !== generoEvento
       ) {
+        avalFlowDebugLog("paso-04", "actualizando genero del evento", {
+          eventoId: aval.evento.id,
+          generoAnterior: aval.evento.genero,
+          generoNuevo: generoEvento,
+        });
         await updateEvento(aval.evento.id, { genero: generoEvento });
       }
 
@@ -375,6 +393,11 @@ export default function Paso04Presupuesto({
       const { montoAsignado: _ignoredMontoAsignado, ...createPayloadBase } =
         payloadBase;
 
+      avalFlowDebugLog("paso-04", "payload final armado", {
+        payloadBase,
+        createPayloadBase,
+      });
+
       const response = isEditingSolicitud
         ? await updateAvalRequest(aval.id, payloadBase as EditAvalPayload)
         : await createAval({
@@ -383,7 +406,17 @@ export default function Paso04Presupuesto({
           });
       createdAvalId = response.data.id;
 
+      avalFlowDebugLog("paso-04", "aval persistido", {
+        createdAvalId,
+        isEditingSolicitud,
+        response: response.data,
+      });
+
       if (adjuntosSolicitud.length > 0) {
+        avalFlowDebugLog("paso-04", "subiendo adjuntos de solicitud", {
+          createdAvalId,
+          adjuntosSolicitud,
+        });
         await uploadAdjuntosSolicitud(createdAvalId, adjuntosSolicitud);
       }
 

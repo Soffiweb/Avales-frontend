@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plane, Bus, Car, Ship, Calendar, Clock } from "lucide-react";
+import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
 
 type FormData = {
   deportistas: Array<{
@@ -160,7 +161,7 @@ export default function Paso02Logistica({
       return;
     }
 
-    onComplete({
+    const payload = {
       fechaHoraSalida,
       fechaHoraRetorno,
       lugarSalida: lugarSalida.trim(),
@@ -173,7 +174,10 @@ export default function Paso02Logistica({
         transporteRetorno === "OTRO"
           ? transporteRetornoOtro.trim() || "OTRO"
           : transporteRetorno,
-    });
+    };
+
+    avalFlowDebugLog("paso-02", "logistica confirmada", payload);
+    onComplete(payload);
   };
 
   return (

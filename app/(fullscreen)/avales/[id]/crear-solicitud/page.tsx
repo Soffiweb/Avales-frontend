@@ -30,6 +30,7 @@ import Paso03Objetivos from "@/app/(app)/avales/_components/paso-03-objetivos";
 import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuesto";
 import { Loader2 } from "lucide-react";
 import { inferEventoGenero } from "@/types/evento";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -200,12 +201,16 @@ export default function CrearSolicitudPage() {
       const response = await getAval(avalId);
       const avalData = response.data;
       setAval(avalData);
-      setFormData(
-        buildInitialFormData(
-          avalData,
-          searchParams.get("tipoAval") as TipoAval | null,
-        ),
+      const initialFormData = buildInitialFormData(
+        avalData,
+        searchParams.get("tipoAval") as TipoAval | null,
       );
+      setFormData(initialFormData);
+      avalFlowDebugLog("crear-solicitud", "aval cargado para wizard", {
+        avalId,
+        aval: summarizeAval(avalData),
+        initialFormData,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar el aval");
     } finally {
@@ -245,6 +250,10 @@ export default function CrearSolicitudPage() {
 
   const handleStepComplete = useCallback(
     (stepData: Partial<FormData>) => {
+      avalFlowDebugLog("crear-solicitud", "paso completado", {
+        currentStep,
+        stepData,
+      });
       setFormData((prev) => ({ ...prev, ...stepData }));
       if (currentStep < 4) {
         setCurrentStep((prev) => (prev + 1) as WizardStep);
@@ -254,6 +263,10 @@ export default function CrearSolicitudPage() {
   );
 
   const handlePreviewDataChange = useCallback((stepData: Partial<FormData>) => {
+    avalFlowDebugLog("crear-solicitud", "preview actualizado", {
+      currentStep,
+      stepData,
+    });
     setFormData((prev) => ({ ...prev, ...stepData }));
     if (!stepData.deportistas?.length) return;
 

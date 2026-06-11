@@ -7,6 +7,7 @@ import {
   saveTokensFromPayload,
 } from "@/lib/auth/tokens";
 import { authDebugLog, describeToken } from "@/lib/auth/debug";
+import { avalFlowDebugLog, sanitizeValue } from "@/lib/debug/aval-flow";
 
 export type ApiEnvelope<T> = ApiResponse<T>;
 
@@ -200,6 +201,8 @@ export async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const isFormData = options.body instanceof FormData;
+  const isAvalFlowRequest =
+    path.startsWith("/avales") || path.startsWith("/eventos/");
   const shouldUseAuth =
     !isAuthPath(path, "/auth/login") && !isAuthPath(path, "/auth/refresh");
 
@@ -231,6 +234,13 @@ export async function apiFetch<T>(
     shouldUseAuth,
     token: describeToken(token),
   });
+  if (isAvalFlowRequest) {
+    avalFlowDebugLog("apiFetch", "request", {
+      path,
+      method: options.method ?? "GET",
+      body: options.body ? sanitizeValue(options.body) : undefined,
+    });
+  }
   let res = await request(token);
 
   if (
@@ -260,6 +270,17 @@ export async function apiFetch<T>(
     | ApiResponse<T>
     | ProblemDetails
     | null;
+
+  if (isAvalFlowRequest) {
+    avalFlowDebugLog("apiFetch", "response", {
+      path,
+      method: options.method ?? "GET",
+      status: res.status,
+      requestId: rid,
+      ok: res.ok,
+      payload: sanitizeValue(payload),
+    });
+  }
 
   if (!res.ok) {
     const problem = isProblemDetails(payload) ? payload : null;

@@ -50,6 +50,7 @@ import { isMetodologoUser } from "@/lib/auth/access";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -232,6 +233,13 @@ export default function RevisionMetodologoPage() {
           );
 
         const payload = {
+        avalFlowDebugLog("revision-metodologo", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          revisionHeader,
+          revisionFooter,
+          items,
+        });
           numeroRevision: revisionHeader.numeroRevision.trim(),
           dirigidoA: revisionHeader.dirigidoA.trim(),
           cargoDirigidoA: revisionHeader.cargoDirigidoA.trim(),

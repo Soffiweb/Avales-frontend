@@ -36,6 +36,7 @@ import {
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
@@ -202,6 +203,12 @@ export default function CertificarComprasPublicasPage() {
           fechaEmision: draft.fechaEmision?.trim() || undefined,
         };
 
+        avalFlowDebugLog("compras-publicas", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          payload,
+        });
+
         await createComprasPublicas(a.id, payload);
         // Modo admin sobre etapa pasada: solo persistimos compras, no avanzamos.
         if (!adminSaveOnly) {
@@ -223,6 +230,7 @@ export default function CertificarComprasPublicasPage() {
     approveSuccessMessage: "Certificación de Compras Públicas registrada correctamente.",
     rejectSuccessMessage: "Aval rechazado correctamente.",
   });
+
   const { config: formConfig } = useAvalFormConfig(aval);
   const comprasSection = getSectionConfig(formConfig, "COMPRAS_PUBLICAS");
   const approveAction = getActionConfig(formConfig, "APROBAR");
@@ -293,6 +301,15 @@ export default function CertificarComprasPublicasPage() {
   }, [autosave]);
 
   const requiresContratacionData = draft.realizoProceso === true;
+
+  useEffect(() => {
+    if (!aval) return;
+    avalFlowDebugLog("compras-publicas", "snapshot de pantalla compras", {
+      aval: summarizeAval(aval),
+      draft,
+      requiresContratacionData,
+    });
+  }, [aval, draft, requiresContratacionData]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),

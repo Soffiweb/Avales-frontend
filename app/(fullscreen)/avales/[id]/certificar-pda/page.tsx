@@ -29,6 +29,7 @@ import {
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -388,6 +389,14 @@ export default function CertificarAvalPage() {
           items: items.length > 0 ? items : undefined,
         };
 
+        avalFlowDebugLog("pda", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          approvalEtapa,
+          pdaPayload,
+          items,
+        });
+
         await createPda(a.id, pdaPayload);
         // En modo admin sobre etapa pasada no avanzamos el flujo, solo
         // persistimos el PDA (upsert) — fix de datos sin tocar BDD.
@@ -400,6 +409,16 @@ export default function CertificarAvalPage() {
     approveSuccessMessage: "PDA aprobado correctamente.",
     rejectSuccessMessage: "PDA rechazado correctamente.",
   });
+
+  useEffect(() => {
+    if (!aval) return;
+    avalFlowDebugLog("pda", "snapshot de pantalla PDA", {
+      aval: summarizeAval(aval),
+      draft,
+      budgetDraftItems,
+      totalPresupuestoDraft,
+    });
+  }, [aval, draft, budgetDraftItems, totalPresupuestoDraft]);
 
   // Reset local state when navigating between avales
   useEffect(() => {

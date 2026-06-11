@@ -23,6 +23,7 @@ import {
   formatEventScheduleSentence,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
@@ -149,6 +150,16 @@ export default function CertificacionFinancieraPage() {
           notasActualesNorm.length === notasDefaultNorm.length &&
           notasActualesNorm.every((n, i) => n === notasDefaultNorm[i]);
 
+        avalFlowDebugLog("financiero", "payload final de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          approvalEtapa,
+          draft,
+          numeracionPayload,
+          notasPayload,
+          notasSinCambios,
+        });
+
         await aprobarAval(
           a.id,
           userId,
@@ -162,6 +173,7 @@ export default function CertificacionFinancieraPage() {
     ),
     approveSuccessMessage: "Certificación financiera aprobada correctamente.",
   });
+
   const { config: formConfig } = useAvalFormConfig(aval);
   const financieroSection = getSectionConfig(formConfig, "FINANCIERO");
   const approveAction = getActionConfig(formConfig, "APROBAR");
@@ -178,6 +190,22 @@ export default function CertificacionFinancieraPage() {
       cargoFirmante: pda.cargoFirmante ?? "",
     };
   }, [aval]);
+
+  useEffect(() => {
+    if (!aval) return;
+    avalFlowDebugLog("financiero", "snapshot final previo a aprobacion", {
+      aval: summarizeAval(aval),
+      draft,
+      pdaDraft,
+      documentos: {
+        solicitudUrl: aval.solicitudUrl,
+        convocatoriaUrl: aval.convocatoriaUrl,
+        certificadoMedicoUrl: aval.certificadoMedicoUrl,
+        pronosticoDeportistasUrl: aval.pronosticoDeportistasUrl,
+        avalTecnicoPdfUrl: aval.avalTecnicoPdfUrl,
+      },
+    });
+  }, [aval, draft, pdaDraft]);
 
   // Reset local state on aval navigation
   useEffect(() => {

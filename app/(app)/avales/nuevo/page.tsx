@@ -23,6 +23,7 @@ import {
   formatLocationWithProvince,
   getCalendarDateTimestamp,
 } from "@/lib/utils/formatters";
+import { avalFlowDebugLog, enableAvalFlowDebug } from "@/lib/debug/aval-flow";
 
 const PAGE_SIZE = 6;
 const FETCH_LIMIT = 20;
@@ -73,6 +74,11 @@ export default function NuevoAvalPage() {
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
   const eventoSeleccionadoTieneFondosPublicos =
     eventoTieneFondosPublicos(selectedEvento);
+
+  useEffect(() => {
+    enableAvalFlowDebug("session");
+    avalFlowDebugLog("nuevo-aval", "debug habilitado para flujo de aval");
+  }, []);
 
   useEffect(() => {
     if (!selectedEvento) return;
@@ -130,6 +136,17 @@ export default function NuevoAvalPage() {
         (a, b) => getEventSortTimestamp(b) - getEventSortTimestamp(a),
       );
       setEventos(sorted.slice(0, PAGE_SIZE));
+      avalFlowDebugLog("nuevo-aval", "eventos cargados", {
+        search,
+        totalRecolectados: sorted.length,
+        eventos: sorted.slice(0, PAGE_SIZE).map((evento) => ({
+          id: evento.id,
+          codigo: evento.codigo,
+          nombre: evento.nombre,
+          disciplinaId: evento.disciplina?.id,
+          tieneFondosPublicos: eventoTieneFondosPublicos(evento),
+        })),
+      });
     } catch (err: any) {
       console.error("Error al cargar eventos:", err);
       setError(err?.message ?? "No se pudieron cargar los eventos.");
@@ -143,6 +160,17 @@ export default function NuevoAvalPage() {
   }, [fetchEventos]);
 
   const handleEventSelect = (evento: Evento) => {
+    avalFlowDebugLog("nuevo-aval", "evento seleccionado", {
+      evento: {
+        id: evento.id,
+        codigo: evento.codigo,
+        nombre: evento.nombre,
+        disciplinaId: evento.disciplina?.id,
+        tieneFondosPublicos: eventoTieneFondosPublicos(evento),
+      },
+      tipoAval,
+    });
+
     if (isComprasPublicas) {
       setSubmitError("Tu rol no tiene permisos para crear avales.");
       return;
@@ -186,6 +214,15 @@ export default function NuevoAvalPage() {
       pronosticoDeportistas,
       { tipoAval },
     );
+
+    avalFlowDebugLog("nuevo-aval", "documentos iniciales enviados", {
+      eventoId: selectedEvento.id,
+      tipoAval,
+      convocatoria,
+      certificadoMedico,
+      pronosticoDeportistas,
+      avalCreadoId: response.data.id,
+    });
 
     setUploadModalOpen(false);
     setSelectedEvento(null);

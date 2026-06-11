@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Target, CheckCircle } from "lucide-react";
+import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
 
 type FormData = {
   deportistas: Array<{
@@ -122,10 +123,13 @@ export default function Paso03Objetivos({
       return;
     }
 
-    onComplete({
+    const payload = {
       objetivos,
       criterios,
-    });
+    };
+
+    avalFlowDebugLog("paso-03", "objetivos y criterios confirmados", payload);
+    onComplete(payload);
   };
 
   const handleKeyDownObjetivo = (e: React.KeyboardEvent<HTMLInputElement>) => {

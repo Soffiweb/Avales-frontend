@@ -208,8 +208,9 @@ export default function CertificacionFinancieraPage() {
 
     async function loadFixedSigner() {
       try {
-        const signer = await getDirigido("FINANCIERO");
+        const res = await getDirigido("FINANCIERO");
         if (cancelled) return;
+        const signer = res.data;
         const nombre = [signer.nombre, signer.apellido].filter(Boolean).join(" ").trim();
         const cargo = signer.cargo?.trim() || "";
 

@@ -24,6 +24,12 @@ type ApprovalFlowCardProps = {
   etapaDestinoOptions?: StageOption[];
   etapaDestinoValue?: string;
   onEtapaDestinoChange?: (value: string) => void;
+  /**
+   * Modo admin "fix data sin avanzar etapa". Cambia el copy a "Guardar
+   * (admin)" en ambar, esconde rechazar y el motivo, y muestra un mensaje
+   * aclarando que no se altera el flujo.
+   */
+  adminSaveOnly?: boolean;
 };
 
 export default function ApprovalFlowCard({
@@ -45,6 +51,7 @@ export default function ApprovalFlowCard({
   etapaDestinoOptions,
   etapaDestinoValue,
   onEtapaDestinoChange,
+  adminSaveOnly = false,
 }: ApprovalFlowCardProps) {
   return (
     <div className="bg-white dark:bg-gray-900/60 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
@@ -59,28 +66,37 @@ export default function ApprovalFlowCard({
       </div> */}
 
       <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
-        <p>{`El aval pasará de "${currentStageLabel}" a "${nextStageLabel}".`}</p>
-        {/* <p>{`Al aprobarlo quedará en "${nextStageLabel}".`}</p> */}
+        {adminSaveOnly ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+            Modo admin: se guardará la información de esta etapa sin alterar el
+            flujo de aprobación.
+          </p>
+        ) : (
+          <p>{`El aval pasará de "${currentStageLabel}" a "${nextStageLabel}".`}</p>
+        )}
       </div>
 
-      <div className="space-y-2">
-        <label
-          htmlFor="rechazo"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          {reasonLabel}
-        </label>
-        <textarea
-          id="rechazo"
-          value={reasonValue}
-          onChange={(event) => onReasonChange(event.target.value)}
-          rows={3}
-          className="form-textarea w-full text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          placeholder={reasonPlaceholder}
-        />
-      </div>
+      {!adminSaveOnly && (
+        <div className="space-y-2">
+          <label
+            htmlFor="rechazo"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {reasonLabel}
+          </label>
+          <textarea
+            id="rechazo"
+            value={reasonValue}
+            onChange={(event) => onReasonChange(event.target.value)}
+            rows={3}
+            className="form-textarea w-full text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            placeholder={reasonPlaceholder}
+          />
+        </div>
+      )}
 
-      {etapaDestinoOptions &&
+      {!adminSaveOnly &&
+        etapaDestinoOptions &&
         etapaDestinoOptions.length > 0 &&
         onEtapaDestinoChange && (
           <div className="space-y-2">
@@ -113,7 +129,7 @@ export default function ApprovalFlowCard({
       {actionError && <p className="text-sm text-rose-500">{actionError}</p>}
 
       <div className="flex flex-wrap justify-end gap-3">
-        {rejectVisible && (
+        {!adminSaveOnly && rejectVisible && (
           <button
             type="button"
             disabled={actionLoading || !rejectEnabled}
@@ -128,9 +144,13 @@ export default function ApprovalFlowCard({
             type="button"
             disabled={actionLoading || !approveEnabled}
             onClick={onApprove}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 shadow-lg hover:from-emerald-500 hover:to-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+              adminSaveOnly
+                ? "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 focus-visible:outline-amber-500"
+                : "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 focus-visible:outline-emerald-500"
+            }`}
           >
-            Aprobar etapa
+            {adminSaveOnly ? "Guardar (admin)" : "Aprobar etapa"}
           </button>
         )}
       </div>

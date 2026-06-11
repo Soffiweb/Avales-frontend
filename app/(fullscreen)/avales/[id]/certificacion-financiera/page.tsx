@@ -99,6 +99,7 @@ export default function CertificacionFinancieraPage() {
     setRechazoMotivo,
     currentEtapa,
     isEditable,
+    adminSaveOnly,
     handleApprove,
     handleReject,
   } = useApprovalFlow({
@@ -112,7 +113,7 @@ export default function CertificacionFinancieraPage() {
     additionalEditableCheck: (currentAval) =>
       getApprovalFlowStages(currentAval).includes("FINANCIERO"),
     onApproveAction: useCallback(
-      async ({ aval: a, userId, approvalEtapa }) => {
+      async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const numeracionPayload: {
           periodoComision?: string;
           periodoComisionFin?: string;
@@ -128,6 +129,11 @@ export default function CertificacionFinancieraPage() {
         ) {
           await updateNumeracion(a.id, numeracionPayload);
         }
+
+        // En modo admin sobre etapa pasada: solo persistimos numeración (los
+        // notas se usan en el PDF y no se guardan a DB, asi que no hay nada
+        // mas que hacer aqui).
+        if (adminSaveOnly) return;
 
         const notasPayload = draft.notas
           .map((texto, index) => ({
@@ -532,6 +538,7 @@ export default function CertificacionFinancieraPage() {
                 approveEnabled={approveAction?.enabled ?? true}
                 rejectVisible={rejectAction?.visible ?? true}
                 rejectEnabled={rejectAction?.enabled ?? true}
+                adminSaveOnly={adminSaveOnly}
               />
             ) : (
               <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">

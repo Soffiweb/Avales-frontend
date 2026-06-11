@@ -402,6 +402,33 @@ export async function aprobarAval(
   });
 }
 
+// Endpoints "admin save" — permiten a SUPER_ADMIN/ADMIN guardar los datos
+// de la revision sin avanzar el flujo. Gateado en el backend por rol.
+export async function adminSaveRevisionMetodologo(
+  id: number,
+  usuarioId: number,
+  revisionMetodologo: ApproveRevisionMetodologoPayload,
+) {
+  return apiFetch<{ id: number }>(
+    `/avales/${id}/admin/revision-metodologo`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ usuarioId, revisionMetodologo }),
+    },
+  );
+}
+
+export async function adminSaveRevisionDtm(
+  id: number,
+  usuarioId: number,
+  revisionDtm: ApproveRevisionDtmPayload,
+) {
+  return apiFetch<{ id: number }>(`/avales/${id}/admin/revision-dtm`, {
+    method: "PATCH",
+    body: JSON.stringify({ usuarioId, revisionDtm }),
+  });
+}
+
 export async function rechazarAval(
   id: number,
   usuarioId: number,

@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
   aprobarAval,
+  adminSaveRevisionDtm,
   getRevisionMetodologoItems,
 } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
@@ -205,6 +206,7 @@ export default function RevisionDtmPage() {
     rechazoMotivo,
     setRechazoMotivo,
     isEditable,
+    adminSaveOnly,
     summaryText,
     handleApprove,
     handleReject,
@@ -214,7 +216,7 @@ export default function RevisionDtmPage() {
     editableEtapa: EDITABLE_ETAPA,
     approvalEtapa: APPROVAL_ETAPA,
     onApproveAction: useCallback(
-      async ({ aval: a, userId, approvalEtapa }) => {
+      async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const items = reviewItems.map((item) => {
           const state = reviewState[item.key];
           return {
@@ -223,14 +225,19 @@ export default function RevisionDtmPage() {
             observacion: state?.observacion?.trim() || "",
           };
         });
-        await aprobarAval(a.id, userId, approvalEtapa, undefined, {
+        const payload = {
           descripcion: draft.descripcion.trim(),
           observacion: draft.observacion.trim() || undefined,
           fechaPresentacion: draft.fechaPresentacion,
           firmanteNombre: draft.firmanteNombre.trim() || undefined,
           firmanteCargo: draft.firmanteCargo.trim() || undefined,
           items,
-        });
+        };
+        if (adminSaveOnly) {
+          await adminSaveRevisionDtm(a.id, userId, payload);
+        } else {
+          await aprobarAval(a.id, userId, approvalEtapa, undefined, payload);
+        }
       },
       [draft, reviewItems, reviewState],
     ),
@@ -497,21 +504,27 @@ export default function RevisionDtmPage() {
                   </label>
 
                   <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={handleReject}
-                      disabled={actionLoading}
-                      className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
-                    >
-                      Rechazar
-                    </button>
+                    {!adminSaveOnly && (
+                      <button
+                        type="button"
+                        onClick={handleReject}
+                        disabled={actionLoading}
+                        className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                      >
+                        Rechazar
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleApprove}
                       disabled={actionLoading}
-                      className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                      className={`btn text-white disabled:opacity-50 ${
+                        adminSaveOnly
+                          ? "bg-amber-500 hover:bg-amber-600"
+                          : "bg-emerald-500 hover:bg-emerald-600"
+                      }`}
                     >
-                      Aprobar
+                      {adminSaveOnly ? "Guardar (admin)" : "Aprobar"}
                     </button>
                   </div>
                 </div>

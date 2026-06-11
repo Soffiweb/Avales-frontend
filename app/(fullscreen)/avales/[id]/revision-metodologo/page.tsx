@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
   aprobarAval,
+  adminSaveRevisionMetodologo,
   getRevisionMetodologoItems,
 } from "@/lib/api/avales";
 import { getDirigido } from "@/lib/api/user";
@@ -202,6 +203,7 @@ export default function RevisionMetodologoPage() {
     setEtapaDestino,
     currentEtapa,
     isEditable,
+    adminSaveOnly,
     handleApprove,
     handleReject,
   } = useApprovalFlow({
@@ -214,7 +216,7 @@ export default function RevisionMetodologoPage() {
     approvalEtapa: "REVISION_METODOLOGO",
     enableEtapaDestino: true,
     onApproveAction: useCallback(
-      async ({ aval: a, userId }) => {
+      async ({ aval: a, userId, adminSaveOnly }) => {
         const items = reviewItems
           .map((item) => {
             const state = reviewState[item.key];
@@ -229,7 +231,7 @@ export default function RevisionMetodologoPage() {
               !item.cumple || (item.observacion && item.observacion.length > 0),
           );
 
-        await aprobarAval(a.id, userId, "REVISION_METODOLOGO", {
+        const payload = {
           numeroRevision: revisionHeader.numeroRevision.trim(),
           dirigidoA: revisionHeader.dirigidoA.trim(),
           cargoDirigidoA: revisionHeader.cargoDirigidoA.trim(),
@@ -241,7 +243,13 @@ export default function RevisionMetodologoPage() {
             revisionHeader.observacionFechaTramite.trim() ||
             revisionFooter.observacionesFinales.trim(),
           items,
-        });
+        };
+
+        if (adminSaveOnly) {
+          await adminSaveRevisionMetodologo(a.id, userId, payload);
+        } else {
+          await aprobarAval(a.id, userId, "REVISION_METODOLOGO", payload);
+        }
       },
       [reviewItems, reviewState, revisionHeader, revisionFooter],
     ),
@@ -741,6 +749,7 @@ export default function RevisionMetodologoPage() {
                   approveEnabled={approveAction?.enabled ?? true}
                   rejectVisible={rejectAction?.visible ?? true}
                   rejectEnabled={rejectAction?.enabled ?? true}
+                  adminSaveOnly={adminSaveOnly}
                   etapaDestinoOptions={getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => ({
                     value: e,
                     label: getApprovalStageLabel(e),

@@ -216,6 +216,15 @@ export type RevisionDtm = {
   updatedAt?: string | null;
 };
 
+export type ControlPrevio = {
+  id: number;
+  numeroRevision?: string | null;
+  fechaEmision?: string | null;
+  descripcion?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type UsuarioSimple = {
   id: number;
   nombre: string;
@@ -309,6 +318,7 @@ export type Aval = {
     fechaEmision?: string | null;
   } | null;
   revisionDtm?: RevisionDtm | null;
+  controlPrevio?: ControlPrevio | null;
   revisionMetodologo?: {
     numeroRevision?: string | null;
     dirigidoA?: string | null;

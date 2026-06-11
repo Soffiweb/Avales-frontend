@@ -151,6 +151,24 @@ function buildDefaultDtmDescripcion(aval: Aval) {
   return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
 }
 
+function buildDefaultControlPrevioDescripcion(aval: Aval) {
+  const evento = aval.evento;
+  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
+  const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
+  const eventoNombre = evento?.nombre ?? "[NOMBRE EVENTO]";
+  const numeroSolicitud =
+    aval.avalTecnico?.numeroAval ??
+    aval.aval ??
+    aval.numeroColeccion ??
+    `[SOLICITUD ${aval.id}]`;
+  const lugar =
+    formatLocationWithProvince(evento) ||
+    [evento?.provincia, evento?.ciudad].filter(Boolean).join(" - ") ||
+    "[LUGAR]";
+  const rangoFechas = formatEventScheduleSentence(evento);
+  return `Se llevó a cabo la revisión de control previo de la documentación correspondiente a la solicitud de aval ${numeroSolicitud}, presentada por ${entrenador}, para la participación en ${eventoNombre} de ${disciplina}, a desarrollarse en ${lugar}, ${rangoFechas}, verificando el cumplimiento de los requisitos administrativos para continuar con el trámite.`;
+}
+
 export default function RevisionControlPrevioPage() {
   const params = useParams();
   const router = useRouter();
@@ -158,6 +176,7 @@ export default function RevisionControlPrevioPage() {
 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
   const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>({});
+  const [descripcion, setDescripcion] = useState("");
 
   const {
     authLoading,
@@ -185,9 +204,18 @@ export default function RevisionControlPrevioPage() {
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa }) => {
-        await aprobarAval(a.id, userId, approvalEtapa);
+        const descripcionControlPrevio =
+          descripcion.trim() || buildDefaultControlPrevioDescripcion(a);
+        await aprobarAval(
+          a.id,
+          userId,
+          approvalEtapa,
+          undefined,
+          undefined,
+          descripcionControlPrevio,
+        );
       },
-      [],
+      [descripcion],
     ),
     approveSuccessMessage: "Aval aprobado correctamente.",
   });
@@ -224,6 +252,14 @@ export default function RevisionControlPrevioPage() {
       mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? []),
     );
   }, [aval, reviewItems]);
+
+  useEffect(() => {
+    if (!aval) return;
+    setDescripcion(
+      aval.controlPrevio?.descripcion?.trim() ||
+        buildDefaultControlPrevioDescripcion(aval),
+    );
+  }, [aval]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -361,6 +397,20 @@ export default function RevisionControlPrevioPage() {
                 Revisa los documentos y aprueba o rechaza el aval.
               </p>
             </div>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Descripción
+              </span>
+              <textarea
+                className="form-textarea w-full mt-1"
+                rows={5}
+                value={descripcion}
+                disabled={!showApprovalPanel}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Escribe la descripción de control previo..."
+              />
+            </label>
 
             {showApprovalPanel ? (
               <ApprovalFlowCard

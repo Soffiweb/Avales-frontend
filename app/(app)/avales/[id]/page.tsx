@@ -33,7 +33,6 @@ import type { LucideProps } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import { ensureFreshAccessToken } from "@/lib/api/client";
-import ApprovalFlowCard from "../_components/approval-flow-card";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import AvalPresupuestoSection from "./_components/aval-presupuesto-section";
 import AvalDeportistasSection from "./_components/aval-deportistas-section";
@@ -42,11 +41,9 @@ import AvalPdfComposerModal from "./_components/aval-pdf-composer-modal";
 import Breadcrumb from "@/components/ui/breadcrumb";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
-  aprobarAval,
   deleteAvalRequest,
   deleteAdjuntoSolicitud,
   getAval,
-  rechazarAval,
   regenerarAvalPdfs,
   replaceAdjuntoSolicitud,
   uploadCertificadoMedico,
@@ -78,11 +75,8 @@ import {
   getApprovalFlowStages,
   getAvalCurrentEtapa,
   getFinalApprovalStageForAval,
-  getNextApprovalStageForAval,
-  getPreviousApprovalStagesForAval,
   isAvalFlowApproved,
 } from "@/lib/approval-flow";
-import { getActionConfig } from "@/lib/aval-form-config";
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 
@@ -713,10 +707,6 @@ export default function AvalDetailPage() {
   const id = Number(params.id);
   const { user } = useAuth();
 
-  const [rechazoMotivo, setRechazoMotivo] = useState("");
-  const [etapaDestino, setEtapaDestino] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<{
     variant: "success" | "error";
     message: string;
@@ -825,41 +815,9 @@ export default function AvalDetailPage() {
 
   const currentEtapa = getAvalCurrentEtapa(aval);
   const flowStages = getApprovalFlowStages(aval);
-  const previousToFinanciero = flowStages.includes("CONTROL_PREVIO")
-    ? "CONTROL_PREVIO"
-    : "REVISION_DTM";
-  const isControlPrevioStage =
-    flowStages.includes("CONTROL_PREVIO") && currentEtapa === "REVISION_DTM";
-  const isFinancieroStage = currentEtapa === previousToFinanciero;
-  const nextEtapa = getNextApprovalStageForAval(aval, currentEtapa);
-  const showFinancieroPanel =
-    userRoles.includes("FINANCIERO") && isFinancieroStage;
-  const resolvedNextEtapa: EtapaFlujo | undefined = showFinancieroPanel
-    ? "FINANCIERO"
-    : nextEtapa;
-  const approvalEtapa = resolvedNextEtapa ?? currentEtapa;
   const currentStageLabel = isAvalFlowApproved(aval)
     ? "Aprobado"
     : getApprovalStageLabel(currentEtapa);
-  const nextStageLabel = getApprovalStageLabel(
-    resolvedNextEtapa ?? currentEtapa,
-  );
-  const arrowCurrentLabel = currentStageLabel;
-  const arrowNextLabel = nextStageLabel;
-  const hasNextAfterApproval = Boolean(
-    getNextApprovalStageForAval(aval, resolvedNextEtapa ?? currentEtapa),
-  );
-  const isMetodologoStage = currentEtapa === "REVISION_METODOLOGO";
-  const isDtmStage = currentEtapa === "REVISION_DTM";
-  const isPdaStage = currentEtapa === "SOLICITUD";
-  const showMetodologoPanel =
-    userRoles.includes("METODOLOGO") && isMetodologoStage;
-  const showDtmPanel = userRoles.includes("DTM") && isDtmStage;
-  const showControlPrevioPanel =
-    userRoles.includes("CONTROL_PREVIO") && isControlPrevioStage;
-  const showApprovalPanel =
-    aval?.estado === "SOLICITADO" &&
-    (showDtmPanel || showControlPrevioPanel || showFinancieroPanel);
 
   const fetchAval = useCallback(async () => {
     if (!id || Number.isNaN(id)) {
@@ -898,61 +856,6 @@ export default function AvalDetailPage() {
       setDeletingRequest(false);
     }
   };
-
-  const handleApprove = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await aprobarAval(aval.id, user.id, approvalEtapa);
-      setToast({ variant: "success", message: "Aval aprobado correctamente." });
-      await fetchAval();
-    } catch (err: any) {
-      setActionError(err?.message ?? "No se pudo aprobar el aval.");
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, approvalEtapa, fetchAval]);
-
-  const handleReject = useCallback(async () => {
-    if (!aval) return;
-    if (!user?.id) {
-      setActionError("No se pudo identificar el usuario.");
-      return;
-    }
-    if (!rechazoMotivo.trim()) {
-      setActionError("Debes indicar un motivo para el rechazo.");
-      return;
-    }
-
-    setActionError(null);
-    setActionLoading(true);
-    try {
-      await rechazarAval(
-        aval.id,
-        user.id,
-        currentEtapa,
-        rechazoMotivo.trim(),
-        etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
-      );
-      setToast({
-        variant: "success",
-        message: "Aval rechazado correctamente.",
-      });
-      setRechazoMotivo("");
-      setEtapaDestino("");
-      await fetchAval();
-    } catch (err: any) {
-      setActionError(err?.message ?? "No se pudo rechazar el aval.");
-    } finally {
-      setActionLoading(false);
-    }
-  }, [aval, user?.id, rechazoMotivo, etapaDestino, currentEtapa, fetchAval]);
 
   const { config: formConfig } = useAvalFormConfig(aval);
 
@@ -1147,8 +1050,6 @@ export default function AvalDetailPage() {
   ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);
-  const approveAction = getActionConfig(formConfig, "APROBAR");
-  const rejectAction = getActionConfig(formConfig, "RECHAZAR");
   const participantesSection = getSectionConfig(formConfig, "PARTICIPANTES");
   const presupuestoSection = getSectionConfig(formConfig, "PRESUPUESTO");
   const hasMixedParticipants = deportistasList.some(
@@ -1833,29 +1734,6 @@ export default function AvalDetailPage() {
               )}
             </div>
 
-            {showApprovalPanel ? (
-              <ApprovalFlowCard
-                title="Este aval necesita aprobación"
-                currentStageLabel={arrowCurrentLabel}
-                nextStageLabel={arrowNextLabel}
-                reasonValue={rechazoMotivo}
-                onReasonChange={setRechazoMotivo}
-                actionError={actionError}
-                actionLoading={actionLoading}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                approveVisible={approveAction?.visible ?? true}
-                approveEnabled={approveAction?.enabled ?? true}
-                rejectVisible={rejectAction?.visible ?? true}
-                rejectEnabled={rejectAction?.enabled ?? true}
-                etapaDestinoOptions={getPreviousApprovalStagesForAval(
-                  aval,
-                  currentEtapa,
-                ).map((e) => ({ value: e, label: getApprovalStageLabel(e) }))}
-                etapaDestinoValue={etapaDestino}
-                onEtapaDestinoChange={setEtapaDestino}
-              />
-            ) : null}
           </div>
         </div>
       </div>

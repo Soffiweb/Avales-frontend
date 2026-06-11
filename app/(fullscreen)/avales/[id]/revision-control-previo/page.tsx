@@ -212,6 +212,7 @@ export default function RevisionControlPrevioPage() {
           approvalEtapa,
           undefined,
           undefined,
+          undefined,
           descripcionControlPrevio,
         );
       },

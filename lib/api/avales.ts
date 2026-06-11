@@ -378,8 +378,8 @@ export async function aprobarAval(
   etapa: EtapaFlujo,
   revisionMetodologo?: ApproveRevisionMetodologoPayload,
   revisionDtm?: ApproveRevisionDtmPayload,
-  descripcionControlPrevio?: string,
   financieroNotas?: ApproveFinancieroNotasPayload,
+  descripcionControlPrevio?: string,
 ) {
   const body: {
     usuarioId: number;
@@ -396,11 +396,11 @@ export async function aprobarAval(
   if (revisionDtm) {
     body.revisionDtm = revisionDtm;
   }
-  if (descripcionControlPrevio) {
-    body.descripcionControlPrevio = descripcionControlPrevio;
-  }
   if (financieroNotas) {
     body.financieroNotas = financieroNotas;
+  }
+  if (descripcionControlPrevio) {
+    body.descripcionControlPrevio = descripcionControlPrevio;
   }
 
   return apiFetch<Aval>(`/avales/${id}/aprobar`, {

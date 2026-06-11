@@ -397,11 +397,27 @@ export default function CertificarAvalPage() {
           items,
         });
 
-        await createPda(a.id, pdaPayload);
+        const pdaResponse = await createPda(a.id, pdaPayload);
+        avalFlowDebugLog("pda", "pda persistido", {
+          avalId: a.id,
+          etapaActual: pdaResponse.etapaActual,
+          pda: pdaResponse.pda ?? null,
+        });
         // En modo admin sobre etapa pasada no avanzamos el flujo, solo
         // persistimos el PDA (upsert) — fix de datos sin tocar BDD.
         if (!adminSaveOnly) {
           await aprobarAval(a.id, userId, approvalEtapa);
+          avalFlowDebugLog("pda", "avance de etapa ejecutado", {
+            avalId: a.id,
+            userId,
+            approvalEtapa,
+          });
+        } else {
+          avalFlowDebugLog("pda", "guardado admin sin avance de etapa", {
+            avalId: a.id,
+            userId,
+            approvalEtapa,
+          });
         }
       },
       [draft, budgetDraftItems],
@@ -423,6 +439,10 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     if (!aval) return;
     if (draft.descripcion.trim()) return;
+    avalFlowDebugLog("pda", "inicializando borrador desde aval", {
+      aval: summarizeAval(aval),
+      existingPda: aval.pda ?? null,
+    });
     setDraft((prev) => ({
       ...prev,
       descripcion: buildDefaultDescripcion(aval),
@@ -445,10 +465,20 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     if (!aval) return;
     if (aval.tipoAval === "SOLO_RESULTADO") {
+      avalFlowDebugLog("pda", "presupuesto omitido por tipo de aval", {
+        avalId: aval.id,
+        tipoAval: aval.tipoAval,
+      });
       setBudgetDraftItems([]);
       return;
     }
-    setBudgetDraftItems(buildBudgetDraftItems(aval));
+    const nextItems = buildBudgetDraftItems(aval);
+    avalFlowDebugLog("pda", "presupuesto inicial construido", {
+      avalId: aval.id,
+      totalItems: nextItems.length,
+      items: nextItems,
+    });
+    setBudgetDraftItems(nextItems);
   }, [aval]);
 
   const trainerDocsData = useMemo(

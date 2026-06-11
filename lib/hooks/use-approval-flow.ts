@@ -191,15 +191,30 @@ export function useApprovalFlow({
     if (!aval) return;
     if (!user?.id) {
       setActionError("No se pudo identificar el usuario.");
+      avalFlowDebugLog("approval-flow", "aprobacion bloqueada: usuario sin id", {
+        avalId: aval?.id,
+      });
       return;
     }
     if (!isEditable) {
       setActionError("No puedes aprobar este aval en la etapa actual.");
+      avalFlowDebugLog("approval-flow", "aprobacion bloqueada: etapa no editable", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        aval: summarizeAval(aval),
+      });
       return;
     }
     const validationError = validateApproveRef.current?.(aval);
     if (validationError) {
       setActionError(validationError);
+      avalFlowDebugLog("approval-flow", "aprobacion bloqueada: validacion", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        validationError,
+      });
       return;
     }
     setActionError(null);
@@ -217,9 +232,22 @@ export function useApprovalFlow({
         approvalEtapa: resolvedApprovalEtapa,
         adminSaveOnly,
       });
+      avalFlowDebugLog("approval-flow", "aprobacion completada", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        adminSaveOnly,
+      });
       setToast({ variant: "success", message: approveSuccessMessage });
       setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
+      avalFlowDebugLog("approval-flow", "aprobacion fallida", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        adminSaveOnly,
+        error: err instanceof Error ? err.message : "No se pudo aprobar.",
+      });
       setActionError(
         err instanceof Error ? err.message : "No se pudo aprobar.",
       );
@@ -232,14 +260,28 @@ export function useApprovalFlow({
     if (!aval) return;
     if (!user?.id) {
       setActionError("No se pudo identificar el usuario.");
+      avalFlowDebugLog("approval-flow", "rechazo bloqueado: usuario sin id", {
+        avalId: aval?.id,
+      });
       return;
     }
     if (!isEditable) {
       setActionError("No puedes rechazar este aval en la etapa actual.");
+      avalFlowDebugLog("approval-flow", "rechazo bloqueado: etapa no editable", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        aval: summarizeAval(aval),
+      });
       return;
     }
     if (!rechazoMotivo.trim()) {
       setActionError("Debes indicar un motivo para el rechazo.");
+      avalFlowDebugLog("approval-flow", "rechazo bloqueado: motivo vacio", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+      });
       return;
     }
     setActionError(null);
@@ -261,11 +303,24 @@ export function useApprovalFlow({
         etapaDestino ? (etapaDestino as EtapaFlujo) : undefined,
       );
       onRejectSuccess?.();
+      avalFlowDebugLog("approval-flow", "rechazo completado", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        etapaDestino: etapaDestino || undefined,
+      });
       setToast({ variant: "success", message: rejectSuccessMessage });
       setRechazoMotivo("");
       if (enableEtapaDestino) setEtapaDestino("");
       setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
     } catch (err: unknown) {
+      avalFlowDebugLog("approval-flow", "rechazo fallido", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        etapaDestino: etapaDestino || undefined,
+        error: err instanceof Error ? err.message : "No se pudo rechazar.",
+      });
       setActionError(
         err instanceof Error ? err.message : "No se pudo rechazar.",
       );

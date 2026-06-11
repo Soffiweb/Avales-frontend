@@ -2,6 +2,8 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/app/providers/auth-provider";
+import { getNormalizedRoles } from "@/lib/auth/access";
 import { getAval } from "@/lib/api/avales";
 import type {
   Aval,
@@ -90,7 +92,8 @@ const INITIAL_FORM_DATA: FormData = {
   montoSolicitado: undefined,
 };
 
-function getEditableSolicitudState(aval: Aval) {
+function getEditableSolicitudState(aval: Aval, isAdmin = false) {
+  if (isAdmin) return true;
   return (
     aval.estado === "BORRADOR" ||
     (aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD")
@@ -175,6 +178,11 @@ export default function CrearSolicitudPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const avalId = Number(params.id);
+
+  const { user } = useAuth();
+  const userRoles = getNormalizedRoles(user);
+  const isAdminLike =
+    userRoles.includes("ADMIN") || userRoles.includes("SUPER_ADMIN");
 
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
@@ -291,7 +299,7 @@ export default function CrearSolicitudPage() {
     );
   }
 
-  if (!getEditableSolicitudState(aval)) {
+  if (!getEditableSolicitudState(aval, isAdminLike)) {
     return (
       <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl p-6 text-center">
         <p className="font-medium mb-2">Esta solicitud no se puede editar</p>

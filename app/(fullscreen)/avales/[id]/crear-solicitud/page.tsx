@@ -30,6 +30,7 @@ import Paso03Objetivos from "@/app/(app)/avales/_components/paso-03-objetivos";
 import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuesto";
 import { Loader2 } from "lucide-react";
 import { inferEventoGenero } from "@/types/evento";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -95,8 +96,7 @@ const INITIAL_FORM_DATA: FormData = {
 function getEditableSolicitudState(aval: Aval, isAdmin = false) {
   if (isAdmin) return true;
   return (
-    aval.estado === "BORRADOR" ||
-    (aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD")
+    aval.estado === "BORRADOR" || aval.etapaActual === "SOLICITUD"
   );
 }
 
@@ -200,12 +200,16 @@ export default function CrearSolicitudPage() {
       const response = await getAval(avalId);
       const avalData = response.data;
       setAval(avalData);
-      setFormData(
-        buildInitialFormData(
-          avalData,
-          searchParams.get("tipoAval") as TipoAval | null,
-        ),
+      const initialFormData = buildInitialFormData(
+        avalData,
+        searchParams.get("tipoAval") as TipoAval | null,
       );
+      setFormData(initialFormData);
+      avalFlowDebugLog("crear-solicitud", "aval cargado para wizard", {
+        avalId,
+        aval: summarizeAval(avalData),
+        initialFormData,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar el aval");
     } finally {
@@ -245,6 +249,10 @@ export default function CrearSolicitudPage() {
 
   const handleStepComplete = useCallback(
     (stepData: Partial<FormData>) => {
+      avalFlowDebugLog("crear-solicitud", "paso completado", {
+        currentStep,
+        stepData,
+      });
       setFormData((prev) => ({ ...prev, ...stepData }));
       if (currentStep < 4) {
         setCurrentStep((prev) => (prev + 1) as WizardStep);
@@ -304,7 +312,7 @@ export default function CrearSolicitudPage() {
       <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-xl p-6 text-center">
         <p className="font-medium mb-2">Esta solicitud no se puede editar</p>
         <p className="text-sm">
-          Solo puedes editar la solicitud cuando el aval está en BORRADOR o en SOLICITADO con etapa SOLICITUD.
+          Solo puedes editar la solicitud cuando el aval está en BORRADOR o su etapa actual es SOLICITUD.
         </p>
       </div>
     );

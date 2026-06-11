@@ -8,7 +8,6 @@ import ReportButton from "@/components/ui/report-button";
 import { useAuth } from "@/app/providers/auth-provider";
 import { ROLES_WITHOUT_SIDEBAR } from "@/lib/navigation/sidebar.config";
 import { canSeeSidebar } from "@/lib/auth/access";
-import { authDebugLog } from "@/lib/auth/debug";
 
 export default function DefaultLayout({
   children,
@@ -20,7 +19,6 @@ export default function DefaultLayout({
 
   useEffect(() => {
     if (loading || user) return;
-    authDebugLog("DefaultLayout: user null, redirect /signin");
     router.replace("/signin");
   }, [loading, router, user]);
 
@@ -28,9 +26,6 @@ export default function DefaultLayout({
     if (loading || !user) return;
     const roles = user.roles ?? [];
     if (roles.length > 1 && !user.rolActivo) {
-      authDebugLog("DefaultLayout: sin rolActivo, redirect /select-role", {
-        roles,
-      });
       sessionStorage.setItem("avales:rolesToSelect", JSON.stringify(roles));
       router.replace("/select-role");
     }

@@ -14,6 +14,7 @@ import {
   getNextApprovalStageForAval,
 } from "@/lib/approval-flow";
 import { formatRoles } from "@/lib/utils/formatters";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 export type ToastState = { variant: "success" | "error"; message: string };
 
@@ -141,6 +142,10 @@ export function useApprovalFlow({
       setError(null);
       const response = await getAval(avalId);
       setAval(response.data);
+      avalFlowDebugLog("approval-flow", "aval cargado", {
+        avalId,
+        aval: summarizeAval(response.data),
+      });
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "No se pudo cargar el aval.",
@@ -200,6 +205,12 @@ export function useApprovalFlow({
     setActionError(null);
     setActionLoading(true);
     try {
+      avalFlowDebugLog("approval-flow", "iniciando aprobacion", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        aval: summarizeAval(aval),
+      });
       await onApproveActionRef.current({
         aval,
         userId: user.id,
@@ -234,6 +245,14 @@ export function useApprovalFlow({
     setActionError(null);
     setActionLoading(true);
     try {
+      avalFlowDebugLog("approval-flow", "iniciando rechazo", {
+        avalId: aval.id,
+        currentEtapa,
+        resolvedApprovalEtapa,
+        rechazoMotivo: rechazoMotivo.trim(),
+        etapaDestino: etapaDestino || undefined,
+        aval: summarizeAval(aval),
+      });
       await rechazarAval(
         aval.id,
         user.id,

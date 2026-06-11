@@ -216,6 +216,15 @@ export type RevisionDtm = {
   updatedAt?: string | null;
 };
 
+export type ControlPrevio = {
+  id: number;
+  numeroRevision?: string | null;
+  fechaEmision?: string | null;
+  descripcion?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type UsuarioSimple = {
   id: number;
   nombre: string;
@@ -245,6 +254,7 @@ export type AdjuntoSolicitud = {
 export type Aval = {
   id: number;
   coleccionAvalId?: number | null;
+  userId?: number | null;
   descripcion?: string | null;
   fechaEmision?: string | null;
   estado: Estado;
@@ -275,6 +285,7 @@ export type Aval = {
   adjuntosSolicitud: AdjuntoSolicitud[];
   convocatoriaAdjuntos?: AdjuntoSolicitud[];
   pronosticoDeportistasAdjuntos?: AdjuntoSolicitud[];
+  numeroAval?: string | null;
   aval?: string | null;
   numeroColeccion?: string | null;
   periodoComision?: string | null;
@@ -296,6 +307,10 @@ export type Aval = {
   comprasPublicas?: {
     numeroCertificado?: string | null;
     realizoProceso?: boolean | null;
+    codigos?: Array<{
+      codigo: string;
+      descripcion: string;
+    }> | null;
     codigoNecesidad?: string | null;
     objetoContratacion?: string | null;
     nombreFirmante?: string | null;
@@ -303,6 +318,7 @@ export type Aval = {
     fechaEmision?: string | null;
   } | null;
   revisionDtm?: RevisionDtm | null;
+  controlPrevio?: ControlPrevio | null;
   revisionMetodologo?: {
     numeroRevision?: string | null;
     dirigidoA?: string | null;

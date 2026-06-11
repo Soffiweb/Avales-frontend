@@ -160,7 +160,7 @@ export default function Paso02Logistica({
       return;
     }
 
-    onComplete({
+    const payload = {
       fechaHoraSalida,
       fechaHoraRetorno,
       lugarSalida: lugarSalida.trim(),
@@ -173,7 +173,9 @@ export default function Paso02Logistica({
         transporteRetorno === "OTRO"
           ? transporteRetornoOtro.trim() || "OTRO"
           : transporteRetorno,
-    });
+    };
+
+    onComplete(payload);
   };
 
   return (

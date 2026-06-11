@@ -23,6 +23,7 @@ import {
   formatEventScheduleSentence,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 type FinancieroDraft = {
   descripcionCertificacion: string;
@@ -149,6 +150,16 @@ export default function CertificacionFinancieraPage() {
           notasActualesNorm.length === notasDefaultNorm.length &&
           notasActualesNorm.every((n, i) => n === notasDefaultNorm[i]);
 
+        avalFlowDebugLog("financiero", "payload final de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          approvalEtapa,
+          draft,
+          numeracionPayload,
+          notasPayload,
+          notasSinCambios,
+        });
+
         await aprobarAval(
           a.id,
           userId,
@@ -162,6 +173,7 @@ export default function CertificacionFinancieraPage() {
     ),
     approveSuccessMessage: "Certificación financiera aprobada correctamente.",
   });
+
   const { config: formConfig } = useAvalFormConfig(aval);
   const financieroSection = getSectionConfig(formConfig, "FINANCIERO");
   const approveAction = getActionConfig(formConfig, "APROBAR");
@@ -563,7 +575,6 @@ export default function CertificacionFinancieraPage() {
                   notas: draft.notas,
                   codigoActividad: pdaDraft.codigoActividad,
                   numeroAval: pdaDraft.numeroAval,
-                  fechaSalida: draft.fechaEmision,
                   periodoComision: draft.periodoComision,
                   periodoComisionFin: draft.periodoComisionFin,
                   pdaFirmanteNombre: pdaDraft.nombreFirmante,

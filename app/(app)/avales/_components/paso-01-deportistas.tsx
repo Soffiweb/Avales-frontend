@@ -294,7 +294,8 @@ export default function Paso01Deportistas({
       };
 
       const res = await listDeportistas(options);
-      setDeportistas(sortDeportistasByApellido(res.data ?? []));
+      const items = sortDeportistasByApellido(res.data ?? []);
+      setDeportistas(items);
     } catch (err: any) {
       console.error("Error al cargar deportistas:", err);
     } finally {
@@ -312,17 +313,16 @@ export default function Paso01Deportistas({
       const res = await listEntrenadores(options);
       const items = res.data ?? [];
       const trimmed = searchEntrenadores.trim();
-      setEntrenadores(
-        trimmed
-          ? items.filter((entrenador) =>
-              matchesSearchTerm(trimmed, [
-                entrenador.nombre,
-                entrenador.apellido,
-                entrenador.cedula,
-              ]),
-            )
-          : items,
-      );
+      const filtered = trimmed
+        ? items.filter((entrenador) =>
+            matchesSearchTerm(trimmed, [
+              entrenador.nombre,
+              entrenador.apellido,
+              entrenador.cedula,
+            ]),
+          )
+        : items;
+      setEntrenadores(filtered);
     } catch (err: any) {
       console.error("Error al cargar entrenadores:", err);
     } finally {
@@ -873,6 +873,7 @@ export default function Paso01Deportistas({
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/*
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <div>
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -890,6 +891,7 @@ export default function Paso01Deportistas({
             required
           />
         </section>
+        */}
 
         <section className="space-y-4 rounded-xl border border-indigo-200/70 dark:border-indigo-800/70 bg-indigo-50/30 dark:bg-indigo-900/10 p-4">
           <div className="pb-2 border-b border-indigo-200 dark:border-indigo-800">

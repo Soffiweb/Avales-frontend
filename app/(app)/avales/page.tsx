@@ -146,7 +146,11 @@ export default function AvalesPage() {
             aval.evento?.nombre,
             aval.evento?.codigo,
             aval.evento?.disciplina?.nombre,
-            aval.avalTecnico?.numeroAval ?? aval.numeroColeccion ?? aval.aval ?? String(aval.id),
+            aval.numeroAval ??
+              aval.avalTecnico?.numeroAval ??
+              aval.numeroColeccion ??
+              aval.aval ??
+              String(aval.id),
           ];
           return candidates.some((c) => (c ?? "").toLowerCase().includes(term));
         });

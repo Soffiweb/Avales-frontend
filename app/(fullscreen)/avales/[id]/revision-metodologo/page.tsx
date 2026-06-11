@@ -50,6 +50,7 @@ import { isMetodologoUser } from "@/lib/auth/access";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -68,8 +69,7 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
 const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
   realizoProceso: null,
-  codigoNecesidad: "",
-  objetoContratacion: "",
+  codigos: [],
   nombreFirmante: "",
   cargoFirmante: "",
   fechaEmision: "",
@@ -217,6 +217,7 @@ export default function RevisionMetodologoPage() {
     enableEtapaDestino: true,
     onApproveAction: useCallback(
       async ({ aval: a, userId, adminSaveOnly }) => {
+        const approvalDate = getTodayLocalDate();
         const items = reviewItems
           .map((item) => {
             const state = reviewState[item.key];
@@ -231,6 +232,14 @@ export default function RevisionMetodologoPage() {
               !item.cumple || (item.observacion && item.observacion.length > 0),
           );
 
+        avalFlowDebugLog("revision-metodologo", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          approvalDate,
+          revisionHeader,
+          revisionFooter,
+          items,
+        });
         const payload = {
           numeroRevision: revisionHeader.numeroRevision.trim(),
           dirigidoA: revisionHeader.dirigidoA.trim(),
@@ -238,7 +247,9 @@ export default function RevisionMetodologoPage() {
           descripcionEncabezado: revisionHeader.descripcionEncabezado.trim(),
           firmanteNombre: revisionFooter.firmanteNombre.trim(),
           firmanteCargo: revisionFooter.firmanteCargo.trim(),
-          fechaRevision: revisionHeader.fechaRevision,
+          fechaRevision: adminSaveOnly
+            ? a.revisionMetodologo?.fechaRevision ?? revisionHeader.fechaRevision
+            : approvalDate,
           observacionesFinales:
             revisionHeader.observacionFechaTramite.trim() ||
             revisionFooter.observacionesFinales.trim(),
@@ -418,8 +429,11 @@ export default function RevisionMetodologoPage() {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
         typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
-      codigoNecesidad: compras.codigoNecesidad ?? "",
-      objetoContratacion: compras.objetoContratacion ?? "",
+      codigos:
+        compras.codigos?.map((item) => ({
+          codigo: item.codigo ?? "",
+          descripcion: item.descripcion ?? "",
+        })) ?? [],
       nombreFirmante: compras.nombreFirmante ?? "",
       cargoFirmante: compras.cargoFirmante ?? "",
       fechaEmision: compras.fechaEmision ?? "",
@@ -493,7 +507,7 @@ export default function RevisionMetodologoPage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="block">
+                  {/* <label className="block">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Fecha de revisión
                     </span>
@@ -508,24 +522,7 @@ export default function RevisionMetodologoPage() {
                         }))
                       }
                     />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Observación de fecha de trámite
-                    </span>
-                    <textarea
-                      className="form-textarea w-full mt-1"
-                      rows={3}
-                      value={revisionHeader.observacionFechaTramite}
-                      onChange={(e) =>
-                        setRevisionHeader((prev) => ({
-                          ...prev,
-                          observacionFechaTramite: e.target.value,
-                        }))
-                      }
-                      placeholder="Escribe la observación para la fecha de trámite..."
-                    />
-                  </label>
+                  </label> */}
                   <label className="block">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Dirigido a
@@ -574,6 +571,23 @@ export default function RevisionMetodologoPage() {
                   </label>
                   <label className="block md:col-span-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Observación de fecha de trámite
+                    </span>
+                    <textarea
+                      className="form-textarea w-full mt-1"
+                      rows={3}
+                      value={revisionHeader.observacionFechaTramite}
+                      onChange={(e) =>
+                        setRevisionHeader((prev) => ({
+                          ...prev,
+                          observacionFechaTramite: e.target.value,
+                        }))
+                      }
+                      placeholder="Escribe la observación para la fecha de trámite..."
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Nombre del firmante
                     </span>
                     <input
@@ -588,7 +602,7 @@ export default function RevisionMetodologoPage() {
                       placeholder="Nombre completo"
                     />
                   </label>
-                  <label className="block md:col-span-2">
+                  <label className="block">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Cargo del firmante
                     </span>

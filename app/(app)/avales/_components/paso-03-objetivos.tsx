@@ -122,10 +122,12 @@ export default function Paso03Objetivos({
       return;
     }
 
-    onComplete({
+    const payload = {
       objetivos,
       criterios,
-    });
+    };
+
+    onComplete(payload);
   };
 
   const handleKeyDownObjetivo = (e: React.KeyboardEvent<HTMLInputElement>) => {

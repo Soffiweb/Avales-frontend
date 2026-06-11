@@ -286,8 +286,10 @@ export async function createPda(id: number, payload: CreatePdaPayload) {
 export type CreateComprasPublicasPayload = {
   numeroCertificado?: string;
   realizoProceso?: boolean;
-  codigoNecesidad?: string;
-  objetoContratacion?: string;
+  codigos?: Array<{
+    codigo: string;
+    descripcion: string;
+  }>;
   nombreFirmante?: string;
   cargoFirmante?: string;
   fechaEmision?: string;
@@ -377,12 +379,14 @@ export async function aprobarAval(
   revisionMetodologo?: ApproveRevisionMetodologoPayload,
   revisionDtm?: ApproveRevisionDtmPayload,
   financieroNotas?: ApproveFinancieroNotasPayload,
+  descripcionControlPrevio?: string,
 ) {
   const body: {
     usuarioId: number;
     etapa: EtapaFlujo;
     revisionMetodologo?: ApproveRevisionMetodologoPayload;
     revisionDtm?: ApproveRevisionDtmPayload;
+    descripcionControlPrevio?: string;
     financieroNotas?: ApproveFinancieroNotasPayload;
   } = { usuarioId, etapa };
 
@@ -394,6 +398,9 @@ export async function aprobarAval(
   }
   if (financieroNotas) {
     body.financieroNotas = financieroNotas;
+  }
+  if (descripcionControlPrevio) {
+    body.descripcionControlPrevio = descripcionControlPrevio;
   }
 
   return apiFetch<Aval>(`/avales/${id}/aprobar`, {

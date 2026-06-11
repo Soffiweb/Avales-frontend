@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
@@ -36,16 +36,22 @@ import {
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
+
+function getTodayInputDate() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
   realizoProceso: null,
-  codigoNecesidad: "",
-  objetoContratacion: "",
+  codigos: [],
   nombreFirmante: "",
   cargoFirmante: "",
-  fechaEmision: new Date().toISOString().slice(0, 10),
+  fechaEmision: getTodayInputDate(),
 };
+
+const EMPTY_CODIGO_ROW = { codigo: "", descripcion: "" };
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -126,6 +132,25 @@ function toInputDate(value?: string | null) {
   return date.toISOString().slice(0, 10);
 }
 
+function normalizeComprasDraft(
+  value: Partial<ComprasPublicasDraft> | null | undefined,
+): ComprasPublicasDraft {
+  return {
+    numeroCertificado: value?.numeroCertificado ?? INITIAL_DRAFT.numeroCertificado,
+    realizoProceso:
+      typeof value?.realizoProceso === "boolean" ? value.realizoProceso : null,
+    codigos: Array.isArray(value?.codigos)
+      ? value.codigos.map((item) => ({
+          codigo: item?.codigo ?? "",
+          descripcion: item?.descripcion ?? "",
+        }))
+      : [],
+    nombreFirmante: value?.nombreFirmante ?? INITIAL_DRAFT.nombreFirmante,
+    cargoFirmante: value?.cargoFirmante ?? INITIAL_DRAFT.cargoFirmante,
+    fechaEmision: value?.fechaEmision ?? INITIAL_DRAFT.fechaEmision,
+  };
+}
+
 export default function CertificarComprasPublicasPage() {
   const params = useParams();
   const router = useRouter();
@@ -138,6 +163,7 @@ export default function CertificarComprasPublicasPage() {
   // Ref so onApproveAction/onRejectSuccess can call autosave.clear()
   // without creating a circular dependency (autosave needs isEditable from hook)
   const autosaveRef = useRef<{ clear: () => void }>({ clear: () => {} });
+  const draftCodigos = draft.codigos ?? [];
 
   const {
     authLoading,
@@ -175,32 +201,44 @@ export default function CertificarComprasPublicasPage() {
     additionalEditableCheck: useCallback((a: Aval) => !a.comprasPublicas, []),
     validateApprove: useCallback((_currentAval: Aval) => {
       if (draft.realizoProceso === true) {
-        if (!draft.codigoNecesidad?.trim()) {
-          return "Debes ingresar el código de necesidad cuando sí existe proceso de contratación pública.";
+        if (draftCodigos.length === 0) {
+          return "Debes ingresar al menos un código de necesidad.";
         }
-        if (!draft.objetoContratacion?.trim()) {
-          return "Debes ingresar el objeto de contratación cuando sí existe proceso de contratación pública.";
+        const invalidRow = draftCodigos.find(
+          (item) => !item.codigo.trim() || !item.descripcion.trim(),
+        );
+        if (invalidRow) {
+          return "Cada fila debe tener código y descripción.";
         }
       }
       return null;
-    }, [draft.realizoProceso, draft.codigoNecesidad, draft.objetoContratacion]),
+    }, [draft.realizoProceso, draftCodigos]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, adminSaveOnly }) => {
         const requiresContratacion = draft.realizoProceso === true;
+        const fechaEmision = getTodayInputDate();
         const payload = {
           numeroCertificado: draft.numeroCertificado?.trim() || undefined,
           realizoProceso:
             typeof draft.realizoProceso === "boolean" ? draft.realizoProceso : undefined,
-          codigoNecesidad: requiresContratacion
-            ? draft.codigoNecesidad?.trim() || undefined
-            : undefined,
-          objetoContratacion: requiresContratacion
-            ? draft.objetoContratacion?.trim() || undefined
+          codigos: requiresContratacion
+            ? draftCodigos
+                .map((item) => ({
+                  codigo: item.codigo.trim(),
+                  descripcion: item.descripcion.trim(),
+                }))
+                .filter((item) => item.codigo && item.descripcion)
             : undefined,
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
-          fechaEmision: draft.fechaEmision?.trim() || undefined,
+          fechaEmision,
         };
+
+        avalFlowDebugLog("compras-publicas", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          payload,
+        });
 
         await createComprasPublicas(a.id, payload);
         // Modo admin sobre etapa pasada: solo persistimos compras, no avanzamos.
@@ -223,6 +261,7 @@ export default function CertificarComprasPublicasPage() {
     approveSuccessMessage: "Certificación de Compras Públicas registrada correctamente.",
     rejectSuccessMessage: "Aval rechazado correctamente.",
   });
+
   const { config: formConfig } = useAvalFormConfig(aval);
   const comprasSection = getSectionConfig(formConfig, "COMPRAS_PUBLICAS");
   const approveAction = getActionConfig(formConfig, "APROBAR");
@@ -249,7 +288,7 @@ export default function CertificarComprasPublicasPage() {
     if (!Number.isFinite(avalId)) return;
     const restored = autosave.restore();
     if (restored) {
-      setDraft(restored.state);
+      setDraft(normalizeComprasDraft(restored.state));
       setDraftRestoredAt(restored.savedAt);
       setDraftToastVisible(true);
     }
@@ -264,14 +303,19 @@ export default function CertificarComprasPublicasPage() {
     if (!aval) return;
     const compras = aval.comprasPublicas;
     setDraft((prev) => ({
-      ...prev,
+      ...normalizeComprasDraft(prev),
       numeroCertificado: compras?.numeroCertificado ?? prev.numeroCertificado,
       realizoProceso:
         typeof compras?.realizoProceso === "boolean"
           ? compras.realizoProceso
           : prev.realizoProceso,
-      codigoNecesidad: compras?.codigoNecesidad ?? prev.codigoNecesidad,
-      objetoContratacion: compras?.objetoContratacion ?? prev.objetoContratacion,
+      codigos:
+        compras?.codigos?.length
+          ? compras.codigos.map((item) => ({
+              codigo: item.codigo ?? "",
+              descripcion: item.descripcion ?? "",
+            }))
+          : prev.codigos,
       nombreFirmante:
         compras?.nombreFirmante ||
         prev.nombreFirmante ||
@@ -291,6 +335,32 @@ export default function CertificarComprasPublicasPage() {
     setDraft(INITIAL_DRAFT);
     setDraftToastVisible(false);
   }, [autosave]);
+
+  const handleCodigoChange = useCallback(
+    (index: number, field: "codigo" | "descripcion", value: string) => {
+      setDraft((prev) => ({
+        ...prev,
+        codigos: (prev.codigos ?? []).map((item, itemIndex) =>
+          itemIndex === index ? { ...item, [field]: value } : item,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const handleAddCodigo = useCallback(() => {
+    setDraft((prev) => ({
+      ...prev,
+      codigos: [...(prev.codigos ?? []), { ...EMPTY_CODIGO_ROW }],
+    }));
+  }, []);
+
+  const handleRemoveCodigo = useCallback((index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      codigos: (prev.codigos ?? []).filter((_, itemIndex) => itemIndex !== index),
+    }));
+  }, []);
 
   const requiresContratacionData = draft.realizoProceso === true;
 
@@ -390,7 +460,7 @@ export default function CertificarComprasPublicasPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="block">
+                {/* <label className="block">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Fecha de emisión
                   </span>
@@ -404,7 +474,7 @@ export default function CertificarComprasPublicasPage() {
                       setDraft((prev) => ({ ...prev, fechaEmision: e.target.value }))
                     }
                   />
-                </label>
+                </label> */}
 
                 <div className="md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -418,7 +488,14 @@ export default function CertificarComprasPublicasPage() {
                         checked={draft.realizoProceso === true}
                         disabled={!isEditable}
                         onChange={() =>
-                          setDraft((prev) => ({ ...prev, realizoProceso: true }))
+                          setDraft((prev) => ({
+                            ...prev,
+                            realizoProceso: true,
+                            codigos:
+                              (prev.codigos ?? []).length > 0
+                                ? (prev.codigos ?? [])
+                                : [{ ...EMPTY_CODIGO_ROW }],
+                          }))
                         }
                       />
                       Sí
@@ -433,8 +510,7 @@ export default function CertificarComprasPublicasPage() {
                           setDraft((prev) => ({
                             ...prev,
                             realizoProceso: false,
-                            codigoNecesidad: "",
-                            objetoContratacion: "",
+                            codigos: [],
                           }))
                         }
                       />
@@ -443,47 +519,68 @@ export default function CertificarComprasPublicasPage() {
                   </div>
                 </div>
 
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Código(s) de necesidad
-                  </span>
-                  <textarea
-                    className="form-textarea w-full mt-1"
-                    rows={2}
-                    value={draft.codigoNecesidad}
-                    readOnly={!isEditable || !requiresContratacionData}
-                    disabled={!isEditable || !requiresContratacionData}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, codigoNecesidad: e.target.value }))
-                    }
-                    placeholder="Ej: CN-2026-001, CN-2026-002, CN-2026-003"
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Si existen varios códigos, sepáralos por coma y mantén el mismo orden de
-                    sus descripciones.
-                  </p>
-                </label>
+                <div className="block md:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Códigos de necesidad
+                    </span>
+                    {isEditable && requiresContratacionData && (
+                      <button
+                        type="button"
+                        onClick={handleAddCodigo}
+                        className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                      >
+                        + Agregar código
+                      </button>
+                    )}
+                  </div>
 
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Objeto(s) de contratación
-                  </span>
-                  <textarea
-                    className="form-textarea w-full mt-1"
-                    rows={4}
-                    value={draft.objetoContratacion}
-                    readOnly={!isEditable || !requiresContratacionData}
-                    disabled={!isEditable || !requiresContratacionData}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, objetoContratacion: e.target.value }))
-                    }
-                    placeholder="Ej: Servicio A, Servicio B, Servicio C"
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Si ingresas varios objetos, sepáralos por coma y colócalos en el mismo
-                    orden que los códigos de necesidad.
-                  </p>
-                </label>
+                  <div className="mt-2 space-y-3">
+                    {requiresContratacionData && draftCodigos.length === 0 ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300">
+                        Debes agregar al menos un código.
+                      </div>
+                    ) : null}
+
+                    {draftCodigos.map((item, index) => (
+                      <div
+                        key={`codigo-${index}`}
+                        className="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700 md:grid-cols-[200px_minmax(0,1fr)_44px]"
+                      >
+                        <input
+                          className="form-input w-full"
+                          value={item.codigo}
+                          readOnly={!isEditable || !requiresContratacionData}
+                          disabled={!isEditable || !requiresContratacionData}
+                          onChange={(e) =>
+                            handleCodigoChange(index, "codigo", e.target.value)
+                          }
+                          placeholder="Código"
+                        />
+                        <textarea
+                          className="form-textarea w-full min-h-[88px] resize-y"
+                          rows={3}
+                          value={item.descripcion}
+                          readOnly={!isEditable || !requiresContratacionData}
+                          disabled={!isEditable || !requiresContratacionData}
+                          onChange={(e) =>
+                            handleCodigoChange(index, "descripcion", e.target.value)
+                          }
+                          placeholder="Descripción"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCodigo(index)}
+                          disabled={!isEditable || !requiresContratacionData}
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/60 dark:hover:bg-rose-950/30"
+                          aria-label={`Eliminar código ${index + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

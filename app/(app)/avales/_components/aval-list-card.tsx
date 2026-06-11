@@ -67,6 +67,7 @@ function getStatusIcon(status?: string | null) {
 
 function getAvalNumber(aval: Aval) {
   return (
+    aval.numeroAval ??
     aval.avalTecnico?.numeroAval ??
     aval.numeroColeccion ??
     aval.aval ??
@@ -122,7 +123,9 @@ export default function AvalListCard({
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
         <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
         <p className="text-base text-gray-500 dark:text-gray-400 mb-2">
-          {isAdmin ? "No hay avales registrados en el sistema." : "No tienes avales registrados."}
+          {isAdmin
+            ? "No hay avales registrados en el sistema."
+            : "No tienes avales registrados."}
         </p>
         {!isAdmin && (
           <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -139,8 +142,9 @@ export default function AvalListCard({
         const etapaParaMostrar = getAvalCurrentEtapa(aval) as EtapaFlujo;
         const flowStages = getApprovalFlowStages(aval);
         const metodologoSourceStage =
-          getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
-          ("SOLICITUD" as EtapaFlujo);
+          getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(
+            -1,
+          ) ?? ("SOLICITUD" as EtapaFlujo);
 
         // Solo se puede actuar si el aval está SOLICITADO y la etapa actual
         // matchea con el rol del usuario. Además, si el último evento del
@@ -156,18 +160,20 @@ export default function AvalListCard({
         const isAvalOwner =
           isTrainer &&
           userId !== undefined &&
-          aval.entrenadores.some((e) => e.entrenadorId === userId);
+          (aval.userId === userId ||
+            aval.entrenadores.some((e) => e.entrenadorId === userId));
         const canEditSolicitud =
           isAvalOwner &&
-          (aval.estado === "BORRADOR" ||
-            (aval.estado === "SOLICITADO" && etapaParaMostrar === "SOLICITUD"));
+          (aval.estado === "BORRADOR" || etapaParaMostrar === "SOLICITUD");
+        const editSolicitudLabel = aval.avalTecnico
+          ? "Editar aval"
+          : "Crear aval";
         const canComprasAct =
           flowStages.includes("COMPRAS_PUBLICAS") &&
           isComprasPublicas &&
           stageMatchesRole("PDA" as EtapaFlujo);
         const canMetodologoAct =
-          isMetodologo &&
-          stageMatchesRole(metodologoSourceStage);
+          isMetodologo && stageMatchesRole(metodologoSourceStage);
         const canDtmAct =
           isDtm && stageMatchesRole("REVISION_METODOLOGO" as EtapaFlujo);
         const canControlPrevioAct =
@@ -264,11 +270,16 @@ export default function AvalListCard({
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
-                  <span>Emisión: {aval.fechaEmision ? formatDate(aval.fechaEmision) : "-"}</span>
+                  <span>
+                    Emisión:{" "}
+                    {aval.fechaEmision ? formatDate(aval.fechaEmision) : "-"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
-                  <span className="truncate">Responsable: {responsableAval}</span>
+                  <span className="truncate">
+                    Responsable: {responsableAval}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
@@ -316,7 +327,7 @@ export default function AvalListCard({
                       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
                     >
                       <FileEdit className="w-4 h-4" />
-                      Editar solicitud
+                      {editSolicitudLabel}
                     </Link>
                   </>
                 ) : (

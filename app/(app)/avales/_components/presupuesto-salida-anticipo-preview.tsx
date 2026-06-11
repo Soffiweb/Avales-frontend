@@ -179,12 +179,13 @@ export default function PresupuestoSalidaAnticipoPreview({
         ? "SOLO RESULTADOS"
         : "PUBLICOS";
 
-  // Mismo formato que el backend (`formatEventDateText`):
-  // "DEL DD/MM/YYYY AL DD/MM/YYYY" si hay rango, mismo día simple si coincide.
-  const fechaSalida = formatEventDateRangeDoc(
-    evento?.fechaInicio,
-    evento?.fechaFin,
-  );
+  const fechaSalida =
+    draft?.fechaSalida?.trim() ||
+    aval.avalTecnico?.fechaHoraSalida ||
+    null;
+  const fechaSalidaLabel = fechaSalida
+    ? formatDate(fechaSalida)
+    : formatEventDateRangeDoc(evento?.fechaInicio, evento?.fechaFin);
 
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
@@ -221,7 +222,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">FECHA DE SALIDA</td>
-              <td className="border border-slate-400 px-2 py-1">{fechaSalida}</td>
+              <td className="border border-slate-400 px-2 py-1">{fechaSalidaLabel}</td>
             </tr>
             <tr>
               <td className="border border-slate-400 px-2 py-1 font-semibold">PERÍODO DE COMISIÓN</td>

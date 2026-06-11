@@ -42,6 +42,7 @@ import {
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -60,8 +61,7 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
 const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
   realizoProceso: null,
-  codigoNecesidad: "",
-  objetoContratacion: "",
+  codigos: [],
   nombreFirmante: "",
   cargoFirmante: "",
   fechaEmision: "",
@@ -82,6 +82,14 @@ const INITIAL_DTM_DRAFT: DtmDraft = {
   firmanteNombre: "",
   firmanteCargo: "",
 };
+
+function getTodayLocalDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function buildDtmDraft(
   aval?: Aval | null,
@@ -221,6 +229,7 @@ export default function RevisionDtmPage() {
     approvalEtapa: APPROVAL_ETAPA,
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
+        const approvalDate = getTodayLocalDate();
         const items = reviewItems.map((item) => {
           const state = reviewState[item.key];
           return {
@@ -229,10 +238,20 @@ export default function RevisionDtmPage() {
             observacion: state?.observacion?.trim() || "",
           };
         });
+        avalFlowDebugLog("revision-dtm", "payload de aprobacion listo", {
+          aval: summarizeAval(a),
+          userId,
+          approvalEtapa,
+          approvalDate,
+          draft,
+          items,
+        });
         const payload = {
           descripcion: draft.descripcion.trim(),
           observacion: draft.observacion.trim() || undefined,
-          fechaPresentacion: draft.fechaPresentacion,
+          fechaPresentacion: adminSaveOnly
+            ? a.revisionDtm?.fechaPresentacion ?? draft.fechaPresentacion
+            : approvalDate,
           firmanteNombre: draft.firmanteNombre.trim() || undefined,
           firmanteCargo: draft.firmanteCargo.trim() || undefined,
           items,
@@ -303,8 +322,11 @@ export default function RevisionDtmPage() {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
         typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
-      codigoNecesidad: compras.codigoNecesidad ?? "",
-      objetoContratacion: compras.objetoContratacion ?? "",
+      codigos:
+        compras.codigos?.map((item) => ({
+          codigo: item.codigo ?? "",
+          descripcion: item.descripcion ?? "",
+        })) ?? [],
       nombreFirmante: compras.nombreFirmante ?? "",
       cargoFirmante: compras.cargoFirmante ?? "",
       fechaEmision: compras.fechaEmision ?? "",
@@ -407,7 +429,7 @@ export default function RevisionDtmPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                <label className="block">
+                {/* <label className="block">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Fecha del documento
                   </span>
@@ -421,7 +443,7 @@ export default function RevisionDtmPage() {
                       setDraft((prev) => ({ ...prev, fechaPresentacion: e.target.value }))
                     }
                   />
-                </label>
+                </label> */}
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
                   <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">

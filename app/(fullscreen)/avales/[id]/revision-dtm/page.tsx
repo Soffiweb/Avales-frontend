@@ -490,18 +490,20 @@ export default function RevisionDtmPage() {
                     </p>
                   </div>
 
-                  <label className="block">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                      Motivo de rechazo (si aplica)
-                    </span>
-                    <textarea
-                      className="form-textarea w-full mt-1 text-sm"
-                      rows={3}
-                      value={rechazoMotivo}
-                      onChange={(e) => setRechazoMotivo(e.target.value)}
-                      placeholder="Escribe el motivo si vas a rechazar..."
-                    />
-                  </label>
+                  {!adminSaveOnly && (
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                        Motivo de rechazo (si aplica)
+                      </span>
+                      <textarea
+                        className="form-textarea w-full mt-1 text-sm"
+                        rows={3}
+                        value={rechazoMotivo}
+                        onChange={(e) => setRechazoMotivo(e.target.value)}
+                        placeholder="Escribe el motivo si vas a rechazar..."
+                      />
+                    </label>
+                  )}
 
                   <div className="flex items-center justify-end gap-2">
                     {!adminSaveOnly && (

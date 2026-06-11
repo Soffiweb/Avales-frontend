@@ -533,38 +533,45 @@ export default function CertificarComprasPublicasPage() {
                     </p>
                   </div>
 
-                  <label className="block">
-                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                      Motivo de rechazo (si aplica)
-                    </span>
-                    <textarea
-                      className="form-textarea w-full mt-1 text-sm"
-                      rows={3}
-                      value={rechazoMotivo}
-                      onChange={(e) => setRechazoMotivo(e.target.value)}
-                      placeholder="Escribe el motivo si vas a rechazar..."
-                    />
-                  </label>
-
-                  {getPreviousApprovalStagesForAval(aval, currentEtapa).length > 0 && (
+                  {!adminSaveOnly && (
                     <label className="block">
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                        Regresar a etapa (opcional)
+                        Motivo de rechazo (si aplica)
                       </span>
-                      <select
-                        className="form-select w-full mt-1 text-sm"
-                        value={etapaDestino}
-                        onChange={(e) => setEtapaDestino(e.target.value)}
-                      >
-                        <option value="">Etapa anterior (por defecto)</option>
-                        {getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => (
-                          <option key={e} value={e}>
-                            {getApprovalStageLabel(e)}
-                          </option>
-                        ))}
-                      </select>
+                      <textarea
+                        className="form-textarea w-full mt-1 text-sm"
+                        rows={3}
+                        value={rechazoMotivo}
+                        onChange={(e) => setRechazoMotivo(e.target.value)}
+                        placeholder="Escribe el motivo si vas a rechazar..."
+                      />
                     </label>
                   )}
+
+                  {!adminSaveOnly &&
+                    getPreviousApprovalStagesForAval(aval, currentEtapa).length >
+                      0 && (
+                      <label className="block">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                          Regresar a etapa (opcional)
+                        </span>
+                        <select
+                          className="form-select w-full mt-1 text-sm"
+                          value={etapaDestino}
+                          onChange={(e) => setEtapaDestino(e.target.value)}
+                        >
+                          <option value="">Etapa anterior (por defecto)</option>
+                          {getPreviousApprovalStagesForAval(
+                            aval,
+                            currentEtapa,
+                          ).map((e) => (
+                            <option key={e} value={e}>
+                              {getApprovalStageLabel(e)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
 
                   {actionError && (
                     <div className="text-xs text-rose-600 dark:text-rose-400">{actionError}</div>

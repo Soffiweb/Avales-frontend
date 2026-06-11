@@ -21,6 +21,12 @@ export type ApproveActionContext = {
   aval: Aval;
   userId: number;
   approvalEtapa: EtapaFlujo;
+  /**
+   * True cuando el user es SUPER_ADMIN/ADMIN y la etapa de la pagina ya pasó
+   * (modo "fix data sin avanzar"). La pagina debe saltarse la llamada a
+   * `aprobarAval` y solo persistir el data del paso.
+   */
+  adminSaveOnly?: boolean;
 };
 
 type RoleCheck = string | string[] | ((user: User | null | undefined) => boolean);
@@ -160,13 +166,21 @@ export function useApprovalFlow({
   const computedNextEtapa =
     getNextApprovalStageForAval(aval, currentEtapa) ?? currentEtapa;
 
-  const isEditable =
-    isAdmin ||
-    (aval?.estado === "SOLICITADO" &&
-      currentEtapa === resolvedEditableEtapa &&
-      (additionalEditableCheck && aval ? additionalEditableCheck(aval) : true));
+  const isNormalEditable =
+    aval?.estado === "SOLICITADO" &&
+    currentEtapa === resolvedEditableEtapa &&
+    (additionalEditableCheck && aval ? additionalEditableCheck(aval) : true);
 
-  const summaryText = `El aval pasará de "${getApprovalStageLabel(currentEtapa)}" a "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}" y quedará en "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}".`;
+  const isEditable = isAdmin || isNormalEditable;
+
+  // Admin esta editando una etapa que ya paso (o un aval ya aprobado). En este
+  // caso el "Aprobar" se convierte en "Guardar (admin)" y la pagina debe
+  // saltarse la llamada a aprobarAval.
+  const adminSaveOnly = Boolean(isAdmin && aval && !isNormalEditable);
+
+  const summaryText = adminSaveOnly
+    ? `Modo admin: se guardara la información de "${getApprovalStageLabel(currentEtapa)}" sin avanzar la etapa.`
+    : `El aval pasará de "${getApprovalStageLabel(currentEtapa)}" a "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}" y quedará en "${getApprovalStageLabel(resolvedApprovalEtapa ?? computedNextEtapa)}".`;
 
   const handleApprove = useCallback(async () => {
     if (!aval) return;
@@ -190,6 +204,7 @@ export function useApprovalFlow({
         aval,
         userId: user.id,
         approvalEtapa: resolvedApprovalEtapa,
+        adminSaveOnly,
       });
       setToast({ variant: "success", message: approveSuccessMessage });
       setTimeout(() => router.push(`/avales/${aval.id}`), 1500);
@@ -200,7 +215,7 @@ export function useApprovalFlow({
     } finally {
       setActionLoading(false);
     }
-  }, [aval, user?.id, isEditable, resolvedApprovalEtapa, approveSuccessMessage, router]);
+  }, [aval, user?.id, isEditable, resolvedApprovalEtapa, adminSaveOnly, approveSuccessMessage, router]);
 
   const handleReject = useCallback(async () => {
     if (!aval) return;
@@ -270,6 +285,7 @@ export function useApprovalFlow({
     resolvedEditableEtapa,
     resolvedApprovalEtapa,
     isEditable,
+    adminSaveOnly,
     summaryText,
     // Actions
     handleApprove,

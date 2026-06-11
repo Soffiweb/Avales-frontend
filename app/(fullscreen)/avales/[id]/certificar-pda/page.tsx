@@ -299,6 +299,7 @@ export default function CertificarAvalPage() {
     setEtapaDestino,
     currentEtapa,
     isEditable,
+    adminSaveOnly,
     summaryText,
     handleApprove,
     handleReject,
@@ -334,7 +335,7 @@ export default function CertificarAvalPage() {
       [draft, budgetDraftItems],
     ),
     onApproveAction: useCallback(
-      async ({ aval: a, userId, approvalEtapa }) => {
+      async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const items = budgetDraftItems
           .map((item) => ({
             itemId: item.itemId,
@@ -360,7 +361,11 @@ export default function CertificarAvalPage() {
         };
 
         await createPda(a.id, pdaPayload);
-        await aprobarAval(a.id, userId, approvalEtapa);
+        // En modo admin sobre etapa pasada no avanzamos el flujo, solo
+        // persistimos el PDA (upsert) — fix de datos sin tocar BDD.
+        if (!adminSaveOnly) {
+          await aprobarAval(a.id, userId, approvalEtapa);
+        }
       },
       [draft, budgetDraftItems],
     ),
@@ -915,21 +920,27 @@ export default function CertificarAvalPage() {
                   )}
 
                   <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={handleReject}
-                      disabled={actionLoading}
-                      className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
-                    >
-                      Rechazar
-                    </button>
+                    {!adminSaveOnly && (
+                      <button
+                        type="button"
+                        onClick={handleReject}
+                        disabled={actionLoading}
+                        className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                      >
+                        Rechazar
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleApprove}
                       disabled={actionLoading}
-                      className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                      className={`btn text-white disabled:opacity-50 ${
+                        adminSaveOnly
+                          ? "bg-amber-500 hover:bg-amber-600"
+                          : "bg-emerald-500 hover:bg-emerald-600"
+                      }`}
                     >
-                      Aprobar
+                      {adminSaveOnly ? "Guardar (admin)" : "Aprobar"}
                     </button>
                   </div>
                 </div>

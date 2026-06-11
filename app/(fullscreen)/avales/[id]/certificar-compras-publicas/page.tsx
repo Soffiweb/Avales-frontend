@@ -158,6 +158,7 @@ export default function CertificarComprasPublicasPage() {
     setEtapaDestino,
     currentEtapa,
     isEditable,
+    adminSaveOnly,
     summaryText,
     handleApprove,
     handleReject,
@@ -184,7 +185,7 @@ export default function CertificarComprasPublicasPage() {
       return null;
     }, [draft.realizoProceso, draft.codigoNecesidad, draft.objetoContratacion]),
     onApproveAction: useCallback(
-      async ({ aval: a, userId }) => {
+      async ({ aval: a, userId, adminSaveOnly }) => {
         const requiresContratacion = draft.realizoProceso === true;
         const payload = {
           numeroCertificado: draft.numeroCertificado?.trim() || undefined,
@@ -202,12 +203,18 @@ export default function CertificarComprasPublicasPage() {
         };
 
         await createComprasPublicas(a.id, payload);
-        // Refresh aval to get updated etapa after creating compras
-        const refreshed = await getAval(a.id);
-        const refreshedEtapa = getAvalCurrentEtapa(refreshed.data);
-        const nextEtapa = getNextApprovalStageForAval(refreshed.data, refreshedEtapa);
-        const resolvedEtapa = nextEtapa ?? refreshedEtapa;
-        await aprobarAval(a.id, userId, resolvedEtapa);
+        // Modo admin sobre etapa pasada: solo persistimos compras, no avanzamos.
+        if (!adminSaveOnly) {
+          // Refresh aval to get updated etapa after creating compras
+          const refreshed = await getAval(a.id);
+          const refreshedEtapa = getAvalCurrentEtapa(refreshed.data);
+          const nextEtapa = getNextApprovalStageForAval(
+            refreshed.data,
+            refreshedEtapa,
+          );
+          const resolvedEtapa = nextEtapa ?? refreshedEtapa;
+          await aprobarAval(a.id, userId, resolvedEtapa);
+        }
         autosaveRef.current.clear();
       },
       [draft, autosaveRef],
@@ -564,7 +571,7 @@ export default function CertificarComprasPublicasPage() {
                   )}
 
                   <div className="flex items-center justify-end gap-2">
-                    {(rejectAction?.visible ?? true) && (
+                    {!adminSaveOnly && (rejectAction?.visible ?? true) && (
                       <button
                         type="button"
                         onClick={handleReject}
@@ -579,9 +586,13 @@ export default function CertificarComprasPublicasPage() {
                         type="button"
                         onClick={handleApprove}
                         disabled={actionLoading || !(approveAction?.enabled ?? true)}
-                        className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                        className={`btn text-white disabled:opacity-50 ${
+                          adminSaveOnly
+                            ? "bg-amber-500 hover:bg-amber-600"
+                            : "bg-emerald-500 hover:bg-emerald-600"
+                        }`}
                       >
-                        Aprobar
+                        {adminSaveOnly ? "Guardar (admin)" : "Aprobar"}
                       </button>
                     )}
                   </div>

@@ -575,7 +575,6 @@ export default function CertificacionFinancieraPage() {
                   notas: draft.notas,
                   codigoActividad: pdaDraft.codigoActividad,
                   numeroAval: pdaDraft.numeroAval,
-                  fechaSalida: draft.fechaEmision,
                   periodoComision: draft.periodoComision,
                   periodoComisionFin: draft.periodoComisionFin,
                   pdaFirmanteNombre: pdaDraft.nombreFirmante,

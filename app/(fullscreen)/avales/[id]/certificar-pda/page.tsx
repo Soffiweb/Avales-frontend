@@ -66,6 +66,7 @@ type BudgetDraftItem = {
   codigo: number;
   nombre: string;
   actividad: string;
+  originalTotal: number;
   dias: BudgetDraftDia[];
 };
 
@@ -214,6 +215,9 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   return (aval.evento?.presupuesto ?? [])
     .filter((item) => item.fuente === fuenteObjetivo)
     .map((item) => {
+      const totalOriginal = roundCurrency(
+        Number.parseFloat(item.presupuesto ?? "0") || 0,
+      );
       const pdaItem = pdaItemsByCatalog.get(item.item.id);
 
       if (pdaItem && Array.isArray(pdaItem.dias) && pdaItem.dias.length > 0) {
@@ -225,6 +229,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
           actividad:
             item.item.actividad?.nombre ??
             "EVENTOS DE PREPARACION Y COMPETENCIA",
+          originalTotal: totalOriginal,
           dias: pdaItem.dias.map((dia) => ({
             numeroDia: dia.numeroDia,
             cantidad: Number(dia.cantidad ?? 0),
@@ -233,9 +238,6 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
         };
       }
 
-      const totalOriginal = roundCurrency(
-        Number.parseFloat(item.presupuesto ?? "0") || 0,
-      );
       const requerimiento = requerimientos.find(
         (c) => c.rubroId === item.item.id || c.rubroId === item.id,
       );
@@ -253,6 +255,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
         nombre: item.item.nombre,
         actividad:
           item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
+        originalTotal: totalOriginal,
         dias: [{ numeroDia: 1, cantidad: 1, valorUnitario }],
       };
     });
@@ -397,27 +400,11 @@ export default function CertificarAvalPage() {
           items,
         });
 
-        const pdaResponse = await createPda(a.id, pdaPayload);
-        avalFlowDebugLog("pda", "pda persistido", {
-          avalId: a.id,
-          etapaActual: pdaResponse.etapaActual,
-          pda: pdaResponse.pda ?? null,
-        });
+        await createPda(a.id, pdaPayload);
         // En modo admin sobre etapa pasada no avanzamos el flujo, solo
         // persistimos el PDA (upsert) — fix de datos sin tocar BDD.
         if (!adminSaveOnly) {
           await aprobarAval(a.id, userId, approvalEtapa);
-          avalFlowDebugLog("pda", "avance de etapa ejecutado", {
-            avalId: a.id,
-            userId,
-            approvalEtapa,
-          });
-        } else {
-          avalFlowDebugLog("pda", "guardado admin sin avance de etapa", {
-            avalId: a.id,
-            userId,
-            approvalEtapa,
-          });
         }
       },
       [draft, budgetDraftItems],
@@ -439,10 +426,6 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     if (!aval) return;
     if (draft.descripcion.trim()) return;
-    avalFlowDebugLog("pda", "inicializando borrador desde aval", {
-      aval: summarizeAval(aval),
-      existingPda: aval.pda ?? null,
-    });
     setDraft((prev) => ({
       ...prev,
       descripcion: buildDefaultDescripcion(aval),
@@ -465,19 +448,10 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     if (!aval) return;
     if (aval.tipoAval === "SOLO_RESULTADO") {
-      avalFlowDebugLog("pda", "presupuesto omitido por tipo de aval", {
-        avalId: aval.id,
-        tipoAval: aval.tipoAval,
-      });
       setBudgetDraftItems([]);
       return;
     }
     const nextItems = buildBudgetDraftItems(aval);
-    avalFlowDebugLog("pda", "presupuesto inicial construido", {
-      avalId: aval.id,
-      totalItems: nextItems.length,
-      items: nextItems,
-    });
     setBudgetDraftItems(nextItems);
   }, [aval]);
 
@@ -799,6 +773,15 @@ export default function CertificarAvalPage() {
                         key={item.id}
                         className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
                       >
+                        {(() => {
+                          const currentTotal = getDraftItemTotal(item);
+                          const itemDifference = roundCurrency(
+                            currentTotal - item.originalTotal,
+                          );
+                          const itemMatches = Math.abs(itemDifference) < 0.01;
+
+                          return (
+                            <>
                         <div className="bg-gray-50 dark:bg-gray-800/60 px-4 py-3">
                           <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
                             {item.codigo} - {item.nombre}
@@ -806,6 +789,25 @@ export default function CertificarAvalPage() {
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {item.actividad}
                           </p>
+                          <div
+                            className={`mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3 ${
+                              itemMatches
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-amber-700 dark:text-amber-300"
+                            }`}
+                          >
+                            <p>
+                              Inicial: {formatCurrency(item.originalTotal)}
+                            </p>
+                            <p>
+                              Actual: {formatCurrency(currentTotal)}
+                            </p>
+                            <p>
+                              Diferencia:{" "}
+                              {itemDifference > 0 ? "+" : ""}
+                              {formatCurrency(itemDifference)}
+                            </p>
+                          </div>
                         </div>
 
                         <div className="overflow-x-auto">
@@ -920,10 +922,13 @@ export default function CertificarAvalPage() {
                               Total del ítem
                             </p>
                             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {formatCurrency(getDraftItemTotal(item))}
+                              {formatCurrency(currentTotal)}
                             </p>
                           </div>
                         </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

@@ -358,6 +358,8 @@ export type ApproveFinancieroNotasPayload = {
     texto: string;
     mostrarDatosFacturacion?: boolean;
   }>;
+  nombreFirmante?: string;
+  cargoFirmante?: string;
 };
 
 export type UpdateNumeracionPayload = {
@@ -380,6 +382,8 @@ export async function aprobarAval(
   revisionDtm?: ApproveRevisionDtmPayload,
   financieroNotas?: ApproveFinancieroNotasPayload,
   descripcionControlPrevio?: string,
+  periodoComision?: string,
+  periodoComisionFin?: string,
 ) {
   const body: {
     usuarioId: number;
@@ -388,6 +392,8 @@ export async function aprobarAval(
     revisionDtm?: ApproveRevisionDtmPayload;
     descripcionControlPrevio?: string;
     financieroNotas?: ApproveFinancieroNotasPayload;
+    periodoComision?: string;
+    periodoComisionFin?: string;
   } = { usuarioId, etapa };
 
   if (revisionMetodologo) {
@@ -401,6 +407,12 @@ export async function aprobarAval(
   }
   if (descripcionControlPrevio) {
     body.descripcionControlPrevio = descripcionControlPrevio;
+  }
+  if (periodoComision !== undefined) {
+    body.periodoComision = periodoComision;
+  }
+  if (periodoComisionFin !== undefined) {
+    body.periodoComisionFin = periodoComisionFin;
   }
 
   return apiFetch<Aval>(`/avales/${id}/aprobar`, {

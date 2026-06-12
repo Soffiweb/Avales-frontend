@@ -39,6 +39,15 @@ export const EMPTY_FORM_VALUES: EventoFormValues = {
   numAtletasHombres: 0,
   numAtletasMujeres: 0,
   eventoItems: [],
+  formasParticipacion: [
+    {
+      tipoAval: "FONDOS_PUBLICOS",
+      numEntrenadoresHombres: 0,
+      numEntrenadoresMujeres: 0,
+      numAtletasHombres: 0,
+      numAtletasMujeres: 0,
+    },
+  ],
 };
 
 export function getDefaultMesProgramado(evento?: Evento | null) {
@@ -104,7 +113,51 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
         montoComprometido: Number.parseFloat(item.montoComprometido ?? "0") || 0,
         montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
       })) ?? [],
+    formasParticipacion: evento.formasParticipacion?.length
+      ? evento.formasParticipacion.map((forma) => ({
+          tipoAval: forma.tipoAval,
+          numEntrenadoresHombres: forma.numEntrenadoresHombres,
+          numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
+          numAtletasHombres: forma.numAtletasHombres,
+          numAtletasMujeres: forma.numAtletasMujeres,
+        }))
+      : [
+          {
+            tipoAval: evento.eventoItems?.some(
+              (item) => item.fuente === "FONDOS_PUBLICOS",
+            )
+              ? "FONDOS_PUBLICOS"
+              : evento.eventoItems?.some((item) => item.fuente === "AUTOGESTION")
+                ? "AUTOGESTION"
+                : "FONDOS_PUBLICOS",
+            numEntrenadoresHombres: evento.numEntrenadoresHombres ?? 0,
+            numEntrenadoresMujeres: evento.numEntrenadoresMujeres ?? 0,
+            numAtletasHombres: evento.numAtletasHombres ?? 0,
+            numAtletasMujeres: evento.numAtletasMujeres ?? 0,
+          },
+        ],
   };
+}
+
+export function sumFormasParticipacionCupos(
+  formas: EventoFormValues["formasParticipacion"],
+) {
+  return (formas ?? []).reduce(
+    (acc, forma) => ({
+      numEntrenadoresHombres:
+        acc.numEntrenadoresHombres + (forma.numEntrenadoresHombres || 0),
+      numEntrenadoresMujeres:
+        acc.numEntrenadoresMujeres + (forma.numEntrenadoresMujeres || 0),
+      numAtletasHombres: acc.numAtletasHombres + (forma.numAtletasHombres || 0),
+      numAtletasMujeres: acc.numAtletasMujeres + (forma.numAtletasMujeres || 0),
+    }),
+    {
+      numEntrenadoresHombres: 0,
+      numEntrenadoresMujeres: 0,
+      numAtletasHombres: 0,
+      numAtletasMujeres: 0,
+    },
+  );
 }
 
 export function buildCreateEventoPayload(
@@ -124,6 +177,8 @@ export function buildCreateEventoPayload(
     return null;
   }
 
+  const cuposTotales = sumFormasParticipacionCupos(values.formasParticipacion);
+
   return {
     codigo: values.codigo.trim(),
     tipoParticipacion,
@@ -142,11 +197,14 @@ export function buildCreateEventoPayload(
       ? formatDateInput(values.fechaInicio)
       : null,
     fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
-    numEntrenadoresHombres: values.numEntrenadoresHombres,
-    numEntrenadoresMujeres: values.numEntrenadoresMujeres,
-    numAtletasHombres: values.numAtletasHombres,
-    numAtletasMujeres: values.numAtletasMujeres,
+    numEntrenadoresHombres: cuposTotales.numEntrenadoresHombres,
+    numEntrenadoresMujeres: cuposTotales.numEntrenadoresMujeres,
+    numAtletasHombres: cuposTotales.numAtletasHombres,
+    numAtletasMujeres: cuposTotales.numAtletasMujeres,
     eventoItems: values.eventoItems?.length ? values.eventoItems : undefined,
+    formasParticipacion: values.formasParticipacion?.length
+      ? values.formasParticipacion
+      : undefined,
   };
 }
 
@@ -192,6 +250,7 @@ export function buildUpdateEventoPayloadFromForm(
   }
 
   const canonicalCategoriaCodigo = getCanonicalCategory(values.categoriaCodigo);
+  const cuposTotales = sumFormasParticipacionCupos(values.formasParticipacion);
 
   return {
     codigo: values.codigo.trim(),
@@ -214,11 +273,14 @@ export function buildUpdateEventoPayloadFromForm(
       ? formatDateInput(values.fechaInicio)
       : null,
     fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
-    numEntrenadoresHombres: values.numEntrenadoresHombres,
-    numEntrenadoresMujeres: values.numEntrenadoresMujeres,
-    numAtletasHombres: values.numAtletasHombres,
-    numAtletasMujeres: values.numAtletasMujeres,
+    numEntrenadoresHombres: cuposTotales.numEntrenadoresHombres,
+    numEntrenadoresMujeres: cuposTotales.numEntrenadoresMujeres,
+    numAtletasHombres: cuposTotales.numAtletasHombres,
+    numAtletasMujeres: cuposTotales.numAtletasMujeres,
     eventoItems: values.eventoItems?.length ? values.eventoItems : undefined,
+    formasParticipacion: values.formasParticipacion?.length
+      ? values.formasParticipacion
+      : undefined,
   };
 }
 

@@ -93,8 +93,23 @@ export type EventoSimple = {
   estado: Estado;
   archivo?: string;
   presupuesto: PresupuestoItem[];
+  formaParticipacionActual?: FormaParticipacionResumen;
   createdAt: string;
   updatedAt: string;
+};
+
+// Resumen de la FormaParticipacion del tipoAval actual del aval. Espejo
+// operacional adicional, no reemplaza los campos legacy de EventoSimple.
+export type FormaParticipacionResumen = {
+  id: number;
+  tipoAval: TipoAval;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+  presupuestoTotal?: string | null;
+  estado: Estado;
+  items: PresupuestoItem[];
 };
 
 export type AvalObjetivo = {
@@ -317,6 +332,19 @@ export type Aval = {
     cargoFirmante?: string | null;
     fechaEmision?: string | null;
   } | null;
+  financiero?: Array<{
+    id: number;
+    descripcion?: string | null;
+    periodoComision?: string | null;
+    periodoComisionFin?: string | null;
+    fechaSalida?: string | null;
+    nombreFirmante?: string | null;
+    cargoFirmante?: string | null;
+    cuentaBancaria?: string | null;
+    fondos?: string | null;
+    notas?: string | null;
+    items?: unknown[] | null;
+  }> | null;
   revisionDtm?: RevisionDtm | null;
   controlPrevio?: ControlPrevio | null;
   revisionMetodologo?: {

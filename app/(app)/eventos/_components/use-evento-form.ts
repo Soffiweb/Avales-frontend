@@ -153,6 +153,31 @@ export function useEventoForm({
     [eventoItemsValues],
   );
 
+  const {
+    fields: formasParticipacionFields,
+    append: appendFormaParticipacion,
+    remove: removeFormaParticipacion,
+  } = useFieldArray({
+    control,
+    name: "formasParticipacion",
+  });
+
+  const formasParticipacionValues =
+    useWatch({ control, name: "formasParticipacion" }) ?? [];
+
+  const addFormaParticipacion = useCallback(
+    (tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO") => {
+      appendFormaParticipacion({
+        tipoAval,
+        numEntrenadoresHombres: 0,
+        numEntrenadoresMujeres: 0,
+        numAtletasHombres: 0,
+        numAtletasMujeres: 0,
+      });
+    },
+    [appendFormaParticipacion],
+  );
+
   useEffect(() => {
     if (mode !== "edit" || !evento || catalogLoading) {
       return;
@@ -394,6 +419,7 @@ export function useEventoForm({
   return {
     archivo,
     archivoPreview,
+    addFormaParticipacion,
     append,
     appendBudgetItem,
     buttonLabel,
@@ -405,6 +431,8 @@ export function useEventoForm({
     draggingArchivo,
     errors,
     fields,
+    formasParticipacionFields,
+    formasParticipacionValues,
     generateCodigoError,
     generatingCodigo,
     handleArchivoDragLeave,
@@ -420,6 +448,7 @@ export function useEventoForm({
     eventoItemsValues,
     register,
     remove,
+    removeFormaParticipacion,
     removeFile,
     submitError,
     totalPresupuestoAutogestion,

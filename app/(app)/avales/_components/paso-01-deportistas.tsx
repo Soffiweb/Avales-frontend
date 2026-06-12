@@ -15,6 +15,7 @@ import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { matchesSearchTerm } from "@/lib/utils/normalize-text";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
+import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
   getAllowedModalidadesByTipoAval,
   getModalidadParticipacionLabel,
@@ -112,7 +113,6 @@ export default function Paso01Deportistas({
   onPreviewChange,
   onBack,
 }: Paso01DeportistasProps) {
-  const evento = aval.evento;
   const { user } = useAuth();
   const [fechaEmision, setFechaEmision] = useState(
     formData.fechaEmision || getTodayDateInputValue(),
@@ -177,11 +177,11 @@ export default function Paso01Deportistas({
   const [error, setError] = useState<string | null>(null);
   const autoSelectEntrenadorRef = useRef(false);
 
+  const cupos = getAvalCupos(aval);
   const totalDeportistasRequeridos =
-    (evento.numAtletasHombres ?? 0) + (evento.numAtletasMujeres ?? 0);
+    cupos.numAtletasHombres + cupos.numAtletasMujeres;
   const totalEntrenadoresRequeridos =
-    (evento.numEntrenadoresHombres ?? 0) +
-    (evento.numEntrenadoresMujeres ?? 0);
+    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
   const trimmedSearchDeportistas = searchDeportistas.trim();
   const canSearchDeportistas =

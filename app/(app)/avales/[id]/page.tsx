@@ -65,6 +65,7 @@ import {
   getCalendarDayDiff,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
+import { getAvalCupos, getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
@@ -999,20 +1000,15 @@ export default function AvalDetailPage() {
     }
   };
 
-  const totalAtletas = evento
-    ? (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0)
-    : 0;
-  const totalEntrenadores = evento
-    ? (evento.numEntrenadoresHombres || 0) +
-      (evento.numEntrenadoresMujeres || 0)
-    : 0;
+  const cupos = getAvalCupos(aval);
+  const totalEntrenadores =
+    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
 
-  const totalPresupuesto = evento
-    ? evento.presupuesto.reduce((sum, item) => {
-        const valor = parseFloat(item.presupuesto) || 0;
-        return sum + valor;
-      }, 0)
-    : 0;
+  const presupuestoItems = getAvalPresupuestoItems(aval);
+  const totalPresupuesto = presupuestoItems.reduce((sum, item) => {
+    const valor = parseFloat(item.presupuesto) || 0;
+    return sum + valor;
+  }, 0);
 
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
   const solicitudAvalUrl =
@@ -1580,7 +1576,7 @@ export default function AvalDetailPage() {
                 }
               >
                 <AvalPresupuestoSection
-                  presupuesto={evento!.presupuesto}
+                  presupuesto={presupuestoItems}
                   totalPresupuesto={totalPresupuesto}
                 />
               </CollapsibleSection>

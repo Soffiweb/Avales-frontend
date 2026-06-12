@@ -19,6 +19,14 @@ export const eventoItemSchema = z.object({
   montoEjecutado: z.number().min(0).optional(),
 });
 
+export const formaParticipacionSchema = z.object({
+  tipoAval: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"]),
+  numEntrenadoresHombres: z.number().int().min(0),
+  numEntrenadoresMujeres: z.number().int().min(0),
+  numAtletasHombres: z.number().int().min(0),
+  numAtletasMujeres: z.number().int().min(0),
+});
+
 const optionalDateSchema = z.string().optional().or(z.literal(""));
 
 export const eventoSchema = z.object({
@@ -88,6 +96,10 @@ export const eventoSchema = z.object({
   numAtletasHombres: z.number().int().min(0, "Numero de atletas hombres invalido"),
   numAtletasMujeres: z.number().int().min(0, "Numero de atletas mujeres invalido"),
   eventoItems: z.array(eventoItemSchema).optional(),
+  formasParticipacion: z
+    .array(formaParticipacionSchema)
+    .max(3, "Máximo 3 formas de participación")
+    .optional(),
 }).superRefine((values, ctx) => {
   const hasInicio = Boolean(values.fechaInicio && values.fechaInicio.trim());
   const hasFin = Boolean(values.fechaFin && values.fechaFin.trim());
@@ -106,6 +118,15 @@ export const eventoSchema = z.object({
       message,
     });
   }
+
+  const tipos = (values.formasParticipacion ?? []).map((f) => f.tipoAval);
+  if (new Set(tipos).size !== tipos.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["formasParticipacion"],
+      message: "No puede repetirse el mismo tipo de aval.",
+    });
+  }
 });
 
 export type EventoFormValues = z.input<typeof eventoSchema>;
@@ -119,6 +140,15 @@ export type EventoItemPayload = {
   montoEjecutado?: number;
 };
 
+export type FormaParticipacionPayload = {
+  tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO";
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+};
+
 export type CreateEventoPayload = Omit<CreateEventoPayloadType, "eventoItems"> & {
   eventoItems?: EventoItemPayload[];
+  formasParticipacion?: FormaParticipacionPayload[];
 };

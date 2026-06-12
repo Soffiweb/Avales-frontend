@@ -1,6 +1,9 @@
 const DEFAULT_LOCALE = "es-EC";
 const DEFAULT_TIME_ZONE = "America/Guayaquil";
+const DEFAULT_UTC_OFFSET = "-05:00";
 const PLAIN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const LOCAL_DATETIME_RE =
+  /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(\.\d+)?$/;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const MONTHS = [
   "Enero",
@@ -42,6 +45,19 @@ function buildDateInputValue(parts: CalendarDateParts) {
   return `${parts.year}-${padDateSegment(parts.month)}-${padDateSegment(parts.day)}`;
 }
 
+function normalizeDateString(value: string) {
+  if (PLAIN_DATE_RE.test(value)) {
+    return `${value}T00:00:00${DEFAULT_UTC_OFFSET}`;
+  }
+
+  const localDateTimeMatch = value.match(LOCAL_DATETIME_RE);
+  if (localDateTimeMatch) {
+    return `${localDateTimeMatch[1]}T${localDateTimeMatch[2]}${DEFAULT_UTC_OFFSET}`;
+  }
+
+  return value;
+}
+
 export function isPlainDateString(value?: string | null) {
   return Boolean(value && PLAIN_DATE_RE.test(value));
 }
@@ -56,7 +72,7 @@ export function getCalendarDateParts(
     return { year, month, day };
   }
 
-  const date = new Date(value);
+  const date = new Date(normalizeDateString(value));
   if (Number.isNaN(date.getTime())) return null;
 
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -104,9 +120,7 @@ export function formatDateInputFromDate(date: Date): string {
 
 function parseDate(value?: string | null) {
   if (!value) return null;
-  const date = PLAIN_DATE_RE.test(value)
-    ? new Date(`${value}T00:00:00-05:00`)
-    : new Date(value);
+  const date = new Date(normalizeDateString(value));
   if (Number.isNaN(date.getTime())) return null;
   return date;
 }

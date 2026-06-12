@@ -168,6 +168,11 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
         href: "/catalogos/disciplinas",
         segment: "disciplinas",
       },
+      {
+        label: "Comentarios Hoja de Ruta",
+        href: "/catalogos/comentarios-hoja-ruta",
+        segment: "comentarios-hoja-ruta",
+      },
     ],
   },
 ];

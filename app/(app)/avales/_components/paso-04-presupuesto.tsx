@@ -20,6 +20,7 @@ import {
 } from "@/lib/api/avales";
 import { updateEvento } from "@/lib/api/eventos";
 import { getTipoAvalLabel } from "@/lib/constants";
+import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type {
   Aval,
@@ -188,7 +189,7 @@ export default function Paso04Presupuesto({
         ? "AUTOGESTION"
         : null;
 
-  const presupuestoItems = (aval.evento?.presupuesto ?? []).filter(
+  const presupuestoItems = getAvalPresupuestoItems(aval).filter(
     (item) => !presupuestoFuente || item.fuente === presupuestoFuente,
   );
 

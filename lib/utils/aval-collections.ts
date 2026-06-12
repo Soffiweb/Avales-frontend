@@ -1,4 +1,4 @@
-import type { Aval, TipoAval } from "@/types/aval";
+import type { Aval, PresupuestoItem, TipoAval } from "@/types/aval";
 
 export function isAvalCollectionEditableRequest(aval: Aval) {
   return (
@@ -50,6 +50,35 @@ export function getAvalBudgetBySource(aval: Aval) {
     disponible: aval.presupuesto?.disponible ?? 0,
     solicitado: aval.montoSolicitado ?? 0,
   };
+}
+
+function getFormaParticipacionActual(aval: Aval) {
+  const forma = aval.evento.formaParticipacionActual;
+  if (!forma || forma.tipoAval !== aval.tipoAval) return null;
+
+  const tieneCupos =
+    forma.numAtletasHombres > 0 ||
+    forma.numAtletasMujeres > 0 ||
+    forma.numEntrenadoresHombres > 0 ||
+    forma.numEntrenadoresMujeres > 0;
+
+  return tieneCupos ? forma : null;
+}
+
+export function getAvalCupos(aval: Aval) {
+  const forma = getFormaParticipacionActual(aval);
+  const source = forma ?? aval.evento;
+  return {
+    numEntrenadoresHombres: source.numEntrenadoresHombres,
+    numEntrenadoresMujeres: source.numEntrenadoresMujeres,
+    numAtletasHombres: source.numAtletasHombres,
+    numAtletasMujeres: source.numAtletasMujeres,
+  };
+}
+
+export function getAvalPresupuestoItems(aval: Aval): PresupuestoItem[] {
+  const forma = getFormaParticipacionActual(aval);
+  return forma ? forma.items : aval.evento.presupuesto;
 }
 
 export function canCreateCollectionByType(

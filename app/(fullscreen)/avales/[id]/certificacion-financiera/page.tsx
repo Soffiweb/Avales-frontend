@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval, updateNumeracion } from "@/lib/api/avales";
+import { aprobarAval } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
@@ -19,9 +19,10 @@ import { getApprovalFlowStages } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
-import { getDirigido } from "@/lib/api/user";
+import { listUsers } from "@/lib/api/user";
 import {
   formatEventScheduleSentence,
+  formatRole,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
@@ -66,9 +67,11 @@ function joinWithCommaAndY(items: string[]) {
 
 function toInputDate(value?: string | null) {
   if (!value) return "";
+  const isoMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export default function CertificacionFinancieraPage() {
@@ -91,8 +94,6 @@ export default function CertificacionFinancieraPage() {
   const {
     authLoading,
     hasRequiredRole: hasFinancialAccess,
-    defaultSignerName,
-    defaultSignerCargo,
     aval,
     loading,
     error,
@@ -119,27 +120,6 @@ export default function CertificacionFinancieraPage() {
       getApprovalFlowStages(currentAval).includes("FINANCIERO"),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
-        const numeracionPayload: {
-          periodoComision?: string;
-          periodoComisionFin?: string;
-        } = {};
-        if (draft.periodoComision.trim())
-          numeracionPayload.periodoComision = draft.periodoComision.trim();
-        if (draft.periodoComisionFin.trim())
-          numeracionPayload.periodoComisionFin =
-            draft.periodoComisionFin.trim();
-        if (
-          numeracionPayload.periodoComision ||
-          numeracionPayload.periodoComisionFin
-        ) {
-          await updateNumeracion(a.id, numeracionPayload);
-        }
-
-        // En modo admin sobre etapa pasada: solo persistimos numeración (los
-        // notas se usan en el PDF y no se guardan a DB, asi que no hay nada
-        // mas que hacer aqui).
-        if (adminSaveOnly) return;
-
         const notasPayload = draft.notas
           .map((texto, index) => ({
             titulo: `NOTA ${index + 1}`,
@@ -159,9 +139,9 @@ export default function CertificacionFinancieraPage() {
           userId,
           approvalEtapa,
           draft,
-          numeracionPayload,
           notasPayload,
           notasSinCambios,
+          adminSaveOnly,
         });
 
         await aprobarAval(
@@ -170,10 +150,23 @@ export default function CertificacionFinancieraPage() {
           approvalEtapa,
           undefined,
           undefined,
-          notasSinCambios ? { notas: [] } : { notas: notasPayload },
+          {
+            notas: notasSinCambios ? [] : notasPayload,
+            nombreFirmante: draft.firmanteNombre.trim() || undefined,
+            cargoFirmante: draft.firmanteCargo.trim() || undefined,
+          },
+          undefined,
+          draft.periodoComision.trim() || undefined,
+          draft.periodoComisionFin.trim() || undefined,
         );
       },
-      [draft.notas, draft.periodoComision, draft.periodoComisionFin],
+      [
+        draft.notas,
+        draft.periodoComision,
+        draft.periodoComisionFin,
+        draft.firmanteNombre,
+        draft.firmanteCargo,
+      ],
     ),
     approveSuccessMessage: "Certificación financiera aprobada correctamente.",
   });
@@ -194,6 +187,7 @@ export default function CertificacionFinancieraPage() {
       cargoFirmante: pda.cargoFirmante ?? "",
     };
   }, [aval]);
+  const financieroRecord = aval?.financiero?.[0] ?? null;
 
   // Reset local state on aval navigation
   useEffect(() => {
@@ -208,25 +202,15 @@ export default function CertificacionFinancieraPage() {
 
     async function loadFixedSigner() {
       try {
-        const res = await getDirigido("FINANCIERO");
+        const res = await listUsers({ role: "FINANCIERO", limit: 1 });
         if (cancelled) return;
-        const signer = res.data;
-        const nombre = [signer.nombre, signer.apellido].filter(Boolean).join(" ").trim();
-        const cargo = signer.cargo?.trim() || "";
-
-        setFixedSigner({ nombre, cargo });
-        setDraft((prev) => ({
-          ...prev,
-          firmanteNombre: nombre || prev.firmanteNombre || defaultSignerName,
-          firmanteCargo: cargo || prev.firmanteCargo || defaultSignerCargo,
-        }));
+        const signer = res.data?.[0];
+        const nombre = signer
+          ? [signer.nombre, signer.apellido].filter(Boolean).join(" ").trim()
+          : "";
+        setFixedSigner({ nombre, cargo: formatRole("FINANCIERO") });
       } catch {
         if (cancelled) return;
-        setDraft((prev) => ({
-          ...prev,
-          firmanteNombre: prev.firmanteNombre || defaultSignerName,
-          firmanteCargo: prev.firmanteCargo || defaultSignerCargo,
-        }));
       }
     }
 
@@ -235,7 +219,7 @@ export default function CertificacionFinancieraPage() {
     return () => {
       cancelled = true;
     };
-  }, [avalId, defaultSignerName, defaultSignerCargo]);
+  }, [avalId]);
 
   const defaultDescripcionCertificacion = useMemo(() => {
     if (!aval) return "";
@@ -283,6 +267,42 @@ export default function CertificacionFinancieraPage() {
       return { ...prev, periodoComision: defaultPeriodoComision };
     });
   }, [defaultPeriodoComision]);
+
+  useEffect(() => {
+    if (!aval) return;
+    setDraft((prev) => ({
+      ...prev,
+      descripcionCertificacion:
+        financieroRecord?.descripcion?.trim() ||
+        prev.descripcionCertificacion ||
+        defaultDescripcionCertificacion,
+      periodoComision:
+        financieroRecord?.periodoComision?.trim() ||
+        prev.periodoComision ||
+        defaultPeriodoComision,
+      periodoComisionFin:
+        financieroRecord?.periodoComisionFin?.trim() || prev.periodoComisionFin,
+      fechaEmision:
+        toInputDate(financieroRecord?.fechaSalida) ||
+        toInputDate(aval.avalTecnico?.fechaHoraSalida) ||
+        prev.fechaEmision,
+      firmanteNombre:
+        financieroRecord?.nombreFirmante?.trim() ||
+        prev.firmanteNombre ||
+        fixedSigner.nombre,
+      firmanteCargo:
+        financieroRecord?.cargoFirmante?.trim() ||
+        prev.firmanteCargo ||
+        fixedSigner.cargo,
+    }));
+  }, [
+    aval,
+    financieroRecord,
+    defaultDescripcionCertificacion,
+    defaultPeriodoComision,
+    fixedSigner.cargo,
+    fixedSigner.nombre,
+  ]);
 
   // Initialize notes once aval loads
   useEffect(() => {
@@ -504,12 +524,8 @@ export default function CertificacionFinancieraPage() {
                     type="date"
                     className="form-input w-full mt-1"
                     value={draft.fechaEmision}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        fechaEmision: e.target.value,
-                      }))
-                    }
+                    disabled
+                    readOnly
                   />
                 </label>
               </div>
@@ -575,8 +591,8 @@ export default function CertificacionFinancieraPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                approveVisible={approveAction?.visible ?? true}
-                approveEnabled={approveAction?.enabled ?? true}
+                approveVisible={adminSaveOnly ? true : approveAction?.visible ?? true}
+                approveEnabled={adminSaveOnly ? true : approveAction?.enabled ?? true}
                 rejectVisible={rejectAction?.visible ?? true}
                 rejectEnabled={rejectAction?.enabled ?? true}
                 adminSaveOnly={adminSaveOnly}

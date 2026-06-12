@@ -10,6 +10,7 @@ import {
   formatTransport,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
+import { getAvalCupos } from "@/lib/utils/aval-collections";
 
 type FormData = {
   deportistas: Array<{
@@ -82,6 +83,7 @@ export default function AvalDocumentPreview({
   mode = "all",
 }: AvalDocumentPreviewProps) {
   const evento = aval.evento;
+  const cupos = getAvalCupos(aval);
   const presupuestoItems = evento?.presupuesto ?? [];
   const entrenadorResponsable = formData.entrenadores[0]?.nombre ?? "POR DEFINIR";
   const entrenadores = formData.entrenadores
@@ -462,22 +464,22 @@ export default function AvalDocumentPreview({
               <tbody>
                 <tr>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {evento.numEntrenadoresHombres || 0}
+                    {cupos.numEntrenadoresHombres || 0}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {evento.numEntrenadoresMujeres || 0}
+                    {cupos.numEntrenadoresMujeres || 0}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {evento.numAtletasHombres || 0}
+                    {cupos.numAtletasHombres || 0}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {evento.numAtletasMujeres || 0}
+                    {cupos.numAtletasMujeres || 0}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {(evento.numEntrenadoresHombres || 0) +
-                      (evento.numEntrenadoresMujeres || 0) +
-                      (evento.numAtletasHombres || 0) +
-                      (evento.numAtletasMujeres || 0)}
+                    {(cupos.numEntrenadoresHombres || 0) +
+                      (cupos.numEntrenadoresMujeres || 0) +
+                      (cupos.numAtletasHombres || 0) +
+                      (cupos.numAtletasMujeres || 0)}
                   </td>
                 </tr>
               </tbody>

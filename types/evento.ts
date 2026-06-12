@@ -1,5 +1,6 @@
 import type { CatalogItem } from "@/types/catalog";
 import type { EventoTipoParticipacion } from "@/lib/constants";
+import type { TipoAval } from "@/types/aval";
 
 export type EventoGenero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
 export type EventoEstado = "DISPONIBLE" | "SOLICITADO" | "RECHAZADO" | "ACEPTADO";
@@ -56,6 +57,15 @@ export type PresupuestoFuente = {
   montoEjecutado: string;
 };
 
+export type FormaParticipacionCupos = {
+  id: number;
+  tipoAval: TipoAval;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+};
+
 export type Evento = {
   id: number;
   codigo: string;
@@ -89,6 +99,7 @@ export type Evento = {
   categoriaId?: number | null;
   categoriaCodigo?: string | null;
   eventoItems?: EventoItem[];
+  formasParticipacion?: FormaParticipacionCupos[];
   presupuestosFuente?: PresupuestoFuente[];
   eventoIncompleto?: boolean;
   missingFields?: EventoMissingField[];

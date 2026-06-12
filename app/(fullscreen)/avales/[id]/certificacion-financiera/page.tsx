@@ -43,7 +43,7 @@ const INITIAL_DRAFT: FinancieroDraft = {
   periodoComisionFin: "",
   firmanteNombre: "",
   firmanteCargo: "",
-  fechaEmision: new Date().toISOString().slice(0, 10),
+  fechaEmision: "",
   notas: ["", "", ""],
 };
 
@@ -248,6 +248,13 @@ export default function CertificacionFinancieraPage() {
     return toInputDate(aval?.avalTecnico?.fechaHoraSalida);
   }, [aval]);
 
+  const defaultFechaSalida = useMemo(() => {
+    return (
+      toInputDate(aval?.evento?.fechaInicio) ||
+      toInputDate(aval?.avalTecnico?.fechaHoraSalida)
+    );
+  }, [aval]);
+
   // Populate description from aval once available
   useEffect(() => {
     if (!defaultDescripcionCertificacion) return;
@@ -284,7 +291,7 @@ export default function CertificacionFinancieraPage() {
         financieroRecord?.periodoComisionFin?.trim() || prev.periodoComisionFin,
       fechaEmision:
         toInputDate(financieroRecord?.fechaSalida) ||
-        toInputDate(aval.avalTecnico?.fechaHoraSalida) ||
+        defaultFechaSalida ||
         prev.fechaEmision,
       firmanteNombre:
         financieroRecord?.nombreFirmante?.trim() ||
@@ -299,6 +306,7 @@ export default function CertificacionFinancieraPage() {
     aval,
     financieroRecord,
     defaultDescripcionCertificacion,
+    defaultFechaSalida,
     defaultPeriodoComision,
     fixedSigner.cargo,
     fixedSigner.nombre,
@@ -591,8 +599,12 @@ export default function CertificacionFinancieraPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                approveVisible={adminSaveOnly ? true : approveAction?.visible ?? true}
-                approveEnabled={adminSaveOnly ? true : approveAction?.enabled ?? true}
+                approveVisible={
+                  adminSaveOnly ? true : (approveAction?.visible ?? true)
+                }
+                approveEnabled={
+                  adminSaveOnly ? true : (approveAction?.enabled ?? true)
+                }
                 rejectVisible={rejectAction?.visible ?? true}
                 rejectEnabled={rejectAction?.enabled ?? true}
                 adminSaveOnly={adminSaveOnly}
@@ -651,7 +663,7 @@ function buildDefaultNotas(aval: Aval) {
 Razon Social: Federacion Deportiva Provincial de Loja
 RUC: 1191708241001
 Direccion: Macara entre Mercadillo y Azuay
-Telefono: 72570734`;
+Telefono: 0999819109`;
 
   const nota3 =
     "El informe de gastos, se entregara como maximo 72 horas culminada la competencia";

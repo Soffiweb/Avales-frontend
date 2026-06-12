@@ -130,7 +130,7 @@ export default function RevisionMetodologoPreview({
   header,
   footer,
   useDefaultObservations = true,
-  detailColumnLabel = "OBSERVACIONES",
+  detailColumnLabel = "DATOS INFORMATIVOS",
 }: Props) {
   const defaults = buildDefaultObservations(aval);
   const descripcion = buildDefaultDescripcion(aval, header);

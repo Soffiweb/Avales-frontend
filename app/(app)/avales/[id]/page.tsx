@@ -1774,6 +1774,10 @@ export default function AvalDetailPage() {
             convocatoria: aval.convocatoriaUrl,
             certificadoMedico: aval.certificadoMedicoUrl,
             pronosticoDeportistas: aval.pronosticoDeportistasUrl,
+            // La hoja de ruta no tiene URL persistida — se genera
+            // on-demand desde el endpoint. Pasamos un sentinel truthy
+            // para que el composer la trate como disponible siempre.
+            hojaRuta: "on-demand",
           }}
           onClose={() => setComposerOpen(false)}
         />

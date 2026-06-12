@@ -30,6 +30,7 @@ const DOC_ORDER: ComposableDocumentKey[] = [
   "revisionDtm",
   "presupuestoSalida",
   "certificacionPresupuestaria",
+  "hojaRuta",
 ];
 
 export default function AvalPdfComposerModal({

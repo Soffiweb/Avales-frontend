@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BookOpenText, GraduationCap } from "lucide-react";
+import { BookOpenText, FileText, GraduationCap } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import { getCategorias } from "@/lib/api/categorias";
@@ -83,7 +83,8 @@ export default function CatalogosPage() {
           Catálogos
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Gestiona categorías y disciplinas disponibles en el sistema.
+          Gestiona categorías, disciplinas y textos por defecto de los
+          documentos del aval.
         </p>
       </div>
 
@@ -107,7 +108,7 @@ export default function CatalogosPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/catalogos/categorias"
             className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm hover:border-violet-300 dark:hover:border-violet-700 transition"
@@ -137,6 +138,24 @@ export default function CatalogosPage() {
                 </h2>
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                   {summary.disciplinas.length} disciplinas disponibles.
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/catalogos/comentarios-hoja-ruta"
+            className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm hover:border-violet-300 dark:hover:border-violet-700 transition"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <FileText className="w-10 h-10 text-violet-600 dark:text-violet-400" />
+                <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Comentarios Hoja de Ruta
+                </h2>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Textos por defecto que aparecen en la trazabilidad del
+                  aval, por etapa.
                 </p>
               </div>
             </div>

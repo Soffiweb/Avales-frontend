@@ -16,7 +16,8 @@ export type ComposableDocumentKey =
   | "escuelaIniciacion"
   | "convocatoria"
   | "certificadoMedico"
-  | "pronosticoDeportistas";
+  | "pronosticoDeportistas"
+  | "hojaRuta";
 
 export const DOCUMENT_LABELS: Record<ComposableDocumentKey, string> = {
   avalTecnico: "Aval técnico",
@@ -29,6 +30,7 @@ export const DOCUMENT_LABELS: Record<ComposableDocumentKey, string> = {
   convocatoria: "Convocatoria",
   certificadoMedico: "Certificado médico",
   pronosticoDeportistas: "Pronóstico deportistas",
+  hojaRuta: "Hoja de ruta",
 };
 
 /**
@@ -50,6 +52,7 @@ export const PREVIEW_ENDPOINTS: Record<
   convocatoria: null,
   certificadoMedico: null,
   pronosticoDeportistas: null,
+  hojaRuta: "/hoja-ruta-pdf",
 };
 
 async function buildAuthHeader(): Promise<Record<string, string>> {

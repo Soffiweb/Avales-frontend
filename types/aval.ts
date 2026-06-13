@@ -44,6 +44,7 @@ export type ActividadSimple = {
 export type PdaItemDia = {
   id?: number;
   numeroDia: number;
+  nombrePersonalizado?: string | null;
   cantidad: number;
   valorUnitario: number;
 };
@@ -315,6 +316,7 @@ export type Aval = {
     items?: Array<{
       id?: number;
       itemId: number;
+      nombrePersonalizado?: string | null;
       presupuesto: number;
       dias: PdaItemDia[];
     }> | null;

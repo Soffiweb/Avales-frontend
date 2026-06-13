@@ -61,6 +61,7 @@ function formatEventDateRangeDoc(
 
 export type PresupuestoSalidaPreviewDia = {
   numeroDia: number;
+  nombrePersonalizado?: string;
   cantidad: number;
   valorUnitario: number;
 };
@@ -71,6 +72,26 @@ export type PresupuestoSalidaPreviewItem = {
   total?: number;
   dias?: PresupuestoSalidaPreviewDia[];
 };
+
+function sanitizePreviewDias(
+  dias?: PresupuestoSalidaPreviewDia[],
+): PresupuestoSalidaPreviewDia[] {
+  const validDias = (dias ?? []).filter(
+    (dia) =>
+      Number.isFinite(dia.cantidad) &&
+      dia.cantidad > 0 &&
+      Number.isFinite(dia.valorUnitario) &&
+      dia.valorUnitario > 0,
+  );
+
+  if (validDias.length === 0) return [];
+  return validDias.map((dia, index) => ({
+    numeroDia: index + 1,
+    nombrePersonalizado: dia.nombrePersonalizado,
+    cantidad: dia.cantidad,
+    valorUnitario: dia.valorUnitario,
+  }));
+}
 
 type Props = {
   aval: Aval;
@@ -129,18 +150,24 @@ export default function PresupuestoSalidaAnticipoPreview({
       id: item.id,
       nombre: item.nombre,
       total: item.total,
-      dias: item.dias,
+      dias: sanitizePreviewDias(item.dias),
     })) ??
     (aval.pda?.items?.length
       ? aval.pda.items.map((item) => ({
           id: item.id ?? item.itemId,
-          nombre: presupuestoLookup.get(item.itemId) ?? `Item ${item.itemId}`,
+          nombre:
+            item.nombrePersonalizado?.trim() ||
+            presupuestoLookup.get(item.itemId) ||
+            `Item ${item.itemId}`,
           total: item.presupuesto,
-          dias: item.dias?.map((dia) => ({
-            numeroDia: dia.numeroDia,
-            cantidad: dia.cantidad,
-            valorUnitario: dia.valorUnitario,
-          })),
+          dias: sanitizePreviewDias(
+            item.dias?.map((dia) => ({
+              numeroDia: dia.numeroDia,
+              nombrePersonalizado: dia.nombrePersonalizado,
+              cantidad: dia.cantidad,
+              valorUnitario: dia.valorUnitario,
+            })),
+          ),
         }))
       : (evento?.presupuesto ?? []).map((item) => ({
           id: item.id,
@@ -261,8 +288,7 @@ export default function PresupuestoSalidaAnticipoPreview({
               <th className="border border-slate-400 px-2 py-1">Concepto</th>
               {hasDiaBreakdown ? (
                 <>
-                  <th className="border border-slate-400 px-2 py-1">Dia</th>
-                  <th className="border border-slate-400 px-2 py-1">Cantidad</th>
+                  <th className="border border-slate-400 px-2 py-1">No. dias</th>
                   <th className="border border-slate-400 px-2 py-1">Valor unitario</th>
                 </>
               ) : null}
@@ -295,7 +321,6 @@ export default function PresupuestoSalidaAnticipoPreview({
                   <tr key={item.id}>
                     <td className="border border-slate-400 px-2 py-1">{item.nombre}</td>
                     <td className="border border-slate-400 px-2 py-1 text-center">-</td>
-                    <td className="border border-slate-400 px-2 py-1 text-center">-</td>
                     <td className="border border-slate-400 px-2 py-1 text-right">-</td>
                     <td className="border border-slate-400 px-2 py-1 text-right">
                       {formatDecimal(item.total ?? 0)}
@@ -309,10 +334,7 @@ export default function PresupuestoSalidaAnticipoPreview({
                 return (
                   <tr key={`${item.id}-${dia.numeroDia}`}>
                     <td className="border border-slate-400 px-2 py-1">
-                      {item.nombre}
-                    </td>
-                    <td className="border border-slate-400 px-2 py-1 text-center">
-                      {dia.numeroDia}
+                      {dia.nombrePersonalizado?.trim() || item.nombre}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 text-center">
                       {formatCantidad(dia.cantidad)}
@@ -330,7 +352,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             <tr>
               <td
                 className="border border-slate-400 px-2 py-1 font-semibold text-right"
-                colSpan={hasDiaBreakdown ? 4 : 1}
+                colSpan={hasDiaBreakdown ? 3 : 1}
               >
                 TOTAL
               </td>

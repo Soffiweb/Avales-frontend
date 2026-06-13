@@ -19,12 +19,20 @@ export type PdaDraft = {
   periodoComisionFin?: string;
 };
 
+type PdaPreviewItem = {
+  id: number;
+  codigo?: number;
+  nombre: string;
+  total: number;
+};
+
 type Props = {
   aval: Aval;
   draft: PdaDraft;
+  items?: PdaPreviewItem[];
 };
 
-export default function PdaPreview({ aval, draft }: Props) {
+export default function PdaPreview({ aval, draft, items }: Props) {
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
   const fondosLabel =
@@ -33,11 +41,43 @@ export default function PdaPreview({ aval, draft }: Props) {
     (evento?.numEntrenadoresHombres ?? 0) + (evento?.numEntrenadoresMujeres ?? 0);
   const participantesDeportistas =
     (evento?.numAtletasHombres ?? 0) + (evento?.numAtletasMujeres ?? 0);
-  const presupuestoItems = evento?.presupuesto ?? [];
-  const total = presupuestoItems.reduce((acc, item) => {
-    const value = Number.parseFloat(item.presupuesto);
-    return acc + (Number.isNaN(value) ? 0 : value);
-  }, 0);
+  const presupuestoItems =
+    items ??
+    (aval.pda?.items?.flatMap((pdaItem) => {
+      const baseNombre =
+        pdaItem.nombrePersonalizado?.trim() ||
+        evento?.presupuesto.find((item) => item.item.id === pdaItem.itemId)?.item
+          ?.nombre ||
+        `Item ${pdaItem.itemId}`;
+      const codigo = evento?.presupuesto.find(
+        (item) => item.item.id === pdaItem.itemId,
+      )?.item?.numero;
+
+      if (!pdaItem.dias?.length) {
+        return [
+          {
+            id: pdaItem.id ?? pdaItem.itemId,
+            codigo,
+            nombre: baseNombre,
+            total: pdaItem.presupuesto,
+          },
+        ];
+      }
+
+      return pdaItem.dias.map((dia) => ({
+        id: dia.id ?? Number(`${pdaItem.itemId}${dia.numeroDia}`),
+        codigo,
+        nombre: dia.nombrePersonalizado?.trim() || baseNombre,
+        total: dia.cantidad * dia.valorUnitario,
+      }));
+    }) ??
+      (evento?.presupuesto ?? []).map((item) => ({
+        id: item.id,
+        codigo: item.item?.numero,
+        nombre: item.item?.nombre || "-",
+        total: Number.parseFloat(item.presupuesto) || 0,
+      })));
+  const total = presupuestoItems.reduce((acc, item) => acc + item.total, 0);
 
   const participantesLabel = `ENTRENADOR ${participantesEntrenadores} - DEPORTISTAS ${participantesDeportistas}`;
 
@@ -163,10 +203,10 @@ export default function PdaPreview({ aval, draft }: Props) {
                   {draft.codigoActividad || "-"}
                 </td>
                 <td className="border border-slate-400 px-2 py-1">EVENTOS DE PREPARACION Y COMPETENCIA</td>
-                <td className="border border-slate-400 px-2 py-1">{item.item?.numero ?? "-"}</td>
-                <td className="border border-slate-400 px-2 py-1">{item.item?.nombre || "-"}</td>
+                <td className="border border-slate-400 px-2 py-1">{item.codigo ?? "-"}</td>
+                <td className="border border-slate-400 px-2 py-1">{item.nombre || "-"}</td>
                 <td className="border border-slate-400 px-2 py-1 text-right">
-                  {formatCurrencyFromString(item.presupuesto, { fallback: "$ 0,00" })}
+                  {formatCurrencyFromString(String(item.total), { fallback: "$ 0,00" })}
                 </td>
               </tr>
             ))

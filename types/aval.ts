@@ -95,6 +95,7 @@ export type EventoSimple = {
   archivo?: string;
   presupuesto: PresupuestoItem[];
   formaParticipacionActual?: FormaParticipacionResumen;
+  formasParticipacion?: FormaParticipacionResumen[];
   createdAt: string;
   updatedAt: string;
 };
@@ -188,15 +189,18 @@ export type EntrenadorAval = {
   nombre?: string;
   apellido?: string;
   cedula?: string;
+  genero?: string;
   entrenador?: {
     nombre?: string;
     apellido?: string;
     cedula?: string;
+    genero?: string;
   };
   usuario?: {
     nombre?: string;
     apellido?: string;
     cedula?: string;
+    genero?: string;
   };
 };
 
@@ -451,6 +455,7 @@ export type EditAvalPayload = Omit<CreateAvalPayload, "coleccionAvalId"> & {
 export type CreateColeccionAvalPayload = {
   eventoId: number;
   tipoAval: TipoAval;
+  formaParticipacionId?: number;
   montoSolicitado?: number;
 };
 

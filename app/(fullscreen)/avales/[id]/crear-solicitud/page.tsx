@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles } from "@/lib/auth/access";
@@ -53,7 +53,12 @@ type FormData = {
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
-  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
+  entrenadores: Array<{
+    id: number;
+    nombre: string;
+    esTextoLibre?: boolean;
+    genero?: string;
+  }>;
 
   // Paso 2: Logística
   fechaHoraSalida: string;
@@ -121,10 +126,7 @@ function getEntrenadorDisplayName(entrenador: EntrenadorAval) {
   );
 }
 
-function buildInitialFormData(
-  aval: Aval,
-  tipoAvalFromQuery?: TipoAval | null,
-): FormData {
+function buildInitialFormData(aval: Aval): FormData {
   const deportistas = (aval.avalTecnico?.deportistasAval ?? []).map((item, index) => ({
     id: getDeportistaFormId(item, index),
     deportistaExternoId: item.deportistaExternoId,
@@ -152,6 +154,11 @@ function buildInitialFormData(
     .map((item) => ({
       id: item.entrenadorId ?? item.id,
       nombre: getEntrenadorDisplayName(item),
+      genero:
+        item.genero ??
+        item.entrenador?.genero ??
+        item.usuario?.genero ??
+        undefined,
     }));
 
   return {
@@ -167,7 +174,7 @@ function buildInitialFormData(
     criterios: (aval.avalTecnico?.criterios ?? []).map((item) => item.descripcion),
     observaciones: aval.comentario ?? aval.avalTecnico?.observaciones ?? "",
     adjuntosSolicitud: [],
-    tipoAval: aval.tipoAval ?? tipoAvalFromQuery ?? undefined,
+    tipoAval: aval.tipoAval ?? undefined,
     requerimientos: aval.avalTecnico?.requerimientos ?? [],
     montoSolicitado: aval.montoSolicitado ?? undefined,
   };
@@ -176,7 +183,6 @@ function buildInitialFormData(
 export default function CrearSolicitudPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const avalId = Number(params.id);
 
   const { user } = useAuth();
@@ -200,10 +206,7 @@ export default function CrearSolicitudPage() {
       const response = await getAval(avalId);
       const avalData = response.data;
       setAval(avalData);
-      const initialFormData = buildInitialFormData(
-        avalData,
-        searchParams.get("tipoAval") as TipoAval | null,
-      );
+      const initialFormData = buildInitialFormData(avalData);
       setFormData(initialFormData);
       avalFlowDebugLog("crear-solicitud", "aval cargado para wizard", {
         avalId,
@@ -215,7 +218,7 @@ export default function CrearSolicitudPage() {
     } finally {
       setLoading(false);
     }
-  }, [avalId, searchParams]);
+  }, [avalId]);
 
   useEffect(() => {
     loadAval();

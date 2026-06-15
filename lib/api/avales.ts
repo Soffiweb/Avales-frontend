@@ -255,12 +255,14 @@ export async function downloadPdaPdf(id: number) {
 
 export type CreatePdaItemDiaPayload = {
   numeroDia: number;
+  nombrePersonalizado?: string;
   cantidad: number;
   valorUnitario: number;
 };
 
 export type CreatePdaItemPayload = {
   itemId: number;
+  nombrePersonalizado?: string;
   presupuesto: number;
   dias: CreatePdaItemDiaPayload[];
 };

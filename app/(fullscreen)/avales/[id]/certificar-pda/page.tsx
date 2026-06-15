@@ -56,6 +56,7 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
 
 type BudgetDraftDia = {
   numeroDia: number;
+  nombrePersonalizado?: string;
   cantidad?: number;
   valorUnitario?: number;
 };
@@ -64,11 +65,24 @@ type BudgetDraftItem = {
   id: number;
   itemId: number;
   codigo: number;
-  nombre: string;
+  nombreBase: string;
+  nombrePersonalizado: string;
   actividad: string;
   originalTotal: number;
+  usaDetallePorDia: boolean;
   dias: BudgetDraftDia[];
 };
+
+function resolveBudgetItemNombre(item: Pick<BudgetDraftItem, "nombreBase" | "nombrePersonalizado">) {
+  return item.nombrePersonalizado.trim() || item.nombreBase;
+}
+
+function resolveBudgetDiaNombre(
+  item: Pick<BudgetDraftItem, "nombreBase" | "nombrePersonalizado">,
+  dia: Pick<BudgetDraftDia, "nombrePersonalizado">,
+) {
+  return dia.nombrePersonalizado?.trim() || resolveBudgetItemNombre(item);
+}
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   const tecnico = aval.avalTecnico;
@@ -198,6 +212,90 @@ function getDraftItemTotal(item: BudgetDraftItem) {
   );
 }
 
+function createDefaultBudgetDia(
+  valorUnitario = 0,
+  nombrePersonalizado = "",
+): BudgetDraftDia {
+  return {
+    numeroDia: 1,
+    nombrePersonalizado,
+    cantidad: 1,
+    valorUnitario: roundCurrency(valorUnitario),
+  };
+}
+
+function normalizeVisibleBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
+  if (dias.length === 0) return [createDefaultBudgetDia()];
+  return dias.map((dia, index) => ({
+    ...dia,
+    numeroDia: index + 1,
+  }));
+}
+
+function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
+  const validDias = dias.filter(
+    (dia) =>
+      typeof dia.cantidad === "number" &&
+      Number.isFinite(dia.cantidad) &&
+      dia.cantidad > 0 &&
+      typeof dia.valorUnitario === "number" &&
+      Number.isFinite(dia.valorUnitario) &&
+      dia.valorUnitario > 0,
+  );
+
+  if (validDias.length === 1) {
+    const [dia] = validDias;
+    return [
+      {
+        numeroDia: 1,
+        nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
+        cantidad: dia.cantidad,
+        valorUnitario: roundCurrency(dia.valorUnitario),
+      },
+    ];
+  }
+
+  if (validDias.length > 1) {
+    return validDias.map((dia, index) => ({
+      numeroDia: index + 1,
+      nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
+      cantidad: dia.cantidad,
+      valorUnitario: roundCurrency(dia.valorUnitario),
+    }));
+  }
+
+  return [];
+}
+
+function collapseBudgetDias(
+  dias: BudgetDraftDia[],
+  fallbackValorUnitario = 0,
+  fallbackNombrePersonalizado = "",
+) {
+  const validDias = sanitizeBudgetDias(dias);
+  if (validDias.length === 0) {
+    return [
+      createDefaultBudgetDia(
+        fallbackValorUnitario,
+        fallbackNombrePersonalizado,
+      ),
+    ];
+  }
+  const cantidad = validDias.reduce((sum, dia) => sum + (dia.cantidad ?? 0), 0);
+  const total = validDias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0);
+
+  return [
+    {
+      numeroDia: 1,
+      nombrePersonalizado:
+        validDias[0]?.nombrePersonalizado?.trim() || fallbackNombrePersonalizado,
+      cantidad: cantidad || 1,
+      valorUnitario:
+        cantidad > 0 ? roundCurrency(total / cantidad) : validDias[0]?.valorUnitario ?? 0,
+    },
+  ];
+}
+
 function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   const requerimientos = aval.avalTecnico?.requerimientos ?? [];
   const fuenteObjetivo =
@@ -221,20 +319,32 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       const pdaItem = pdaItemsByCatalog.get(item.item.id);
 
       if (pdaItem && Array.isArray(pdaItem.dias) && pdaItem.dias.length > 0) {
+        const fallbackNombre =
+          pdaItem.nombrePersonalizado?.trim() || item.item.nombre;
+        const dias = sanitizeBudgetDias(
+          pdaItem.dias.map((dia) => ({
+            numeroDia: dia.numeroDia,
+            nombrePersonalizado:
+              dia.nombrePersonalizado?.trim() || fallbackNombre,
+            cantidad: Number(dia.cantidad ?? 0),
+            valorUnitario: roundCurrency(Number(dia.valorUnitario ?? 0)),
+          })),
+        );
         return {
           id: item.id,
           itemId: item.item.id,
           codigo: item.item.numero,
-          nombre: item.item.nombre,
+          nombreBase: item.item.nombre,
+          nombrePersonalizado: pdaItem.nombrePersonalizado?.trim() || item.item.nombre,
           actividad:
             item.item.actividad?.nombre ??
             "EVENTOS DE PREPARACION Y COMPETENCIA",
           originalTotal: totalOriginal,
-          dias: pdaItem.dias.map((dia) => ({
-            numeroDia: dia.numeroDia,
-            cantidad: Number(dia.cantidad ?? 0),
-            valorUnitario: roundCurrency(Number(dia.valorUnitario ?? 0)),
-          })),
+          usaDetallePorDia: dias.length > 1,
+          dias:
+            dias.length > 0
+              ? dias
+              : [createDefaultBudgetDia(totalOriginal, fallbackNombre)],
         };
       }
 
@@ -242,7 +352,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
         (c) => c.rubroId === item.item.id || c.rubroId === item.id,
       );
       const cantidadDias =
-        normalizePositiveNumber(requerimiento?.cantidadDias ?? "1") || 1;
+        normalizePositiveInteger(requerimiento?.cantidadDias ?? "1") || 1;
       const valorUnitario = roundCurrency(
         requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
           ? requerimiento.valorUnitario
@@ -252,11 +362,20 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
         id: item.id,
         itemId: item.item.id,
         codigo: item.item.numero,
-        nombre: item.item.nombre,
+        nombreBase: item.item.nombre,
+        nombrePersonalizado: item.item.nombre,
         actividad:
           item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
         originalTotal: totalOriginal,
-        dias: [{ numeroDia: 1, cantidad: 1, valorUnitario }],
+        usaDetallePorDia: false,
+        dias: [
+          {
+            numeroDia: 1,
+            nombrePersonalizado: item.item.nombre,
+            cantidad: cantidadDias,
+            valorUnitario,
+          },
+        ],
       };
     });
 }
@@ -349,8 +468,8 @@ export default function CertificarAvalPage() {
 
         const invalidItems = budgetDraftItems.filter(
           (item) =>
-            item.dias.length === 0 ||
-            item.dias.some(
+            sanitizeBudgetDias(item.dias).length === 0 ||
+            sanitizeBudgetDias(item.dias).some(
               (dia) =>
                 !dia.cantidad ||
                 !dia.valorUnitario ||
@@ -371,9 +490,26 @@ export default function CertificarAvalPage() {
         const items = budgetDraftItems
           .map((item) => ({
             itemId: item.itemId,
+            nombrePersonalizado:
+              item.nombrePersonalizado.trim() &&
+              item.nombrePersonalizado.trim() !== item.nombreBase
+                ? item.nombrePersonalizado.trim()
+                : undefined,
             presupuesto: getDraftItemTotal(item),
-            dias: item.dias.map((dia) => ({
+            dias: (item.usaDetallePorDia
+              ? sanitizeBudgetDias(item.dias)
+              : collapseBudgetDias(
+                  item.dias,
+                  item.originalTotal,
+                  resolveBudgetItemNombre(item),
+                )
+            ).map((dia) => ({
               numeroDia: dia.numeroDia,
+              nombrePersonalizado:
+                dia.nombrePersonalizado?.trim() &&
+                dia.nombrePersonalizado.trim() !== resolveBudgetItemNombre(item)
+                  ? dia.nombrePersonalizado.trim()
+                  : undefined,
               cantidad: dia.cantidad!,
               valorUnitario: dia.valorUnitario!,
             })),
@@ -487,9 +623,9 @@ export default function CertificarAvalPage() {
     () =>
       budgetDraftItems.map((item) => ({
         id: item.id,
-        nombre: item.nombre,
+        nombre: resolveBudgetItemNombre(item),
         total: getDraftItemTotal(item),
-        dias: item.dias
+        dias: sanitizeBudgetDias(item.dias)
           .filter(
             (
               dia,
@@ -503,6 +639,7 @@ export default function CertificarAvalPage() {
           )
           .map((dia) => ({
             numeroDia: dia.numeroDia,
+            nombrePersonalizado: dia.nombrePersonalizado?.trim() || undefined,
             cantidad: dia.cantidad,
             valorUnitario: dia.valorUnitario,
           })),
@@ -522,16 +659,17 @@ export default function CertificarAvalPage() {
           if (item.id !== itemId) return item;
           return {
             ...item,
-            dias: item.dias.map((dia) => {
-              if (dia.numeroDia !== numeroDia) return dia;
-              return {
-                ...dia,
-                [field]:
-                  field === "cantidad"
-                    ? normalizePositiveInteger(value)
-                    : normalizePositiveNumber(value),
-              };
-            }),
+            dias: normalizeVisibleBudgetDias(item.dias).map((dia) =>
+              dia.numeroDia === numeroDia
+                ? {
+                    ...dia,
+                    [field]:
+                      field === "cantidad"
+                        ? normalizePositiveInteger(value)
+                        : normalizePositiveNumber(value),
+                  }
+                : dia,
+            ),
           };
         }),
       );
@@ -539,16 +677,73 @@ export default function CertificarAvalPage() {
     [],
   );
 
+  const handleDiaNombreChange = useCallback(
+    (itemId: number, numeroDia: number, value: string) => {
+      setBudgetDraftItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          return {
+            ...item,
+            dias: normalizeVisibleBudgetDias(item.dias).map((dia) =>
+              dia.numeroDia === numeroDia
+                ? { ...dia, nombrePersonalizado: value }
+                : dia,
+            ),
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const handleNombrePersonalizadoChange = useCallback(
+    (itemId: number, value: string) => {
+      setBudgetDraftItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, nombrePersonalizado: value } : item,
+        ),
+      );
+    },
+    [],
+  );
+
+  const handleToggleDetallePorDia = useCallback((itemId: number) => {
+    setBudgetDraftItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+
+        const nextUsesBreakdown = !item.usaDetallePorDia;
+        return {
+          ...item,
+          usaDetallePorDia: nextUsesBreakdown,
+          dias: nextUsesBreakdown
+            ? normalizeVisibleBudgetDias(item.dias)
+            : collapseBudgetDias(
+                item.dias,
+                item.originalTotal,
+                resolveBudgetItemNombre(item),
+              ),
+        };
+      }),
+    );
+  }, []);
+
   const handleAddDia = useCallback((itemId: number) => {
     setBudgetDraftItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
-        const maxDia = Math.max(...item.dias.map((d) => d.numeroDia), 0);
+        const dias = normalizeVisibleBudgetDias(item.dias);
         return {
           ...item,
+          usaDetallePorDia: true,
           dias: [
-            ...item.dias,
-            { numeroDia: maxDia + 1, cantidad: 1, valorUnitario: 0 },
+            ...dias,
+            {
+              numeroDia: dias.length + 1,
+              nombrePersonalizado: resolveBudgetItemNombre(item),
+              cantidad: 1,
+              valorUnitario: dias[0]?.valorUnitario ?? 0,
+            },
           ],
         };
       }),
@@ -559,10 +754,26 @@ export default function CertificarAvalPage() {
     setBudgetDraftItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
-        if (item.dias.length <= 1) return item;
+
+        const dias = normalizeVisibleBudgetDias(item.dias).filter(
+          (dia) => dia.numeroDia !== numeroDia,
+        );
+
+        if (dias.length <= 1) {
+          return {
+            ...item,
+            usaDetallePorDia: false,
+            dias: collapseBudgetDias(
+              dias,
+              item.originalTotal,
+              resolveBudgetItemNombre(item),
+            ),
+          };
+        }
+
         return {
           ...item,
-          dias: item.dias.filter((dia) => dia.numeroDia !== numeroDia),
+          dias: dias.map((dia, index) => ({ ...dia, numeroDia: index + 1 })),
         };
       }),
     );
@@ -727,7 +938,7 @@ export default function CertificarAvalPage() {
                       Items del presupuesto
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Desglose por día del presupuesto por ítem.
+                      Usa una fila simple o desglosa varias cuando cambie el valor por día.
                     </p>
                   </div>
                   <div className="text-right">
@@ -774,6 +985,13 @@ export default function CertificarAvalPage() {
                         className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
                       >
                         {(() => {
+                          const visibleDias = item.usaDetallePorDia
+                            ? normalizeVisibleBudgetDias(item.dias)
+                            : collapseBudgetDias(
+                                item.dias,
+                                item.originalTotal,
+                                resolveBudgetItemNombre(item),
+                              );
                           const currentTotal = getDraftItemTotal(item);
                           const itemDifference = roundCurrency(
                             currentTotal - item.originalTotal,
@@ -784,11 +1002,48 @@ export default function CertificarAvalPage() {
                             <>
                         <div className="bg-gray-50 dark:bg-gray-800/60 px-4 py-3">
                           <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                            {item.codigo} - {item.nombre}
+                            {item.codigo} - {resolveBudgetItemNombre(item)}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {item.actividad}
                           </p>
+                          <div className="mt-3">
+                            <label className="block">
+                              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                Nombre personalizado
+                              </span>
+                              <input
+                                className="form-input mt-1 w-full"
+                                value={item.nombrePersonalizado}
+                                readOnly={!isEditable}
+                                disabled={!isEditable}
+                                onChange={(e) =>
+                                  handleNombrePersonalizadoChange(
+                                    item.id,
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder={item.nombreBase}
+                              />
+                            </label>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {item.usaDetallePorDia
+                                ? "Puedes agregar varias filas si el valor cambia entre dias."
+                                : "No. dias = total de dias del item."}
+                            </p>
+                            <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="form-checkbox"
+                                checked={item.usaDetallePorDia}
+                                disabled={!isEditable}
+                                onChange={() => handleToggleDetallePorDia(item.id)}
+                              />
+                              Usar varias filas
+                            </label>
+                          </div>
                           <div
                             className={`mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3 ${
                               itemMatches
@@ -814,11 +1069,13 @@ export default function CertificarAvalPage() {
                           <table className="w-full text-sm">
                             <thead className="bg-gray-100 dark:bg-gray-800">
                               <tr>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">
-                                  Día
-                                </th>
+                                {item.usaDetallePorDia && (
+                                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">
+                                    Nombre
+                                  </th>
+                                )}
                                 <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                  Cantidad
+                                  No. dias
                                 </th>
                                 <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
                                   V. Unitario
@@ -826,17 +1083,35 @@ export default function CertificarAvalPage() {
                                 <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
                                   Subtotal
                                 </th>
-                                <th className="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-300">
-                                  Acciones
-                                </th>
+                                {item.usaDetallePorDia && (
+                                  <th className="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-300">
+                                    Acciones
+                                  </th>
+                                )}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                              {item.dias.map((dia) => (
+                              {visibleDias.map((dia) => (
                                 <tr key={`${item.id}-${dia.numeroDia}`}>
-                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-                                    Día {dia.numeroDia}
-                                  </td>
+                                  {item.usaDetallePorDia && (
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="text"
+                                        className="form-input w-full"
+                                        value={dia.nombrePersonalizado || ""}
+                                        readOnly={!isEditable}
+                                        disabled={!isEditable}
+                                        onChange={(e) =>
+                                          handleDiaNombreChange(
+                                            item.id,
+                                            dia.numeroDia,
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder={resolveBudgetItemNombre(item)}
+                                      />
+                                    </td>
+                                  )}
                                   <td className="px-3 py-2 text-right">
                                     <input
                                       type="text"
@@ -883,22 +1158,21 @@ export default function CertificarAvalPage() {
                                   <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
                                     {formatCurrency(getDraftItemDiaTotal(dia))}
                                   </td>
-                                  <td className="px-3 py-2 text-center">
-                                    {isEditable && item.dias.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleRemoveDia(
-                                            item.id,
-                                            dia.numeroDia,
-                                          )
-                                        }
-                                        className="text-rose-500 hover:text-rose-600 text-lg"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </td>
+                                  {item.usaDetallePorDia && (
+                                    <td className="px-3 py-2 text-center">
+                                      {isEditable && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleRemoveDia(item.id, dia.numeroDia)
+                                          }
+                                          className="text-rose-500 hover:text-rose-600 text-lg"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </td>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>
@@ -906,14 +1180,14 @@ export default function CertificarAvalPage() {
                         </div>
 
                         <div className="bg-gray-50 dark:bg-gray-800/40 px-4 py-2 flex items-center justify-between">
-                          <div className="flex gap-2">
-                            {isEditable && (
+                          <div>
+                            {isEditable && item.usaDetallePorDia && (
                               <button
                                 type="button"
                                 onClick={() => handleAddDia(item.id)}
                                 className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
                               >
-                                + Agregar día
+                                + Agregar fila
                               </button>
                             )}
                           </div>

@@ -74,7 +74,13 @@ export type PresupuestoSalidaPreviewItem = {
 };
 
 function sanitizePreviewDias(
-  dias?: PresupuestoSalidaPreviewDia[],
+  dias?:
+    | PresupuestoSalidaPreviewDia[]
+    | Array<
+        Omit<PresupuestoSalidaPreviewDia, "nombrePersonalizado"> & {
+          nombrePersonalizado?: string | null;
+        }
+      >,
 ): PresupuestoSalidaPreviewDia[] {
   const validDias = (dias ?? []).filter(
     (dia) =>
@@ -87,7 +93,7 @@ function sanitizePreviewDias(
   if (validDias.length === 0) return [];
   return validDias.map((dia, index) => ({
     numeroDia: index + 1,
-    nombrePersonalizado: dia.nombrePersonalizado,
+    nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
     cantidad: dia.cantidad,
     valorUnitario: dia.valorUnitario,
   }));

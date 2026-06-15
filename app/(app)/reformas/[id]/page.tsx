@@ -31,6 +31,7 @@ import { canReviewReforms } from "@/lib/auth/access";
 import { formatCurrency, formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
 import { getTipoAvalLabel } from "@/lib/constants";
 import type { Evento, EventoItem } from "@/types/evento";
+import type { TipoAval } from "@/types/aval";
 import ReformReviewCard from "../_components/reform-review-card";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -159,6 +160,26 @@ type ProposedFormaParticipacion = {
 
 function getFormaBaseItemsMap(items: EventoItem[] = []) {
   return new Map(items.map((item) => [`${item.item.id}-${item.mes}`, item]));
+}
+
+function getBaseItemsForTipoAval(
+  evento: Evento | null,
+  tipoAval?: string,
+): EventoItem[] {
+  if (!evento || !tipoAval) return [];
+
+  const formaItems =
+    evento.formasParticipacion?.find((entry) => entry.tipoAval === tipoAval)
+      ?.items ?? [];
+  if (formaItems.length > 0) return formaItems;
+
+  if (tipoAval === "FONDOS_PUBLICOS" || tipoAval === "AUTOGESTION") {
+    return (evento.eventoItems ?? []).filter(
+      (item) => item.fuente === (tipoAval as TipoAval),
+    );
+  }
+
+  return [];
 }
 
 export default function ReformaDetailPage() {
@@ -292,9 +313,25 @@ export default function ReformaDetailPage() {
       }));
   }, [reform]);
 
+  const budgetReformFormas =
+    (reform?.cambiosPropuestos as Record<string, unknown>)?.formasParticipacion as
+      | Array<{ tipoAval?: string }>
+      | undefined;
+  const budgetReformTipoAval = budgetReformFormas?.[0]?.tipoAval ?? null;
+
   const itemComparisons = useMemo(() => {
     if (reform?.comparacion?.eventoItems?.length) {
       return reform.comparacion.eventoItems.filter(isChangedItem);
+    }
+
+    const comparisonFormaItems = (reform?.comparacion?.formasParticipacion ?? [])
+      .filter((forma) =>
+        budgetReformTipoAval ? forma.tipoAval === budgetReformTipoAval : true,
+      )
+      .flatMap((forma) => forma.items ?? [])
+      .filter(isChangedItem);
+    if (comparisonFormaItems.length > 0) {
+      return comparisonFormaItems;
     }
 
     const readableItems = reform?.cambiosPropuestosLegibles?.eventoItems ?? [];
@@ -319,11 +356,10 @@ export default function ReformaDetailPage() {
     const proposedFormas = rawFormas as ProposedFormaParticipacion[];
 
     return proposedFormas.flatMap((forma) => {
-      const baseForma = baseEvento.formasParticipacion?.find(
-        (entry) => entry.tipoAval === forma.tipoAval,
-      );
       const proposedItems = Array.isArray(forma.items) ? forma.items : [];
-      const baseItemsMap = getFormaBaseItemsMap(baseForma?.items ?? []);
+      const baseItemsMap = getFormaBaseItemsMap(
+        getBaseItemsForTipoAval(baseEvento, forma.tipoAval),
+      );
       const comparisons: ReformItemComparison[] = [];
 
       proposedItems.forEach((item) => {
@@ -370,7 +406,7 @@ export default function ReformaDetailPage() {
 
       return comparisons;
     });
-  }, [baseEvento, reform]);
+  }, [baseEvento, budgetReformTipoAval, reform]);
 
   const formaComparisons = useMemo(() => {
     const rawFormas = (reform?.cambiosPropuestos as Record<string, unknown> | undefined)
@@ -417,8 +453,8 @@ export default function ReformaDetailPage() {
           despuesNumAtletasHombres: forma.despuesNumAtletas ?? null,
           antesNumAtletasMujeres: null,
           despuesNumAtletasMujeres: null,
-          antesNumEntrenadoresHombres: null,
-          despuesNumEntrenadoresHombres: null,
+          antesNumEntrenadoresHombres: forma.antesNumEntrenadores ?? null,
+          despuesNumEntrenadoresHombres: forma.despuesNumEntrenadores ?? null,
           antesNumEntrenadoresMujeres: null,
           despuesNumEntrenadoresMujeres: null,
         }));
@@ -432,11 +468,6 @@ export default function ReformaDetailPage() {
     (reform?.comparacion?.eventoItems?.length ?? 0) > 0 ||
     (reform?.comparacion?.formasParticipacion?.length ?? 0) > 0 ||
     Boolean(baseEvento);
-  const budgetReformFormas =
-    (reform?.cambiosPropuestos as Record<string, unknown>)?.formasParticipacion as
-      | Array<{ tipoAval?: string }>
-      | undefined;
-  const budgetReformTipoAval = budgetReformFormas?.[0]?.tipoAval ?? null;
   const totalItemsBefore = useMemo(
     () =>
       itemComparisons.reduce(

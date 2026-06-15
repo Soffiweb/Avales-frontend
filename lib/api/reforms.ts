@@ -91,6 +91,11 @@ export type ReformFormaParticipacionComparison = {
   tipoAval?: string | null;
   antesNumAtletas?: number | null;
   despuesNumAtletas?: number | null;
+  antesNumEntrenadores?: number | null;
+  despuesNumEntrenadores?: number | null;
+  antesPresupuestoTotal?: number | null;
+  despuesPresupuestoTotal?: number | null;
+  items?: ReformItemComparison[];
 };
 
 export type ReformComparison = {

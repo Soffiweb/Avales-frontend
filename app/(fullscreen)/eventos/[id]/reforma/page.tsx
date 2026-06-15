@@ -47,6 +47,7 @@ type GeneralForm = {
   ciudad: string;
   provincia: string;
   pais: string;
+  mesProgramado: number | "";
   fechaInicio: string;
   fechaFin: string;
 };
@@ -105,6 +106,7 @@ function buildInitialGeneralForm(evento: Evento): GeneralForm {
     ciudad: evento.ciudad ?? "",
     provincia: evento.provincia ?? "",
     pais: evento.pais ?? "",
+    mesProgramado: evento.mesProgramado ?? "",
     fechaInicio: formatDateInput(evento.fechaInicio),
     fechaFin: formatDateInput(evento.fechaFin),
   };
@@ -116,6 +118,22 @@ function getBudgetReformFormas(evento: Evento): FormaParticipacionCupos[] {
       forma.tipoAval === "FONDOS_PUBLICOS" ||
       forma.tipoAval === "AUTOGESTION",
   );
+}
+
+function getFormaBudgetItems(
+  evento: Evento,
+  forma?: FormaParticipacionCupos | null,
+): EventoItem[] {
+  if (!forma) return [];
+  if ((forma.items?.length ?? 0) > 0) return forma.items ?? [];
+
+  if (forma.tipoAval === "FONDOS_PUBLICOS" || forma.tipoAval === "AUTOGESTION") {
+    return (evento.eventoItems ?? []).filter(
+      (item) => item.fuente === forma.tipoAval,
+    );
+  }
+
+  return [];
 }
 
 function getReformFormas(evento: Evento): FormaParticipacionCupos[] {
@@ -368,6 +386,7 @@ export default function EventoReformaPage() {
         setEvento(eventData);
         setItemsCatalogo(itemsResponse.data ?? []);
         setGeneralForm(buildInitialGeneralForm(eventData));
+        setMesEjecucion(eventData.mesProgramado ?? "");
         const formas = getReformFormas(eventData);
         const budgetFormas = getBudgetReformFormas(eventData);
         const initialForma =
@@ -378,7 +397,7 @@ export default function EventoReformaPage() {
               : null;
         setParticipantsForm(buildInitialParticipantsForm(eventData, initialForma));
         setSelectedFormaId(initialForma?.id ?? "");
-        setBudgetRows(getInitialBudgetRows(initialForma?.items ?? []));
+        setBudgetRows(getInitialBudgetRows(getFormaBudgetItems(eventData, initialForma)));
         setExpandedBudgetRows([]);
       } catch (err: unknown) {
         setError(
@@ -415,11 +434,11 @@ export default function EventoReformaPage() {
   );
   const originalBudgetTotal = useMemo(
     () =>
-      (selectedBudgetForma?.items ?? []).reduce(
+      getFormaBudgetItems(evento, selectedBudgetForma).reduce(
         (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
         0,
       ),
-    [selectedBudgetForma],
+    [evento, selectedBudgetForma],
   );
   const proposedBudgetTotal = useMemo(() => getBudgetTotal(budgetRows), [budgetRows]);
   const generalSummaryRows = useMemo(
@@ -484,6 +503,15 @@ export default function EventoReformaPage() {
         next: generalForm?.pais ?? "-",
       },
       {
+        label: "Mes programación",
+        previous:
+          MONTH_OPTIONS.find((option) => option.value === (evento?.mesProgramado ?? 0))
+            ?.label ?? "-",
+        next:
+          MONTH_OPTIONS.find((option) => option.value === (generalForm?.mesProgramado || 0))
+            ?.label ?? "-",
+      },
+      {
         label: "Fecha inicio",
         previous: formatDateInput(evento?.fechaInicio),
         next: generalForm?.fechaInicio ?? "-",
@@ -546,7 +574,6 @@ export default function EventoReformaPage() {
 
   const canSubmitReforma = canCreateReforma(user);
   const hasPendingReform = Boolean(evento?.tieneReformaPendiente);
-
   const proposedChanges = useMemo(() => {
     if (!evento || !generalForm || !participantsForm) return {};
 
@@ -579,6 +606,12 @@ export default function EventoReformaPage() {
       payload.provincia = generalForm.provincia.trim();
     }
     if (nextPais !== currentPais) payload.pais = generalForm.pais.trim();
+    if (generalForm.mesProgramado !== (evento.mesProgramado ?? "")) {
+      payload.mesProgramado =
+        typeof generalForm.mesProgramado === "number"
+          ? generalForm.mesProgramado
+          : undefined;
+    }
     if (generalForm.fechaInicio !== formatDateInput(evento.fechaInicio)) {
       payload.fechaInicio = formatDateInput(generalForm.fechaInicio);
     }
@@ -599,7 +632,10 @@ export default function EventoReformaPage() {
 
       const hasBudgetChanges =
         selectedBudgetForma &&
-        getBudgetRowsChanged(budgetRows, selectedBudgetForma.items ?? []);
+        getBudgetRowsChanged(
+          budgetRows,
+          getFormaBudgetItems(evento, selectedBudgetForma),
+        );
 
       if (hasParticipantChanges || hasBudgetChanges) {
         const formaEntry: {
@@ -720,10 +756,12 @@ export default function EventoReformaPage() {
   };
 
   const budgetComparisonRows = useMemo(() => {
-    if (!selectedBudgetForma) return [];
+    if (!evento || !selectedBudgetForma) return [];
+
+    const originalItems = getFormaBudgetItems(evento, selectedBudgetForma);
 
     return budgetRows.map((row) => {
-      const originalItem = selectedBudgetForma.items?.find(
+      const originalItem = originalItems.find(
         (item) => item.id === row.sourceId,
       );
       const originalOption = itemsCatalogo.find(
@@ -771,7 +809,7 @@ export default function EventoReformaPage() {
         added: row.status === "new",
       };
     });
-  }, [budgetRows, itemsCatalogo, selectedBudgetForma]);
+  }, [budgetRows, evento, itemsCatalogo, selectedBudgetForma]);
 
   const handleSelectForma = (value: string) => {
     const formaId = value ? Number(value) : "";
@@ -783,8 +821,10 @@ export default function EventoReformaPage() {
     setSelectedFormaId(forma?.id ?? "");
     if (evento) {
       setParticipantsForm(buildInitialParticipantsForm(evento, forma));
+      setBudgetRows(getInitialBudgetRows(getFormaBudgetItems(evento, forma)));
+    } else {
+      setBudgetRows(getInitialBudgetRows([]));
     }
-    setBudgetRows(getInitialBudgetRows(forma?.items ?? []));
     setExpandedBudgetRows([]);
   };
 
@@ -1151,6 +1191,39 @@ export default function EventoReformaPage() {
                     </label>
                     <label className="space-y-2">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Mes programación
+                      </span>
+                      <select
+                        value={
+                          generalForm.mesProgramado === ""
+                            ? ""
+                            : String(generalForm.mesProgramado)
+                        }
+                        onChange={(e) =>
+                          setGeneralForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  mesProgramado:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                }
+                              : prev,
+                          )
+                        }
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                      >
+                        <option value="">Selecciona un mes</option>
+                        {MONTH_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Fecha inicio
                       </span>
                       <input
@@ -1164,7 +1237,7 @@ export default function EventoReformaPage() {
                         className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
-                    <label className="space-y-2 md:col-span-2">
+                    <label className="space-y-2">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Fecha fin
                       </span>
@@ -1561,7 +1634,7 @@ export default function EventoReformaPage() {
                     ))}
                   </select>
                   <span className="block text-xs text-gray-500 dark:text-gray-400">
-                    Mes en el que se va a ejecutar la reforma una vez aprobada.
+                    Mes en el que se ejecutará el pago o la ejecución del evento.
                   </span>
                 </label>
               </section>

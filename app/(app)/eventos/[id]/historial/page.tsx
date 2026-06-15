@@ -8,7 +8,7 @@ import { ArrowLeft, ClipboardEdit, Eye, History } from "lucide-react";
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
 import Breadcrumb from "@/components/ui/breadcrumb";
-import { canAccessReforms } from "@/lib/auth/access";
+import { canAccessReforms, isTrainerUser } from "@/lib/auth/access";
 import { getEvento, listEventoReforms, type EventoReformaListItem } from "@/lib/api/eventos";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
 import type { Evento } from "@/types/evento";
@@ -48,7 +48,7 @@ export default function EventoHistorialPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canView = canAccessReforms(user);
+  const canView = canAccessReforms(user) || isTrainerUser(user);
 
   useEffect(() => {
     if (authLoading) return;

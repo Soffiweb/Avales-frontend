@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   Calendar,
   MapPin,
-  Users,
   Trophy,
   Tag,
   Globe,
@@ -21,6 +20,7 @@ import {
   ClipboardEdit,
   History,
   Download,
+  ChevronDown,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
@@ -44,13 +44,11 @@ import {
 } from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
 import {
-  calcularTotalEvento,
-  eventoTieneFondosPublicos,
+  eventoTieneFormaParticipacion,
   getEventoMissingFieldLabel,
   getEventoMissingFields,
   isEventoIncompleto,
   type Evento,
-  type PresupuestoFuente,
 } from "@/types/evento";
 import type { Aval, TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -69,7 +67,6 @@ import {
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
-  getModalidadParticipacionLabel,
 } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
@@ -126,10 +123,6 @@ function getEventDuration(
   return diff === null ? null : diff + 1;
 }
 
-function getEventoItemsTotal(items: Evento["eventoItems"] = []) {
-  return items.reduce((sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0), 0);
-}
-
 export default function EventoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -137,6 +130,8 @@ export default function EventoDetailPage() {
   const userRoles = getNormalizedRoles(user);
   const canManageEvents = isAdminUser(user);
   const canEditEvents = isAdminUser(user) || isPdaUser(user);
+  const canEditCompletionFields = isTrainerUser(user);
+  const canShowEditButton = canEditEvents || canEditCompletionFields;
   const isDTM = isDTMUser(user);
   const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS") && !isDTM;
   const canManageCollectionActions = isTrainerUser(user);
@@ -148,6 +143,7 @@ export default function EventoDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
+  const [formaParticipacionId, setFormaParticipacionId] = useState<number | null>(null);
   const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
@@ -205,32 +201,25 @@ export default function EventoDetailPage() {
 
   useEffect(() => {
     if (!evento) return;
-    if (!eventoTieneFondosPublicos(evento) && tipoAval === "FONDOS_PUBLICOS") {
-      setTipoAval("AUTOGESTION");
+    if (!eventoTieneFormaParticipacion(evento, tipoAval)) {
+      if (eventoTieneFormaParticipacion(evento, "FONDOS_PUBLICOS")) {
+        setTipoAval("FONDOS_PUBLICOS");
+        return;
+      }
+
+      if (eventoTieneFormaParticipacion(evento, "AUTOGESTION")) {
+        setTipoAval("AUTOGESTION");
+        return;
+      }
+
+      setTipoAval("SOLO_RESULTADO");
       return;
     }
+
     if (!canCreateCollectionByType(avalesEvento, tipoAval)) {
       setTipoAval("AUTOGESTION");
     }
   }, [avalesEvento, evento, tipoAval]);
-
-  const presupuestoPlaneadoPorFuente = useMemo(() => {
-    const fuentes: Array<PresupuestoFuente["fuente"]> = [
-      "FONDOS_PUBLICOS",
-      "AUTOGESTION",
-    ];
-
-    return fuentes
-      .map((fuente) => {
-        const items = (evento?.eventoItems ?? []).filter((item) => item.fuente === fuente);
-        return {
-          fuente,
-          items,
-          total: getEventoItemsTotal(items),
-        };
-      })
-      .filter((group) => group.items.length > 0);
-  }, [evento?.eventoItems]);
 
   const handleDelete = async () => {
     if (!evento) return;
@@ -297,13 +286,10 @@ export default function EventoDetailPage() {
       convocatoria,
       certificadoMedico,
       pronosticoDeportistas,
-      { tipoAval },
+      { tipoAval, formaParticipacionId: formaParticipacionId ?? undefined },
     );
     setUploadModalOpen(false);
-    const params = new URLSearchParams({ tipoAval });
-    router.push(
-      `/avales/${response.data.id}/crear-solicitud?${params.toString()}`,
-    );
+    router.push(`/avales/${response.data.id}/crear-solicitud`);
   };
 
   if (loading) {
@@ -347,29 +333,13 @@ export default function EventoDetailPage() {
     ? getEventDuration(evento.fechaInicio, evento.fechaFin)
     : null;
 
-  const totalAtletas =
-    (evento.numAtletasHombres || 0) + (evento.numAtletasMujeres || 0);
-  const totalEntrenadores =
-    (evento.numEntrenadoresHombres || 0) + (evento.numEntrenadoresMujeres || 0);
+  const formasParticipacion = evento.formasParticipacion ?? [];
+  const tiposParticipacion: TipoAval[] = [
+    "FONDOS_PUBLICOS",
+    "AUTOGESTION",
+    "SOLO_RESULTADO",
+  ];
   const hasAval = avalesEvento.length > 0;
-  // Métricas consolidadas desde avales
-  const cuposAsignados = avalesEvento.reduce(
-    (sum, a) => sum + (a.resumenCupos?.total ?? 0),
-    0,
-  );
-  const cuposDisponibles = Math.max(totalAtletas - cuposAsignados, 0);
-
-  const modalidadCounts = avalesEvento.reduce<Record<string, number>>(
-    (acc, aval) => {
-      for (const d of aval.avalTecnico?.deportistasAval ?? []) {
-        const key = d.modalidadParticipacion ?? "SIN_MODALIDAD";
-        acc[key] = (acc[key] ?? 0) + 1;
-      }
-      return acc;
-    },
-    {},
-  );
-
   const presupuestoPorFuente = avalesEvento.reduce<
     Record<
       string,
@@ -389,7 +359,7 @@ export default function EventoDetailPage() {
   const eventoIncompleto = isEventoIncompleto(evento);
   const missingFields = getEventoMissingFields(evento);
   const canManageReforms = canCreateReforma(user) && !isDTM;
-  const canViewReforms = canAccessReforms(user) || isDTM;
+  const canViewReforms = canAccessReforms(user) || isDTM || isTrainerUser(user);
   const canStartAval =
     canCreateAval &&
     evento.estado === "DISPONIBLE" &&
@@ -432,6 +402,8 @@ export default function EventoDetailPage() {
           avales={avalesEvento}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
+          formaParticipacionId={formaParticipacionId}
+          onFormaParticipacionChange={setFormaParticipacionId}
         />
       </UploadModal>
 
@@ -457,8 +429,7 @@ export default function EventoDetailPage() {
             </p>
           </div>
         ) : null}
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <section className="space-y-4">
           <div>
             <div className="mb-2">
               <Breadcrumb
@@ -468,181 +439,191 @@ export default function EventoDetailPage() {
                 ]}
               />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {evento.nombre}
-            </h1>
-            {eventoIncompleto ? (
-              <div className="mt-2">
-                <EventoIncompletoBadge />
-              </div>
-            ) : null}
-            {evento.codigo && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Código: {evento.codigo}
-              </p>
-            )}
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Datos del evento
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Información general del evento y acciones disponibles.
+            </p>
           </div>
-          <div className="w-full sm:w-auto">
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                {canCreateAval && (
-                  <>
-                    {eventoIncompleto ? (
-                      <Link
-                        href={completionHref}
-                        className="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Completar datos para aval
-                      </Link>
-                    ) : canStartAval ? (
-                      <button
-                        type="button"
-                        onClick={() => setUploadModalOpen(true)}
-                        className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Crear aval
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        {hasPendingReform
-                          ? "Bloqueado por reforma pendiente"
-                          : "No disponible para crear aval"}
-                      </button>
-                    )}
-                    {canManageReforms ? (
-                      canRequestReforma ? (
-                        <Link
-                          href={`/eventos/${evento.id}/reforma`}
-                          className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                        >
-                          <ClipboardEdit className="w-4 h-4 mr-2" />
-                          Solicitar reforma
-                        </Link>
-                      ) : (
-                        <>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  {evento.nombre}
+                </h1>
+                {eventoIncompleto ? (
+                  <div className="mt-2">
+                    <EventoIncompletoBadge />
+                  </div>
+                ) : null}
+                {evento.codigo && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Código: {evento.codigo}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 xl:items-end">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canCreateAval && (
+                      <>
+                        {eventoIncompleto ? (
+                          <Link
+                            href={completionHref}
+                            className="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Completar datos para aval
+                          </Link>
+                        ) : canStartAval ? (
+                          <button
+                            type="button"
+                            onClick={() => setUploadModalOpen(true)}
+                            className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Crear aval
+                          </button>
+                        ) : (
                           <button
                             type="button"
                             disabled
                             className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
                           >
-                            <ClipboardEdit className="w-4 h-4 mr-2" />
-                            Reforma no disponible
+                            <Upload className="w-4 h-4 mr-2" />
+                            {hasPendingReform
+                              ? "Bloqueado por reforma pendiente"
+                              : "No disponible para crear aval"}
                           </button>
-                          {hasPendingReform && pendingReformId ? (
+                        )}
+                        {canManageReforms ? (
+                          canRequestReforma ? (
                             <Link
-                              href={`/reformas/${pendingReformId}`}
-                              className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                              href={`/eventos/${evento.id}/reforma`}
+                              className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
                             >
-                              Ver reforma
+                              <ClipboardEdit className="w-4 h-4 mr-2" />
+                              Solicitar reforma
                             </Link>
-                          ) : null}
-                        </>
-                      )
-                    ) : null}
-                    {canViewReforms ? (
-                      <Link
-                        href={`/eventos/${evento.id}/historial`}
-                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                disabled
+                                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
+                              >
+                                <ClipboardEdit className="w-4 h-4 mr-2" />
+                                Reforma no disponible
+                              </button>
+                              {hasPendingReform && pendingReformId ? (
+                                <Link
+                                  href={`/reformas/${pendingReformId}`}
+                                  className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                >
+                                  Ver reforma
+                                </Link>
+                              ) : null}
+                            </>
+                          )
+                        ) : null}
+                        {canViewReforms ? (
+                          <Link
+                            href={`/eventos/${evento.id}/historial`}
+                            className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                          >
+                            <History className="w-4 h-4 mr-2" />
+                            Historial
+                          </Link>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                  {canCreateAval && hasAval ? (
+                    <div className="mt-2 space-y-1 px-1 text-xs text-gray-500 dark:text-gray-400">
+                      <p>Este evento puede tener varios avales asociados.</p>
+                    </div>
+                  ) : null}
+                  {canCreateAval && eventoIncompleto && (
+                    <div className="mt-2 space-y-1 px-1 text-xs text-amber-700 dark:text-amber-300">
+                      <p>Debes completar los datos obligatorios del evento antes de crear el aval.</p>
+                    </div>
+                  )}
+                </div>
+
+                {canShowEditButton && (
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex flex-wrap items-center gap-2">
+                    {canEditEvents && (
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        disabled={downloadingTemplate}
+                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                       >
-                        <History className="w-4 h-4 mr-2" />
-                        Historial
-                      </Link>
-                    ) : null}
-                  </>
+                        <Download className="w-4 h-4 mr-2" />
+                        {downloadingTemplate ? "Descargando..." : "Plantilla"}
+                      </button>
+                    )}
+                    <Link
+                      href={`/eventos/${evento.id}/editar`}
+                      className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Editar
+                    </Link>
+                    {canManageEvents && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmOpen(true)}
+                        className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-              {canCreateAval && hasAval ? (
-                <div className="mt-2 space-y-1 px-1 text-xs text-gray-500 dark:text-gray-400">
-                  <p>Este evento puede tener varios avales asociados.</p>
-                </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${statusStyles.bg}`}
+              >
+                <span className={`w-2 h-2 rounded-full ${statusStyles.dot}`} />
+                <span className={`font-medium ${statusStyles.text}`}>
+                  {evento.estado || "Sin estado"}
+                </span>
+              </div>
+              {hasPendingReform ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-sm font-medium">
+                  Reforma pendiente
+                </span>
               ) : null}
-              {canCreateAval && eventoIncompleto && (
-                <div className="mt-2 space-y-1 px-1 text-xs text-amber-700 dark:text-amber-300">
-                  <p>Debes completar los datos obligatorios del evento antes de crear el aval.</p>
-                </div>
+              {evento.alcance && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm">
+                  <Globe className="w-3.5 h-3.5" />
+                  {evento.alcance}
+                </span>
+              )}
+              {evento.tipoEvento && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-sm">
+                  <Trophy className="w-3.5 h-3.5" />
+                  {evento.tipoEvento}
+                </span>
+              )}
+              {evento.tipoParticipacion && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-sm">
+                  <UserCheck className="w-3.5 h-3.5" />
+                  {getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
+                    evento.tipoParticipacion}
+                </span>
               )}
             </div>
-          </div>
-          {canEditEvents && (
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadTemplate}
-                disabled={downloadingTemplate}
-                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {downloadingTemplate ? "Descargando..." : "Plantilla"}
-              </button>
-              <Link
-                href={`/eventos/${evento.id}/editar`}
-                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Editar
-              </Link>
-              {canManageEvents && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(true)}
-                  className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
-                </button>
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* Estado y badges */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${statusStyles.bg}`}
-          >
-            <span className={`w-2 h-2 rounded-full ${statusStyles.dot}`} />
-            <span className={`font-medium ${statusStyles.text}`}>
-              {evento.estado || "Sin estado"}
-            </span>
-          </div>
-          {hasPendingReform ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-sm font-medium">
-              Reforma pendiente
-            </span>
-          ) : null}
-          {evento.alcance && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm">
-              <Globe className="w-3.5 h-3.5" />
-              {evento.alcance}
-            </span>
-          )}
-          {evento.tipoEvento && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-sm">
-              <Trophy className="w-3.5 h-3.5" />
-              {evento.tipoEvento}
-            </span>
-          )}
-          {evento.tipoParticipacion && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-sm">
-              <UserCheck className="w-3.5 h-3.5" />
-              {getEventoTipoParticipacionLabel(evento.tipoParticipacion) ??
-                evento.tipoParticipacion}
-            </span>
-          )}
-        </div>
-
-        {/* Tarjetas de información principal con participantes a la derecha */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Columna izquierda - Info del evento */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Fechas */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-4">
@@ -764,79 +745,277 @@ export default function EventoDetailPage() {
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Columna derecha - Participantes */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <Users className="w-5 h-5 text-gray-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                Participantes
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {/* Atletas Hombres */}
-              <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {evento.numAtletasHombres || 0}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Atletas (H)
-                </p>
-              </div>
-
-              {/* Atletas Mujeres */}
-              <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {evento.numAtletasMujeres || 0}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Atletas (M)
-                </p>
-              </div>
-
-              {/* Entrenadores Hombres */}
-              <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {evento.numEntrenadoresHombres || 0}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Entrenadores (H)
-                </p>
-              </div>
-
-              {/* Entrenadores Mujeres */}
-              <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {evento.numEntrenadoresMujeres || 0}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Entrenadores (M)
-                </p>
-              </div>
-            </div>
-
-            {/* Totales */}
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 grid grid-cols-2 gap-3">
-              <div className="text-center">
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {totalAtletas}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Total Atletas
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {totalEntrenadores}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Total Entrenadores
-                </p>
-              </div>
-            </div>
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Tipos de participación
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Cada tipo muestra su referencia, delegación, observación y presupuesto propio.
+            </p>
           </div>
-        </div>
+
+          <div className="space-y-4">
+            {tiposParticipacion.flatMap((tipoAval) => {
+              const formasPorTipo = formasParticipacion.filter(
+                (forma) => forma.tipoAval === tipoAval,
+              );
+
+              if (formasPorTipo.length === 0) {
+                const emptyMessage =
+                  tipoAval === "FONDOS_PUBLICOS"
+                    ? "En este evento no se participará mediante financiamiento de fondos públicos."
+                    : tipoAval === "AUTOGESTION"
+                      ? "En este evento no se participará mediante recursos de autogestión."
+                      : "En este evento no se registró participación solo por resultados, sin financiamiento.";
+
+                return [
+                  <details
+                    key={`empty-${tipoAval}`}
+                    className="group overflow-hidden rounded-2xl border border-dashed border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <summary className="list-none cursor-pointer px-5 py-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <span className="inline-flex w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                            {getTipoAvalLabel(tipoAval)}
+                          </span>
+                          <p className="mt-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                            {emptyMessage}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-gray-400">
+                          <span>Sin delegación</span>
+                          <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                        </div>
+                      </div>
+                    </summary>
+                    <div className="border-t border-gray-100 bg-gray-50 px-5 py-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
+                      No hay delegación ni presupuesto registrados para este tipo de participación.
+                    </div>
+                  </details>,
+                ];
+              }
+
+              return formasPorTipo.map((forma) => {
+                const totalAtletas =
+                  forma.numAtletasHombres + forma.numAtletasMujeres;
+                const totalEntrenadores =
+                  forma.numEntrenadoresHombres + forma.numEntrenadoresMujeres;
+                const totalDelegacion = totalAtletas + totalEntrenadores;
+                const items = forma.items ?? [];
+                const totalPresupuesto =
+                  Number.parseFloat(forma.presupuestoTotal ?? "0") ||
+                  items.reduce((sum, item) => {
+                    const value = Number.parseFloat(item.presupuesto) || 0;
+                    return sum + value;
+                  }, 0);
+                const sinFinanciamiento = forma.tipoAval === "SOLO_RESULTADO";
+
+                return (
+                  <details
+                    key={forma.id}
+                    className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <summary className="list-none cursor-pointer border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4 dark:border-gray-700 dark:from-gray-900/40 dark:to-gray-800">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                          <span className="inline-flex w-fit rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                            {getTipoAvalLabel(forma.tipoAval)}
+                          </span>
+                          <p className="mt-2 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {forma.referencia?.trim() || "-"}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Referencia
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[620px]">
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Delegación
+                            </p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {totalDelegacion} participantes
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Presupuesto
+                            </p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {sinFinanciamiento
+                                ? "-"
+                                : formatCurrency(totalPresupuesto)}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Items
+                              </p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {sinFinanciamiento ? "No aplica" : items.length}
+                              </p>
+                            </div>
+                            <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                          </div>
+                        </div>
+                      </div>
+                    </summary>
+
+                    <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4 dark:border-gray-700 dark:from-gray-900/40 dark:to-gray-800">
+                      <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1.2fr]">
+                        <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Referencia
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {forma.referencia?.trim() || "-"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Delegación
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {totalDelegacion} participantes
+                          </p>
+                          <div className="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
+                            <span>
+                              Deportistas hombres: {forma.numAtletasHombres}
+                            </span>
+                            <span>
+                              Deportistas mujeres: {forma.numAtletasMujeres}
+                            </span>
+                            <span>
+                              Entrenadores hombres:{" "}
+                              {forma.numEntrenadoresHombres}
+                            </span>
+                            <span>
+                              Entrenadores mujeres:{" "}
+                              {forma.numEntrenadoresMujeres}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Observación
+                          </p>
+                          <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                            {forma.observacion?.trim() || "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-5 py-4">
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                            Presupuesto
+                          </h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {sinFinanciamiento
+                              ? "Participación sin financiamiento."
+                              : `${items.length} items presupuestarios`}
+                          </p>
+                        </div>
+                        {!sinFinanciamiento ? (
+                          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                            {formatCurrency(totalPresupuesto)}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      {sinFinanciamiento ? (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                          Este tipo de participación no registra presupuesto.
+                        </div>
+                      ) : items.length > 0 ? (
+                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700/60">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-900/30 dark:text-gray-400">
+                              <tr>
+                                <th className="px-4 py-3 text-left">Item</th>
+                                <th className="px-4 py-3 text-left">
+                                  Actividad
+                                </th>
+                                <th className="px-4 py-3 text-left">
+                                  Descripción
+                                </th>
+                                <th className="px-4 py-3 text-center">Mes</th>
+                                <th className="px-4 py-3 text-right">
+                                  V. Unitario
+                                </th>
+                                <th className="px-4 py-3 text-right">
+                                  Presupuesto
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                              {items.map((eventoItem) => (
+                                <tr key={eventoItem.id} className="text-sm">
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium text-gray-900 dark:text-gray-100">
+                                      {eventoItem.item.numero}.{" "}
+                                      {eventoItem.item.nombre}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    {eventoItem.item.actividad ? (
+                                      <span>
+                                        {eventoItem.item.actividad.numero}.{" "}
+                                        {eventoItem.item.actividad.nombre}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="max-w-xs truncate px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    {eventoItem.item.descripcion || "-"}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                      {formatMonth(eventoItem.mes)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                                    {eventoItem.valorUnitario
+                                      ? formatCurrency(
+                                          parseFloat(
+                                            eventoItem.valorUnitario,
+                                          ),
+                                        )
+                                      : "-"}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(
+                                      parseFloat(eventoItem.presupuesto) || 0,
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                          No hay items presupuestarios registrados para este tipo de participación.
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                );
+              });
+            })}
+          </div>
+        </section>
 
         {/* Archivo adjunto */}
         {evento.archivo && (
@@ -860,135 +1039,6 @@ export default function EventoDetailPage() {
             </a>
           </div>
         )}
-
-        {/* Items Presupuestarios */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                  Presupuesto planificado
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {evento.eventoItems?.length || 0} items previstos
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {evento.eventoItems && evento.eventoItems.length > 0 ? (
-            <>
-              <div className="space-y-6 p-5">
-                {presupuestoPlaneadoPorFuente.map((grupo) => (
-                  <div
-                    key={grupo.fuente}
-                    className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60"
-                  >
-                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700/60 dark:bg-gray-900/30">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {getTipoAvalLabel(grupo.fuente)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {grupo.items.length} items planificados
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                        {formatCurrency(grupo.total)}
-                      </p>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/30">
-                          <tr>
-                            <th className="px-4 py-3 text-left">Item</th>
-                            <th className="px-4 py-3 text-left">Actividad</th>
-                            <th className="px-4 py-3 text-left">Descripción</th>
-                            <th className="px-4 py-3 text-center">Mes</th>
-                            <th className="px-4 py-3 text-right">V. Unitario</th>
-                            <th className="px-4 py-3 text-right">Presupuesto</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                          {grupo.items.map((eventoItem) => (
-                            <tr key={eventoItem.id} className="text-sm">
-                              <td className="px-4 py-3">
-                                <div className="font-medium text-gray-900 dark:text-gray-100">
-                                  {eventoItem.item.numero}. {eventoItem.item.nombre}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                {eventoItem.item.actividad ? (
-                                  <span>
-                                    {eventoItem.item.actividad.numero}.{" "}
-                                    {eventoItem.item.actividad.nombre}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-xs truncate">
-                                {eventoItem.item.descripcion || "-"}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                                  {formatMonth(eventoItem.mes)}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
-                                {eventoItem.valorUnitario
-                                  ? formatCurrency(
-                                      parseFloat(eventoItem.valorUnitario),
-                                    )
-                                  : "-"}
-                              </td>
-                              <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                                {formatCurrency(
-                                  parseFloat(eventoItem.presupuesto) || 0,
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="px-5 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-t border-emerald-100 dark:border-emerald-800/40">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {presupuestoPlaneadoPorFuente.map((grupo) => (
-                    <div key={grupo.fuente}>
-                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                        {getTipoAvalLabel(grupo.fuente)}
-                      </p>
-                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                        {formatCurrency(grupo.total)}
-                      </p>
-                    </div>
-                  ))}
-                  <div>
-                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      Total general
-                    </p>
-                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-                      {formatCurrency(calcularTotalEvento(evento))}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">
-              No hay items presupuestarios asignados a este evento.
-            </div>
-          )}
-        </div>
 
         {/* Resumen consolidado de avales */}
         {avalesEvento.length > 0 && (
@@ -1017,66 +1067,6 @@ export default function EventoDetailPage() {
                 />
               </div>
             </div>
-
-            {/*
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <Users className="w-5 h-5 text-gray-400" />
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                  Cupos consolidados
-                </h3>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {totalAtletas}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Planificados
-                  </p>
-                </div>
-                <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/30 p-3">
-                  <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                    {cuposAsignados}
-                  </p>
-                  <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
-                    Asignados
-                  </p>
-                </div>
-                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3">
-                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-                    {cuposDisponibles}
-                  </p>
-                  <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1">
-                    Disponibles
-                  </p>
-                </div>
-              </div>
-
-              {Object.keys(modalidadCounts).length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                    Por modalidad
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(modalidadCounts).map(
-                      ([modalidad, count]) => (
-                        <span
-                          key={modalidad}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                        >
-                          {modalidad === "SIN_MODALIDAD"
-                            ? "Sin modalidad"
-                            : getModalidadParticipacionLabel(modalidad)}
-                          <span className="font-semibold">{count}</span>
-                        </span>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            */}
 
             {/* Presupuesto por fuente */}
             {Object.keys(presupuestoPorFuente).length > 0 && (

@@ -43,10 +43,11 @@ export type ActividadSimple = {
 
 export type PdaItemDia = {
   id?: number;
-  numeroDia: number;
+  noDias?: number;
   nombrePersonalizado?: string | null;
   cantidad: number;
   valorUnitario: number;
+  subtotal?: number | null;
 };
 
 export type ItemSimple = {

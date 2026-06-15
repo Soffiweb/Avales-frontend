@@ -258,10 +258,11 @@ export async function downloadPdaPdf(id: number) {
 }
 
 export type CreatePdaItemDiaPayload = {
-  numeroDia: number;
+  noDias: number;
   nombrePersonalizado?: string;
   cantidad: number;
   valorUnitario: number;
+  subtotal?: number;
 };
 
 export type CreatePdaItemPayload = {

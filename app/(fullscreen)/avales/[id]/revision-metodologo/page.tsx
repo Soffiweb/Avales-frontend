@@ -237,7 +237,6 @@ export default function RevisionMetodologoPage() {
     enableEtapaDestino: true,
     onApproveAction: useCallback(
       async ({ aval: a, userId, adminSaveOnly }) => {
-        const approvalDate = getTodayLocalDate();
         const items = reviewItems
           .map((item) => {
             const state = reviewState[item.key];
@@ -255,7 +254,6 @@ export default function RevisionMetodologoPage() {
         avalFlowDebugLog("revision-metodologo", "payload de aprobacion listo", {
           aval: summarizeAval(a),
           userId,
-          approvalDate,
           revisionHeader,
           revisionFooter,
           items,
@@ -267,10 +265,7 @@ export default function RevisionMetodologoPage() {
           descripcionEncabezado: revisionHeader.descripcionEncabezado.trim(),
           firmanteNombre: revisionFooter.firmanteNombre.trim(),
           firmanteCargo: revisionFooter.firmanteCargo.trim(),
-          fechaRevision: adminSaveOnly
-            ? (a.revisionMetodologo?.fechaRevision ??
-              revisionHeader.fechaRevision)
-            : approvalDate,
+          fechaRevision: revisionHeader.fechaRevision || getTodayLocalDate(),
           observacionesFinales:
             revisionHeader.observacionFechaTramite.trim() ||
             revisionFooter.observacionesFinales.trim(),
@@ -449,6 +444,39 @@ export default function RevisionMetodologoPage() {
         aval.revisionMetodologo?.firmanteCargo || prev.firmanteCargo || "",
     }));
   }, [aval, reviewItems]);
+
+  // Set default observations for items 16 (AVAL_TECNICO) and 17 (CERT_COMPRAS_PUBLICAS)
+  // based on tipoAval when those items don't have existing observations.
+  useEffect(() => {
+    if (!aval?.tipoAval) return;
+    const numeroAval =
+      aval.avalTecnico?.numeroAval ??
+      aval.aval ??
+      aval.numeroColeccion ??
+      `#${aval.id}`;
+    setReviewState((prev) => {
+      const next = { ...prev };
+      if (aval.tipoAval === "FONDOS_PUBLICOS") {
+        const certCompras = next["CERT_COMPRAS_PUBLICAS"];
+        if (!certCompras?.observacion?.trim()) {
+          next["CERT_COMPRAS_PUBLICAS"] = {
+            cumple: certCompras?.cumple ?? false,
+            observacion: `No aplica debido a que el aval número ${numeroAval} es por fondos públicos`,
+          };
+        }
+      }
+      if (aval.tipoAval === "AUTOGESTION") {
+        const avalTecnico = next["AVAL_TECNICO"];
+        if (!avalTecnico?.observacion?.trim()) {
+          next["AVAL_TECNICO"] = {
+            cumple: avalTecnico?.cumple ?? false,
+            observacion: `No aplica debido a que el aval número ${numeroAval} es por fondos propios de la federación`,
+          };
+        }
+      }
+      return next;
+    });
+  }, [aval]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),

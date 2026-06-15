@@ -60,7 +60,11 @@ Usos posibles de `formaParticipacionActual` (sin romper nada legacy):
   usa `evento.numAtletas*` event-wide (impreciso para mixtos). Hecho
   (2026-06-12) vía `getAvalCupos`/`getAvalPresupuestoItems` en
   `lib/utils/aval-collections.ts`, usados en `avales/[id]/page.tsx` y
-  `aval-document-preview.tsx`. Caen a los campos legacy de `evento` si
+  previews/documentos del flujo de aval (`aval-document-preview.tsx`,
+  `revision-metodologo-preview.tsx`, `revision-dtm-preview.tsx`,
+  `aval-tecnico-competitivo-preview.tsx`, `pda-preview.tsx`,
+  `presupuesto-salida-anticipo-preview.tsx`,
+  `certificacion-financiera-preview.tsx`). Caen a los campos legacy de `evento` si
   `formaParticipacionActual` no viene poblado o no coincide con
   `aval.tipoAval` — sin riesgo de regresión.
 
@@ -93,6 +97,9 @@ Usos posibles de `formaParticipacionActual` (sin romper nada legacy):
 - Renombrar/eliminar campos legacy (Fase 8 backend, pausa indefinida).
 - `Evento.formas[]`, `Aval.formaParticipacion`,
   `CreateColeccionAvalPayload.formaParticipacionId` — no existen en backend.
+- Pantallas event-wide puras (`eventos/[id]`, cards/listados de eventos,
+  reforma de evento) pueden seguir leyendo `Evento.num*` porque esos campos
+  legacy permanecen vigentes como totales agregados del evento.
 - Reformas: backend en migración, sin contrato estable para frontend aún.
 
 ## Referencias

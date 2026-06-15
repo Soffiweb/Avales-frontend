@@ -70,11 +70,13 @@ export default function PdaPreview({ aval, draft, items }: Props) {
         ];
       }
 
-      return pdaItem.dias.map((dia) => ({
-        id: dia.id ?? Number(`${pdaItem.itemId}${dia.numeroDia}`),
+      return pdaItem.dias.map((dia, diaIndex) => ({
+        id: dia.id ?? Number(`${pdaItem.itemId}${diaIndex + 1}`),
         codigo,
         nombre: dia.nombrePersonalizado?.trim() || baseNombre,
-        total: dia.cantidad * dia.valorUnitario,
+        total:
+          dia.subtotal ??
+          (dia.noDias ?? 1) * dia.cantidad * dia.valorUnitario,
       }));
     }) ??
       presupuestoSourceItems.map((item) => ({

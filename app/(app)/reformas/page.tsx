@@ -255,13 +255,13 @@ export default function ReformasPage() {
                 key={reform.id}
                 className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
               >
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 pr-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                       Reforma #{reform.id}
                     </p>
                     <h2
-                      className="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100"
+                      className="mt-1 text-lg font-semibold leading-6 text-gray-900 dark:text-gray-100 break-words"
                       title={reform.evento?.nombre}
                     >
                       {reform.evento?.nombre || "Evento sin nombre"}

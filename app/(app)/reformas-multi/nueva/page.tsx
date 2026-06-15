@@ -21,7 +21,7 @@ import EventoItemsPanel, {
   type SelectedEvento,
 } from "../_components/multi-event-selector";
 import BalanceBar, { isBalanced } from "../_components/balance-bar";
-import type { FuentePresupuestoReforma } from "@/types/reforma-multi";
+import type { CreateReformaMultiPayload, FuentePresupuestoReforma } from "@/types/reforma-multi";
 
 type Step = "form" | "confirm";
 
@@ -191,8 +191,8 @@ export default function NuevaReformaMultiPage() {
   );
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createReformaMulti({
+    mutationFn: () => {
+      const payload: CreateReformaMultiPayload = {
         motivo: motivo.trim(),
         mesEjecucion: Number(mesEjecucion),
         fuente: fuente as FuentePresupuestoReforma,
@@ -212,7 +212,10 @@ export default function NuevaReformaMultiPage() {
               .map((it) => ({ itemId: it.itemId, mes: it.mes, monto: it.monto - it.presupuesto })),
           }))
           .filter((e) => e.items.length > 0),
-      }),
+      };
+      console.log("[Create Reforma Multi] payload:", JSON.stringify(payload, null, 2));
+      return createReformaMulti(payload);
+    },
     onSuccess: (res) => {
       const id = res.data?.id;
       router.push(id ? `/reformas-multi/${id}` : "/reformas-multi");

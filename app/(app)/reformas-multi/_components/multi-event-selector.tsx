@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X, Search, Plus } from "lucide-react";
-import type { Evento, EventoItem } from "@/types/evento";
+import {
+  getEventoPresupuestoPorFuente,
+  type Evento,
+  type EventoItem,
+} from "@/types/evento";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
-import { listEventos } from "@/lib/api/eventos";
+import { getEvento, listEventos } from "@/lib/api/eventos";
 import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import type { FuentePresupuestoReforma } from "@/types/reforma-multi";
 import { formatCurrency, formatCurrencyFromString } from "@/lib/utils/formatters";
@@ -54,6 +58,39 @@ function getItemDisponible(ei: EventoItem): number {
   return Math.max(0, presupuesto - comprometido - ejecutado);
 }
 
+function eventoTieneFuentePresupuestaria(
+  evento: Evento,
+  fuente: FuentePresupuestoReforma,
+) {
+  return getEventoPresupuestoPorFuente(evento).some(
+    (group) => group.fuente === fuente && group.items.length > 0,
+  );
+}
+
+function buildEventoLineItems(
+  evento: Evento,
+  fuente: FuentePresupuestoReforma,
+): EventoLineItem[] {
+  const presupuesto = getEventoPresupuestoPorFuente(evento).find(
+    (group) => group.fuente === fuente,
+  );
+
+  return (presupuesto?.items ?? []).map((ei): EventoLineItem => {
+    const monto = parseFloat(ei.presupuesto) || 0;
+    const disponible = getItemDisponible(ei);
+
+    return {
+      itemId: ei.item.id,
+      itemNombre: ei.item.nombre,
+      mes: ei.mes,
+      fuente,
+      monto,
+      presupuesto: monto,
+      disponible,
+    };
+  });
+}
+
 export default function EventoItemsPanel({
   label,
   fuente,
@@ -100,6 +137,7 @@ export default function EventoItemsPanel({
           setResults(
             (res.data ?? []).filter(
               (e) =>
+                eventoTieneFuentePresupuestaria(e, fuente) &&
                 !e.tieneReformaPendiente &&
                 !selectedRef.current.some((s) => s.eventoId === e.id) &&
                 !excludeEventoIds.includes(e.id),
@@ -133,29 +171,28 @@ export default function EventoItemsPanel({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function handleSelect(evento: Evento) {
-    const eventoItems = (evento.eventoItems ?? [])
-      .filter((ei) => !fuente || ei.fuente === fuente)
-      .map((ei): EventoLineItem => {
-        const presupuesto = parseFloat(ei.presupuesto) || 0;
-        const disponible = getItemDisponible(ei);
-        return {
-          itemId: ei.item.id,
-          itemNombre: ei.item.nombre,
-          mes: ei.mes,
-          fuente: ei.fuente,
-          monto: presupuesto,
-          presupuesto,
-          disponible,
-        };
-      });
+  async function handleSelect(evento: Evento) {
+    if (!fuente) return;
 
-    onChange([
-      ...selected,
-      { eventoId: evento.id, nombre: evento.nombre, codigo: evento.codigo, items: eventoItems },
-    ]);
-    setSearch("");
-    setOpen(false);
+    try {
+      const response = await getEvento(evento.id);
+      const detailedEvento = response.data;
+      const eventoItems = buildEventoLineItems(detailedEvento, fuente);
+
+      onChange([
+        ...selected,
+        {
+          eventoId: detailedEvento.id,
+          nombre: detailedEvento.nombre,
+          codigo: detailedEvento.codigo,
+          items: eventoItems,
+        },
+      ]);
+      setSearch("");
+      setOpen(false);
+    } catch {
+      setOpen(false);
+    }
   }
 
   function handleRemoveEvento(eventoId: number) {

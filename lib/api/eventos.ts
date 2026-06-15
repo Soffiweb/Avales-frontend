@@ -1,11 +1,11 @@
 import { apiFetch } from "@/lib/api/client";
-import type { Evento, EventoListResponse } from "@/types/evento";
-import type { ApiResponse } from "@/types/api-response";
 import type {
-  CreateEventoPayload,
-  EventoItemPayload,
-  FormaParticipacionPayload,
-} from "@/lib/validation/evento";
+  Evento,
+  EventoListResponse,
+  FormaParticipacionInputDto,
+} from "@/types/evento";
+import type { ApiResponse } from "@/types/api-response";
+import type { CreateEventoPayload } from "@/lib/validation/evento";
 
 export type ListEventosOptions = {
   page?: number;
@@ -122,30 +122,14 @@ export async function generateEventoCodigo(
   return response.data;
 }
 
-function appendEventoFormData(
-  formData: FormData,
-  values: CreateEventoPayload | UpdateEventoPayload,
-  options: { includeEmptyEventoItems?: boolean } = {}
-) {
+function appendEventoFormData(formData: FormData, values: CreateEventoPayload) {
   Object.entries(values).forEach(([key, value]) => {
-    if (key === "eventoItems" || key === "formasParticipacion") return;
+    if (key === "formasParticipacion") return;
     if (value === undefined) return;
     formData.append(key, value === null ? "" : String(value));
   });
 
-  if (values.eventoItems !== undefined) {
-    const hasItems = values.eventoItems.length > 0;
-    if (hasItems || options.includeEmptyEventoItems) {
-      formData.append("eventoItems", JSON.stringify(values.eventoItems));
-    }
-  }
-
-  if (values.formasParticipacion !== undefined) {
-    formData.append(
-      "formasParticipacion",
-      JSON.stringify(values.formasParticipacion)
-    );
-  }
+  formData.append("formasParticipacion", JSON.stringify(values.formasParticipacion));
 }
 
 export async function createEvento(values: CreateEventoPayload, archivo?: File) {
@@ -154,6 +138,12 @@ export async function createEvento(values: CreateEventoPayload, archivo?: File) 
   if (archivo) {
     formData.append("archivo", archivo);
   }
+
+  console.log("[createEvento] payload:", values);
+  console.log(
+    "[createEvento] formData:",
+    Object.fromEntries(formData.entries()),
+  );
 
   return apiFetch<Evento>("/events", {
     method: "POST",
@@ -179,12 +169,7 @@ export type UpdateEventoPayload = {
   alcance?: string | null;
   fechaInicio?: string | null;
   fechaFin?: string | null;
-  numEntrenadoresHombres?: number;
-  numEntrenadoresMujeres?: number;
-  numAtletasHombres?: number;
-  numAtletasMujeres?: number;
-  eventoItems?: EventoItemPayload[];
-  formasParticipacion?: FormaParticipacionPayload[];
+  formasParticipacion?: FormaParticipacionInputDto[];
 };
 
 export type CompleteEventoDatosPayload = {
@@ -193,6 +178,9 @@ export type CompleteEventoDatosPayload = {
   tipoParticipacion?: string;
   categoriaId?: number;
   tipoEvento?: string;
+  lugar?: string;
+  provincia?: string;
+  ciudad?: string;
   fechaInicio?: string | null;
   fechaFin?: string | null;
 };
@@ -213,7 +201,7 @@ export async function updateEvento(
   if (archivo) {
     const formData = new FormData();
     Object.entries(cleanPayload).forEach(([key, value]) => {
-      if (key === "eventoItems" || key === "formasParticipacion") {
+      if (key === "formasParticipacion") {
         formData.append(key, JSON.stringify(value));
       } else {
         formData.append(key, value === null ? "" : String(value));

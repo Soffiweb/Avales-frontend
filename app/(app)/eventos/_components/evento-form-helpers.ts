@@ -14,7 +14,7 @@ import {
 import { getCatalogItemCode } from "@/lib/utils/catalog";
 import { formatDateInput, getCalendarMonth } from "@/lib/utils/formatters/dates";
 import type { CatalogItem } from "@/types/catalog";
-import type { Evento } from "@/types/evento";
+import type { Evento, FormaParticipacionInputDto } from "@/types/evento";
 import type { CreateEventoPayload, EventoFormValues } from "@/lib/validation/evento";
 import type { UpdateEventoPayload } from "@/lib/api/eventos";
 
@@ -39,15 +39,7 @@ export const EMPTY_FORM_VALUES: EventoFormValues = {
   numAtletasHombres: 0,
   numAtletasMujeres: 0,
   eventoItems: [],
-  formasParticipacion: [
-    {
-      tipoAval: "FONDOS_PUBLICOS",
-      numEntrenadoresHombres: 0,
-      numEntrenadoresMujeres: 0,
-      numAtletasHombres: 0,
-      numAtletasMujeres: 0,
-    },
-  ],
+  formasParticipacion: [],
 };
 
 export function getDefaultMesProgramado(evento?: Evento | null) {
@@ -75,6 +67,32 @@ export function resolveCategoriaCatalogItem(
 }
 
 export function mapEventoToFormValues(evento: Evento): EventoFormValues {
+  const eventoItemsFromFormas =
+    evento.formasParticipacion?.flatMap((forma) => {
+      const fuente = tipoAvalToFuente(forma.tipoAval);
+      if (!fuente) return [];
+
+      return (forma.items ?? []).map((item) => ({
+        itemId: item.item.id,
+        mes: item.mes,
+        presupuesto: Number.parseFloat(item.presupuesto) || 0,
+        fuente,
+        montoComprometido:
+          Number.parseFloat(item.montoComprometido ?? "0") || 0,
+        montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
+      }));
+    }) ?? [];
+
+  const fallbackEventoItems =
+    evento.eventoItems?.map((item) => ({
+      itemId: item.item.id,
+      mes: item.mes,
+      presupuesto: Number.parseFloat(item.presupuesto) || 0,
+      fuente: item.fuente ?? "FONDOS_PUBLICOS",
+      montoComprometido: Number.parseFloat(item.montoComprometido ?? "0") || 0,
+      montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
+    })) ?? [];
+
   return {
     codigo: evento.codigo ?? "",
     tipoParticipacion:
@@ -105,59 +123,58 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
     numAtletasHombres: evento.numAtletasHombres ?? 0,
     numAtletasMujeres: evento.numAtletasMujeres ?? 0,
     eventoItems:
-      evento.eventoItems?.map((item) => ({
-        itemId: item.item.id,
-        mes: item.mes,
-        presupuesto: Number.parseFloat(item.presupuesto) || 0,
-        fuente: item.fuente ?? "FONDOS_PUBLICOS",
-        montoComprometido: Number.parseFloat(item.montoComprometido ?? "0") || 0,
-        montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
+      eventoItemsFromFormas.length > 0
+        ? eventoItemsFromFormas
+        : fallbackEventoItems,
+    formasParticipacion:
+      evento.formasParticipacion?.map((forma) => ({
+        tipoAval: forma.tipoAval,
+        referencia: forma.referencia ?? "",
+        observacion: forma.observacion ?? "",
+        numEntrenadoresHombres: forma.numEntrenadoresHombres,
+        numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
+        numAtletasHombres: forma.numAtletasHombres,
+        numAtletasMujeres: forma.numAtletasMujeres,
       })) ?? [],
-    formasParticipacion: evento.formasParticipacion?.length
-      ? evento.formasParticipacion.map((forma) => ({
-          tipoAval: forma.tipoAval,
-          numEntrenadoresHombres: forma.numEntrenadoresHombres,
-          numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
-          numAtletasHombres: forma.numAtletasHombres,
-          numAtletasMujeres: forma.numAtletasMujeres,
-        }))
-      : [
-          {
-            tipoAval: evento.eventoItems?.some(
-              (item) => item.fuente === "FONDOS_PUBLICOS",
-            )
-              ? "FONDOS_PUBLICOS"
-              : evento.eventoItems?.some((item) => item.fuente === "AUTOGESTION")
-                ? "AUTOGESTION"
-                : "FONDOS_PUBLICOS",
-            numEntrenadoresHombres: evento.numEntrenadoresHombres ?? 0,
-            numEntrenadoresMujeres: evento.numEntrenadoresMujeres ?? 0,
-            numAtletasHombres: evento.numAtletasHombres ?? 0,
-            numAtletasMujeres: evento.numAtletasMujeres ?? 0,
-          },
-        ],
   };
 }
 
-export function sumFormasParticipacionCupos(
-  formas: EventoFormValues["formasParticipacion"],
-) {
-  return (formas ?? []).reduce(
-    (acc, forma) => ({
-      numEntrenadoresHombres:
-        acc.numEntrenadoresHombres + (forma.numEntrenadoresHombres || 0),
-      numEntrenadoresMujeres:
-        acc.numEntrenadoresMujeres + (forma.numEntrenadoresMujeres || 0),
-      numAtletasHombres: acc.numAtletasHombres + (forma.numAtletasHombres || 0),
-      numAtletasMujeres: acc.numAtletasMujeres + (forma.numAtletasMujeres || 0),
-    }),
-    {
-      numEntrenadoresHombres: 0,
-      numEntrenadoresMujeres: 0,
-      numAtletasHombres: 0,
-      numAtletasMujeres: 0,
-    },
-  );
+function tipoAvalToFuente(
+  tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO",
+): "FONDOS_PUBLICOS" | "AUTOGESTION" | undefined {
+  return tipoAval === "FONDOS_PUBLICOS" || tipoAval === "AUTOGESTION"
+    ? tipoAval
+    : undefined;
+}
+
+function buildFormasParticipacionInput(
+  values: EventoFormValues,
+): FormaParticipacionInputDto[] {
+  const eventoItems = values.eventoItems ?? [];
+
+  return (values.formasParticipacion ?? []).map((forma) => {
+    const fuente = tipoAvalToFuente(forma.tipoAval);
+    const items = fuente
+      ? eventoItems
+          .filter((item) => item.fuente === fuente)
+          .map((item) => ({
+            itemId: item.itemId,
+            mes: item.mes,
+            presupuesto: item.presupuesto,
+          }))
+      : [];
+
+    return {
+      tipoAval: forma.tipoAval,
+      referencia: forma.referencia?.trim() || undefined,
+      observacion: forma.observacion?.trim() || undefined,
+      numEntrenadoresHombres: forma.numEntrenadoresHombres,
+      numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
+      numAtletasHombres: forma.numAtletasHombres,
+      numAtletasMujeres: forma.numAtletasMujeres,
+      ...(items.length > 0 ? { items } : {}),
+    };
+  });
 }
 
 export function buildCreateEventoPayload(
@@ -166,74 +183,40 @@ export function buildCreateEventoPayload(
   const tipoParticipacion =
     normalizeEventoTipoParticipacion(values.tipoParticipacion) ?? undefined;
   const categoriaCodigo = getCanonicalCategory(values.categoriaCodigo);
+  const genero = values.genero || undefined;
+  const tipoEvento =
+    normalizeEventoTipoEvento(values.tipoEvento) ?? values.tipoEvento.trim();
+  const alcance =
+    values.alcance.trim()
+      ? (normalizeEventoAlcance(values.alcance) ?? values.alcance.trim())
+      : undefined;
+  const lugar = values.lugar?.trim() || undefined;
+  const provincia = values.provincia?.trim() || undefined;
+  const ciudad = values.ciudad?.trim() || undefined;
 
-  if (
-    !tipoParticipacion ||
-    !values.tipoEvento ||
-    !values.genero ||
-    !categoriaCodigo ||
-    !values.alcance
-  ) {
+  if (!tipoParticipacion || !values.tipoEvento) {
     return null;
   }
-
-  const cuposTotales = sumFormasParticipacionCupos(values.formasParticipacion);
 
   return {
     codigo: values.codigo.trim(),
     tipoParticipacion,
-    tipoEvento: normalizeEventoTipoEvento(values.tipoEvento) ?? values.tipoEvento.trim(),
+    tipoEvento,
     nombre: values.nombre.trim(),
-    lugar: values.lugar.trim(),
-    genero: values.genero,
+    ...(lugar ? { lugar } : {}),
+    ...(genero ? { genero } : {}),
     disciplinaCodigo: values.disciplinaCodigo,
-    categoriaCodigo,
+    ...(categoriaCodigo ? { categoriaCodigo } : {}),
     mesProgramado: values.mesProgramado,
-    provincia: values.provincia.trim(),
-    ciudad: values.ciudad.trim(),
+    ...(provincia ? { provincia } : {}),
+    ...(ciudad ? { ciudad } : {}),
     pais: values.pais.trim(),
-    alcance: normalizeEventoAlcance(values.alcance) ?? values.alcance.trim(),
+    ...(alcance ? { alcance } : {}),
     fechaInicio: values.fechaInicio?.trim()
       ? formatDateInput(values.fechaInicio)
       : null,
     fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
-    numEntrenadoresHombres: cuposTotales.numEntrenadoresHombres,
-    numEntrenadoresMujeres: cuposTotales.numEntrenadoresMujeres,
-    numAtletasHombres: cuposTotales.numAtletasHombres,
-    numAtletasMujeres: cuposTotales.numAtletasMujeres,
-    eventoItems: values.eventoItems?.length ? values.eventoItems : undefined,
-    formasParticipacion: values.formasParticipacion?.length
-      ? values.formasParticipacion
-      : undefined,
-  };
-}
-
-export function buildUpdateEventoPayload(
-  payload: CreateEventoPayload,
-  disciplinaId?: number,
-  categoriaId?: number,
-): UpdateEventoPayload {
-  return {
-    codigo: payload.codigo,
-    tipoParticipacion: payload.tipoParticipacion,
-    tipoEvento: payload.tipoEvento,
-    nombre: payload.nombre,
-    lugar: payload.lugar,
-    genero: payload.genero,
-    disciplinaId,
-    categoriaId,
-    mesProgramado: payload.mesProgramado,
-    provincia: payload.provincia,
-    ciudad: payload.ciudad,
-    pais: payload.pais,
-    alcance: payload.alcance,
-    fechaInicio: payload.fechaInicio,
-    fechaFin: payload.fechaFin,
-    numEntrenadoresHombres: payload.numEntrenadoresHombres,
-    numEntrenadoresMujeres: payload.numEntrenadoresMujeres,
-    numAtletasHombres: payload.numAtletasHombres,
-    numAtletasMujeres: payload.numAtletasMujeres,
-    eventoItems: payload.eventoItems,
+    formasParticipacion: buildFormasParticipacionInput(values),
   };
 }
 
@@ -244,43 +227,42 @@ export function buildUpdateEventoPayloadFromForm(
 ): UpdateEventoPayload | null {
   const tipoParticipacion =
     normalizeEventoTipoParticipacion(values.tipoParticipacion) ?? undefined;
+  const tipoEvento =
+    normalizeEventoTipoEvento(values.tipoEvento) ?? values.tipoEvento.trim();
+  const genero = values.genero || undefined;
+  const lugar = values.lugar?.trim() || undefined;
+  const provincia = values.provincia?.trim() || undefined;
+  const ciudad = values.ciudad?.trim() || undefined;
+  const alcance = values.alcance?.trim()
+    ? (normalizeEventoAlcance(values.alcance) ?? values.alcance.trim())
+    : null;
 
-  if (!tipoParticipacion || !values.tipoEvento || !values.genero) {
+  if (!tipoParticipacion || !values.tipoEvento) {
     return null;
   }
 
   const canonicalCategoriaCodigo = getCanonicalCategory(values.categoriaCodigo);
-  const cuposTotales = sumFormasParticipacionCupos(values.formasParticipacion);
 
   return {
     codigo: values.codigo.trim(),
     tipoParticipacion,
-    tipoEvento: normalizeEventoTipoEvento(values.tipoEvento) ?? values.tipoEvento.trim(),
+    tipoEvento,
     nombre: values.nombre.trim(),
-    lugar: values.lugar.trim(),
-    genero: values.genero,
+    ...(lugar ? { lugar } : {}),
+    ...(genero ? { genero } : {}),
     disciplinaId,
     categoriaId: categoriaId ?? null,
     ...(canonicalCategoriaCodigo ? { categoriaCodigo: canonicalCategoriaCodigo } : {}),
     mesProgramado: values.mesProgramado,
-    provincia: values.provincia.trim(),
-    ciudad: values.ciudad.trim(),
+    ...(provincia ? { provincia } : {}),
+    ...(ciudad ? { ciudad } : {}),
     pais: values.pais.trim(),
-    alcance: values.alcance.trim()
-      ? (normalizeEventoAlcance(values.alcance) ?? values.alcance.trim())
-      : null,
+    alcance,
     fechaInicio: values.fechaInicio?.trim()
       ? formatDateInput(values.fechaInicio)
       : null,
     fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
-    numEntrenadoresHombres: cuposTotales.numEntrenadoresHombres,
-    numEntrenadoresMujeres: cuposTotales.numEntrenadoresMujeres,
-    numAtletasHombres: cuposTotales.numAtletasHombres,
-    numAtletasMujeres: cuposTotales.numAtletasMujeres,
-    eventoItems: values.eventoItems?.length ? values.eventoItems : undefined,
-    formasParticipacion: values.formasParticipacion?.length
-      ? values.formasParticipacion
-      : undefined,
+    formasParticipacion: buildFormasParticipacionInput(values),
   };
 }
 

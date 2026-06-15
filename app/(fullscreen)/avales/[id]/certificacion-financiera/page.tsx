@@ -176,6 +176,24 @@ function toInputDate(value?: string | null) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function getPeriodoComisionError(
+  periodoComision: string,
+  periodoComisionFin: string,
+) {
+  const inicio = periodoComision.trim();
+  const fin = periodoComisionFin.trim();
+
+  if (!inicio || !fin) {
+    return "El período de comisión inicio y fin es obligatorio.";
+  }
+
+  if (inicio > fin) {
+    return "El período de comisión inicio debe ser menor o igual al fin.";
+  }
+
+  return null;
+}
+
 export default function CertificacionFinancieraPage() {
   const params = useParams();
   const router = useRouter();
@@ -192,6 +210,10 @@ export default function CertificacionFinancieraPage() {
     false,
   ]);
   const [notesInitialized, setNotesInitialized] = useState(false);
+  const periodoComisionError = getPeriodoComisionError(
+    draft.periodoComision,
+    draft.periodoComisionFin,
+  );
 
   const {
     authLoading,
@@ -220,6 +242,10 @@ export default function CertificacionFinancieraPage() {
     approvalEtapa: APPROVAL_ETAPA,
     additionalEditableCheck: (currentAval) =>
       getApprovalFlowStages(currentAval).includes("FINANCIERO"),
+    validateApprove: useCallback(
+      () => periodoComisionError,
+      [periodoComisionError],
+    ),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const notasPayload = draft.notas
@@ -384,11 +410,11 @@ export default function CertificacionFinancieraPage() {
     );
     const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
     const categoria = evento?.categoria?.nombre ?? evento?.categoriaCodigo;
-    const esFondosPublicos = aval.tipoAval !== "AUTOGESTION";
+    const esFondosPublicos = aval.tipoAval === "FONDOS_PUBLICOS";
     const cierreFrase = esFondosPublicos
       ? "consta en el PDA 2026 aprobado por el Ministerio del Deporte."
       : "ha sido aprobado y cuenta con el financiamiento correspondiente.";
-    return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por el ${entrenador} Entrenador de ${disciplina} me permito certificar que el evento ${eventoNombre}${categoria ? ` (${categoria.toUpperCase()})` : ""} ${cierreFrase}`;
+    return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por ${entrenador} Entrenador de la disciplina me permito certificar que el evento ${eventoNombre}${categoria ? ` (${categoria.toUpperCase()})` : ""} ${cierreFrase}`;
   }, [aval]);
 
   const defaultPeriodoComision = useMemo(() => {
@@ -427,9 +453,7 @@ export default function CertificacionFinancieraPage() {
     setDraft((prev) => ({
       ...prev,
       descripcionCertificacion:
-        financieroRecord?.descripcion?.trim() ||
-        prev.descripcionCertificacion ||
-        defaultDescripcionCertificacion,
+        prev.descripcionCertificacion || defaultDescripcionCertificacion,
       periodoComision:
         financieroRecord?.periodoComision?.trim() ||
         prev.periodoComision ||
@@ -595,10 +619,7 @@ export default function CertificacionFinancieraPage() {
                       descripcionCertificacion: e.target.value,
                     }))
                   }
-                  placeholder={
-                    defaultDescripcionCertificacion ||
-                    "Describe la certificación presupuestaria..."
-                  }
+                  placeholder="Describe la certificación presupuestaria..."
                 />
               </label>
 

@@ -806,7 +806,6 @@ export default function CertificacionFinancieraPage() {
                 footer={revisionFooter}
                 reviewItems={DEFAULT_REVIEW_ITEMS}
                 reviewState={reviewState}
-                useDefaultObservations={false}
               />
             </PreviewCollapsible>
             <PreviewCollapsible title="Aval Técnico Competitivo">

@@ -441,7 +441,6 @@ export default function RevisionControlPrevioPage() {
                 footer={revisionFooter}
                 reviewItems={reviewItems}
                 reviewState={reviewState}
-                useDefaultObservations={false}
               />
             </PreviewCollapsible>
             <PreviewCollapsible title="Aval Técnico Competitivo" defaultOpen>

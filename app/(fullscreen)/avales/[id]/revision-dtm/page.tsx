@@ -596,7 +596,6 @@ export default function RevisionDtmPage() {
                 footer={revisionFooter}
                 reviewItems={reviewItems}
                 reviewState={reviewState}
-                useDefaultObservations={false}
               />
             </PreviewCollapsible>
             <PreviewCollapsible title="Aval Técnico Competitivo" defaultOpen>

@@ -56,8 +56,9 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
 };
 
 type BudgetDraftDia = {
-  numeroDia: number;
+  localId: string;
   nombrePersonalizado?: string;
+  noDias?: number;
   cantidad?: number;
   valorUnitario?: number;
 };
@@ -74,15 +75,14 @@ type BudgetDraftItem = {
   dias: BudgetDraftDia[];
 };
 
-function resolveBudgetItemNombre(item: Pick<BudgetDraftItem, "nombreBase" | "nombrePersonalizado">) {
+function resolveBudgetItemNombre(
+  item: Pick<BudgetDraftItem, "nombreBase" | "nombrePersonalizado">,
+) {
   return item.nombrePersonalizado.trim() || item.nombreBase;
 }
 
-function resolveBudgetDiaNombre(
-  item: Pick<BudgetDraftItem, "nombreBase" | "nombrePersonalizado">,
-  dia: Pick<BudgetDraftDia, "nombrePersonalizado">,
-) {
-  return dia.nombrePersonalizado?.trim() || resolveBudgetItemNombre(item);
+function createBudgetDiaLocalId() {
+  return `dia-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
@@ -204,7 +204,9 @@ function roundCurrency(value: number) {
 }
 
 function getDraftItemDiaTotal(dia: BudgetDraftDia) {
-  return roundCurrency((dia.cantidad ?? 0) * (dia.valorUnitario ?? 0));
+  return roundCurrency(
+    (dia.noDias ?? 0) * (dia.cantidad ?? 0) * (dia.valorUnitario ?? 0),
+  );
 }
 
 function getDraftItemTotal(item: BudgetDraftItem) {
@@ -216,26 +218,32 @@ function getDraftItemTotal(item: BudgetDraftItem) {
 function createDefaultBudgetDia(
   valorUnitario = 0,
   nombrePersonalizado = "",
+  noDias = 1,
+  cantidad = 1,
 ): BudgetDraftDia {
   return {
-    numeroDia: 1,
+    localId: createBudgetDiaLocalId(),
     nombrePersonalizado,
-    cantidad: 1,
+    noDias,
+    cantidad,
     valorUnitario: roundCurrency(valorUnitario),
   };
 }
 
 function normalizeVisibleBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
   if (dias.length === 0) return [createDefaultBudgetDia()];
-  return dias.map((dia, index) => ({
+  return dias.map((dia) => ({
     ...dia,
-    numeroDia: index + 1,
+    localId: dia.localId || createBudgetDiaLocalId(),
   }));
 }
 
 function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
   const validDias = dias.filter(
     (dia) =>
+      typeof dia.noDias === "number" &&
+      Number.isFinite(dia.noDias) &&
+      dia.noDias > 0 &&
       typeof dia.cantidad === "number" &&
       Number.isFinite(dia.cantidad) &&
       dia.cantidad > 0 &&
@@ -248,8 +256,9 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
     const [dia] = validDias;
     return [
       {
-        numeroDia: 1,
+        localId: dia.localId || createBudgetDiaLocalId(),
         nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
+        noDias: dia.noDias,
         cantidad: dia.cantidad,
         valorUnitario: roundCurrency(dia.valorUnitario ?? 0),
       },
@@ -257,9 +266,10 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
   }
 
   if (validDias.length > 1) {
-    return validDias.map((dia, index) => ({
-      numeroDia: index + 1,
+    return validDias.map((dia) => ({
+      localId: dia.localId || createBudgetDiaLocalId(),
       nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
+      noDias: dia.noDias,
       cantidad: dia.cantidad,
       valorUnitario: roundCurrency(dia.valorUnitario ?? 0),
     }));
@@ -279,20 +289,35 @@ function collapseBudgetDias(
       createDefaultBudgetDia(
         fallbackValorUnitario,
         fallbackNombrePersonalizado,
+        1,
+        1,
       ),
     ];
   }
-  const cantidad = validDias.reduce((sum, dia) => sum + (dia.cantidad ?? 0), 0);
-  const total = validDias.reduce((sum, dia) => sum + getDraftItemDiaTotal(dia), 0);
+  if (validDias.length === 1) {
+    return validDias;
+  }
+  const cantidad = validDias.reduce(
+    (sum, dia) => sum + (dia.noDias ?? 0) * (dia.cantidad ?? 0),
+    0,
+  );
+  const total = validDias.reduce(
+    (sum, dia) => sum + getDraftItemDiaTotal(dia),
+    0,
+  );
 
   return [
     {
-      numeroDia: 1,
+      localId: createBudgetDiaLocalId(),
       nombrePersonalizado:
-        validDias[0]?.nombrePersonalizado?.trim() || fallbackNombrePersonalizado,
+        validDias[0]?.nombrePersonalizado?.trim() ||
+        fallbackNombrePersonalizado,
+      noDias: 1,
       cantidad: cantidad || 1,
       valorUnitario:
-        cantidad > 0 ? roundCurrency(total / cantidad) : validDias[0]?.valorUnitario ?? 0,
+        cantidad > 0
+          ? roundCurrency(total / cantidad)
+          : (validDias[0]?.valorUnitario ?? 0),
     },
   ];
 }
@@ -309,73 +334,76 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
     (aval.pda?.items ?? []).map((pdaItem) => [pdaItem.itemId, pdaItem]),
   );
 
-  return getAvalPresupuestoItems(aval)
-    .map((item) => {
-      const totalOriginal = roundCurrency(
-        Number.parseFloat(item.presupuesto ?? "0") || 0,
-      );
-      const pdaItem = pdaItemsByCatalog.get(item.item.id);
+  return getAvalPresupuestoItems(aval).map((item) => {
+    const totalOriginal = roundCurrency(
+      Number.parseFloat(item.presupuesto ?? "0") || 0,
+    );
+    const pdaItem = pdaItemsByCatalog.get(item.item.id);
 
-      if (pdaItem && Array.isArray(pdaItem.dias) && pdaItem.dias.length > 0) {
-        const fallbackNombre =
-          pdaItem.nombrePersonalizado?.trim() || item.item.nombre;
-        const dias = sanitizeBudgetDias(
-          pdaItem.dias.map((dia) => ({
-            numeroDia: dia.numeroDia,
-            nombrePersonalizado:
-              dia.nombrePersonalizado?.trim() || fallbackNombre,
-            cantidad: Number(dia.cantidad ?? 0),
-            valorUnitario: roundCurrency(Number(dia.valorUnitario ?? 0)),
-          })),
-        );
-        return {
-          id: item.id,
-          itemId: item.item.id,
-          codigo: item.item.numero,
-          nombreBase: item.item.nombre,
-          nombrePersonalizado: pdaItem.nombrePersonalizado?.trim() || item.item.nombre,
-          actividad:
-            item.item.actividad?.nombre ??
-            "EVENTOS DE PREPARACION Y COMPETENCIA",
-          originalTotal: totalOriginal,
-          usaDetallePorDia: dias.length > 1,
-          dias:
-            dias.length > 0
-              ? dias
-              : [createDefaultBudgetDia(totalOriginal, fallbackNombre)],
-        };
-      }
-
-      const requerimiento = requerimientos.find(
-        (c) => c.rubroId === item.item.id || c.rubroId === item.id,
-      );
-      const cantidadDias =
-        normalizePositiveInteger(requerimiento?.cantidadDias ?? "1") || 1;
-      const valorUnitario = roundCurrency(
-        requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
-          ? requerimiento.valorUnitario
-          : totalOriginal / cantidadDias,
+    if (pdaItem && Array.isArray(pdaItem.dias) && pdaItem.dias.length > 0) {
+      const fallbackNombre =
+        pdaItem.nombrePersonalizado?.trim() || item.item.nombre;
+      const dias = sanitizeBudgetDias(
+        pdaItem.dias.map((dia) => ({
+          localId: createBudgetDiaLocalId(),
+          nombrePersonalizado:
+            dia.nombrePersonalizado?.trim() || fallbackNombre,
+          noDias: Number(dia.noDias ?? 1),
+          cantidad: Number(dia.cantidad ?? 0),
+          valorUnitario: roundCurrency(Number(dia.valorUnitario ?? 0)),
+        })),
       );
       return {
         id: item.id,
         itemId: item.item.id,
         codigo: item.item.numero,
         nombreBase: item.item.nombre,
-        nombrePersonalizado: item.item.nombre,
+        nombrePersonalizado:
+          pdaItem.nombrePersonalizado?.trim() || item.item.nombre,
         actividad:
           item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
         originalTotal: totalOriginal,
-        usaDetallePorDia: false,
-        dias: [
-          {
-            numeroDia: 1,
-            nombrePersonalizado: item.item.nombre,
-            cantidad: cantidadDias,
-            valorUnitario,
-          },
-        ],
+        usaDetallePorDia: dias.length > 1,
+        dias:
+          dias.length > 0
+            ? dias
+            : [createDefaultBudgetDia(totalOriginal, fallbackNombre)],
       };
-    });
+    }
+
+    const requerimiento = requerimientos.find(
+      (c) => c.rubroId === item.item.id || c.rubroId === item.id,
+    );
+    const noDias =
+      normalizePositiveInteger(requerimiento?.cantidadDias ?? "1") || 1;
+    const cantidad =
+      normalizePositiveNumber(requerimiento?.cantidad ?? "1") || 1;
+    const valorUnitario = roundCurrency(
+      requerimiento?.valorUnitario && requerimiento.valorUnitario > 0
+        ? requerimiento.valorUnitario
+        : totalOriginal / (noDias * cantidad),
+    );
+    return {
+      id: item.id,
+      itemId: item.item.id,
+      codigo: item.item.numero,
+      nombreBase: item.item.nombre,
+      nombrePersonalizado: item.item.nombre,
+      actividad:
+        item.item.actividad?.nombre ?? "EVENTOS DE PREPARACION Y COMPETENCIA",
+      originalTotal: totalOriginal,
+      usaDetallePorDia: false,
+      dias: [
+        {
+          localId: createBudgetDiaLocalId(),
+          nombrePersonalizado: item.item.nombre,
+          noDias,
+          cantidad,
+          valorUnitario,
+        },
+      ],
+    };
+  });
 }
 
 function PresupuestoFuenteWidget({
@@ -459,30 +487,29 @@ export default function CertificarAvalPage() {
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,
-    validateApprove: useCallback(
-      () => {
-        const pdaError = validatePdaDraft(draft);
-        if (pdaError) return pdaError;
+    validateApprove: useCallback(() => {
+      const pdaError = validatePdaDraft(draft);
+      if (pdaError) return pdaError;
 
-        const invalidItems = budgetDraftItems.filter(
-          (item) =>
-            sanitizeBudgetDias(item.dias).length === 0 ||
-            sanitizeBudgetDias(item.dias).some(
-              (dia) =>
-                !dia.cantidad ||
-                !dia.valorUnitario ||
-                dia.cantidad <= 0 ||
-                dia.valorUnitario <= 0,
-            ),
-        );
-        if (invalidItems.length > 0) {
-          return "Todos los ítems deben tener al menos un día con cantidad y valor unitario mayores a 0.";
-        }
+      const invalidItems = budgetDraftItems.filter(
+        (item) =>
+          sanitizeBudgetDias(item.dias).length === 0 ||
+          sanitizeBudgetDias(item.dias).some(
+            (dia) =>
+              !dia.noDias ||
+              !dia.cantidad ||
+              !dia.valorUnitario ||
+              dia.noDias <= 0 ||
+              dia.cantidad <= 0 ||
+              dia.valorUnitario <= 0,
+          ),
+      );
+      if (invalidItems.length > 0) {
+        return "Todos los ítems deben tener no. días, cantidad y valor unitario mayores a 0.";
+      }
 
-        return null;
-      },
-      [draft, budgetDraftItems],
-    ),
+      return null;
+    }, [draft, budgetDraftItems]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const items = budgetDraftItems
@@ -502,14 +529,15 @@ export default function CertificarAvalPage() {
                   resolveBudgetItemNombre(item),
                 )
             ).map((dia) => ({
-              numeroDia: dia.numeroDia,
               nombrePersonalizado:
                 dia.nombrePersonalizado?.trim() &&
                 dia.nombrePersonalizado.trim() !== resolveBudgetItemNombre(item)
                   ? dia.nombrePersonalizado.trim()
                   : undefined,
+              noDias: dia.noDias!,
               cantidad: dia.cantidad!,
               valorUnitario: dia.valorUnitario!,
+              subtotal: getDraftItemDiaTotal(dia),
             })),
           }))
           .filter(
@@ -621,17 +649,17 @@ export default function CertificarAvalPage() {
         total: getDraftItemTotal(item),
         dias: sanitizeBudgetDias(item.dias)
           .filter(
-            (
-              dia,
-            ): dia is BudgetDraftDia =>
+            (dia): dia is BudgetDraftDia =>
+              typeof dia.noDias === "number" &&
               typeof dia.cantidad === "number" &&
               typeof dia.valorUnitario === "number",
           )
           .map((dia) => ({
-            numeroDia: dia.numeroDia,
             nombrePersonalizado: dia.nombrePersonalizado?.trim() || undefined,
+            noDias: dia.noDias ?? 0,
             cantidad: dia.cantidad ?? 0,
             valorUnitario: dia.valorUnitario ?? 0,
+            subtotal: getDraftItemDiaTotal(dia),
           })),
       })),
     [budgetDraftItems],
@@ -640,8 +668,8 @@ export default function CertificarAvalPage() {
   const handleDiaChange = useCallback(
     (
       itemId: number,
-      numeroDia: number,
-      field: "cantidad" | "valorUnitario",
+      diaLocalId: string,
+      field: "noDias" | "cantidad" | "valorUnitario",
       value: string,
     ) => {
       setBudgetDraftItems((prev) =>
@@ -650,11 +678,11 @@ export default function CertificarAvalPage() {
           return {
             ...item,
             dias: normalizeVisibleBudgetDias(item.dias).map((dia) =>
-              dia.numeroDia === numeroDia
+              dia.localId === diaLocalId
                 ? {
                     ...dia,
                     [field]:
-                      field === "cantidad"
+                      field === "noDias"
                         ? normalizePositiveInteger(value)
                         : normalizePositiveNumber(value),
                   }
@@ -668,14 +696,14 @@ export default function CertificarAvalPage() {
   );
 
   const handleDiaNombreChange = useCallback(
-    (itemId: number, numeroDia: number, value: string) => {
+    (itemId: number, diaLocalId: string, value: string) => {
       setBudgetDraftItems((prev) =>
         prev.map((item) => {
           if (item.id !== itemId) return item;
           return {
             ...item,
             dias: normalizeVisibleBudgetDias(item.dias).map((dia) =>
-              dia.numeroDia === numeroDia
+              dia.localId === diaLocalId
                 ? { ...dia, nombrePersonalizado: value }
                 : dia,
             ),
@@ -729,8 +757,9 @@ export default function CertificarAvalPage() {
           dias: [
             ...dias,
             {
-              numeroDia: dias.length + 1,
+              localId: createBudgetDiaLocalId(),
               nombrePersonalizado: resolveBudgetItemNombre(item),
+              noDias: 1,
               cantidad: 1,
               valorUnitario: dias[0]?.valorUnitario ?? 0,
             },
@@ -740,13 +769,13 @@ export default function CertificarAvalPage() {
     );
   }, []);
 
-  const handleRemoveDia = useCallback((itemId: number, numeroDia: number) => {
+  const handleRemoveDia = useCallback((itemId: number, diaLocalId: string) => {
     setBudgetDraftItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
 
         const dias = normalizeVisibleBudgetDias(item.dias).filter(
-          (dia) => dia.numeroDia !== numeroDia,
+          (dia) => dia.localId !== diaLocalId,
         );
 
         if (dias.length <= 1) {
@@ -763,7 +792,7 @@ export default function CertificarAvalPage() {
 
         return {
           ...item,
-          dias: dias.map((dia, index) => ({ ...dia, numeroDia: index + 1 })),
+          dias,
         };
       }),
     );
@@ -839,7 +868,7 @@ export default function CertificarAvalPage() {
       )}
       <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="h-full w-full overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 sm:px-8 py-8">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
             <button
               onClick={() => router.push("/avales")}
               className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-6"
@@ -849,7 +878,7 @@ export default function CertificarAvalPage() {
             </button>
 
             <div className="space-y-5">
-              <div className="max-w-xl">
+              <div>
                 <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                   Certificacion PDA
                 </h1>
@@ -859,7 +888,7 @@ export default function CertificarAvalPage() {
                 </p>
               </div>
 
-              <div className="grid max-w-xl grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {/* Descripcion comentada — se gestiona en Certificación Financiera
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -916,7 +945,7 @@ export default function CertificarAvalPage() {
 
               {/* Presupuesto por fuente */}
               {aval.presupuesto && (
-                <div className="max-w-xl">
+                <div>
                   <PresupuestoFuenteWidget presupuesto={aval.presupuesto} />
                 </div>
               )}
@@ -928,7 +957,8 @@ export default function CertificarAvalPage() {
                       Items del presupuesto
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Usa una fila simple o desglosa varias cuando cambie el valor por día.
+                      Usa una fila simple o desglosa varias cuando cambie el
+                      valor por día.
                     </p>
                   </div>
                   <div className="text-right">
@@ -990,206 +1020,241 @@ export default function CertificarAvalPage() {
 
                           return (
                             <>
-                        <div className="bg-gray-50 dark:bg-gray-800/60 px-4 py-3">
-                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                            {item.codigo} - {resolveBudgetItemNombre(item)}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {item.actividad}
-                          </p>
-                          <div className="mt-3">
-                            <label className="block">
-                              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                                Nombre personalizado
-                              </span>
-                              <input
-                                className="form-input mt-1 w-full"
-                                value={item.nombrePersonalizado}
-                                readOnly={!isEditable}
-                                disabled={!isEditable}
-                                onChange={(e) =>
-                                  handleNombrePersonalizadoChange(
-                                    item.id,
-                                    e.target.value,
-                                  )
-                                }
-                                placeholder={item.nombreBase}
-                              />
-                            </label>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between gap-3">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {item.usaDetallePorDia
-                                ? "Puedes agregar varias filas si el valor cambia entre dias."
-                                : "No. dias = total de dias del item."}
-                            </p>
-                            <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
-                              <input
-                                type="checkbox"
-                                className="form-checkbox"
-                                checked={item.usaDetallePorDia}
-                                disabled={!isEditable}
-                                onChange={() => handleToggleDetallePorDia(item.id)}
-                              />
-                              Usar varias filas
-                            </label>
-                          </div>
-                          <div
-                            className={`mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3 ${
-                              itemMatches
-                                ? "text-emerald-700 dark:text-emerald-300"
-                                : "text-amber-700 dark:text-amber-300"
-                            }`}
-                          >
-                            <p>
-                              Inicial: {formatCurrency(item.originalTotal)}
-                            </p>
-                            <p>
-                              Actual: {formatCurrency(currentTotal)}
-                            </p>
-                            <p>
-                              Diferencia:{" "}
-                              {itemDifference > 0 ? "+" : ""}
-                              {formatCurrency(itemDifference)}
-                            </p>
-                          </div>
-                        </div>
+                              <div className="bg-gray-50 dark:bg-gray-800/60 px-4 py-3">
+                                <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                                  {item.codigo} -{" "}
+                                  {resolveBudgetItemNombre(item)}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  {item.actividad}
+                                </p>
+                                <div className="mt-3">
+                                  <label className="block">
+                                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                      Nombre personalizado
+                                    </span>
+                                    <input
+                                      className="form-input mt-1 w-full"
+                                      value={item.nombrePersonalizado}
+                                      readOnly={!isEditable}
+                                      disabled={!isEditable}
+                                      onChange={(e) =>
+                                        handleNombrePersonalizadoChange(
+                                          item.id,
+                                          e.target.value,
+                                        )
+                                      }
+                                      placeholder={item.nombreBase}
+                                    />
+                                  </label>
+                                </div>
+                                <div className="mt-3 flex items-center justify-between gap-3">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {item.usaDetallePorDia
+                                      ? "Puedes agregar varias filas si cambian los días o la cantidad."
+                                      : "Cada fila maneja no. dias, cantidad y valor unitario."}
+                                  </p>
+                                  <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                                    <input
+                                      type="checkbox"
+                                      className="form-checkbox"
+                                      checked={item.usaDetallePorDia}
+                                      disabled={!isEditable}
+                                      onChange={() =>
+                                        handleToggleDetallePorDia(item.id)
+                                      }
+                                    />
+                                    Usar varias filas
+                                  </label>
+                                </div>
+                                <div
+                                  className={`mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3 ${
+                                    itemMatches
+                                      ? "text-emerald-700 dark:text-emerald-300"
+                                      : "text-amber-700 dark:text-amber-300"
+                                  }`}
+                                >
+                                  <p>
+                                    Inicial:{" "}
+                                    {formatCurrency(item.originalTotal)}
+                                  </p>
+                                  <p>Actual: {formatCurrency(currentTotal)}</p>
+                                  <p>
+                                    Diferencia: {itemDifference > 0 ? "+" : ""}
+                                    {formatCurrency(itemDifference)}
+                                  </p>
+                                </div>
+                              </div>
 
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead className="bg-gray-100 dark:bg-gray-800">
-                              <tr>
-                                {item.usaDetallePorDia && (
-                                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">
-                                    Nombre
-                                  </th>
-                                )}
-                                <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                  No. dias
-                                </th>
-                                <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                  V. Unitario
-                                </th>
-                                <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                  Subtotal
-                                </th>
-                                {item.usaDetallePorDia && (
-                                  <th className="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-300">
-                                    Acciones
-                                  </th>
-                                )}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                              {visibleDias.map((dia) => (
-                                <tr key={`${item.id}-${dia.numeroDia}`}>
-                                  {item.usaDetallePorDia && (
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="text"
-                                        className="form-input w-full"
-                                        value={dia.nombrePersonalizado || ""}
-                                        readOnly={!isEditable}
-                                        disabled={!isEditable}
-                                        onChange={(e) =>
-                                          handleDiaNombreChange(
-                                            item.id,
-                                            dia.numeroDia,
-                                            e.target.value,
-                                          )
-                                        }
-                                        placeholder={resolveBudgetItemNombre(item)}
-                                      />
-                                    </td>
-                                  )}
-                                  <td className="px-3 py-2 text-right">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      className="form-input w-20 ml-auto text-right"
-                                      value={dia.cantidad || ""}
-                                      readOnly={!isEditable}
-                                      disabled={!isEditable}
-                                      onChange={(e) => {
-                                        const value = e.target.value.replace(
-                                          /\D/g,
-                                          "",
-                                        );
-                                        handleDiaChange(
-                                          item.id,
-                                          dia.numeroDia,
-                                          "cantidad",
-                                          value,
-                                        );
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2 text-right">
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      className="form-input w-24 ml-auto text-right"
-                                      value={dia.valorUnitario || ""}
-                                      readOnly={!isEditable}
-                                      disabled={!isEditable}
-                                      onChange={(e) => {
-                                        const value = e.target.value
-                                          .replace(/[^0-9.,]/g, "")
-                                          .replace(",", ".");
-                                        handleDiaChange(
-                                          item.id,
-                                          dia.numeroDia,
-                                          "valorUnitario",
-                                          value,
-                                        );
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(getDraftItemDiaTotal(dia))}
-                                  </td>
-                                  {item.usaDetallePorDia && (
-                                    <td className="px-3 py-2 text-center">
-                                      {isEditable && (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleRemoveDia(item.id, dia.numeroDia)
-                                          }
-                                          className="text-rose-500 hover:text-rose-600 text-lg"
-                                        >
-                                          ×
-                                        </button>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-100 dark:bg-gray-800">
+                                    <tr>
+                                      {item.usaDetallePorDia && (
+                                        <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300 w-[40%]">
+                                          Nombre
+                                        </th>
                                       )}
-                                    </td>
-                                  )}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                        No. dias
+                                      </th>
+                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                        Cantidad
+                                      </th>
+                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                        V. Unitario
+                                      </th>
+                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
+                                        Subtotal
+                                      </th>
+                                      {item.usaDetallePorDia && (
+                                        <th className="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-300">
+                                          Acciones
+                                        </th>
+                                      )}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {visibleDias.map((dia) => (
+                                      <tr key={dia.localId}>
+                                        {item.usaDetallePorDia && (
+                                          <td className="px-3 py-2 w-[40%]">
+                                            <input
+                                              type="text"
+                                              className="form-input w-full"
+                                              value={
+                                                dia.nombrePersonalizado || ""
+                                              }
+                                              readOnly={!isEditable}
+                                              disabled={!isEditable}
+                                              onChange={(e) =>
+                                                handleDiaNombreChange(
+                                                  item.id,
+                                                  dia.localId,
+                                                  e.target.value,
+                                                )
+                                              }
+                                              placeholder={resolveBudgetItemNombre(
+                                                item,
+                                              )}
+                                            />
+                                          </td>
+                                        )}
+                                        <td className="px-3 py-2 text-right">
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="form-input w-20 ml-auto text-right"
+                                            value={dia.noDias || ""}
+                                            readOnly={!isEditable}
+                                            disabled={!isEditable}
+                                            onChange={(e) => {
+                                              const value =
+                                                e.target.value.replace(
+                                                  /\D/g,
+                                                  "",
+                                                );
+                                              handleDiaChange(
+                                                item.id,
+                                                dia.localId,
+                                                "noDias",
+                                                value,
+                                              );
+                                            }}
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="form-input w-20 ml-auto text-right"
+                                            value={dia.cantidad || ""}
+                                            readOnly={!isEditable}
+                                            disabled={!isEditable}
+                                            onChange={(e) => {
+                                              const value = e.target.value
+                                                .replace(/[^0-9.,]/g, "")
+                                                .replace(",", ".");
+                                              handleDiaChange(
+                                                item.id,
+                                                dia.localId,
+                                                "cantidad",
+                                                value,
+                                              );
+                                            }}
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="form-input w-24 ml-auto text-right"
+                                            value={dia.valorUnitario || ""}
+                                            readOnly={!isEditable}
+                                            disabled={!isEditable}
+                                            onChange={(e) => {
+                                              const value = e.target.value
+                                                .replace(/[^0-9.,]/g, "")
+                                                .replace(",", ".");
+                                              handleDiaChange(
+                                                item.id,
+                                                dia.localId,
+                                                "valorUnitario",
+                                                value,
+                                              );
+                                            }}
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                          {formatCurrency(
+                                            getDraftItemDiaTotal(dia),
+                                          )}
+                                        </td>
+                                        {item.usaDetallePorDia && (
+                                          <td className="px-3 py-2 text-center">
+                                            {isEditable && (
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleRemoveDia(
+                                                    item.id,
+                                                    dia.localId,
+                                                  )
+                                                }
+                                                className="text-rose-500 hover:text-rose-600 text-lg"
+                                              >
+                                                ×
+                                              </button>
+                                            )}
+                                          </td>
+                                        )}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
 
-                        <div className="bg-gray-50 dark:bg-gray-800/40 px-4 py-2 flex items-center justify-between">
-                          <div>
-                            {isEditable && item.usaDetallePorDia && (
-                              <button
-                                type="button"
-                                onClick={() => handleAddDia(item.id)}
-                                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-                              >
-                                + Agregar fila
-                              </button>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Total del ítem
-                            </p>
-                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {formatCurrency(currentTotal)}
-                            </p>
-                          </div>
-                        </div>
+                              <div className="bg-gray-50 dark:bg-gray-800/40 px-4 py-2 flex items-center justify-between">
+                                <div>
+                                  {isEditable && item.usaDetallePorDia && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddDia(item.id)}
+                                      className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
+                                    >
+                                      + Agregar fila
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Total del ítem
+                                  </p>
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(currentTotal)}
+                                  </p>
+                                </div>
+                              </div>
                             </>
                           );
                         })()}
@@ -1200,7 +1265,7 @@ export default function CertificarAvalPage() {
               </div>
 
               {isEditable && (
-                <div className="max-w-xl rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       Certificación PDA
@@ -1226,8 +1291,8 @@ export default function CertificarAvalPage() {
                   )}
 
                   {!adminSaveOnly &&
-                    getPreviousApprovalStagesForAval(aval, currentEtapa).length >
-                      0 && (
+                    getPreviousApprovalStagesForAval(aval, currentEtapa)
+                      .length > 0 && (
                       <label className="block">
                         <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                           Regresar a etapa (opcional)
@@ -1288,7 +1353,7 @@ export default function CertificarAvalPage() {
       </div>
 
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
-        <div className="p-6 xl:p-8">
+        <div className="p-2 xl:p-4">
           <div className="space-y-6">
             <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Lista deportistas">

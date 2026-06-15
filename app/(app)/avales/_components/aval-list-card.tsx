@@ -23,6 +23,7 @@ import {
   getApprovalStageLabel,
   getTipoAvalLabel,
 } from "@/lib/constants";
+import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
   getAvalCurrentEtapa,
   getApprovalFlowStages,
@@ -200,14 +201,14 @@ export default function AvalListCard({
           ? "Aprobado"
           : getApprovalStageLabel(etapaParaMostrar);
         const evento = aval.evento;
+        const cupos = getAvalCupos(aval);
         const totalDeportistas =
-          (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
+          cupos.numAtletasHombres + cupos.numAtletasMujeres;
         const totalEntrenadores =
-          (evento?.numEntrenadoresHombres || 0) +
-          (evento?.numEntrenadoresMujeres || 0);
+          cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
         const numeroAval = getAvalNumber(aval);
         const ubicacionEvento = formatLocationWithProvince(evento);
-        const responsableAval = getResponsibleTrainerName(aval, "Por definir");
+        const responsableAval = getResponsibleTrainerName(aval, "-");
 
         return (
           <div

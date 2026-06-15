@@ -22,7 +22,7 @@ type ExtendedTrainer = NonNullable<Aval["entrenadores"]>[number] & {
 
 export function getResponsibleTrainerName(
   aval: Aval,
-  fallback = "POR DEFINIR",
+  fallback = "-",
 ): string {
   const sorted = [...(aval.entrenadores ?? [])].sort(
     (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),

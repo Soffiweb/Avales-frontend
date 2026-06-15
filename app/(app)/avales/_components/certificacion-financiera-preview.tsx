@@ -6,6 +6,10 @@ import {
   getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
+import {
+  getAvalCupos,
+  getAvalPresupuestoItems,
+} from "@/lib/utils/aval-collections";
 
 type Props = {
   aval: Aval;
@@ -36,11 +40,10 @@ function InfoTable({
 }) {
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
+  const cupos = getAvalCupos(aval);
   const entrenadores =
-    (evento?.numEntrenadoresHombres || 0) +
-    (evento?.numEntrenadoresMujeres || 0);
-  const deportistas =
-    (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
+    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
+  const deportistas = cupos.numAtletasHombres + cupos.numAtletasMujeres;
   const participantesText = `ENTRENADORES: ${entrenadores}   DEPORTISTAS: ${deportistas}`;
 
   const rows: [string, string][] = [
@@ -89,8 +92,7 @@ function InfoTable({
 }
 
 export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
-  const evento = aval.evento;
-  const presupuestoItems = evento?.presupuesto ?? [];
+  const presupuestoItems = getAvalPresupuestoItems(aval);
   const total = presupuestoItems.reduce((sum, item) => {
     const value = Number.parseFloat(item.presupuesto);
     return sum + (Number.isFinite(value) ? value : 0);

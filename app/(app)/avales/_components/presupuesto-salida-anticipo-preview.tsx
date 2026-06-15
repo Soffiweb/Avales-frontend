@@ -6,6 +6,10 @@ import {
   getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
+import {
+  getAvalCupos,
+  getAvalPresupuestoItems,
+} from "@/lib/utils/aval-collections";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -17,7 +21,7 @@ function formatEventDateRangeDoc(
   inicio?: string | null,
   fin?: string | null,
 ): string {
-  if (!inicio || !fin) return "POR DEFINIR";
+  if (!inicio || !fin) return "-";
   const parseParts = (raw: string) => {
     const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (isoMatch)
@@ -36,7 +40,7 @@ function formatEventDateRangeDoc(
   };
   const a = parseParts(inicio);
   const b = parseParts(fin);
-  if (!a || !b) return "POR DEFINIR";
+  if (!a || !b) return "-";
   const sameDay =
     a.year === b.year && a.month === b.month && a.day === b.day;
   if (sameDay) {
@@ -127,7 +131,7 @@ export default function PresupuestoSalidaAnticipoPreview({
     ? periodoComisionFin
       ? `${formatDate(periodoComision)} - ${formatDate(periodoComisionFin)}`
       : formatDate(periodoComision)
-    : "Por definir";
+    : "-";
 
   const pdaFirmanteNombre =
     draft?.pdaFirmanteNombre?.trim() ?? aval.pda?.nombreFirmante?.trim() ?? "";
@@ -138,16 +142,23 @@ export default function PresupuestoSalidaAnticipoPreview({
   const formatCantidad = (value: number) => String(Math.trunc(value));
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
+  const cupos = getAvalCupos(aval);
+  const presupuestoSourceItems = getAvalPresupuestoItems(aval);
   const entrenadores =
-    (evento?.numEntrenadoresHombres || 0) +
-    (evento?.numEntrenadoresMujeres || 0);
+    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
   const deportistas =
-    (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
+    cupos.numAtletasHombres + cupos.numAtletasMujeres;
 
   const presupuestoLookup = new Map(
-    (evento?.presupuesto ?? []).flatMap((item) => [
+    presupuestoSourceItems.flatMap((item) => [
       [item.id, item.item.nombre] as const,
       [item.item.id, item.item.nombre] as const,
+    ]),
+  );
+  const presupuestoTotalLookup = new Map(
+    presupuestoSourceItems.flatMap((item) => [
+      [item.id, Number.parseFloat(item.presupuesto) || 0] as const,
+      [item.item.id, Number.parseFloat(item.presupuesto) || 0] as const,
     ]),
   );
 
@@ -165,17 +176,20 @@ export default function PresupuestoSalidaAnticipoPreview({
             item.nombrePersonalizado?.trim() ||
             presupuestoLookup.get(item.itemId) ||
             `Item ${item.itemId}`,
-          total: item.presupuesto,
+          total:
+            item.presupuesto > 0
+              ? item.presupuesto
+              : presupuestoTotalLookup.get(item.itemId) ?? 0,
           dias: sanitizePreviewDias(
             item.dias?.map((dia) => ({
               numeroDia: dia.numeroDia,
-              nombrePersonalizado: dia.nombrePersonalizado,
+              nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
               cantidad: dia.cantidad,
               valorUnitario: dia.valorUnitario,
             })),
           ),
         }))
-      : (evento?.presupuesto ?? []).map((item) => ({
+      : presupuestoSourceItems.map((item) => ({
           id: item.id,
           nombre: item.item.nombre,
           total: Number.parseFloat(item.presupuesto) || 0,

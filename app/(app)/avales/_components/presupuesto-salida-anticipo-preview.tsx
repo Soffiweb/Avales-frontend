@@ -64,10 +64,19 @@ function formatEventDateRangeDoc(
 }
 
 export type PresupuestoSalidaPreviewDia = {
-  numeroDia: number;
+  noDias: number;
   nombrePersonalizado?: string;
   cantidad: number;
   valorUnitario: number;
+  subtotal?: number;
+};
+
+type PresupuestoSalidaPreviewDiaInput = {
+  noDias?: number | string | null;
+  nombrePersonalizado?: string | null;
+  cantidad: number | string | null | undefined;
+  valorUnitario: number | string | null | undefined;
+  subtotal?: number | string | null | undefined;
 };
 
 export type PresupuestoSalidaPreviewItem = {
@@ -78,29 +87,53 @@ export type PresupuestoSalidaPreviewItem = {
 };
 
 function sanitizePreviewDias(
-  dias?:
-    | PresupuestoSalidaPreviewDia[]
-    | Array<
-        Omit<PresupuestoSalidaPreviewDia, "nombrePersonalizado"> & {
-          nombrePersonalizado?: string | null;
-        }
-      >,
+  dias?: PresupuestoSalidaPreviewDiaInput[],
 ): PresupuestoSalidaPreviewDia[] {
-  const validDias = (dias ?? []).filter(
-    (dia) =>
-      Number.isFinite(dia.cantidad) &&
-      dia.cantidad > 0 &&
-      Number.isFinite(dia.valorUnitario) &&
-      dia.valorUnitario > 0,
-  );
+  return (dias ?? [])
+    .map((dia) => {
+      const rawNoDias =
+        typeof dia.noDias === "string"
+          ? Number.parseFloat(dia.noDias)
+          : dia.noDias;
+      const rawCantidad =
+        typeof dia.cantidad === "string"
+          ? Number.parseFloat(dia.cantidad)
+          : dia.cantidad;
+      const rawValorUnitario =
+        typeof dia.valorUnitario === "string"
+          ? Number.parseFloat(dia.valorUnitario)
+          : dia.valorUnitario;
 
-  if (validDias.length === 0) return [];
-  return validDias.map((dia, index) => ({
-    numeroDia: index + 1,
-    nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
-    cantidad: dia.cantidad,
-    valorUnitario: dia.valorUnitario,
-  }));
+      if (
+        typeof rawNoDias !== "number" ||
+        !Number.isFinite(rawNoDias) ||
+        rawNoDias <= 0 ||
+        typeof rawCantidad !== "number" ||
+        !Number.isFinite(rawCantidad) ||
+        rawCantidad <= 0 ||
+        typeof rawValorUnitario !== "number" ||
+        !Number.isFinite(rawValorUnitario) ||
+        rawValorUnitario <= 0
+      ) {
+        return null;
+      }
+
+      const noDias = rawNoDias;
+      const cantidad = rawCantidad;
+      const valorUnitario = rawValorUnitario;
+
+      return {
+        noDias,
+        nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
+        cantidad,
+        valorUnitario,
+        subtotal:
+          typeof dia.subtotal === "string"
+            ? Number.parseFloat(dia.subtotal)
+            : dia.subtotal ?? noDias * cantidad * valorUnitario,
+      };
+    })
+    .filter((dia): dia is PresupuestoSalidaPreviewDia => dia !== null);
 }
 
 type Props = {
@@ -139,7 +172,8 @@ export default function PresupuestoSalidaAnticipoPreview({
     draft?.pdaFirmanteCargo?.trim() ?? aval.pda?.cargoFirmante?.trim() ?? "";
   const financieroFirmanteNombre = draft?.financieroFirmanteNombre?.trim() ?? "";
   const financieroFirmanteCargo = draft?.financieroFirmanteCargo?.trim() ?? "";
-  const formatCantidad = (value: number) => String(Math.trunc(value));
+  const formatCantidad = (value: number) =>
+    Number.isInteger(value) ? String(value) : formatDecimal(value);
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
   const cupos = getAvalCupos(aval);
@@ -182,10 +216,11 @@ export default function PresupuestoSalidaAnticipoPreview({
               : presupuestoTotalLookup.get(item.itemId) ?? 0,
           dias: sanitizePreviewDias(
             item.dias?.map((dia) => ({
-              numeroDia: dia.numeroDia,
+              noDias: dia.noDias,
               nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
               cantidad: dia.cantidad,
               valorUnitario: dia.valorUnitario,
+              subtotal: dia.subtotal,
             })),
           ),
         }))
@@ -201,7 +236,9 @@ export default function PresupuestoSalidaAnticipoPreview({
     if (typeof item.total === "number") return sum + item.total;
     const itemTotal =
       item.dias?.reduce(
-        (diasTotal, dia) => diasTotal + dia.cantidad * dia.valorUnitario,
+        (diasTotal, dia) =>
+          diasTotal +
+          (dia.subtotal ?? dia.noDias * dia.cantidad * dia.valorUnitario),
         0,
       ) ?? 0;
     return sum + itemTotal;
@@ -309,6 +346,7 @@ export default function PresupuestoSalidaAnticipoPreview({
               {hasDiaBreakdown ? (
                 <>
                   <th className="border border-slate-400 px-2 py-1">No. dias</th>
+                  <th className="border border-slate-400 px-2 py-1">Cantidad</th>
                   <th className="border border-slate-400 px-2 py-1">Valor unitario</th>
                 </>
               ) : null}
@@ -322,7 +360,9 @@ export default function PresupuestoSalidaAnticipoPreview({
                   typeof item.total === "number"
                     ? item.total
                     : item.dias?.reduce(
-                        (diasTotal, dia) => diasTotal + dia.cantidad * dia.valorUnitario,
+                        (diasTotal, dia) =>
+                          diasTotal +
+                          (dia.subtotal ?? dia.noDias * dia.cantidad * dia.valorUnitario),
                         0,
                       ) ?? 0;
 
@@ -341,6 +381,7 @@ export default function PresupuestoSalidaAnticipoPreview({
                   <tr key={item.id}>
                     <td className="border border-slate-400 px-2 py-1">{item.nombre}</td>
                     <td className="border border-slate-400 px-2 py-1 text-center">-</td>
+                    <td className="border border-slate-400 px-2 py-1 text-center">-</td>
                     <td className="border border-slate-400 px-2 py-1 text-right">-</td>
                     <td className="border border-slate-400 px-2 py-1 text-right">
                       {formatDecimal(item.total ?? 0)}
@@ -349,12 +390,16 @@ export default function PresupuestoSalidaAnticipoPreview({
                 );
               }
 
-              return item.dias.map((dia) => {
-                const diaTotal = dia.cantidad * dia.valorUnitario;
+              return item.dias.map((dia, index) => {
+                const diaTotal =
+                  dia.subtotal ?? dia.noDias * dia.cantidad * dia.valorUnitario;
                 return (
-                  <tr key={`${item.id}-${dia.numeroDia}`}>
+                  <tr key={`${item.id}-${index}`}>
                     <td className="border border-slate-400 px-2 py-1">
                       {dia.nombrePersonalizado?.trim() || item.nombre}
+                    </td>
+                    <td className="border border-slate-400 px-2 py-1 text-center">
+                      {formatCantidad(dia.noDias)}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 text-center">
                       {formatCantidad(dia.cantidad)}
@@ -372,7 +417,7 @@ export default function PresupuestoSalidaAnticipoPreview({
             <tr>
               <td
                 className="border border-slate-400 px-2 py-1 font-semibold text-right"
-                colSpan={hasDiaBreakdown ? 3 : 1}
+                colSpan={hasDiaBreakdown ? 4 : 1}
               >
                 TOTAL
               </td>

@@ -89,6 +89,7 @@ export async function uploadConvocatoria(
   pronosticoDeportistas: File | File[],
   options?: {
     tipoAval?: CreateColeccionAvalPayload["tipoAval"];
+    formaParticipacionId?: CreateColeccionAvalPayload["formaParticipacionId"];
     montoSolicitado?: number;
   },
 ) {
@@ -109,6 +110,9 @@ export async function uploadConvocatoria(
   }
   if (options?.tipoAval) {
     formData.append("tipoAval", options.tipoAval);
+  }
+  if (typeof options?.formaParticipacionId === "number") {
+    formData.append("formaParticipacionId", String(options.formaParticipacionId));
   }
   if (typeof options?.montoSolicitado === "number") {
     formData.append("montoSolicitado", String(options.montoSolicitado));

@@ -1,8 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { TIPO_AVAL_OPTIONS, getTipoAvalLabel } from "@/lib/constants";
 import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
-import { eventoTieneFondosPublicos, type Evento } from "@/types/evento";
+import {
+  eventoTieneFormaParticipacion,
+  type Evento,
+} from "@/types/evento";
 import type { Aval, TipoAval } from "@/types/aval";
 
 type AvalUploadOptionsProps = {
@@ -10,6 +15,8 @@ type AvalUploadOptionsProps = {
   avales?: Aval[];
   tipoAval: TipoAval;
   onTipoAvalChange: (value: TipoAval) => void;
+  formaParticipacionId?: number | null;
+  onFormaParticipacionChange?: (value: number | null) => void;
 };
 
 export default function AvalUploadOptions({
@@ -17,12 +24,48 @@ export default function AvalUploadOptions({
   avales = [],
   tipoAval,
   onTipoAvalChange,
+  formaParticipacionId,
+  onFormaParticipacionChange,
 }: AvalUploadOptionsProps) {
-  const tieneFondosPublicos = eventoTieneFondosPublicos(evento);
-  const tipoAvalOptions =
-    evento && !tieneFondosPublicos
-      ? TIPO_AVAL_OPTIONS.filter((option) => option.value !== "FONDOS_PUBLICOS")
-      : TIPO_AVAL_OPTIONS;
+  useEffect(() => {
+    if (eventoTieneFormaParticipacion(evento, tipoAval)) return;
+    if (eventoTieneFormaParticipacion(evento, "FONDOS_PUBLICOS")) {
+      onTipoAvalChange("FONDOS_PUBLICOS");
+      return;
+    }
+    if (eventoTieneFormaParticipacion(evento, "AUTOGESTION")) {
+      onTipoAvalChange("AUTOGESTION");
+      return;
+    }
+    onTipoAvalChange("SOLO_RESULTADO");
+  }, [evento, onTipoAvalChange, tipoAval]);
+
+  const formasDisponibles = (evento?.formasParticipacion ?? []).filter(
+    (forma) => forma.tipoAval === tipoAval,
+  );
+
+  useEffect(() => {
+    if (!onFormaParticipacionChange) return;
+
+    if (tipoAval === "SOLO_RESULTADO" || formasDisponibles.length === 0) {
+      if (formaParticipacionId !== null) onFormaParticipacionChange(null);
+      return;
+    }
+
+    if (
+      typeof formaParticipacionId === "number" &&
+      formasDisponibles.some((forma) => forma.id === formaParticipacionId)
+    ) {
+      return;
+    }
+
+    onFormaParticipacionChange(formasDisponibles[0]?.id ?? null);
+  }, [
+    formaParticipacionId,
+    formasDisponibles,
+    onFormaParticipacionChange,
+    tipoAval,
+  ]);
 
   return (
     <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
@@ -36,13 +79,17 @@ export default function AvalUploadOptions({
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {tipoAvalOptions.map((option) => {
+        {TIPO_AVAL_OPTIONS.map((option) => {
           const active = tipoAval === option.value;
+          const blockedByForma = !eventoTieneFormaParticipacion(
+            evento,
+            option.value,
+          );
           const blockedByCollection = !canCreateCollectionByType(
             avales,
             option.value,
           );
-          const disabled = blockedByCollection;
+          const disabled = blockedByForma || blockedByCollection;
           return (
             <button
               key={option.value}
@@ -73,20 +120,67 @@ export default function AvalUploadOptions({
                   Ya existe una colección activa de fondos públicos.
                 </p>
               )}
+              {blockedByForma && option.value !== "SOLO_RESULTADO" && (
+                <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-300">
+                  No existe esta forma de participación en el evento.
+                </p>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* {evento && !tieneFondosPublicos ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-          Este evento no tiene presupuesto. No se permite aval por fondos públicos.
-        </div>
-      ) : null} */}
-
       <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
         Tipo seleccionado: <strong>{getTipoAvalLabel(tipoAval)}</strong>
       </div>
+
+      {tipoAval !== "SOLO_RESULTADO" &&
+      formasDisponibles.length > 1 &&
+      onFormaParticipacionChange ? (
+        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+          <div>
+            <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Forma de participación
+            </h4>
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              Este tipo tiene varias formas. Elige cuál usar para crear el aval.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {formasDisponibles.map((forma, index) => {
+              const active = forma.id === formaParticipacionId;
+
+              return (
+                <button
+                  key={forma.id}
+                  type="button"
+                  onClick={() => onFormaParticipacionChange(forma.id)}
+                  className={`w-full rounded-lg border px-3 py-3 text-left transition ${
+                    active
+                      ? "border-amber-500 bg-white dark:border-amber-400 dark:bg-amber-950/30"
+                      : "border-amber-200 bg-white/70 hover:border-amber-300 dark:border-amber-900 dark:bg-gray-900 dark:hover:border-amber-700"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Forma {index + 1}
+                    {forma.referencia?.trim() ? ` · ${forma.referencia.trim()}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                    Delegación: {forma.numAtletasHombres + forma.numAtletasMujeres} deportistas,{" "}
+                    {forma.numEntrenadoresHombres + forma.numEntrenadoresMujeres} entrenadores
+                  </p>
+                  {forma.observacion?.trim() ? (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {forma.observacion.trim()}
+                    </p>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

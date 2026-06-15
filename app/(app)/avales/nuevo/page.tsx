@@ -8,14 +8,14 @@ import { ArrowLeft, Calendar, MapPin, Users, Search } from "lucide-react";
 import AlertBanner from "@/components/ui/alert-banner";
 import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import UploadModal from "@/components/ui/upload-modal";
-import { uploadConvocatoria } from "@/lib/api/avales";
+import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
 import {
-  eventoTieneFondosPublicos,
+  getEventoFormasParticipacion,
   isEventoIncompleto,
   type Evento,
 } from "@/types/evento";
-import type { TipoAval } from "@/types/aval";
+import type { Aval, TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import {
@@ -24,17 +24,16 @@ import {
   getCalendarDateTimestamp,
 } from "@/lib/utils/formatters";
 import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
+import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
 
 const PAGE_SIZE = 6;
 const FETCH_LIMIT = 20;
 
-function getTotalParticipants(evento: Evento) {
-  return (
-    (evento.numAtletasHombres || 0) +
-    (evento.numAtletasMujeres || 0) +
-    (evento.numEntrenadoresHombres || 0) +
-    (evento.numEntrenadoresMujeres || 0)
-  );
+function getParticipacionSummary(evento: Evento) {
+  const formas = getEventoFormasParticipacion(evento);
+  if (formas.length === 0) return "Sin tipos de participación";
+  if (formas.length === 1) return "1 tipo de participación";
+  return `${formas.length} tipos de participación`;
 }
 
 function getEventSortTimestamp(evento: Evento) {
@@ -52,16 +51,26 @@ function getEventSortTimestamp(evento: Evento) {
   return 0;
 }
 
+function getAvailableTipos(evento: Evento, avales: Aval[]): TipoAval[] {
+  const tipos = Array.from(
+    new Set(getEventoFormasParticipacion(evento).map((forma) => forma.tipoAval)),
+  );
+
+  return tipos.filter((tipo) => canCreateCollectionByType(avales, tipo));
+}
+
 export default function NuevoAvalPage() {
   const router = useRouter();
   const { user } = useAuth();
 
   // Event selection
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [avalesByEvento, setAvalesByEvento] = useState<Record<number, Aval[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
+  const [formaParticipacionId, setFormaParticipacionId] = useState<number | null>(null);
 
   // Submission
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -72,16 +81,15 @@ export default function NuevoAvalPage() {
   const isEntrenador = userRoles.includes("ENTRENADOR") && !isAdminUser(user);
   const isComprasPublicas = userRoles.includes("COMPRAS_PUBLICAS");
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
-  const eventoSeleccionadoTieneFondosPublicos =
-    eventoTieneFondosPublicos(selectedEvento);
-
   useEffect(() => {
     if (!selectedEvento) return;
-    if (eventoSeleccionadoTieneFondosPublicos) return;
-    if (tipoAval === "FONDOS_PUBLICOS") {
-      setTipoAval("AUTOGESTION");
-    }
-  }, [selectedEvento, eventoSeleccionadoTieneFondosPublicos, tipoAval]);
+    const availableTipos = getAvailableTipos(
+      selectedEvento,
+      avalesByEvento[selectedEvento.id] ?? [],
+    );
+    if (availableTipos.includes(tipoAval)) return;
+    setTipoAval(availableTipos[0] ?? "SOLO_RESULTADO");
+  }, [avalesByEvento, selectedEvento, tipoAval]);
 
   useEffect(() => {
     if (isComprasPublicas) {
@@ -95,7 +103,6 @@ export default function NuevoAvalPage() {
       setError(null);
       const baseOptions: ListEventosOptions = {
         limit: FETCH_LIMIT,
-        estado: "DISPONIBLE",
         search: search.trim() || undefined,
         disciplinaId: isEntrenador ? undefined : primaryDisciplinaId,
       };
@@ -105,7 +112,7 @@ export default function NuevoAvalPage() {
       let total = Number.POSITIVE_INFINITY;
       let pageLimit = FETCH_LIMIT;
 
-      while (collected.size < PAGE_SIZE && (page - 1) * pageLimit < total) {
+      while ((page - 1) * pageLimit < total) {
         const res = await listEventos({ ...baseOptions, page });
         const items = res.data ?? [];
         const meta = res.meta;
@@ -130,16 +137,30 @@ export default function NuevoAvalPage() {
       const sorted = [...collected.values()].sort(
         (a, b) => getEventSortTimestamp(b) - getEventSortTimestamp(a),
       );
-      setEventos(sorted.slice(0, PAGE_SIZE));
+      const avalEntries = await Promise.all(
+        sorted.map(async (evento) => [
+          evento.id,
+          await getAvalesByEvento(evento.id).then((res) => res.data ?? []),
+        ] as const),
+      );
+      const avalesMap = Object.fromEntries(avalEntries);
+      const filtered = sorted.filter(
+        (evento) => getAvailableTipos(evento, avalesMap[evento.id] ?? []).length > 0,
+      );
+      setAvalesByEvento(avalesMap);
+      setEventos(filtered.slice(0, PAGE_SIZE));
       avalFlowDebugLog("nuevo-aval", "eventos cargados", {
         search,
-        totalRecolectados: sorted.length,
-        eventos: sorted.slice(0, PAGE_SIZE).map((evento) => ({
+        totalRecolectados: filtered.length,
+        eventos: filtered.slice(0, PAGE_SIZE).map((evento) => ({
           id: evento.id,
           codigo: evento.codigo,
           nombre: evento.nombre,
           disciplinaId: evento.disciplina?.id,
-          tieneFondosPublicos: eventoTieneFondosPublicos(evento),
+          tiposDisponibles: getAvailableTipos(
+            evento,
+            avalesMap[evento.id] ?? [],
+          ),
         })),
       });
     } catch (err: any) {
@@ -161,7 +182,10 @@ export default function NuevoAvalPage() {
         codigo: evento.codigo,
         nombre: evento.nombre,
         disciplinaId: evento.disciplina?.id,
-        tieneFondosPublicos: eventoTieneFondosPublicos(evento),
+        tiposDisponibles: getAvailableTipos(
+          evento,
+          avalesByEvento[evento.id] ?? [],
+        ),
       },
       tipoAval,
     });
@@ -207,12 +231,13 @@ export default function NuevoAvalPage() {
       convocatoria,
       certificadoMedico,
       pronosticoDeportistas,
-      { tipoAval },
+      { tipoAval, formaParticipacionId: formaParticipacionId ?? undefined },
     );
 
     avalFlowDebugLog("nuevo-aval", "documentos iniciales enviados", {
       eventoId: selectedEvento.id,
       tipoAval,
+      formaParticipacionId,
       convocatoria,
       certificadoMedico,
       pronosticoDeportistas,
@@ -221,10 +246,7 @@ export default function NuevoAvalPage() {
 
     setUploadModalOpen(false);
     setSelectedEvento(null);
-    const params = new URLSearchParams({ tipoAval });
-    router.push(
-      `/avales/${response.data.id}/crear-solicitud?${params.toString()}`,
-    );
+    router.push(`/avales/${response.data.id}/crear-solicitud`);
   };
 
   return (
@@ -252,8 +274,11 @@ export default function NuevoAvalPage() {
       >
         <AvalUploadOptions
           evento={selectedEvento}
+          avales={selectedEvento ? avalesByEvento[selectedEvento.id] ?? [] : []}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
+          formaParticipacionId={formaParticipacionId}
+          onFormaParticipacionChange={setFormaParticipacionId}
         />
       </UploadModal>
 
@@ -410,7 +435,7 @@ export default function NuevoAvalPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span>{getTotalParticipants(evento)} participantes</span>
+                    <span>{getParticipacionSummary(evento)}</span>
                   </div>
                 </div>
               </button>

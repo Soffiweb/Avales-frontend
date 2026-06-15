@@ -13,6 +13,16 @@ import { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
+import {
+  ListaDeportistasPreview,
+  SolicitudAvalPreview,
+  type AvalPreviewFormData,
+} from "@/app/(app)/avales/_components/aval-document-preview";
+import ComprasPublicasPreview, {
+  type ComprasPublicasDraft,
+} from "@/app/(app)/avales/_components/compras-publicas-preview";
+import RevisionMetodologoPreview from "@/app/(app)/avales/_components/revision-metodologo-preview";
+import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
 import { getApprovalStageLabel } from "@/lib/constants";
 import { isFinancieroUser } from "@/lib/auth/access";
 import { getApprovalFlowStages } from "@/lib/approval-flow";
@@ -20,11 +30,16 @@ import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { listUsers } from "@/lib/api/user";
+import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import {
   formatEventScheduleSentence,
   formatRole,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
+import {
+  DEFAULT_REVIEW_ITEMS,
+  mergeReviewStateFromApi,
+} from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 type FinancieroDraft = {
@@ -55,6 +70,93 @@ const EMPTY_PDA_DRAFT: PdaDraft = {
   nombreFirmante: "",
   cargoFirmante: "",
 };
+
+const EMPTY_DOCS_DATA: AvalPreviewFormData = {
+  deportistas: [],
+  entrenadores: [],
+  fechaHoraSalida: "",
+  fechaHoraRetorno: "",
+  lugarSalida: "",
+  lugarRetorno: "",
+  transporteSalida: "",
+  transporteRetorno: "",
+  objetivos: [],
+  criterios: [],
+  observaciones: "",
+};
+
+const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
+  numeroCertificado: "",
+  realizoProceso: null,
+  codigos: [],
+  nombreFirmante: "",
+  cargoFirmante: "",
+  fechaEmision: "",
+};
+
+function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
+  const tecnico = aval.avalTecnico;
+
+  const deportistas = (tecnico?.deportistasAval ?? []).map((item) => {
+    const withExtras = item as typeof item & {
+      observacion?: string | null;
+      deportista: typeof item.deportista & { fechaNacimiento?: string | null };
+    };
+    return {
+      id: item.deportista?.id ?? item.id,
+      nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
+      cedula: item.deportista?.cedula ?? undefined,
+      fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
+      observacion: withExtras.observacion ?? undefined,
+      rol: item.rol ?? undefined,
+    };
+  });
+
+  const entrenadores = [...(aval.entrenadores ?? [])]
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
+    .map((item) => {
+      const withUser = item as typeof item & {
+        usuario?: { nombre?: string; apellido?: string };
+        entrenador?: { nombre?: string; apellido?: string };
+        nombre?: string;
+        apellido?: string;
+      };
+      const nombre = (
+        [
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || `Entrenador ${item.entrenadorId}`
+      ).toUpperCase();
+      return { id: item.entrenadorId, nombre };
+    });
+
+  return {
+    deportistas,
+    entrenadores,
+    fechaHoraSalida: tecnico?.fechaHoraSalida ?? "",
+    fechaHoraRetorno: tecnico?.fechaHoraRetorno ?? "",
+    lugarSalida: tecnico?.lugarSalida ?? "",
+    lugarRetorno: tecnico?.lugarRetorno ?? "",
+    transporteSalida: tecnico?.transporteSalida ?? "",
+    transporteRetorno: tecnico?.transporteRetorno ?? "",
+    objetivos: [...(tecnico?.objetivos ?? [])]
+      .sort((a, b) => a.orden - b.orden)
+      .map((item) => item.descripcion),
+    criterios: [...(tecnico?.criterios ?? [])]
+      .sort((a, b) => a.orden - b.orden)
+      .map((item) => item.descripcion),
+    observaciones: tecnico?.observaciones ?? "",
+  };
+}
 
 const APPROVAL_ETAPA: EtapaFlujo = "FINANCIERO";
 
@@ -188,6 +290,51 @@ export default function CertificacionFinancieraPage() {
     };
   }, [aval]);
   const financieroRecord = aval?.financiero?.[0] ?? null;
+  const trainerDocsData = useMemo(
+    () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
+    [aval],
+  );
+  const comprasDraft = useMemo(() => {
+    if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
+    const compras = aval.comprasPublicas;
+    return {
+      numeroCertificado: compras.numeroCertificado ?? "",
+      realizoProceso:
+        typeof compras.realizoProceso === "boolean"
+          ? compras.realizoProceso
+          : null,
+      codigos:
+        compras.codigos?.map((item) => ({
+          codigo: item.codigo ?? "",
+          descripcion: item.descripcion ?? "",
+        })) ?? [],
+      nombreFirmante: compras.nombreFirmante ?? "",
+      cargoFirmante: compras.cargoFirmante ?? "",
+      fechaEmision: compras.fechaEmision ?? "",
+    };
+  }, [aval]);
+  const reviewState = useMemo(
+    () => mergeReviewStateFromApi(DEFAULT_REVIEW_ITEMS, aval?.revisionMetodologo?.items ?? []),
+    [aval],
+  );
+  const revisionHeader = useMemo(
+    () => ({
+      numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
+      dirigidoA: aval?.revisionMetodologo?.dirigidoA ?? "",
+      cargoDirigidoA: aval?.revisionMetodologo?.cargoDirigidoA ?? "",
+      descripcionEncabezado: aval?.revisionMetodologo?.descripcionEncabezado ?? "",
+      fechaRevision: aval?.revisionMetodologo?.fechaRevision ?? "",
+    }),
+    [aval],
+  );
+  const revisionFooter = useMemo(
+    () => ({
+      observacionesFinales: aval?.revisionMetodologo?.observacionesFinales ?? "",
+      firmanteNombre: aval?.revisionMetodologo?.firmanteNombre ?? "",
+      firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
+    }),
+    [aval],
+  );
 
   // Reset local state on aval navigation
   useEffect(() => {
@@ -622,6 +769,38 @@ export default function CertificacionFinancieraPage() {
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
             <AvalDocumentosSection aval={aval} />
+            <PreviewCollapsible title="Lista deportistas">
+              <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Solicitud aval">
+              <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Certificacion compras publicas">
+              <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Revision metodologo">
+              <RevisionMetodologoPreview
+                aval={aval}
+                header={revisionHeader}
+                footer={revisionFooter}
+                reviewItems={DEFAULT_REVIEW_ITEMS}
+                reviewState={reviewState}
+                useDefaultObservations={false}
+              />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Aval Técnico Competitivo">
+              <AvalTecnicoCompetitivoPreview
+                aval={aval}
+                fechaEmision={
+                  aval.revisionDtm?.fechaPresentacion ??
+                  aval.revisionDtm?.createdAt ??
+                  aval.createdAt
+                }
+                observacion={aval.revisionDtm?.observacion ?? ""}
+                firmanteNombre={aval.revisionDtm?.firmanteNombre ?? ""}
+                firmanteCargo={aval.revisionDtm?.firmanteCargo ?? ""}
+              />
+            </PreviewCollapsible>
             <PreviewCollapsible title="Certificacion financiera" defaultOpen>
               <CertificacionFinancieraPreview aval={aval} draft={draft} />
             </PreviewCollapsible>
@@ -650,7 +829,7 @@ export default function CertificacionFinancieraPage() {
 }
 
 function buildDefaultNotas(aval: Aval) {
-  const requerimientosRaw = (aval?.evento?.presupuesto ?? [])
+  const requerimientosRaw = getAvalPresupuestoItems(aval)
     .map((item) => item.item?.nombre?.trim().toLowerCase())
     .filter((item): item is string => Boolean(item));
   const requerimientos = Array.from(new Set(requerimientosRaw));

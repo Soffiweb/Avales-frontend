@@ -425,6 +425,7 @@ export default function CrearSolicitudPage() {
                 onBack={handleBack}
                 avalId={avalId}
                 aval={aval}
+                isAdminLike={isAdminLike}
               />
             )}
           </div>

@@ -82,6 +82,7 @@ type Paso04PresupuestoProps = {
   onBack: () => void;
   avalId: number;
   aval: Aval;
+  isAdminLike?: boolean;
 };
 
 export default function Paso04Presupuesto({
@@ -90,6 +91,7 @@ export default function Paso04Presupuesto({
   onPreviewChange,
   avalId,
   aval,
+  isAdminLike = false,
 }: Paso04PresupuestoProps) {
   const router = useRouter();
   const [numeroAval] = useState(aval.avalTecnico?.numeroAval ?? "");
@@ -195,10 +197,15 @@ export default function Paso04Presupuesto({
   const totalDifferenceManual = Math.abs(
     totalMontoSolicitado - totalOriginalManual,
   );
+  const hasExistingAvalTecnico = Boolean(aval.avalTecnico);
   const isEditingSolicitud =
     aval.estado === "SOLICITADO" && aval.etapaActual === "SOLICITUD";
-  const submitLabel = isEditingSolicitud ? "Editar aval" : "Crear aval técnico";
-  const submittingLabel = isEditingSolicitud
+  const isEditingExistingAval =
+    hasExistingAvalTecnico && (isEditingSolicitud || isAdminLike);
+  const submitLabel = isEditingExistingAval
+    ? "Editar aval técnico"
+    : "Crear aval técnico";
+  const submittingLabel = isEditingExistingAval
     ? "Actualizando aval..."
     : "Creando aval...";
 
@@ -391,7 +398,7 @@ export default function Paso04Presupuesto({
         createPayloadBase,
       });
 
-      const response = isEditingSolicitud
+      const response = isEditingExistingAval
         ? await updateAvalRequest(aval.id, payloadBase as EditAvalPayload)
         : await createAval({
             ...createPayloadBase,
@@ -401,7 +408,7 @@ export default function Paso04Presupuesto({
 
       avalFlowDebugLog("paso-04", "aval persistido", {
         createdAvalId,
-        isEditingSolicitud,
+        isEditingExistingAval,
         response: response.data,
       });
 
@@ -414,7 +421,7 @@ export default function Paso04Presupuesto({
       }
 
       router.push(
-        `/avales/${createdAvalId}?status=${isEditingSolicitud ? "updated" : "created"}`,
+        `/avales/${createdAvalId}?status=${isEditingExistingAval ? "updated" : "created"}`,
       );
     } catch (err: any) {
       console.error("Error al crear el aval:", err);
@@ -423,13 +430,13 @@ export default function Paso04Presupuesto({
         setError(
           err?.message ??
             `El aval se ${
-              isEditingSolicitud ? "actualizó" : "creó"
+              isEditingExistingAval ? "actualizó" : "creó"
             }, pero hubo un problema al subir el documento adjunto.`,
         );
       } else {
         setError(
           err?.message ??
-            `No se pudo ${isEditingSolicitud ? "actualizar" : "crear"} el aval técnico`,
+            `No se pudo ${isEditingExistingAval ? "actualizar" : "crear"} el aval técnico`,
         );
       }
     } finally {

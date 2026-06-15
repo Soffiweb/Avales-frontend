@@ -6,7 +6,12 @@ import { Calendar, CalendarDays, MapPin, Users, Pencil, Trash2, DollarSign } fro
 
 import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import type { Evento } from "@/types/evento";
-import { calcularTotalEvento, isEventoIncompleto } from "@/types/evento";
+import {
+  getEventoFormasParticipacion,
+  getEventoPresupuestoPorFuente,
+  getEventoPresupuestoTotal,
+  isEventoIncompleto,
+} from "@/types/evento";
 import {
   formatCurrency,
   formatEventScheduleLabel,
@@ -41,28 +46,11 @@ function getStatusClasses(status?: string | null) {
   );
 }
 
-function getTotalParticipants(evento: Evento) {
-  return (
-    (evento.numAtletasHombres || 0) +
-    (evento.numAtletasMujeres || 0) +
-    (evento.numEntrenadoresHombres || 0) +
-    (evento.numEntrenadoresMujeres || 0)
-  );
-}
-
-function parseMonto(value?: string | null) {
-  return Number.parseFloat(value ?? "0") || 0;
-}
-
-function getBudgetBySource(evento: Evento, fuente: "FONDOS_PUBLICOS" | "AUTOGESTION") {
-  const totalFromItems = (evento.eventoItems ?? [])
-    .filter((item) => item.fuente === fuente)
-    .reduce((sum, item) => sum + parseMonto(item.presupuesto), 0);
-
-  if (totalFromItems > 0) return totalFromItems;
-
-  const presupuestoFuente = evento.presupuestosFuente?.find((item) => item.fuente === fuente);
-  return parseMonto(presupuestoFuente?.montoAsignado);
+function getParticipacionSummary(evento: Evento) {
+  const formas = getEventoFormasParticipacion(evento);
+  if (formas.length === 0) return "Sin formas de participación";
+  if (formas.length === 1) return "1 forma de participación";
+  return `${formas.length} formas de participación`;
 }
 
 export default function EventoCard({
@@ -114,12 +102,14 @@ export default function EventoCard({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {eventos.map((evento) => {
-        const totalFondosPublicos = getBudgetBySource(evento, "FONDOS_PUBLICOS");
-        const totalAutogestion = getBudgetBySource(evento, "AUTOGESTION");
-        const totalPresupuesto = Math.max(
-          calcularTotalEvento(evento),
-          totalFondosPublicos + totalAutogestion,
-        );
+        const presupuestoPorFuente = getEventoPresupuestoPorFuente(evento);
+        const totalFondosPublicos =
+          presupuestoPorFuente.find((item) => item.fuente === "FONDOS_PUBLICOS")
+            ?.total ?? 0;
+        const totalAutogestion =
+          presupuestoPorFuente.find((item) => item.fuente === "AUTOGESTION")
+            ?.total ?? 0;
+        const totalPresupuesto = getEventoPresupuestoTotal(evento);
         const hasBudget = totalPresupuesto > 0;
 
         return (
@@ -199,7 +189,7 @@ export default function EventoCard({
               </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span>{getTotalParticipants(evento)} participantes</span>
+                <span>{getParticipacionSummary(evento)}</span>
               </div>
             </div>
 

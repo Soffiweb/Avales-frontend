@@ -31,9 +31,7 @@ import ComprasPublicasPreview, {
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
-import {
-  getApprovalStageLabel,
-} from "@/lib/constants";
+import { getApprovalStageLabel } from "@/lib/constants";
 import {
   getApprovalFlowStages,
   getNextApprovalStageForAval,
@@ -94,7 +92,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -104,8 +104,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       };
       const nombre = (
         [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
@@ -142,16 +146,30 @@ function buildDefaultDescripcion(aval: Aval) {
     aval,
     "[NOMBRE ENTRENADOR RESPONSABLE]",
   );
-  return `En base a la presentacion del Aval Tecnico de Participacion Competitiva de ${disciplina}, ${eventoNombre}, con fecha ${fecha}, suscrito por el ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los items revisados.`;
+  return `En base a la presentacion del Aval Tecnico de Participacion Competitiva de ${disciplina}, ${eventoNombre}, con fecha ${fecha}, suscrito por el entrenador ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los items revisados.`;
 }
 
 type ReviewSection = ReviewItem["section"];
 
 const SECTION_LABELS: Record<ReviewSection, string> = {
-  CHECKLIST: "Parametros",
-  DATOS_INFORMATIVOS: "Datos informativos",
-  HOJAS_EXCEL: "Hojas de excel",
+  PARAMETROS: "Parametros",
+  HOJA_EXCEL_ANEXOS: "Hoja excel-anexos",
+  FECHAS: "Fechas",
 };
+
+function resolveReviewItemCumple(
+  aval: Aval | null,
+  item: ReviewItem,
+  state: { cumple: boolean } | undefined,
+) {
+  if (typeof state?.cumple === "boolean") return state.cumple;
+  if (!aval) return item.defaultCumple;
+  if (item.key === "AVAL_TECNICO") return aval.tipoAval === "FONDOS_PUBLICOS";
+  if (item.key === "CERT_COMPRAS_PUBLICAS")
+    return aval.tipoAval === "AUTOGESTION";
+  if (item.key === "CERT_MET_PDA") return Boolean(aval.pda);
+  return item.defaultCumple;
+}
 
 function getTodayLocalDate() {
   const today = new Date();
@@ -166,7 +184,8 @@ export default function RevisionMetodologoPage() {
   const router = useRouter();
   const avalId = Number(params.id);
 
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
+  const [reviewItems, setReviewItems] =
+    useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
   const [reviewState, setReviewState] = useState(() =>
     buildInitialReviewState(DEFAULT_REVIEW_ITEMS),
   );
@@ -210,8 +229,9 @@ export default function RevisionMetodologoPage() {
     avalId,
     requiredRole: isMetodologoUser,
     editableEtapa: (currentAval) =>
-      getPreviousApprovalStagesForAval(currentAval, "REVISION_METODOLOGO").at(-1) ??
-      "SOLICITUD",
+      getPreviousApprovalStagesForAval(currentAval, "REVISION_METODOLOGO").at(
+        -1,
+      ) ?? "SOLICITUD",
     // approve always promotes to REVISION_METODOLOGO regardless of currentEtapa
     approvalEtapa: "REVISION_METODOLOGO",
     enableEtapaDestino: true,
@@ -223,7 +243,7 @@ export default function RevisionMetodologoPage() {
             const state = reviewState[item.key];
             return {
               key: item.key,
-              cumple: state?.cumple ?? item.defaultCumple,
+              cumple: resolveReviewItemCumple(a, item, state),
               observacion: state?.observacion?.trim() || "",
             };
           })
@@ -248,7 +268,8 @@ export default function RevisionMetodologoPage() {
           firmanteNombre: revisionFooter.firmanteNombre.trim(),
           firmanteCargo: revisionFooter.firmanteCargo.trim(),
           fechaRevision: adminSaveOnly
-            ? a.revisionMetodologo?.fechaRevision ?? revisionHeader.fechaRevision
+            ? (a.revisionMetodologo?.fechaRevision ??
+              revisionHeader.fechaRevision)
             : approvalDate,
           observacionesFinales:
             revisionHeader.observacionFechaTramite.trim() ||
@@ -289,7 +310,11 @@ export default function RevisionMetodologoPage() {
       fechaRevision: getTodayLocalDate(),
       observacionFechaTramite: "",
     });
-    setRevisionFooter({ observacionesFinales: "", firmanteNombre: "", firmanteCargo: "" });
+    setRevisionFooter({
+      observacionesFinales: "",
+      firmanteNombre: "",
+      firmanteCargo: "",
+    });
   }, [avalId]);
 
   // Load review items from API
@@ -317,7 +342,9 @@ export default function RevisionMetodologoPage() {
       }
     }
     void loadReviewItems();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Load DTM user for "Dirigido a" field
@@ -340,7 +367,9 @@ export default function RevisionMetodologoPage() {
       }
     }
     void loadDtmUser();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Populate revisionHeader from API data or defaults when aval loads
@@ -357,12 +386,16 @@ export default function RevisionMetodologoPage() {
     if (!aval?.revisionMetodologo) return;
     setRevisionHeader((prev) => ({
       ...prev,
-      numeroRevision: aval.revisionMetodologo?.numeroRevision ?? prev.numeroRevision,
+      numeroRevision:
+        aval.revisionMetodologo?.numeroRevision ?? prev.numeroRevision,
       dirigidoA: aval.revisionMetodologo?.dirigidoA ?? prev.dirigidoA,
-      cargoDirigidoA: aval.revisionMetodologo?.cargoDirigidoA ?? prev.cargoDirigidoA,
+      cargoDirigidoA:
+        aval.revisionMetodologo?.cargoDirigidoA ?? prev.cargoDirigidoA,
       descripcionEncabezado:
-        aval.revisionMetodologo?.descripcionEncabezado ?? prev.descripcionEncabezado,
-      fechaRevision: aval.revisionMetodologo?.fechaRevision ?? prev.fechaRevision,
+        aval.revisionMetodologo?.descripcionEncabezado ??
+        prev.descripcionEncabezado,
+      fechaRevision:
+        aval.revisionMetodologo?.fechaRevision ?? prev.fechaRevision,
       observacionFechaTramite:
         prev.observacionFechaTramite ||
         aval.revisionMetodologo?.observacionesFinales ||
@@ -383,7 +416,10 @@ export default function RevisionMetodologoPage() {
   // Populate revisionFooter from current user
   useEffect(() => {
     if (!user) return;
-    const nombre = [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
+    const nombre = [user.nombre, user.apellido]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     const cargo = user.roles?.length ? formatRoles(user.roles) : "";
     setRevisionFooter((prev) => ({
       ...prev,
@@ -408,13 +444,9 @@ export default function RevisionMetodologoPage() {
       // firmada, no queremos que un admin editando data pise al metodologo
       // original que aprobo.
       firmanteNombre:
-        aval.revisionMetodologo?.firmanteNombre ||
-        prev.firmanteNombre ||
-        "",
+        aval.revisionMetodologo?.firmanteNombre || prev.firmanteNombre || "",
       firmanteCargo:
-        aval.revisionMetodologo?.firmanteCargo ||
-        prev.firmanteCargo ||
-        "",
+        aval.revisionMetodologo?.firmanteCargo || prev.firmanteCargo || "",
     }));
   }, [aval, reviewItems]);
 
@@ -428,7 +460,9 @@ export default function RevisionMetodologoPage() {
     return {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
-        typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
+        typeof compras.realizoProceso === "boolean"
+          ? compras.realizoProceso
+          : null,
       codigos:
         compras.codigos?.map((item) => ({
           codigo: item.codigo ?? "",
@@ -441,7 +475,7 @@ export default function RevisionMetodologoPage() {
   }, [aval]);
   const noCumpleCount = reviewItems.filter((item) => {
     const state = reviewState[item.key];
-    return !(state?.cumple ?? item.defaultCumple);
+    return !resolveReviewItemCumple(aval, item, state);
   }).length;
 
   const currentStageLabel = getApprovalStageLabel(currentEtapa);
@@ -531,7 +565,10 @@ export default function RevisionMetodologoPage() {
                       className="form-input w-full mt-1"
                       value={revisionHeader.dirigidoA}
                       onChange={(e) =>
-                        setRevisionHeader((prev) => ({ ...prev, dirigidoA: e.target.value }))
+                        setRevisionHeader((prev) => ({
+                          ...prev,
+                          dirigidoA: e.target.value,
+                        }))
                       }
                       placeholder="Nombre completo"
                     />
@@ -621,13 +658,15 @@ export default function RevisionMetodologoPage() {
                 </div>
               </div>
 
-              {(["CHECKLIST", "DATOS_INFORMATIVOS", "HOJAS_EXCEL"] as const).map((section) => {
+              {(
+                ["PARAMETROS", "HOJA_EXCEL_ANEXOS", "FECHAS"] as const
+              ).map((section) => {
                 const sectionItems = reviewItems
                   .filter((item) => item.section === section)
                   .sort((a, b) => a.order - b.order);
                 const sectionNoCumple = sectionItems.filter((item) => {
                   const state = reviewState[item.key];
-                  return !(state?.cumple ?? item.defaultCumple);
+                  return !resolveReviewItemCumple(aval, item, state);
                 }).length;
 
                 if (!sectionItems.length) return null;
@@ -635,7 +674,7 @@ export default function RevisionMetodologoPage() {
                 return (
                   <details
                     key={section}
-                    open={section === "CHECKLIST"}
+                    open={section === "PARAMETROS"}
                     className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 overflow-hidden"
                   >
                     <summary className="cursor-pointer list-none px-4 py-3 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-800">
@@ -656,7 +695,11 @@ export default function RevisionMetodologoPage() {
                     <div className="p-3 space-y-2">
                       {sectionItems.map((item) => {
                         const itemState = reviewState[item.key];
-                        const cumple = itemState?.cumple ?? item.defaultCumple;
+                        const cumple = resolveReviewItemCumple(
+                          aval,
+                          item,
+                          itemState,
+                        );
                         const observacion = itemState?.observacion ?? "";
 
                         return (
@@ -678,7 +721,10 @@ export default function RevisionMetodologoPage() {
                                     onChange={() =>
                                       setReviewState((prev) => ({
                                         ...prev,
-                                        [item.key]: { ...prev[item.key], cumple: true },
+                                        [item.key]: {
+                                          ...prev[item.key],
+                                          cumple: true,
+                                        },
                                       }))
                                     }
                                   />
@@ -693,7 +739,10 @@ export default function RevisionMetodologoPage() {
                                     onChange={() =>
                                       setReviewState((prev) => ({
                                         ...prev,
-                                        [item.key]: { ...prev[item.key], cumple: false },
+                                        [item.key]: {
+                                          ...prev[item.key],
+                                          cumple: false,
+                                        },
                                       }))
                                     }
                                   />
@@ -773,7 +822,10 @@ export default function RevisionMetodologoPage() {
                   rejectVisible={rejectAction?.visible ?? true}
                   rejectEnabled={rejectAction?.enabled ?? true}
                   adminSaveOnly={adminSaveOnly}
-                  etapaDestinoOptions={getPreviousApprovalStagesForAval(aval, currentEtapa).map((e) => ({
+                  etapaDestinoOptions={getPreviousApprovalStagesForAval(
+                    aval,
+                    currentEtapa,
+                  ).map((e) => ({
                     value: e,
                     label: getApprovalStageLabel(e),
                   }))}
@@ -781,11 +833,12 @@ export default function RevisionMetodologoPage() {
                   onEtapaDestinoChange={setEtapaDestino}
                 />
               )}
-              {!showApprovalPanel && aval?.revisionMetodologo?.numeroRevision && (
-                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-                  Revisión del metodólogo generada correctamente.
-                </div>
-              )}
+              {!showApprovalPanel &&
+                aval?.revisionMetodologo?.numeroRevision && (
+                  <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+                    Revisión del metodólogo generada correctamente.
+                  </div>
+                )}
             </div>
           </div>
         </div>

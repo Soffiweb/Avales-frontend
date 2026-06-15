@@ -7,6 +7,10 @@ import {
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
+import {
+  getAvalCupos,
+  getAvalPresupuestoItems,
+} from "@/lib/utils/aval-collections";
 import type {
   ReviewItem,
   ReviewStateItem,
@@ -34,6 +38,9 @@ type Props = {
   header: RevisionHeader;
   footer: RevisionFooter;
   useDefaultObservations?: boolean;
+  title?: string;
+  detailColumnLabel?: string;
+  footerLabel?: string;
 };
 
 type DtmRow = {
@@ -67,10 +74,10 @@ function buildDtmRows(
     evento?.categoria?.nombre ?? evento?.categoriaCodigo,
     "SIN CATEGORIA"
   );
-  const genero = formatEnumLabel(evento?.genero, " ", "POR DEFINIR");
+  const genero = formatEnumLabel(evento?.genero, " ", "-");
   const entrenadorResponsable = getResponsibleTrainerName(aval);
   const eventoNombre = evento?.nombre?.toUpperCase() ?? "SIN EVENTO";
-  const sedeFechas = `${formatLocationWithProvince(evento) || "POR DEFINIR"}${
+  const sedeFechas = `${formatLocationWithProvince(evento) || "-"}${
     evento?.fechaInicio || evento?.mesProgramado
       ? `, ${formatEventScheduleSentence(evento)}`
       : ""
@@ -91,11 +98,11 @@ function buildDtmRows(
       )
     : "-";
 
+  const cupos = getAvalCupos(aval);
   const totalEntrenadores =
-    (evento?.numEntrenadoresHombres || 0) +
-    (evento?.numEntrenadoresMujeres || 0);
+    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
   const totalAtletas =
-    (evento?.numAtletasHombres || 0) + (evento?.numAtletasMujeres || 0);
+    cupos.numAtletasHombres + cupos.numAtletasMujeres;
   const conformacion = joinBulletLines([
     `• ${totalEntrenadores} oficiales`,
     `• ${totalAtletas} deportistas`,
@@ -110,7 +117,7 @@ function buildDtmRows(
       .filter(Boolean)
       .join(", ") || "-";
 
-  const presupuestoItems = evento?.presupuesto ?? [];
+  const presupuestoItems = getAvalPresupuestoItems(aval);
   const requerimientos = presupuestoItems.length
     ? joinBulletLines(
         presupuestoItems.map(
@@ -121,7 +128,7 @@ function buildDtmRows(
     : "Sin requerimientos presupuestarios registrados.";
 
   const metodologoNombre =
-    aval.revisionMetodologo?.firmanteNombre || "POR DEFINIR";
+    aval.revisionMetodologo?.firmanteNombre || "-";
 
   const fechaPresentacion = formatTramiteDate(header.fechaRevision);
   const fechaTramite = header.observacionFechaTramite?.trim() || "-";
@@ -256,6 +263,9 @@ export default function RevisionDtmPreview({
   reviewState,
   header,
   footer,
+  title = "Revision metodologica para otorgacion del aval tecnico",
+  detailColumnLabel = "DATOS INFORMATIVOS",
+  footerLabel = "Observaciones",
 }: Props) {
   const dirigidoA = header.dirigidoA || "[NOMBRE DESTINATARIO]";
   const cargoDirigidoA = header.cargoDirigidoA || "[CARGO]";
@@ -272,7 +282,7 @@ export default function RevisionDtmPreview({
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-3">
       <div className="space-y-0.5">
         <p className="text-[12px] uppercase font-semibold tracking-wide">
-          Revision metodologica para otorgacion del aval tecnico
+          {title}
         </p>
       </div>
 
@@ -297,7 +307,7 @@ export default function RevisionDtmPreview({
                 NO
               </th>
               <th className="border border-slate-400 px-2 py-1 text-left w-[42%]">
-                DATOS INFORMATIVOS
+                {detailColumnLabel}
               </th>
             </tr>
           </thead>
@@ -348,7 +358,7 @@ export default function RevisionDtmPreview({
 
       <div className="text-[10px] leading-4 space-y-2">
         <div>
-          <p className="font-semibold uppercase">Observaciones:</p>
+          <p className="font-semibold uppercase">{footerLabel}:</p>
           <p>{footer.observacionesFinales.trim() || "-"}</p>
         </div>
         <div className="pt-4">

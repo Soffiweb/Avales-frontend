@@ -7,19 +7,12 @@ import type {
 type ReviewSection = ReviewItem["section"];
 
 const REVIEW_ITEM_ORDER = [
-  "CERT_ESC_INI",
-  "CERT_MET_PDA",
-  "CERT_COMPRAS_PUBLICAS",
-  "FECHA_INGRESO_DTM",
-  "FECHA_RECIBIDO_METODOLOGO",
-  "NUM_AVAL_TECNICO",
   "DEPORTE",
   "CATEGORIA",
   "GENERO",
   "ENTRENADOR_RESPONSABLE",
   "EVENTO",
   "LUGAR",
-  "FECHAS",
   "OBJETIVOS_PARTICIPACION",
   "CRITERIOS_SELECCION",
   "CONFORMACION_DELEGACION",
@@ -28,103 +21,99 @@ const REVIEW_ITEM_ORDER = [
   "DATOS_DEPORTISTAS",
   "AFILIACION",
   "CERTIFICACION_MEDICA",
+  "CERT_MET_PDA",
   "AVAL_TECNICO",
+  "CERT_COMPRAS_PUBLICAS",
+  "FECHA_INGRESO_DTM",
+  "FECHA_RECIBIDO_METODOLOGO",
 ];
 
 const REVIEW_ITEM_CONFIG: Record<
   string,
   { label: string; section: ReviewSection; type: "boolean" | "fecha" }
 > = {
-  CERT_ESC_INI: {
-    label: "Certificado de las escuelas de iniciacion recibido",
-    section: "CHECKLIST",
-    type: "boolean",
-  },
-  CERT_MET_PDA: {
-    label: "Certificado del metodologo del PDA",
-    section: "CHECKLIST",
-    type: "boolean",
-  },
-  CERT_COMPRAS_PUBLICAS: {
-    label: "Certificado de Compras Publicas",
-    section: "CHECKLIST",
-    type: "boolean",
-  },
-  FECHA_INGRESO_DTM: {
-    label: "Fecha de ingreso en secretaria del DTM",
-    section: "CHECKLIST",
-    type: "fecha",
-  },
-  FECHA_RECIBIDO_METODOLOGO: {
-    label: "Fecha de recibido por el metodologo",
-    section: "CHECKLIST",
-    type: "fecha",
-  },
-  NUM_AVAL_TECNICO: {
-    label: "Numero del aval tecnico",
-    section: "DATOS_INFORMATIVOS",
-    type: "boolean",
-  },
-  DEPORTE: { label: "Deporte", section: "DATOS_INFORMATIVOS", type: "boolean" },
+  DEPORTE: { label: "Deporte", section: "PARAMETROS", type: "boolean" },
   CATEGORIA: {
-    label: "Categoria",
-    section: "DATOS_INFORMATIVOS",
+    label: "Categorias",
+    section: "PARAMETROS",
     type: "boolean",
   },
-  GENERO: { label: "Genero", section: "DATOS_INFORMATIVOS", type: "boolean" },
+  GENERO: { label: "Genero", section: "PARAMETROS", type: "boolean" },
   ENTRENADOR_RESPONSABLE: {
-    label: "Entrenador responsable",
-    section: "DATOS_INFORMATIVOS",
+    label: "Entrenador Responsable",
+    section: "PARAMETROS",
     type: "boolean",
   },
-  EVENTO: { label: "Evento", section: "DATOS_INFORMATIVOS", type: "boolean" },
-  LUGAR: { label: "Lugar", section: "DATOS_INFORMATIVOS", type: "boolean" },
-  FECHAS: { label: "Fechas", section: "DATOS_INFORMATIVOS", type: "boolean" },
+  EVENTO: { label: "Evento", section: "PARAMETROS", type: "boolean" },
+  LUGAR: {
+    label: "Sede, Fechas",
+    section: "PARAMETROS",
+    type: "boolean",
+  },
   OBJETIVOS_PARTICIPACION: {
     label: "Objetivos de participacion",
-    section: "DATOS_INFORMATIVOS",
+    section: "PARAMETROS",
     type: "boolean",
   },
   CRITERIOS_SELECCION: {
-    label: "Criterios de seleccion",
-    section: "DATOS_INFORMATIVOS",
+    label: "Criterios de Seleccion",
+    section: "PARAMETROS",
     type: "boolean",
   },
   CONFORMACION_DELEGACION: {
     label: "Conformacion de la delegacion",
-    section: "DATOS_INFORMATIVOS",
+    section: "PARAMETROS",
     type: "boolean",
   },
   REQUERIMIENTOS: {
-    label: "Requerimientos",
-    section: "DATOS_INFORMATIVOS",
+    label: "Anexos (Resultados de test, topes, etc.)",
+    section: "PARAMETROS",
     type: "boolean",
   },
   FIRMAS_RESPONSABILIDAD_AVAL: {
-    label: "Firmas de responsabilidad del aval tecnico",
-    section: "DATOS_INFORMATIVOS",
+    label: "Revision por parte del Metodologo de su grupo de deporte",
+    section: "PARAMETROS",
     type: "boolean",
   },
   DATOS_DEPORTISTAS: {
-    label:
-      "Datos de los deportistas (estado de preparacion, pronostico y prueba)",
-    section: "HOJAS_EXCEL",
+    label: "Detalle: Datos de los Deportistas, estado de preparacion, pronostico, prueba.",
+    section: "HOJA_EXCEL_ANEXOS",
     type: "boolean",
   },
   AFILIACION: {
     label: "Afiliacion",
-    section: "HOJAS_EXCEL",
+    section: "HOJA_EXCEL_ANEXOS",
     type: "boolean",
   },
   CERTIFICACION_MEDICA: {
-    label: "Certificacion medica",
-    section: "HOJAS_EXCEL",
+    label: "Certificacion Medica",
+    section: "HOJA_EXCEL_ANEXOS",
+    type: "boolean",
+  },
+  CERT_MET_PDA: {
+    label: "Certificacion PDA",
+    section: "HOJA_EXCEL_ANEXOS",
     type: "boolean",
   },
   AVAL_TECNICO: {
-    label: "Aval tecnico de participacion apoyo FDPL y comite de funcionamiento",
-    section: "HOJAS_EXCEL",
+    label: "Aval Tecnico para competencia con presupuesto PDA 2026.",
+    section: "HOJA_EXCEL_ANEXOS",
     type: "boolean",
+  },
+  CERT_COMPRAS_PUBLICAS: {
+    label: "Aval Tecnico para Competencia con el apoyo de autogestion Comite de Funcionamiento.",
+    section: "HOJA_EXCEL_ANEXOS",
+    type: "boolean",
+  },
+  FECHA_INGRESO_DTM: {
+    label: "Fecha de presentacion",
+    section: "FECHAS",
+    type: "fecha",
+  },
+  FECHA_RECIBIDO_METODOLOGO: {
+    label: "Fecha de tramite",
+    section: "FECHAS",
+    type: "fecha",
   },
 };
 
@@ -134,7 +123,7 @@ export const DEFAULT_REVIEW_ITEMS: ReviewItem[] = REVIEW_ITEM_ORDER.map(
     return {
       key: code,
       label: config?.label ?? code,
-      section: config?.section ?? "DATOS_INFORMATIVOS",
+      section: config?.section ?? "PARAMETROS",
       type: config?.type ?? "boolean",
       order: index + 1,
       defaultCumple: true,
@@ -143,38 +132,19 @@ export const DEFAULT_REVIEW_ITEMS: ReviewItem[] = REVIEW_ITEM_ORDER.map(
 );
 
 export function buildInitialReviewState(items: ReviewItem[]) {
-  return Object.fromEntries(
-    items.map((item) => [
-      item.key,
-      { cumple: item.defaultCumple, observacion: "" },
-    ]),
-  ) as Record<string, ReviewStateItem>;
+  void items;
+  return {} as Record<string, ReviewStateItem>;
 }
 
-export function normalizeReviewItems(items: RevisionMetodologoItem[] | string[]) {
-  const labelsByCode = new Map<string, string>();
-  const codesFromApi = new Set<string>();
-  items.forEach((item) => {
-    if (typeof item === "string") return;
-    const code = item?.codigo ?? (item as { code?: string }).code ?? "";
-    if (!code) return;
-    const label =
-      item?.descripcion ?? (item as { label?: string }).label ?? "";
-    if (label) labelsByCode.set(code, label);
-    codesFromApi.add(code);
-  });
-
-  const ordered = REVIEW_ITEM_ORDER.filter((code) =>
-    codesFromApi.size ? codesFromApi.has(code) : true,
-  );
-
-  return ordered.map((code, index) => {
+export function normalizeReviewItems(
+  _items: RevisionMetodologoItem[] | string[],
+) {
+  return REVIEW_ITEM_ORDER.map((code, index) => {
     const config = REVIEW_ITEM_CONFIG[code];
-    const label = labelsByCode.get(code) ?? config?.label ?? code;
     return {
       key: code,
-      label,
-      section: config?.section ?? "DATOS_INFORMATIVOS",
+      label: config?.label ?? code,
+      section: config?.section ?? "PARAMETROS",
       type: config?.type ?? "boolean",
       order: index + 1,
       defaultCumple: true,
@@ -200,16 +170,12 @@ export function mergeReviewStateFromApi(
 
   const keyMap = new Map(reviewItems.map((item) => [item.key, item.key]));
   const labelMap = new Map(
-    reviewItems.map((item) => [
-      item.label.trim().toLowerCase(),
-      item.key,
-    ]),
+    reviewItems.map((item) => [item.label.trim().toLowerCase(), item.key]),
   );
 
   apiItems.forEach((item, index) => {
     const rawKey = item?.key?.trim() || item?.codigo?.trim() || "";
-    const rawLabel =
-      item?.label?.trim() || item?.descripcion?.trim() || "";
+    const rawLabel = item?.label?.trim() || item?.descripcion?.trim() || "";
     const targetKey =
       (rawKey && keyMap.get(rawKey)) ||
       (rawLabel && labelMap.get(rawLabel.toLowerCase())) ||
@@ -217,7 +183,7 @@ export function mergeReviewStateFromApi(
     if (!targetKey) return;
 
     next[targetKey] = {
-      cumple: item?.cumple ?? next[targetKey].cumple,
+      cumple: item?.cumple ?? next[targetKey]?.cumple ?? true,
       observacion: item?.observacion?.trim() ?? "",
     };
   });

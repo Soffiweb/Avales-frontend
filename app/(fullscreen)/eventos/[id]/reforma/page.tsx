@@ -434,7 +434,7 @@ export default function EventoReformaPage() {
   );
   const originalBudgetTotal = useMemo(
     () =>
-      getFormaBudgetItems(evento, selectedBudgetForma).reduce(
+      (evento ? getFormaBudgetItems(evento, selectedBudgetForma) : []).reduce(
         (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
         0,
       ),
@@ -632,6 +632,7 @@ export default function EventoReformaPage() {
 
       const hasBudgetChanges =
         selectedBudgetForma &&
+        evento &&
         getBudgetRowsChanged(
           budgetRows,
           getFormaBudgetItems(evento, selectedBudgetForma),

@@ -27,7 +27,7 @@ type CodigoLike = {
 };
 
 function normalizeComprasCodigos(
-  items?: Array<ComprasPublicasDraft["codigos"][number] | CodigoLike | string> | null,
+  items?: Array<CodigoLike | string> | null,
 ) {
   return (items ?? [])
     .flatMap((item) => {

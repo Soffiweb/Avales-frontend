@@ -82,7 +82,7 @@ export default function EventoCompletionForm({
   const completionFields = useMemo(
     () =>
       editableFields.filter(
-        (field): field is keyof UpdateEventoPayload =>
+        (field) =>
           field === "categoriaId" ||
           field === "alcance" ||
           field === "tipoEvento" ||
@@ -235,7 +235,7 @@ export default function EventoCompletionForm({
       }
     });
 
-    if (completionFields.some((field) => payload[field] === undefined)) {
+    if (completionFields.some((field) => payload[field as keyof UpdateEventoPayload] === undefined)) {
       return;
     }
 

@@ -250,7 +250,7 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
         numeroDia: 1,
         nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
         cantidad: dia.cantidad,
-        valorUnitario: roundCurrency(dia.valorUnitario),
+        valorUnitario: roundCurrency(dia.valorUnitario ?? 0),
       },
     ];
   }
@@ -260,7 +260,7 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
       numeroDia: index + 1,
       nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
       cantidad: dia.cantidad,
-      valorUnitario: roundCurrency(dia.valorUnitario),
+      valorUnitario: roundCurrency(dia.valorUnitario ?? 0),
     }));
   }
 
@@ -631,6 +631,7 @@ export default function CertificarAvalPage() {
               dia,
             ): dia is {
               numeroDia: number;
+              nombrePersonalizado?: string;
               cantidad: number;
               valorUnitario: number;
             } =>

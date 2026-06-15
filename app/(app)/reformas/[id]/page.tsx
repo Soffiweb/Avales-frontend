@@ -15,10 +15,12 @@ import {
 
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
+import { getEvento } from "@/lib/api/eventos";
 import {
   aprobarReform,
   getReform,
   rechazarReform,
+  type ReformFormaParticipacionComparison,
   TIPO_REFORMA_LABELS,
   type ReformResponse,
   type ReformFieldComparison,
@@ -27,6 +29,8 @@ import {
 } from "@/lib/api/reforms";
 import { canReviewReforms } from "@/lib/auth/access";
 import { formatCurrency, formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
+import { getTipoAvalLabel } from "@/lib/constants";
+import type { Evento, EventoItem } from "@/types/evento";
 import ReformReviewCard from "../_components/reform-review-card";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -82,6 +86,17 @@ const ITEM_CHANGE_STYLES: Record<string, string> = {
     "bg-rose-50 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:ring-rose-800",
 };
 
+const EXCLUDED_FIELD_KEYS = new Set([
+  "eventoItems",
+  "formaParticipacionId",
+  "tipoAval",
+  "formasParticipacion",
+  "numAtletasHombres",
+  "numAtletasMujeres",
+  "numEntrenadoresHombres",
+  "numEntrenadoresMujeres",
+]);
+
 function formatFallbackValue(value: unknown) {
   if (value === null || value === undefined) return "-";
   if (typeof value === "boolean") return value ? "Sí" : "No";
@@ -104,6 +119,7 @@ function hasMeaningfulDifference(a: unknown, b: unknown) {
 }
 
 function isChangedField(field: ReformFieldComparison) {
+  if (EXCLUDED_FIELD_KEYS.has(field.campo)) return false;
   return hasMeaningfulDifference(field.antes, field.despues);
 }
 
@@ -119,12 +135,39 @@ function isChangedItem(item: ReformItemComparison) {
   return hasMeaningfulDifference(item.antesPresupuesto, item.despuesPresupuesto);
 }
 
+function isChangedFormaParticipacion(item: ReformFormaParticipacionComparison) {
+  return item.antesNumAtletas !== item.despuesNumAtletas;
+}
+
+function hasRenderableFieldValue(value: unknown) {
+  const formatted = formatFallbackValue(value);
+  return formatted !== "-";
+}
+
+type ProposedFormaParticipacion = {
+  tipoAval?: string;
+  numAtletasHombres?: number;
+  numAtletasMujeres?: number;
+  numEntrenadoresHombres?: number;
+  numEntrenadoresMujeres?: number;
+  items?: Array<{
+    itemId?: number;
+    mes?: number;
+    presupuesto?: number;
+  }>;
+};
+
+function getFormaBaseItemsMap(items: EventoItem[] = []) {
+  return new Map(items.map((item) => [`${item.item.id}-${item.mes}`, item]));
+}
+
 export default function ReformaDetailPage() {
   const params = useParams();
   const id = Number(params.id);
   const { user } = useAuth();
 
   const [reform, setReform] = useState<ReformResponse | null>(null);
+  const [baseEvento, setBaseEvento] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -144,6 +187,13 @@ export default function ReformaDetailPage() {
         setError(null);
         const response = await getReform(id);
         setReform(response.data);
+
+        if (response.data.eventoId) {
+          const eventoResponse = await getEvento(response.data.eventoId);
+          setBaseEvento(eventoResponse.data);
+        } else {
+          setBaseEvento(null);
+        }
       } catch (err: unknown) {
         setError(
           err instanceof Error ? err.message : "No se pudo cargar la reforma.",
@@ -161,6 +211,12 @@ export default function ReformaDetailPage() {
   const reloadReform = async () => {
     const response = await getReform(id);
     setReform(response.data);
+    if (response.data.eventoId) {
+      const eventoResponse = await getEvento(response.data.eventoId);
+      setBaseEvento(eventoResponse.data);
+    } else {
+      setBaseEvento(null);
+    }
   };
 
   const handleApprove = async () => {
@@ -208,17 +264,26 @@ export default function ReformaDetailPage() {
 
     const readableFields = reform?.cambiosPropuestosLegibles?.campos ?? [];
     if (readableFields.length > 0) {
-      return readableFields.map((field) => ({
-        campo: field.campo,
-        etiqueta: field.etiqueta,
-        antes: null,
-        despues: formatFallbackValue(field.valor),
-      }));
+      return readableFields
+        .filter(
+          (field) =>
+            !EXCLUDED_FIELD_KEYS.has(field.campo) &&
+            hasRenderableFieldValue(field.valor),
+        )
+        .map((field) => ({
+          campo: field.campo,
+          etiqueta: field.etiqueta,
+          antes: null,
+          despues: formatFallbackValue(field.valor),
+        }));
     }
 
     const rawChanges = reform?.cambiosPropuestos ?? {};
     return Object.entries(rawChanges)
-      .filter(([key]) => key !== "eventoItems")
+      .filter(
+        ([key, valor]) =>
+          !EXCLUDED_FIELD_KEYS.has(key) && hasRenderableFieldValue(valor),
+      )
       .map(([campo, valor]) => ({
         campo,
         etiqueta: campo,
@@ -233,21 +298,145 @@ export default function ReformaDetailPage() {
     }
 
     const readableItems = reform?.cambiosPropuestosLegibles?.eventoItems ?? [];
-    return readableItems.map((item) => ({
-      itemId: item.itemId,
-      itemNumero: item.itemNumero,
-      itemNombre: item.itemNombre,
-      mes: item.mes,
-      mesNombre: item.mesNombre,
-      antesPresupuesto: null,
-      despuesPresupuesto: item.presupuesto,
-      diferencia: null,
-      tipoCambio: "ACTUALIZADO" as const,
-    }));
-  }, [reform]);
+    if (readableItems.length > 0) {
+      return readableItems.map((item) => ({
+        itemId: item.itemId,
+        itemNumero: item.itemNumero,
+        itemNombre: item.itemNombre,
+        mes: item.mes,
+        mesNombre: item.mesNombre,
+        antesPresupuesto: null,
+        despuesPresupuesto: item.presupuesto,
+        diferencia: null,
+        tipoCambio: "ACTUALIZADO" as const,
+      }));
+    }
+
+    const rawFormas = (reform?.cambiosPropuestos as Record<string, unknown> | undefined)
+      ?.formasParticipacion;
+    if (!Array.isArray(rawFormas) || !baseEvento?.formasParticipacion?.length) return [];
+
+    const proposedFormas = rawFormas as ProposedFormaParticipacion[];
+
+    return proposedFormas.flatMap((forma) => {
+      const baseForma = baseEvento.formasParticipacion?.find(
+        (entry) => entry.tipoAval === forma.tipoAval,
+      );
+      const proposedItems = Array.isArray(forma.items) ? forma.items : [];
+      const baseItemsMap = getFormaBaseItemsMap(baseForma?.items ?? []);
+      const comparisons: ReformItemComparison[] = [];
+
+      proposedItems.forEach((item) => {
+        if (typeof item.itemId !== "number" || typeof item.mes !== "number") return;
+        const key = `${item.itemId}-${item.mes}`;
+        const beforeItem = baseItemsMap.get(key);
+        const beforeBudget = beforeItem
+          ? Number.parseFloat(beforeItem.presupuesto) || 0
+          : null;
+        const afterBudget = typeof item.presupuesto === "number" ? item.presupuesto : 0;
+
+        if (beforeItem) {
+          baseItemsMap.delete(key);
+        }
+
+        if (beforeBudget === afterBudget) return;
+
+        comparisons.push({
+          itemId: item.itemId,
+          itemNumero: beforeItem?.item.numero ?? item.itemId,
+          itemNombre: beforeItem?.item.nombre ?? `Item #${item.itemId}`,
+          mes: item.mes,
+          mesNombre: MES_NOMBRES[item.mes] ?? `Mes ${item.mes}`,
+          antesPresupuesto: beforeBudget,
+          despuesPresupuesto: afterBudget,
+          diferencia: beforeBudget === null ? afterBudget : afterBudget - beforeBudget,
+          tipoCambio: beforeItem ? "ACTUALIZADO" : "AGREGADO",
+        });
+      });
+
+      baseItemsMap.forEach((beforeItem) => {
+        comparisons.push({
+          itemId: beforeItem.item.id,
+          itemNumero: beforeItem.item.numero ?? beforeItem.item.id,
+          itemNombre: beforeItem.item.nombre ?? `Item #${beforeItem.item.id}`,
+          mes: beforeItem.mes,
+          mesNombre: MES_NOMBRES[beforeItem.mes] ?? `Mes ${beforeItem.mes}`,
+          antesPresupuesto: Number.parseFloat(beforeItem.presupuesto) || 0,
+          despuesPresupuesto: 0,
+          diferencia: -(Number.parseFloat(beforeItem.presupuesto) || 0),
+          tipoCambio: "ELIMINADO",
+        });
+      });
+
+      return comparisons;
+    });
+  }, [baseEvento, reform]);
+
+  const formaComparisons = useMemo(() => {
+    const rawFormas = (reform?.cambiosPropuestos as Record<string, unknown> | undefined)
+      ?.formasParticipacion;
+
+    if (!Array.isArray(rawFormas)) return [];
+
+    const proposedFormas = rawFormas as ProposedFormaParticipacion[];
+
+    const fallbackComparisons = proposedFormas
+      .map((forma) => {
+        const baseForma = baseEvento?.formasParticipacion?.find(
+          (entry) => entry.tipoAval === forma.tipoAval,
+        );
+        return {
+          tipoAval: forma.tipoAval ?? null,
+          antesNumAtletasHombres: baseForma?.numAtletasHombres ?? null,
+          despuesNumAtletasHombres: forma.numAtletasHombres ?? 0,
+          antesNumAtletasMujeres: baseForma?.numAtletasMujeres ?? null,
+          despuesNumAtletasMujeres: forma.numAtletasMujeres ?? 0,
+          antesNumEntrenadoresHombres: baseForma?.numEntrenadoresHombres ?? null,
+          despuesNumEntrenadoresHombres: forma.numEntrenadoresHombres ?? 0,
+          antesNumEntrenadoresMujeres: baseForma?.numEntrenadoresMujeres ?? null,
+          despuesNumEntrenadoresMujeres: forma.numEntrenadoresMujeres ?? 0,
+        };
+      })
+      .filter((forma) =>
+        [
+          forma.antesNumAtletasHombres !== forma.despuesNumAtletasHombres,
+          forma.antesNumAtletasMujeres !== forma.despuesNumAtletasMujeres,
+          forma.antesNumEntrenadoresHombres !== forma.despuesNumEntrenadoresHombres,
+          forma.antesNumEntrenadoresMujeres !== forma.despuesNumEntrenadoresMujeres,
+        ].some(Boolean),
+      );
+
+    if (fallbackComparisons.length > 0) return fallbackComparisons;
+
+    if (reform?.comparacion?.formasParticipacion?.length) {
+      return reform.comparacion.formasParticipacion
+        .filter(isChangedFormaParticipacion)
+        .map((forma) => ({
+          tipoAval: forma.tipoAval,
+          antesNumAtletasHombres: forma.antesNumAtletas ?? null,
+          despuesNumAtletasHombres: forma.despuesNumAtletas ?? null,
+          antesNumAtletasMujeres: null,
+          despuesNumAtletasMujeres: null,
+          antesNumEntrenadoresHombres: null,
+          despuesNumEntrenadoresHombres: null,
+          antesNumEntrenadoresMujeres: null,
+          despuesNumEntrenadoresMujeres: null,
+        }));
+    }
+
+    return [];
+  }, [baseEvento, reform]);
+
   const hasComparisonData =
     (reform?.comparacion?.campos?.length ?? 0) > 0 ||
-    (reform?.comparacion?.eventoItems?.length ?? 0) > 0;
+    (reform?.comparacion?.eventoItems?.length ?? 0) > 0 ||
+    (reform?.comparacion?.formasParticipacion?.length ?? 0) > 0 ||
+    Boolean(baseEvento);
+  const budgetReformFormas =
+    (reform?.cambiosPropuestos as Record<string, unknown>)?.formasParticipacion as
+      | Array<{ tipoAval?: string }>
+      | undefined;
+  const budgetReformTipoAval = budgetReformFormas?.[0]?.tipoAval ?? null;
   const totalItemsBefore = useMemo(
     () =>
       itemComparisons.reduce(
@@ -501,6 +690,86 @@ export default function ReformaDetailPage() {
           )}
         </section>
 
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4 flex items-center gap-2">
+            <Layers3 className="h-5 w-5 text-gray-400" />
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+              Formas de participación reformadas
+            </h2>
+          </div>
+
+          {formaComparisons.length === 0 ? (
+            <div className="rounded-lg bg-gray-50 p-6 text-sm text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
+              Esta reforma no reporta cambios de atletas por forma de participación.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {formaComparisons.map((forma, index) => (
+                <article
+                  key={`${forma.tipoAval ?? "sin-tipo"}-${index}`}
+                  className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {getTipoAvalLabel(forma.tipoAval)}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {[
+                      {
+                        label: "Atletas hombres",
+                        before: forma.antesNumAtletasHombres,
+                        after: forma.despuesNumAtletasHombres,
+                      },
+                      {
+                        label: "Atletas mujeres",
+                        before: forma.antesNumAtletasMujeres,
+                        after: forma.despuesNumAtletasMujeres,
+                      },
+                      {
+                        label: "Entrenadores hombres",
+                        before: forma.antesNumEntrenadoresHombres,
+                        after: forma.despuesNumEntrenadoresHombres,
+                      },
+                      {
+                        label: "Entrenadores mujeres",
+                        before: forma.antesNumEntrenadoresMujeres,
+                        after: forma.despuesNumEntrenadoresMujeres,
+                      },
+                    ]
+                      .filter(({ before, after }) => before !== after)
+                      .map(({ label, before, after }) => (
+                        <div key={label}>
+                          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                            {label}
+                          </p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="rounded-lg border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-950/40">
+                              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                                Antes
+                              </p>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                {hasComparisonData
+                                  ? formatFallbackValue(before)
+                                  : "No disponible"}
+                              </p>
+                            </div>
+                            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-900/10">
+                              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                                Después
+                              </p>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                                {formatFallbackValue(after)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
             <div className="flex items-start gap-3">
@@ -517,6 +786,11 @@ export default function ReformaDetailPage() {
                     ? `${itemComparisons.length} item${itemComparisons.length === 1 ? "" : "s"} ${hasComparisonData ? "con comparación antes y después" : "registrado" + (itemComparisons.length === 1 ? "" : "s") + " en la solicitud"}`
                     : "Esta reforma no incluye cambios en items presupuestarios."}
                 </p>
+                {budgetReformTipoAval ? (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Forma de participación: {getTipoAvalLabel(budgetReformTipoAval)}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

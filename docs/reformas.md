@@ -39,12 +39,33 @@ Body:
   "cambiosPropuestos": {
     "fechaInicio": "2026-05-06T00:00:00.000Z",
     "fechaFin": "2026-05-08T00:00:00.000Z",
-    "eventoItems": [
-      { "itemId": 1, "mes": 5, "presupuesto": 1000 }
+    "formasParticipacion": [
+      {
+        "tipoAval": "FONDOS_PUBLICOS",
+        "numEntrenadoresHombres": 0,
+        "numEntrenadoresMujeres": 0,
+        "numAtletasHombres": 6,
+        "numAtletasMujeres": 0,
+        "items": [
+          { "itemId": 7, "mes": 7, "presupuesto": 400 }
+        ]
+      }
     ]
   }
 }
 ```
+
+Campos válidos en `cambiosPropuestos`:
+`codigo`, `tipoParticipacion`, `tipoEvento`, `nombre`, `lugar`, `genero`,
+`disciplinaId`, `categoriaId`, `provincia`, `ciudad`, `pais`, `alcance`,
+`mesProgramado`, `fechaInicio`, `fechaFin`, `cargadoPorExcel`, `formasParticipacion`.
+
+`formasParticipacion` es un array de objetos con:
+`tipoAval`, `numEntrenadoresHombres`, `numEntrenadoresMujeres`,
+`numAtletasHombres`, `numAtletasMujeres`, `items` (opcional).
+
+NO se envía `formaParticipacionId` ni `tipoAval` suelto ni `eventoItems` a nivel raíz.
+`SOLO_RESULTADO` no lleva `items`.
 
 Errores típicos:
 - `403`: sin permiso para solicitar.

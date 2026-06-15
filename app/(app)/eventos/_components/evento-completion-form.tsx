@@ -279,18 +279,6 @@ export default function EventoCompletionForm({
       </div>
 
       <div className="space-y-5 p-5">
-        {showMissingBanner && missingFields.length > 0 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
-            <p className="font-medium">
-              Faltan datos obligatorios en este evento.
-            </p>
-            <p className="mt-1">
-              Debes completar:{" "}
-              {missingFields.map(getEventoMissingFieldLabel).join(", ")}.
-            </p>
-          </div>
-        )}
-
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
             <span className="rounded-full bg-white px-3 py-1 dark:bg-slate-800">

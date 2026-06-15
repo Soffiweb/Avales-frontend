@@ -27,14 +27,22 @@ import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import { getEvento } from "@/lib/api/eventos";
 import { createReform } from "@/lib/api/reforms";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
-import type { Evento } from "@/types/evento";
-import { calcularTotalEvento } from "@/types/evento";
+import type { Evento, EventoItem, FormaParticipacionCupos } from "@/types/evento";
 import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
+import {
+  EVENTO_ALCANCE_OPTIONS,
+  EVENTO_TAREA_OPTIONS,
+  getTipoAvalLabel,
+  normalizeEventoAlcance,
+  normalizeEventoTipoEvento,
+} from "@/lib/constants";
 
 type WizardStep = 1 | 2;
 
 type GeneralForm = {
   nombre: string;
+  tipoEvento: string;
+  alcance: string;
   lugar: string;
   ciudad: string;
   provincia: string;
@@ -75,8 +83,8 @@ const MONTH_OPTIONS = [
   { value: 12, label: "Diciembre" },
 ] as const;
 
-function getInitialBudgetRows(evento: Evento): BudgetRow[] {
-  return (evento.eventoItems ?? []).map((item) => ({
+function getInitialBudgetRows(items: EventoItem[] = []): BudgetRow[] {
+  return items.map((item) => ({
     localId: `existing-${item.id}`,
     sourceId: item.id,
     itemId: item.item.id,
@@ -90,6 +98,9 @@ function getInitialBudgetRows(evento: Evento): BudgetRow[] {
 function buildInitialGeneralForm(evento: Evento): GeneralForm {
   return {
     nombre: evento.nombre ?? "",
+    tipoEvento:
+      normalizeEventoTipoEvento(evento.tipoEvento) ?? evento.tipoEvento ?? "",
+    alcance: normalizeEventoAlcance(evento.alcance) ?? evento.alcance ?? "",
     lugar: evento.lugar ?? "",
     ciudad: evento.ciudad ?? "",
     provincia: evento.provincia ?? "",
@@ -99,7 +110,52 @@ function buildInitialGeneralForm(evento: Evento): GeneralForm {
   };
 }
 
-function buildInitialParticipantsForm(evento: Evento): ParticipantsForm {
+function getBudgetReformFormas(evento: Evento): FormaParticipacionCupos[] {
+  return (evento.formasParticipacion ?? []).filter(
+    (forma) =>
+      forma.tipoAval === "FONDOS_PUBLICOS" ||
+      forma.tipoAval === "AUTOGESTION",
+  );
+}
+
+function getReformFormas(evento: Evento): FormaParticipacionCupos[] {
+  return evento.formasParticipacion ?? [];
+}
+
+function getBudgetRowsChanged(
+  rows: BudgetRow[],
+  originalItems: EventoItem[] = [],
+) {
+  const activeRows = rows.filter((row) => row.status !== "removed");
+
+  if (activeRows.length !== originalItems.length) return true;
+
+  return activeRows.some((row) => {
+    const originalItem = originalItems.find((item) => item.id === row.sourceId);
+    if (!originalItem) return true;
+
+    return (
+      originalItem.item.id !== row.itemId ||
+      originalItem.mes !== row.mes ||
+      (Number.parseFloat(originalItem.presupuesto) || 0) !==
+        (Number.parseFloat(row.presupuesto) || 0)
+    );
+  });
+}
+
+function buildInitialParticipantsForm(
+  evento: Evento,
+  forma?: FormaParticipacionCupos | null,
+): ParticipantsForm {
+  if (forma) {
+    return {
+      numAtletasHombres: forma.numAtletasHombres ?? 0,
+      numAtletasMujeres: forma.numAtletasMujeres ?? 0,
+      numEntrenadoresHombres: forma.numEntrenadoresHombres ?? 0,
+      numEntrenadoresMujeres: forma.numEntrenadoresMujeres ?? 0,
+    };
+  }
+
   return {
     numAtletasHombres: evento.numAtletasHombres ?? 0,
     numAtletasMujeres: evento.numAtletasMujeres ?? 0,
@@ -112,6 +168,14 @@ function getBudgetTotal(rows: BudgetRow[]) {
   return rows
     .filter((row) => row.status !== "removed")
     .reduce((acc, row) => acc + (Number.parseFloat(row.presupuesto) || 0), 0);
+}
+
+function normalizeTextValue(value?: string | null) {
+  return value?.trim() ?? "";
+}
+
+function hasSummaryChange(previous: string | number | null | undefined, next: string | number | null | undefined) {
+  return normalizeTextValue(String(previous ?? "")) !== normalizeTextValue(String(next ?? ""));
 }
 
 function StepBadge({
@@ -275,6 +339,7 @@ export default function EventoReformaPage() {
   const [participantsForm, setParticipantsForm] = useState<ParticipantsForm | null>(
     null,
   );
+  const [selectedFormaId, setSelectedFormaId] = useState<number | "">("");
   const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([]);
   const [expandedBudgetRows, setExpandedBudgetRows] = useState<string[]>([]);
   const [requestReason, setRequestReason] = useState("");
@@ -303,9 +368,17 @@ export default function EventoReformaPage() {
         setEvento(eventData);
         setItemsCatalogo(itemsResponse.data ?? []);
         setGeneralForm(buildInitialGeneralForm(eventData));
-        setParticipantsForm(buildInitialParticipantsForm(eventData));
-        const initialBudgetRows = getInitialBudgetRows(eventData);
-        setBudgetRows(initialBudgetRows);
+        const formas = getReformFormas(eventData);
+        const budgetFormas = getBudgetReformFormas(eventData);
+        const initialForma =
+          formas.length === 1
+            ? formas[0]
+            : budgetFormas.length === 1
+              ? budgetFormas[0]
+              : null;
+        setParticipantsForm(buildInitialParticipantsForm(eventData, initialForma));
+        setSelectedFormaId(initialForma?.id ?? "");
+        setBudgetRows(getInitialBudgetRows(initialForma?.items ?? []));
         setExpandedBudgetRows([]);
       } catch (err: unknown) {
         setError(
@@ -319,11 +392,157 @@ export default function EventoReformaPage() {
     void loadEvento();
   }, [id]);
 
-  const originalBudgetTotal = useMemo(
-    () => (evento ? calcularTotalEvento(evento) : 0),
+  const reformFormas = useMemo(
+    () => (evento ? getReformFormas(evento) : []),
     [evento],
   );
+  const budgetFormas = useMemo(
+    () => (evento ? getBudgetReformFormas(evento) : []),
+    [evento],
+  );
+  const selectedForma = useMemo(
+    () => reformFormas.find((forma) => forma.id === selectedFormaId) ?? null,
+    [reformFormas, selectedFormaId],
+  );
+  const selectedBudgetForma = useMemo(
+    () =>
+      selectedForma &&
+      (selectedForma.tipoAval === "FONDOS_PUBLICOS" ||
+        selectedForma.tipoAval === "AUTOGESTION")
+        ? selectedForma
+        : null,
+    [selectedForma],
+  );
+  const originalBudgetTotal = useMemo(
+    () =>
+      (selectedBudgetForma?.items ?? []).reduce(
+        (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
+        0,
+      ),
+    [selectedBudgetForma],
+  );
   const proposedBudgetTotal = useMemo(() => getBudgetTotal(budgetRows), [budgetRows]);
+  const generalSummaryRows = useMemo(
+    () => [
+      {
+        label: "Nombre",
+        previous: evento?.nombre ?? "-",
+        next: generalForm?.nombre ?? "-",
+      },
+      {
+        label: "Tipo de evento",
+        previous:
+          EVENTO_TAREA_OPTIONS.find(
+            (option) =>
+              option.value ===
+              (normalizeEventoTipoEvento(evento?.tipoEvento) ?? evento?.tipoEvento),
+          )?.label ??
+          evento?.tipoEvento ??
+          "-",
+        next:
+          EVENTO_TAREA_OPTIONS.find(
+            (option) => option.value === (generalForm?.tipoEvento ?? ""),
+          )?.label ??
+          generalForm?.tipoEvento ??
+          "-",
+      },
+      {
+        label: "Alcance",
+        previous:
+          EVENTO_ALCANCE_OPTIONS.find(
+            (option) =>
+              option.value ===
+              (normalizeEventoAlcance(evento?.alcance) ?? evento?.alcance),
+          )?.label ??
+          evento?.alcance ??
+          "-",
+        next:
+          EVENTO_ALCANCE_OPTIONS.find(
+            (option) => option.value === (generalForm?.alcance ?? ""),
+          )?.label ??
+          generalForm?.alcance ??
+          "-",
+      },
+      {
+        label: "Lugar",
+        previous: evento?.lugar ?? "-",
+        next: generalForm?.lugar ?? "-",
+      },
+      {
+        label: "Ciudad",
+        previous: evento?.ciudad ?? "-",
+        next: generalForm?.ciudad ?? "-",
+      },
+      {
+        label: "Provincia",
+        previous: evento?.provincia ?? "-",
+        next: generalForm?.provincia ?? "-",
+      },
+      {
+        label: "País",
+        previous: evento?.pais ?? "-",
+        next: generalForm?.pais ?? "-",
+      },
+      {
+        label: "Fecha inicio",
+        previous: formatDateInput(evento?.fechaInicio),
+        next: generalForm?.fechaInicio ?? "-",
+      },
+      {
+        label: "Fecha fin",
+        previous: formatDateInput(evento?.fechaFin),
+        next: generalForm?.fechaFin ?? "-",
+      },
+    ].filter((row) => hasSummaryChange(row.previous, row.next)),
+    [evento, generalForm],
+  );
+  const delegationSummaryRows = useMemo(
+    () => [
+      {
+        label: "Atletas hombres",
+        previous: selectedForma?.numAtletasHombres ?? evento?.numAtletasHombres ?? 0,
+        next: participantsForm?.numAtletasHombres ?? 0,
+      },
+      {
+        label: "Atletas mujeres",
+        previous: selectedForma?.numAtletasMujeres ?? evento?.numAtletasMujeres ?? 0,
+        next: participantsForm?.numAtletasMujeres ?? 0,
+      },
+      {
+        label: "Entrenadores hombres",
+        previous:
+          selectedForma?.numEntrenadoresHombres ??
+          evento?.numEntrenadoresHombres ??
+          0,
+        next: participantsForm?.numEntrenadoresHombres ?? 0,
+      },
+      {
+        label: "Entrenadores mujeres",
+        previous:
+          selectedForma?.numEntrenadoresMujeres ??
+          evento?.numEntrenadoresMujeres ??
+          0,
+        next: participantsForm?.numEntrenadoresMujeres ?? 0,
+      },
+      {
+        label: "Presupuesto",
+        previous: selectedBudgetForma
+          ? formatCurrency(originalBudgetTotal)
+          : "Sin selección",
+        next: selectedBudgetForma
+          ? formatCurrency(proposedBudgetTotal)
+          : "Sin selección",
+      },
+    ].filter((row) => hasSummaryChange(row.previous, row.next)),
+    [
+      evento,
+      originalBudgetTotal,
+      participantsForm,
+      proposedBudgetTotal,
+      selectedBudgetForma,
+      selectedForma,
+    ],
+  );
 
   const canSubmitReforma = canCreateReforma(user);
   const hasPendingReform = Boolean(evento?.tieneReformaPendiente);
@@ -332,14 +551,34 @@ export default function EventoReformaPage() {
     if (!evento || !generalForm || !participantsForm) return {};
 
     const payload: Record<string, unknown> = {};
+    const currentLugar = normalizeTextValue(evento.lugar);
+    const nextLugar = normalizeTextValue(generalForm.lugar);
+    const currentCiudad = normalizeTextValue(evento.ciudad);
+    const nextCiudad = normalizeTextValue(generalForm.ciudad);
+    const currentProvincia = normalizeTextValue(evento.provincia);
+    const nextProvincia = normalizeTextValue(generalForm.provincia);
+    const currentPais = normalizeTextValue(evento.pais);
+    const nextPais = normalizeTextValue(generalForm.pais);
 
     if (generalForm.nombre !== evento.nombre) payload.nombre = generalForm.nombre;
-    if (generalForm.lugar !== evento.lugar) payload.lugar = generalForm.lugar;
-    if (generalForm.ciudad !== evento.ciudad) payload.ciudad = generalForm.ciudad;
-    if (generalForm.provincia !== evento.provincia) {
-      payload.provincia = generalForm.provincia;
+    if (
+      generalForm.tipoEvento !==
+      (normalizeEventoTipoEvento(evento.tipoEvento) ?? evento.tipoEvento ?? "")
+    ) {
+      payload.tipoEvento = generalForm.tipoEvento;
     }
-    if (generalForm.pais !== evento.pais) payload.pais = generalForm.pais;
+    if (
+      generalForm.alcance !==
+      (normalizeEventoAlcance(evento.alcance) ?? evento.alcance ?? "")
+    ) {
+      payload.alcance = generalForm.alcance;
+    }
+    if (nextLugar !== currentLugar) payload.lugar = generalForm.lugar.trim();
+    if (nextCiudad !== currentCiudad) payload.ciudad = generalForm.ciudad.trim();
+    if (nextProvincia !== currentProvincia) {
+      payload.provincia = generalForm.provincia.trim();
+    }
+    if (nextPais !== currentPais) payload.pais = generalForm.pais.trim();
     if (generalForm.fechaInicio !== formatDateInput(evento.fechaInicio)) {
       payload.fechaInicio = formatDateInput(generalForm.fechaInicio);
     }
@@ -347,46 +586,74 @@ export default function EventoReformaPage() {
       payload.fechaFin = formatDateInput(generalForm.fechaFin);
     }
 
-    if (participantsForm.numAtletasHombres !== evento.numAtletasHombres) {
-      payload.numAtletasHombres = participantsForm.numAtletasHombres;
-    }
-    if (participantsForm.numAtletasMujeres !== evento.numAtletasMujeres) {
-      payload.numAtletasMujeres = participantsForm.numAtletasMujeres;
-    }
-    if (
-      participantsForm.numEntrenadoresHombres !== evento.numEntrenadoresHombres
-    ) {
-      payload.numEntrenadoresHombres = participantsForm.numEntrenadoresHombres;
-    }
-    if (
-      participantsForm.numEntrenadoresMujeres !== evento.numEntrenadoresMujeres
-    ) {
-      payload.numEntrenadoresMujeres = participantsForm.numEntrenadoresMujeres;
-    }
+    if (selectedForma) {
+      const previousParticipants = selectedForma;
 
-    payload.eventoItems = budgetRows
-      .filter((row) => row.status !== "removed")
-      .map((row) => ({
-        itemId: row.itemId,
-        mes: row.mes,
-        presupuesto: Number.parseFloat(row.presupuesto) || 0,
-      }))
-      .filter((item): item is { itemId: number; mes: number; presupuesto: number } =>
-        Number.isFinite(item.itemId),
-      );
+      const hasParticipantChanges =
+        participantsForm.numAtletasHombres !== previousParticipants.numAtletasHombres ||
+        participantsForm.numAtletasMujeres !== previousParticipants.numAtletasMujeres ||
+        participantsForm.numEntrenadoresHombres !==
+          previousParticipants.numEntrenadoresHombres ||
+        participantsForm.numEntrenadoresMujeres !==
+          previousParticipants.numEntrenadoresMujeres;
+
+      const hasBudgetChanges =
+        selectedBudgetForma &&
+        getBudgetRowsChanged(budgetRows, selectedBudgetForma.items ?? []);
+
+      if (hasParticipantChanges || hasBudgetChanges) {
+        const formaEntry: {
+          tipoAval: string;
+          numEntrenadoresHombres: number;
+          numEntrenadoresMujeres: number;
+          numAtletasHombres: number;
+          numAtletasMujeres: number;
+          items?: { itemId: number; mes: number; presupuesto: number }[];
+        } = {
+          tipoAval: selectedForma.tipoAval,
+          numEntrenadoresHombres: participantsForm.numEntrenadoresHombres,
+          numEntrenadoresMujeres: participantsForm.numEntrenadoresMujeres,
+          numAtletasHombres: participantsForm.numAtletasHombres,
+          numAtletasMujeres: participantsForm.numAtletasMujeres,
+        };
+
+        if (selectedBudgetForma && hasBudgetChanges) {
+          formaEntry.items = budgetRows
+            .filter((row) => row.status !== "removed")
+            .map((row) => ({
+              itemId: row.itemId,
+              mes: row.mes,
+              presupuesto: Number.parseFloat(row.presupuesto) || 0,
+            }))
+            .filter(
+              (item): item is { itemId: number; mes: number; presupuesto: number } =>
+                Number.isFinite(item.itemId),
+            );
+        }
+
+        payload.formasParticipacion = [formaEntry];
+      }
+    }
 
     return payload;
-  }, [budgetRows, evento, generalForm, participantsForm]);
+  }, [
+    budgetRows,
+    evento,
+    generalForm,
+    participantsForm,
+    selectedBudgetForma,
+    selectedForma,
+  ]);
 
   const hasUnresolvableBudgetItems = useMemo(() => {
-    if (!evento) return false;
+    if (!selectedBudgetForma) return false;
 
     return budgetRows.some((row) => {
       if (row.status === "removed") return false;
       if (!row.itemId) return true;
       return false;
     });
-  }, [budgetRows, evento]);
+  }, [budgetRows, selectedBudgetForma]);
 
   const handleSubmit = async () => {
     if (!evento || !requestReason.trim()) return;
@@ -410,19 +677,26 @@ export default function EventoReformaPage() {
       );
       return;
     }
+    if (Object.keys(proposedChanges).length === 0) {
+      setSubmitError("No hay cambios para enviar en esta reforma.");
+      return;
+    }
 
     try {
       setSubmitting(true);
       setSubmitError(null);
       setSubmitSuccess(null);
 
-      const response = await createReform({
+      console.log("[Evento completo]", evento);
+      const payload = {
         eventoId: evento.id,
         motivo: requestReason.trim(),
         observacion: requestObservation.trim() || undefined,
         mesEjecucion,
         cambiosPropuestos: proposedChanges,
-      });
+      };
+      console.log("[Create Reforma] payload:", JSON.stringify(payload, null, 2));
+      const response = await createReform(payload);
 
       setSubmitted(true);
       setSubmitSuccess("La solicitud de reforma fue registrada correctamente.");
@@ -446,10 +720,12 @@ export default function EventoReformaPage() {
   };
 
   const budgetComparisonRows = useMemo(() => {
-    if (!evento) return [];
+    if (!selectedBudgetForma) return [];
 
     return budgetRows.map((row) => {
-      const originalItem = evento.eventoItems?.find((item) => item.id === row.sourceId);
+      const originalItem = selectedBudgetForma.items?.find(
+        (item) => item.id === row.sourceId,
+      );
       const originalOption = itemsCatalogo.find(
         (option) => option.id === originalItem?.item.id,
       );
@@ -495,7 +771,22 @@ export default function EventoReformaPage() {
         added: row.status === "new",
       };
     });
-  }, [budgetRows, evento, itemsCatalogo]);
+  }, [budgetRows, itemsCatalogo, selectedBudgetForma]);
+
+  const handleSelectForma = (value: string) => {
+    const formaId = value ? Number(value) : "";
+    const forma =
+      typeof formaId === "number"
+        ? reformFormas.find((item) => item.id === formaId) ?? null
+        : null;
+
+    setSelectedFormaId(forma?.id ?? "");
+    if (evento) {
+      setParticipantsForm(buildInitialParticipantsForm(evento, forma));
+    }
+    setBudgetRows(getInitialBudgetRows(forma?.items ?? []));
+    setExpandedBudgetRows([]);
+  };
 
   const handleBudgetChange = (
     localId: string,
@@ -522,6 +813,8 @@ export default function EventoReformaPage() {
   };
 
   const handleAddBudgetRow = () => {
+    if (!selectedBudgetForma) return;
+
     const localId = `new-${Date.now()}`;
     setBudgetRows((prev) => [
       ...prev,
@@ -760,6 +1053,48 @@ export default function EventoReformaPage() {
                     </label>
                     <label className="space-y-2">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Tipo de evento
+                      </span>
+                      <select
+                        value={generalForm.tipoEvento}
+                        onChange={(e) =>
+                          setGeneralForm((prev) =>
+                            prev ? { ...prev, tipoEvento: e.target.value } : prev,
+                          )
+                        }
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                      >
+                        <option value="">Selecciona un tipo</option>
+                        {EVENTO_TAREA_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Alcance
+                      </span>
+                      <select
+                        value={generalForm.alcance}
+                        onChange={(e) =>
+                          setGeneralForm((prev) =>
+                            prev ? { ...prev, alcance: e.target.value } : prev,
+                          )
+                        }
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                      >
+                        <option value="">Selecciona un alcance</option>
+                        {EVENTO_ALCANCE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Lugar
                       </span>
                       <input
@@ -848,137 +1183,197 @@ export default function EventoReformaPage() {
                 </section>
 
               <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <div className="mb-5 flex items-center gap-3">
-                    <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                    <div>
-                      <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-                        Participantes
-                      </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Ajusta la delegación propuesta.
-                      </p>
-                    </div>
+                <div className="mb-6 flex items-center gap-3">
+                  <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                  <div>
+                    <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                      Delegación y presupuesto
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Selecciona el tipo de participación para desplegar la delegación y el presupuesto.
+                    </p>
                   </div>
+                </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Atletas hombres
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={participantsForm.numAtletasHombres}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '');
-                          setParticipantsForm((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  numAtletasHombres: Number(value) || 0,
-                                }
-                              : prev,
-                          );
-                        }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Atletas mujeres
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={participantsForm.numAtletasMujeres}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '');
-                          setParticipantsForm((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  numAtletasMujeres: Number(value) || 0,
-                                }
-                              : prev,
-                          );
-                        }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Entrenadores hombres
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={participantsForm.numEntrenadoresHombres}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '');
-                          setParticipantsForm((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  numEntrenadoresHombres:
-                                    Number(value) || 0,
-                                }
-                              : prev,
-                          );
-                        }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Entrenadores mujeres
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={participantsForm.numEntrenadoresMujeres}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '');
-                          setParticipantsForm((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  numEntrenadoresMujeres:
-                                    Number(value) || 0,
-                                }
-                              : prev,
-                          );
-                        }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                      />
-                    </label>
+                <label className="mb-6 block space-y-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tipo de participación
+                  </span>
+                  <select
+                    value={selectedFormaId === "" ? "" : String(selectedFormaId)}
+                    onChange={(e) => handleSelectForma(e.target.value)}
+                    disabled={reformFormas.length <= 1}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 disabled:opacity-70 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  >
+                    <option value="">
+                      {reformFormas.length > 1
+                        ? "Selecciona un tipo de participación"
+                        : "Sin tipos de participación"}
+                    </option>
+                    {reformFormas.map((forma) => (
+                      <option key={forma.id} value={forma.id}>
+                        {getTipoAvalLabel(forma.tipoAval)}
+                        {forma.referencia?.trim()
+                          ? ` - ${forma.referencia.trim()}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                    {reformFormas.length === 1
+                      ? "Se seleccionó automáticamente porque este evento solo tiene un tipo de participación."
+                      : "Cada opción muestra el tipo de participación junto con su referencia, si existe."}
+                  </span>
+                </label>
+
+                {!selectedForma ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-400">
+                    {reformFormas.length === 0
+                      ? "Este evento no tiene tipos de participación registrados."
+                      : "Selecciona un tipo de participación para desplegar la delegación y el presupuesto."}
                   </div>
-                </section>
-
-              <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <div className="mb-5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <DollarSign className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-                          Items presupuestarios
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Permite editar, agregar o retirar items de la propuesta.
-                        </p>
+                ) : (
+                  <div className="grid gap-6">
+                    <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                      <div className="mb-5 flex items-center gap-3">
+                        <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                        <div>
+                          <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                            Participantes
+                          </h2>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Ajusta la delegación del tipo seleccionado.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddBudgetRow}
-                      className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Agregar item
-                    </button>
-                  </div>
 
-                  <div className="space-y-4">
-                    {budgetRows.map((row) => (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Atletas hombres
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={participantsForm.numAtletasHombres}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              setParticipantsForm((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      numAtletasHombres: Number(value) || 0,
+                                    }
+                                  : prev,
+                              );
+                            }}
+                            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Atletas mujeres
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={participantsForm.numAtletasMujeres}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              setParticipantsForm((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      numAtletasMujeres: Number(value) || 0,
+                                    }
+                                  : prev,
+                              );
+                            }}
+                            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Entrenadores hombres
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={participantsForm.numEntrenadoresHombres}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              setParticipantsForm((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      numEntrenadoresHombres: Number(value) || 0,
+                                    }
+                                  : prev,
+                              );
+                            }}
+                            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Entrenadores mujeres
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={participantsForm.numEntrenadoresMujeres}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              setParticipantsForm((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      numEntrenadoresMujeres: Number(value) || 0,
+                                    }
+                                  : prev,
+                              );
+                            }}
+                            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                          />
+                        </label>
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+                      <div className="mb-5 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                          <div>
+                            <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                              Items presupuestarios
+                            </h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Permite editar, agregar o retirar items de la propuesta.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddBudgetRow}
+                          disabled={!selectedBudgetForma}
+                          className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Agregar item
+                        </button>
+                      </div>
+
+                      {!selectedBudgetForma ? (
+                        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-400">
+                          {budgetFormas.length === 0
+                            ? "Este evento no tiene tipos de participación con fondos públicos o autogestión para reformar presupuesto."
+                            : selectedForma.tipoAval === "SOLO_RESULTADO"
+                              ? "El tipo de participación seleccionado no maneja presupuesto."
+                              : "Selecciona un tipo de participación válido para editar su presupuesto."}
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {budgetRows.map((row) => (
                       <div
                         key={row.localId}
                         className={`rounded-2xl border p-4 ${
@@ -1108,9 +1503,13 @@ export default function EventoReformaPage() {
                           </div>
                         ) : null}
                       </div>
-                    ))}
+                          ))}
+                        </div>
+                      )}
+                    </section>
                   </div>
-                </section>
+                )}
+              </section>
             </div>
           ) : null}
 
@@ -1208,7 +1607,8 @@ export default function EventoReformaPage() {
                   !requestReason.trim() ||
                   typeof mesEjecucion !== "number" ||
                   submitting ||
-                  hasUnresolvableBudgetItems
+                  hasUnresolvableBudgetItems ||
+                  Object.keys(proposedChanges).length === 0
                 }
                 className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-gray-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1260,7 +1660,7 @@ export default function EventoReformaPage() {
               <div className="mb-4 flex items-center gap-3">
                 <MapPin className="h-5 w-5 text-slate-500" />
                 <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                  Antes y después
+                  Datos generales reformados
                 </h3>
               </div>
 
@@ -1270,48 +1670,58 @@ export default function EventoReformaPage() {
                   <div>Antes</div>
                   <div>Después</div>
                 </div>
-                <>
-                  <SummaryRow
-                    label="Nombre"
-                    previous={evento.nombre}
-                    next={generalForm.nombre}
-                  />
-                  <SummaryRow
-                    label="Lugar"
-                    previous={evento.lugar}
-                    next={generalForm.lugar}
-                  />
-                  <SummaryRow
-                    label="Ciudad"
-                    previous={evento.ciudad}
-                    next={generalForm.ciudad}
-                  />
-                  <SummaryRow
-                    label="Atletas H"
-                    previous={evento.numAtletasHombres}
-                    next={participantsForm.numAtletasHombres}
-                  />
-                  <SummaryRow
-                    label="Atletas M"
-                    previous={evento.numAtletasMujeres}
-                    next={participantsForm.numAtletasMujeres}
-                  />
-                  <SummaryRow
-                    label="Entrenadores H"
-                    previous={evento.numEntrenadoresHombres}
-                    next={participantsForm.numEntrenadoresHombres}
-                  />
-                  <SummaryRow
-                    label="Entrenadores M"
-                    previous={evento.numEntrenadoresMujeres}
-                    next={participantsForm.numEntrenadoresMujeres}
-                  />
-                  <SummaryRow
-                    label="Presupuesto total"
-                    previous={formatCurrency(originalBudgetTotal)}
-                    next={formatCurrency(proposedBudgetTotal)}
-                  />
-                </>
+                {generalSummaryRows.length > 0 ? (
+                  generalSummaryRows.map((row) => (
+                    <SummaryRow
+                      key={row.label}
+                      label={row.label}
+                      previous={row.previous}
+                      next={row.next}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    No hay cambios en datos generales.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
+              <div className="mb-4 flex items-center gap-3">
+                <Users className="h-5 w-5 text-slate-500" />
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                    Forma de participación reformada
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {selectedForma
+                      ? getTipoAvalLabel(selectedForma.tipoAval)
+                      : "Sin tipo de participación seleccionado"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-3 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <div>Delegación / presupuesto</div>
+                  <div>Antes</div>
+                  <div>Después</div>
+                </div>
+                {delegationSummaryRows.length > 0 ? (
+                  delegationSummaryRows.map((row) => (
+                    <SummaryRow
+                      key={row.label}
+                      label={row.label}
+                      previous={row.previous}
+                      next={row.next}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    No hay cambios en la forma de participación seleccionada.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1365,7 +1775,9 @@ export default function EventoReformaPage() {
                   </>
                 ) : (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                    No hay items presupuestarios para comparar.
+                    {selectedBudgetForma
+                      ? "No hay items presupuestarios para comparar."
+                      : "Selecciona un tipo de participación para comparar presupuesto."}
                   </div>
                 )}
               </div>

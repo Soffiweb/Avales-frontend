@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import type { EventoEstado } from "@/types/evento";
+import type { TipoAval } from "@/types/aval";
 
 export type TipoReforma = "DATOS_INFORMATIVOS" | "PRESUPUESTO" | "MIXTA";
 
@@ -9,15 +10,42 @@ export type ReformEventoItemPayload = {
   presupuesto: number;
 };
 
+export type ReformFormaParticipacionChanges = {
+  tipoAval: TipoAval;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+  items?: ReformEventoItemPayload[];
+};
+
+export type ReformChangesDto = {
+  codigo?: string;
+  tipoParticipacion?: string;
+  tipoEvento?: string;
+  nombre?: string;
+  lugar?: string;
+  genero?: string;
+  disciplinaId?: number;
+  categoriaId?: number;
+  provincia?: string;
+  ciudad?: string;
+  pais?: string;
+  alcance?: string;
+  mesProgramado?: number;
+  fechaInicio?: string;
+  fechaFin?: string;
+  cargadoPorExcel?: boolean;
+  formasParticipacion?: ReformFormaParticipacionChanges[];
+};
+
 export type CreateReformPayload = {
   eventoId: number;
   versionBaseId?: number;
   motivo: string;
   observacion?: string;
   mesEjecucion: number;
-  cambiosPropuestos: Record<string, unknown> & {
-    eventoItems?: ReformEventoItemPayload[];
-  };
+  cambiosPropuestos: ReformChangesDto;
 };
 
 export type ReformReadableField = {
@@ -59,9 +87,16 @@ export type ReformItemComparison = {
   tipoCambio: "AGREGADO" | "ACTUALIZADO" | "ELIMINADO";
 };
 
+export type ReformFormaParticipacionComparison = {
+  tipoAval?: string | null;
+  antesNumAtletas?: number | null;
+  despuesNumAtletas?: number | null;
+};
+
 export type ReformComparison = {
   campos?: ReformFieldComparison[];
   eventoItems?: ReformItemComparison[];
+  formasParticipacion?: ReformFormaParticipacionComparison[];
 };
 
 export type ReformResponse = {
@@ -92,6 +127,7 @@ export type ListReformsOptions = {
 };
 
 export async function createReform(payload: CreateReformPayload) {
+  console.log("[API createReform] payload:", JSON.stringify(payload, null, 2));
   return apiFetch<ReformResponse>("/reforms", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -102,6 +138,7 @@ export async function aprobarReform(
   id: number,
   payload?: { usuarioId?: number },
 ) {
+  console.log("[API aprobarReform] id:", id, "payload:", JSON.stringify(payload));
   return apiFetch<ReformResponse>(`/reforms/${id}/aprobar`, {
     method: "PATCH",
     body: payload ? JSON.stringify(payload) : undefined,

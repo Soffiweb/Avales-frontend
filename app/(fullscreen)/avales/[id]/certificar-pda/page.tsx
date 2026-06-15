@@ -28,6 +28,7 @@ import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
+import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
@@ -250,7 +251,7 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
         numeroDia: 1,
         nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
         cantidad: dia.cantidad,
-        valorUnitario: roundCurrency(dia.valorUnitario),
+        valorUnitario: roundCurrency(dia.valorUnitario ?? 0),
       },
     ];
   }
@@ -260,7 +261,7 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
       numeroDia: index + 1,
       nombrePersonalizado: dia.nombrePersonalizado?.trim() || "",
       cantidad: dia.cantidad,
-      valorUnitario: roundCurrency(dia.valorUnitario),
+      valorUnitario: roundCurrency(dia.valorUnitario ?? 0),
     }));
   }
 
@@ -298,20 +299,17 @@ function collapseBudgetDias(
 
 function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
   const requerimientos = aval.avalTecnico?.requerimientos ?? [];
-  const fuenteObjetivo =
-    aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
 
   // Si ya hay un PDA guardado, los días/cantidad/valor unitario reales
   // viven en aval.pda.items. Los preferimos por encima de los defaults
-  // derivados de evento.presupuesto + avalTecnico.requerimientos para que
+  // derivados del presupuesto efectivo del aval + avalTecnico.requerimientos para que
   // el form refleje lo último guardado al recargar (sino al editar se
   // pierde la data y volvés a ver los defaults).
   const pdaItemsByCatalog = new Map(
     (aval.pda?.items ?? []).map((pdaItem) => [pdaItem.itemId, pdaItem]),
   );
 
-  return (aval.evento?.presupuesto ?? [])
-    .filter((item) => item.fuente === fuenteObjetivo)
+  return getAvalPresupuestoItems(aval)
     .map((item) => {
       const totalOriginal = roundCurrency(
         Number.parseFloat(item.presupuesto ?? "0") || 0,
@@ -598,11 +596,7 @@ export default function CertificarAvalPage() {
 
   const presupuestoItems = useMemo(() => {
     if (!aval) return [];
-    const fuenteObjetivo =
-      aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "FONDOS_PUBLICOS";
-    return (aval.evento?.presupuesto ?? []).filter(
-      (item) => item.fuente === fuenteObjetivo,
-    );
+    return getAvalPresupuestoItems(aval);
   }, [aval]);
   const totalPresupuestoOriginal = useMemo(
     () =>
@@ -629,19 +623,15 @@ export default function CertificarAvalPage() {
           .filter(
             (
               dia,
-            ): dia is {
-              numeroDia: number;
-              cantidad: number;
-              valorUnitario: number;
-            } =>
+            ): dia is BudgetDraftDia =>
               typeof dia.cantidad === "number" &&
               typeof dia.valorUnitario === "number",
           )
           .map((dia) => ({
             numeroDia: dia.numeroDia,
             nombrePersonalizado: dia.nombrePersonalizado?.trim() || undefined,
-            cantidad: dia.cantidad,
-            valorUnitario: dia.valorUnitario,
+            cantidad: dia.cantidad ?? 0,
+            valorUnitario: dia.valorUnitario ?? 0,
           })),
       })),
     [budgetDraftItems],

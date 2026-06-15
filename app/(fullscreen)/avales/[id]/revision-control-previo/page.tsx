@@ -19,7 +19,7 @@ import RevisionMetodologoPreview, {
   type ReviewItem,
   type ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
-import RevisionDtmPreview from "@/app/(app)/avales/_components/revision-dtm-preview";
+import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
@@ -123,32 +123,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       .map((item) => item.descripcion),
     observaciones: tecnico?.observaciones ?? "",
   };
-}
-
-function getTodayLocalDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function buildDefaultDtmDescripcion(aval: Aval) {
-  const evento = aval.evento;
-  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
-  const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
-  const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
-  const numeroSolicitud =
-    aval.avalTecnico?.numeroAval ??
-    aval.aval ??
-    aval.numeroColeccion ??
-    `[SOLICITUD ${aval.id}]`;
-  const lugar =
-    [evento?.provincia, evento?.ciudad].filter(Boolean).join("-") ||
-    formatLocationWithProvince(evento) ||
-    "[LUGAR]";
-  const rangoFechas = formatEventScheduleSentence(evento);
-  return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
 }
 
 function buildDefaultControlPrevioDescripcion(aval: Aval) {
@@ -301,26 +275,35 @@ export default function RevisionControlPrevioPage() {
     }),
     [aval],
   );
-  const dtmPreviewHeader = useMemo(
+  const presupuestoSalidaDraft = useMemo(
     () => ({
-      ...revisionHeader,
-      descripcionEncabezado:
-        aval?.revisionDtm?.descripcion ??
-        (aval ? buildDefaultDtmDescripcion(aval) : ""),
-      fechaRevision: aval?.revisionDtm?.fechaPresentacion ?? getTodayLocalDate(),
-      observacionFechaTramite: "",
-    }),
-    [aval, revisionHeader],
-  );
-  const dtmPreviewFooter = useMemo(
-    () => ({
-      observacionesFinales: aval?.revisionDtm?.observacion ?? "",
-      firmanteNombre: aval?.revisionDtm?.firmanteNombre ?? "",
-      firmanteCargo: aval?.revisionDtm?.firmanteCargo ?? "",
+      notas: [],
+      codigoActividad: aval?.pda?.codigoActividad ?? "004",
+      numeroAval:
+        aval?.pda?.numeroAval ??
+        aval?.avalTecnico?.numeroAval ??
+        aval?.aval ??
+        aval?.numeroColeccion ??
+        "",
+      fechaSalida:
+        aval?.financiero?.[0]?.fechaSalida ??
+        aval?.avalTecnico?.fechaHoraSalida ??
+        "",
+      periodoComision:
+        aval?.financiero?.[0]?.periodoComision ??
+        aval?.periodoComision ??
+        "",
+      periodoComisionFin:
+        aval?.financiero?.[0]?.periodoComisionFin ??
+        aval?.periodoComisionFin ??
+        "",
+      pdaFirmanteNombre: aval?.pda?.nombreFirmante ?? "",
+      pdaFirmanteCargo: aval?.pda?.cargoFirmante ?? "",
+      financieroFirmanteNombre: aval?.financiero?.[0]?.nombreFirmante ?? "",
+      financieroFirmanteCargo: aval?.financiero?.[0]?.cargoFirmante ?? "",
     }),
     [aval],
   );
-
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -461,18 +444,24 @@ export default function RevisionControlPrevioPage() {
                 useDefaultObservations={false}
               />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Revision DTM" defaultOpen>
-              <RevisionDtmPreview
+            <PreviewCollapsible title="Aval Técnico Competitivo" defaultOpen>
+              <AvalTecnicoCompetitivoPreview
                 aval={aval}
-                header={dtmPreviewHeader}
-                footer={dtmPreviewFooter}
-                reviewItems={reviewItems}
-                reviewState={reviewState}
-                useDefaultObservations={false}
+                fechaEmision={
+                  aval.revisionDtm?.fechaPresentacion ??
+                  aval.revisionDtm?.createdAt ??
+                  aval.createdAt
+                }
+                observacion={aval.revisionDtm?.observacion ?? ""}
+                firmanteNombre={aval.revisionDtm?.firmanteNombre ?? ""}
+                firmanteCargo={aval.revisionDtm?.firmanteCargo ?? ""}
               />
             </PreviewCollapsible>
             <PreviewCollapsible title="Presupuesto de salida" defaultOpen>
-              <PresupuestoSalidaAnticipoPreview aval={aval} draft={{ notas: [] }} />
+              <PresupuestoSalidaAnticipoPreview
+                aval={aval}
+                draft={presupuestoSalidaDraft}
+              />
             </PreviewCollapsible>
           </div>
         </div>

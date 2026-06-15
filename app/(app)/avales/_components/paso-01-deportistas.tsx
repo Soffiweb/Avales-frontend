@@ -44,7 +44,12 @@ type FormData = {
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
-  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
+  entrenadores: Array<{
+    id: number;
+    nombre: string;
+    esTextoLibre?: boolean;
+    genero?: string;
+  }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -166,6 +171,7 @@ export default function Paso01Deportistas({
         id: e.id,
         nombre,
         apellido: apellidoParts.join(" "),
+        genero: e.genero,
       } as SelectedEntrenador;
     }),
   );
@@ -233,6 +239,7 @@ export default function Paso01Deportistas({
           ? e.nombre
           : `${e.nombre} ${e.apellido ?? ""}`.trim(),
         esTextoLibre: "esTextoLibre" in e && e.esTextoLibre ? true : undefined,
+        genero: "genero" in e ? e.genero ?? undefined : undefined,
       })),
       fechaEmision,
       tipoAval,

@@ -338,7 +338,7 @@ export function formatEventScheduleSentence(
   evento?: EventScheduleLike | null,
   options: { year?: number; fallback?: string } = {},
 ): string {
-  const { fallback = "en fecha por definir" } = options;
+  const { fallback = "-" } = options;
 
   if (evento?.fechaInicio && evento?.fechaFin) {
     return `del ${formatDateWithOptions(evento.fechaInicio, {
@@ -367,9 +367,9 @@ export function formatEventDateRangeForDescripcion(
   fechaInicio?: string | null,
   fechaFin?: string | null,
 ): string {
-  if (!fechaInicio) return "en fecha por definir";
+  if (!fechaInicio) return "-";
   const start = parseDate(fechaInicio);
-  if (!start) return "en fecha por definir";
+  if (!start) return "-";
 
   if (!fechaFin) {
     return `el ${start.toLocaleDateString(DEFAULT_LOCALE, {

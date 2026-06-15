@@ -18,10 +18,39 @@ type Props = {
   draft: ComprasPublicasDraft;
 };
 
+type CodigoLike = {
+  codigo?: string | null;
+  descripcion?: string | null;
+  objeto?: string | null;
+  codigoNecesidad?: string | null;
+  objetoContratacion?: string | null;
+};
+
+function normalizeComprasCodigos(
+  items?: Array<ComprasPublicasDraft["codigos"][number] | CodigoLike | string> | null,
+) {
+  return (items ?? [])
+    .flatMap((item) => {
+      if (typeof item === "string") {
+        const value = item.trim();
+        return value ? [{ codigo: value, objeto: "" }] : [];
+      }
+      if (!item) return [];
+      const codigo =
+        item.codigo?.trim() || item.codigoNecesidad?.trim() || "";
+      const objeto =
+        item.descripcion?.trim() ||
+        item.objeto?.trim() ||
+        item.objetoContratacion?.trim() ||
+        "";
+      return codigo || objeto ? [{ codigo, objeto }] : [];
+    });
+}
+
 export default function ComprasPublicasPreview({ aval, draft }: Props) {
   const realizo =
     draft.realizoProceso == null
-      ? "POR DEFINIR"
+      ? "-"
       : draft.realizoProceso
         ? "Sí"
         : "No";
@@ -46,26 +75,17 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
     .map((item) => item.trim())
     .filter(Boolean);
   const detallesContratacion =
-    draft.codigos.length > 0
-      ? draft.codigos
-          .map((item) => ({
-            codigo: item.codigo.trim(),
-            objeto: item.descripcion.trim(),
-          }))
-          .filter((item) => item.codigo || item.objeto)
-      : (aval.comprasPublicas?.codigos?.length
-          ? aval.comprasPublicas.codigos.map((item) => ({
-              codigo: item.codigo.trim(),
-              objeto: item.descripcion.trim(),
-            }))
-          : Array.from(
-              { length: Math.max(legacyCodigos.length, legacyObjetos.length) },
-              (_, index) => ({
-                codigo: legacyCodigos[index] || "",
-                objeto: legacyObjetos[index] || "",
-              }),
-            )
-        ).filter((item) => item.codigo || item.objeto);
+    normalizeComprasCodigos(draft.codigos).length > 0
+      ? normalizeComprasCodigos(draft.codigos)
+      : normalizeComprasCodigos(aval.comprasPublicas?.codigos as CodigoLike[]).length > 0
+        ? normalizeComprasCodigos(aval.comprasPublicas?.codigos as CodigoLike[])
+        : Array.from(
+            { length: Math.max(legacyCodigos.length, legacyObjetos.length) },
+            (_, index) => ({
+              codigo: legacyCodigos[index] || "",
+              objeto: legacyObjetos[index] || "",
+            }),
+          ).filter((item) => item.codigo || item.objeto);
   const certificacionTexto =
     draft.realizoProceso === false
       ? `No se realizó el correspondiente proceso de contratación pública para el evento "${eventoNombre}".`
@@ -94,6 +114,12 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
               <p className="pl-6 uppercase">{detalle.objeto}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {draft.realizoProceso !== false && detallesContratacion.length === 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-800">
+          No hay codigos de necesidad visibles en la respuesta del aval para este certificado.
         </div>
       )}
 

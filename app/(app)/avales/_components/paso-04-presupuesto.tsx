@@ -182,16 +182,7 @@ export default function Paso04Presupuesto({
     );
   };
 
-  const presupuestoFuente =
-    tipoAval === "FONDOS_PUBLICOS"
-      ? "FONDOS_PUBLICOS"
-      : tipoAval === "AUTOGESTION"
-        ? "AUTOGESTION"
-        : null;
-
-  const presupuestoItems = getAvalPresupuestoItems(aval).filter(
-    (item) => !presupuestoFuente || item.fuente === presupuestoFuente,
-  );
+  const presupuestoItems = getAvalPresupuestoItems(aval);
 
   const getTotalPresupuesto = () =>
     presupuestoItems.reduce((sum, item) => sum + (parseFloat(item.presupuesto) || 0), 0);

@@ -11,6 +11,10 @@ import {
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 import { getResponsibleTrainerName } from "@/lib/utils/formatters";
+import {
+  getAvalDelegationSummary,
+  getAvalPresupuestoItems,
+} from "@/lib/utils/aval-collections";
 
 type Props = {
   aval: Aval;
@@ -53,7 +57,7 @@ export default function AvalTecnicoCompetitivoPreview({
   const eventoNombre = evento?.nombre?.toUpperCase() ?? "SIN EVENTO";
   const lugarFecha =
     `${(formatLocationWithProvince(evento) || "-").toUpperCase()} / ${formatEventScheduleDocumentLabel(evento)}`;
-  const entrenadorResponsable = getResponsibleTrainerName(aval, "POR DEFINIR").toUpperCase();
+  const entrenadorResponsable = getResponsibleTrainerName(aval, "-").toUpperCase();
   const otrosEntrenadores = [...(aval.entrenadores ?? [])]
     .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
     .slice(1)
@@ -90,17 +94,21 @@ export default function AvalTecnicoCompetitivoPreview({
     };
   });
 
-  const presupuestoItems = evento?.presupuesto ?? [];
+  const presupuestoItems = getAvalPresupuestoItems(aval);
   const presupuestoTotal = presupuestoItems.reduce(
     (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
     0,
   );
+  const delegacion = getAvalDelegationSummary(aval, {
+    deportistas: tecnico?.deportistasAval ?? [],
+    entrenadores: aval.entrenadores ?? [],
+  });
 
-  const numOficialesH = evento?.numEntrenadoresHombres ?? 0;
-  const numOficialesM = evento?.numEntrenadoresMujeres ?? 0;
-  const numAtletasH = evento?.numAtletasHombres ?? 0;
-  const numAtletasM = evento?.numAtletasMujeres ?? 0;
-  const totalDelegacion = numOficialesH + numOficialesM + numAtletasH + numAtletasM;
+  const numOficialesD = delegacion.entrenadores.mujeres;
+  const numOficialesV = delegacion.entrenadores.hombres;
+  const numAtletasD = delegacion.deportistas.mujeres;
+  const numAtletasV = delegacion.deportistas.hombres;
+  const totalDelegacion = delegacion.total;
 
   return (
     <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900 space-y-4">
@@ -187,10 +195,10 @@ export default function AvalTecnicoCompetitivoPreview({
           </thead>
           <tbody>
             <tr>
-              <td className="border border-slate-400 px-2 py-1 text-center">{numOficialesH}</td>
-              <td className="border border-slate-400 px-2 py-1 text-center">{numOficialesM}</td>
-              <td className="border border-slate-400 px-2 py-1 text-center">{numAtletasH}</td>
-              <td className="border border-slate-400 px-2 py-1 text-center">{numAtletasM}</td>
+              <td className="border border-slate-400 px-2 py-1 text-center">{numOficialesD}</td>
+              <td className="border border-slate-400 px-2 py-1 text-center">{numOficialesV}</td>
+              <td className="border border-slate-400 px-2 py-1 text-center">{numAtletasD}</td>
+              <td className="border border-slate-400 px-2 py-1 text-center">{numAtletasV}</td>
               <td className="border border-slate-400 px-2 py-1 text-center">{totalDelegacion}</td>
             </tr>
           </tbody>

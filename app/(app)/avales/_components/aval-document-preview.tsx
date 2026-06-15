@@ -10,7 +10,10 @@ import {
   formatTransport,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import { getAvalCupos } from "@/lib/utils/aval-collections";
+import {
+  getAvalDelegationSummary,
+  getAvalPresupuestoItems,
+} from "@/lib/utils/aval-collections";
 
 type FormData = {
   deportistas: Array<{
@@ -26,7 +29,12 @@ type FormData = {
     observacion?: string;
     rol?: string;
   }>;
-  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
+  entrenadores: Array<{
+    id: number;
+    nombre: string;
+    esTextoLibre?: boolean;
+    genero?: string;
+  }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -83,9 +91,12 @@ export default function AvalDocumentPreview({
   mode = "all",
 }: AvalDocumentPreviewProps) {
   const evento = aval.evento;
-  const cupos = getAvalCupos(aval);
-  const presupuestoItems = evento?.presupuesto ?? [];
-  const entrenadorResponsable = formData.entrenadores[0]?.nombre ?? "POR DEFINIR";
+  const presupuestoItems = getAvalPresupuestoItems(aval);
+  const delegacion = getAvalDelegationSummary(aval, {
+    deportistas: formData.deportistas,
+    entrenadores: formData.entrenadores,
+  });
+  const entrenadorResponsable = formData.entrenadores[0]?.nombre ?? "-";
   const entrenadores = formData.entrenadores
     .slice(1)
     .map((entrenador) => entrenador.nombre)
@@ -463,23 +474,20 @@ export default function AvalDocumentPreview({
               </thead>
               <tbody>
                 <tr>
-                  <td className="border border-slate-400 px-2 py-1 text-center">
-                    {cupos.numEntrenadoresHombres || 0}
+                    <td className="border border-slate-400 px-2 py-1 text-center">
+                    {delegacion.entrenadores.mujeres}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {cupos.numEntrenadoresMujeres || 0}
+                    {delegacion.entrenadores.hombres}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {cupos.numAtletasHombres || 0}
+                    {delegacion.deportistas.mujeres}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {cupos.numAtletasMujeres || 0}
+                    {delegacion.deportistas.hombres}
                   </td>
                   <td className="border border-slate-400 px-2 py-1 text-center">
-                    {(cupos.numEntrenadoresHombres || 0) +
-                      (cupos.numEntrenadoresMujeres || 0) +
-                      (cupos.numAtletasHombres || 0) +
-                      (cupos.numAtletasMujeres || 0)}
+                    {delegacion.total}
                   </td>
                 </tr>
               </tbody>

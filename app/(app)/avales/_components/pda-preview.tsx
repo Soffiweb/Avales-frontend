@@ -7,6 +7,10 @@ import {
   getResponsibleTrainerData,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
+import {
+  getAvalCupos,
+  getAvalPresupuestoItems,
+} from "@/lib/utils/aval-collections";
 
 export type PdaDraft = {
   descripcion: string;
@@ -35,21 +39,23 @@ type Props = {
 export default function PdaPreview({ aval, draft, items }: Props) {
   const evento = aval.evento;
   const responsable = getResponsibleTrainerData(aval);
+  const cupos = getAvalCupos(aval);
+  const presupuestoSourceItems = getAvalPresupuestoItems(aval);
   const fondosLabel =
     aval.tipoAval === "AUTOGESTION" ? "AUTOGESTION" : "PUBLICOS";
   const participantesEntrenadores =
-    (evento?.numEntrenadoresHombres ?? 0) + (evento?.numEntrenadoresMujeres ?? 0);
+    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
   const participantesDeportistas =
-    (evento?.numAtletasHombres ?? 0) + (evento?.numAtletasMujeres ?? 0);
+    cupos.numAtletasHombres + cupos.numAtletasMujeres;
   const presupuestoItems =
     items ??
     (aval.pda?.items?.flatMap((pdaItem) => {
       const baseNombre =
         pdaItem.nombrePersonalizado?.trim() ||
-        evento?.presupuesto.find((item) => item.item.id === pdaItem.itemId)?.item
+        presupuestoSourceItems.find((item) => item.item.id === pdaItem.itemId)?.item
           ?.nombre ||
         `Item ${pdaItem.itemId}`;
-      const codigo = evento?.presupuesto.find(
+      const codigo = presupuestoSourceItems.find(
         (item) => item.item.id === pdaItem.itemId,
       )?.item?.numero;
 
@@ -71,7 +77,7 @@ export default function PdaPreview({ aval, draft, items }: Props) {
         total: dia.cantidad * dia.valorUnitario,
       }));
     }) ??
-      (evento?.presupuesto ?? []).map((item) => ({
+      presupuestoSourceItems.map((item) => ({
         id: item.id,
         codigo: item.item?.numero,
         nombre: item.item?.nombre || "-",

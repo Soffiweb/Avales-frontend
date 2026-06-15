@@ -130,8 +130,8 @@ function buildDtmRows(
   const metodologoNombre =
     aval.revisionMetodologo?.firmanteNombre || "-";
 
-  const fechaPresentacion = formatTramiteDate(header.fechaRevision);
-  const fechaTramite = header.observacionFechaTramite?.trim() || "-";
+  const fechaPresentacion = formatTramiteDate(aval.fechaEmision ?? aval.createdAt);
+  const fechaTramite = formatTramiteDate(header.fechaRevision);
 
   const row = (
     number: string,
@@ -179,9 +179,9 @@ function buildDtmRows(
     row(
       "11A",
       "Revisión por parte del Metodólogo de su grupo de deporte",
-      null,
+      "FIRMAS_RESPONSABILIDAD_AVAL",
       metodologoNombre,
-      Boolean(aval.revisionMetodologo),
+      true,
     ),
   ];
 
@@ -213,30 +213,30 @@ function buildDtmRows(
     row(
       "16",
       "Aval técnico para competencia con presupuesto PDA",
-      null,
+      "AVAL_TECNICO",
       aval.pda ? "SI CONSTA ESTE EVENTO EN EL PDA" : "-",
-      Boolean(aval.pda),
+      aval.tipoAval === "FONDOS_PUBLICOS",
     ),
     row(
       "17",
       "Aval técnico para competencia con el apoyo de autogestión",
-      null,
+      "CERT_COMPRAS_PUBLICAS",
       "-",
-      false,
+      aval.tipoAval === "AUTOGESTION",
     ),
     row(
       "18",
       "Fecha de presentación",
       null,
       fechaPresentacion,
-      Boolean(header.fechaRevision),
+      Boolean(aval.fechaEmision ?? aval.createdAt),
     ),
     row(
       "19",
       "Fecha de tramite",
       null,
       fechaTramite,
-      Boolean(header.observacionFechaTramite?.trim()),
+      Boolean(header.fechaRevision),
     ),
   ];
 

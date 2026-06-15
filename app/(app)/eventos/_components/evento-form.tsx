@@ -151,7 +151,9 @@ export default function EventoForm({
               </button>
             </div>
             {errors.codigo && (
-              <p className="mt-1 text-xs text-red-600">{errors.codigo.message}</p>
+              <p className="mt-1 text-xs text-red-600">
+                {errors.codigo.message}
+              </p>
             )}
             {generateCodigoError && (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
@@ -247,7 +249,9 @@ export default function EventoForm({
               ))}
             </select>
             {errors.genero && (
-              <p className="mt-1 text-xs text-red-600">{errors.genero.message}</p>
+              <p className="mt-1 text-xs text-red-600">
+                {errors.genero.message}
+              </p>
             )}
           </div>
 
@@ -268,7 +272,9 @@ export default function EventoForm({
               ))}
             </select>
             {errors.alcance && (
-              <p className="mt-1 text-xs text-red-600">{errors.alcance.message}</p>
+              <p className="mt-1 text-xs text-red-600">
+                {errors.alcance.message}
+              </p>
             )}
           </div>
         </div>
@@ -277,29 +283,29 @@ export default function EventoForm({
           <div>
             <label
               className="block text-sm font-medium mb-1"
-            htmlFor="categoriaCodigo"
-          >
-            Categoria
-          </label>
-          <select
-            id="categoriaCodigo"
-            className="form-select w-full"
-            {...register("categoriaCodigo", {
-              setValueAs: (v) => String(v),
-            })}
-          >
-            <option value="">Selecciona una opción</option>
-            {EVENTO_CATEGORIA_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {errors.categoriaCodigo && (
-            <p className="mt-1 text-xs text-red-600">
-              {errors.categoriaCodigo.message}
-            </p>
-          )}
+              htmlFor="categoriaCodigo"
+            >
+              Categoria
+            </label>
+            <select
+              id="categoriaCodigo"
+              className="form-select w-full"
+              {...register("categoriaCodigo", {
+                setValueAs: (v) => String(v),
+              })}
+            >
+              <option value="">Selecciona una opción</option>
+              {EVENTO_CATEGORIA_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {errors.categoriaCodigo && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.categoriaCodigo.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -409,7 +415,9 @@ export default function EventoForm({
               {...register("ciudad")}
             />
             {errors.ciudad && (
-              <p className="mt-1 text-xs text-red-600">{errors.ciudad.message}</p>
+              <p className="mt-1 text-xs text-red-600">
+                {errors.ciudad.message}
+              </p>
             )}
           </div>
         </div>
@@ -439,7 +447,8 @@ export default function EventoForm({
               className="form-select w-full"
               {...register("mesProgramado", {
                 setValueAs: (v) => {
-                  if (v === "" || v === null || v === undefined) return undefined;
+                  if (v === "" || v === null || v === undefined)
+                    return undefined;
                   const parsed = Number(v);
                   return Number.isFinite(parsed) ? parsed : undefined;
                 },
@@ -515,15 +524,16 @@ export default function EventoForm({
         </div>
       </div>
 
-      {/* Seccion: Formas de participacion */}
+      {/* Seccion: Tipos de participacion */}
       <div className="px-5 py-4 border-t border-b border-gray-100 dark:border-gray-700/60">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-gray-800 dark:text-gray-100">
-              Formas de participación
+              Tipos de participación
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Cupos de participantes por tipo de aval. Fondos públicos y autogestión incluyen sus items presupuestarios.
+              Cupos de participantes por tipo de aval. Fondos públicos y
+              autogestión incluyen sus items presupuestarios.
             </p>
           </div>
           <div className="text-right">
@@ -531,7 +541,11 @@ export default function EventoForm({
               Total presupuesto
             </p>
             <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-              ${totalPresupuesto.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              $
+              {totalPresupuesto.toLocaleString("es-EC", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
           </div>
         </div>
@@ -545,9 +559,12 @@ export default function EventoForm({
       <div className="p-5 space-y-3">
         {formasParticipacionFields.map((formaField, formaIndex) => {
           const tipoAval =
-            formasParticipacionValues[formaIndex]?.tipoAval ?? formaField.tipoAval;
+            formasParticipacionValues[formaIndex]?.tipoAval ??
+            formaField.tipoAval;
           const fuente = tipoAvalToFuente(tipoAval);
-          const sectionInfo = fuente ? PRESUPUESTO_SECTION_INFO[fuente] : undefined;
+          const sectionInfo = fuente
+            ? PRESUPUESTO_SECTION_INFO[fuente]
+            : undefined;
           const sectionTotal =
             fuente === "FONDOS_PUBLICOS"
               ? totalPresupuestoFondosPublicos
@@ -559,7 +576,8 @@ export default function EventoForm({
                 .map((field, index) => ({
                   field,
                   index,
-                  itemFuente: eventoItemsValues[index]?.fuente ?? "FONDOS_PUBLICOS",
+                  itemFuente:
+                    eventoItemsValues[index]?.fuente ?? "FONDOS_PUBLICOS",
                 }))
                 .filter((item) => item.itemFuente === fuente)
             : [];
@@ -583,10 +601,56 @@ export default function EventoForm({
                   type="button"
                   onClick={() => removeFormaParticipacion(formaIndex)}
                   className="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
-                  title="Eliminar forma de participación"
+                  title="Eliminar tipo de participación"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+              </div>
+
+              <div className="mb-4 grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Referencia
+                  </label>
+                  <input
+                    className="form-input w-full"
+                    type="text"
+                    placeholder="Referencia de la participación (ej: nombre de la organización, institución o similar)"
+                    {...register(
+                      `formasParticipacion.${formaIndex}.referencia`,
+                    )}
+                  />
+                  {errors.formasParticipacion?.[formaIndex]?.referencia && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {
+                        errors.formasParticipacion[formaIndex]?.referencia
+                          ?.message
+                      }
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Observación
+                  </label>
+                  <input
+                    className="form-input w-full"
+                    type="text"
+                    placeholder="Detalle opcional"
+                    {...register(
+                      `formasParticipacion.${formaIndex}.observacion`,
+                    )}
+                  />
+                  {errors.formasParticipacion?.[formaIndex]?.observacion && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {
+                        errors.formasParticipacion[formaIndex]?.observacion
+                          ?.message
+                      }
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -603,9 +667,13 @@ export default function EventoForm({
                       { setValueAs: parseIntegerInput },
                     )}
                   />
-                  {errors.formasParticipacion?.[formaIndex]?.numEntrenadoresHombres && (
+                  {errors.formasParticipacion?.[formaIndex]
+                    ?.numEntrenadoresHombres && (
                     <p className="mt-1 text-xs text-red-600">
-                      {errors.formasParticipacion[formaIndex]?.numEntrenadoresHombres?.message}
+                      {
+                        errors.formasParticipacion[formaIndex]
+                          ?.numEntrenadoresHombres?.message
+                      }
                     </p>
                   )}
                 </div>
@@ -623,9 +691,13 @@ export default function EventoForm({
                       { setValueAs: parseIntegerInput },
                     )}
                   />
-                  {errors.formasParticipacion?.[formaIndex]?.numEntrenadoresMujeres && (
+                  {errors.formasParticipacion?.[formaIndex]
+                    ?.numEntrenadoresMujeres && (
                     <p className="mt-1 text-xs text-red-600">
-                      {errors.formasParticipacion[formaIndex]?.numEntrenadoresMujeres?.message}
+                      {
+                        errors.formasParticipacion[formaIndex]
+                          ?.numEntrenadoresMujeres?.message
+                      }
                     </p>
                   )}
                 </div>
@@ -643,9 +715,13 @@ export default function EventoForm({
                       { setValueAs: parseIntegerInput },
                     )}
                   />
-                  {errors.formasParticipacion?.[formaIndex]?.numAtletasHombres && (
+                  {errors.formasParticipacion?.[formaIndex]
+                    ?.numAtletasHombres && (
                     <p className="mt-1 text-xs text-red-600">
-                      {errors.formasParticipacion[formaIndex]?.numAtletasHombres?.message}
+                      {
+                        errors.formasParticipacion[formaIndex]
+                          ?.numAtletasHombres?.message
+                      }
                     </p>
                   )}
                 </div>
@@ -663,9 +739,13 @@ export default function EventoForm({
                       { setValueAs: parseIntegerInput },
                     )}
                   />
-                  {errors.formasParticipacion?.[formaIndex]?.numAtletasMujeres && (
+                  {errors.formasParticipacion?.[formaIndex]
+                    ?.numAtletasMujeres && (
                     <p className="mt-1 text-xs text-red-600">
-                      {errors.formasParticipacion[formaIndex]?.numAtletasMujeres?.message}
+                      {
+                        errors.formasParticipacion[formaIndex]
+                          ?.numAtletasMujeres?.message
+                      }
                     </p>
                   )}
                 </div>
@@ -687,7 +767,11 @@ export default function EventoForm({
                         Total
                       </p>
                       <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                        ${sectionTotal.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        $
+                        {sectionTotal.toLocaleString("es-EC", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -713,19 +797,22 @@ export default function EventoForm({
                           <select
                             className="form-select w-full text-sm"
                             {...register(`eventoItems.${index}.itemId`, {
-                              setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                              setValueAs: (v) =>
+                                v === "" ? undefined : Number(v),
                             })}
                           >
                             <option value="">Seleccionar item...</option>
-                            {Object.entries(itemsByActividad).map(([actName, items]) => (
-                              <optgroup key={actName} label={actName}>
-                                {items.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.numero} - {item.nombre}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            ))}
+                            {Object.entries(itemsByActividad).map(
+                              ([actName, items]) => (
+                                <optgroup key={actName} label={actName}>
+                                  {items.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.numero} - {item.nombre}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ),
+                            )}
                           </select>
                           {errors.eventoItems?.[index]?.itemId && (
                             <p className="mt-1 text-xs text-red-600">
@@ -736,7 +823,9 @@ export default function EventoForm({
 
                         <div className="col-span-1 flex items-end">
                           {sectionIndex === 0 && (
-                            <span className="mb-1 block select-none text-xs text-transparent">.</span>
+                            <span className="mb-1 block select-none text-xs text-transparent">
+                              .
+                            </span>
                           )}
                           <button
                             type="button"
@@ -759,7 +848,8 @@ export default function EventoForm({
                           <select
                             className="form-select w-full text-sm"
                             {...register(`eventoItems.${index}.mes`, {
-                              setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                              setValueAs: (v) =>
+                                v === "" ? undefined : Number(v),
                             })}
                           >
                             <option value="">Mes...</option>
@@ -809,9 +899,12 @@ export default function EventoForm({
                             type="text"
                             inputMode="decimal"
                             placeholder="0.00"
-                            {...register(`eventoItems.${index}.montoComprometido`, {
-                              setValueAs: parseDecimalInput,
-                            })}
+                            {...register(
+                              `eventoItems.${index}.montoComprometido`,
+                              {
+                                setValueAs: parseDecimalInput,
+                              },
+                            )}
                           />
                         </div>
 
@@ -826,9 +919,12 @@ export default function EventoForm({
                             type="text"
                             inputMode="decimal"
                             placeholder="0.00"
-                            {...register(`eventoItems.${index}.montoEjecutado`, {
-                              setValueAs: parseDecimalInput,
-                            })}
+                            {...register(
+                              `eventoItems.${index}.montoEjecutado`,
+                              {
+                                setValueAs: parseDecimalInput,
+                              },
+                            )}
                           />
                         </div>
                       </div>

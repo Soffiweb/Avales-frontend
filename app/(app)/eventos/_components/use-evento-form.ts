@@ -169,6 +169,8 @@ export function useEventoForm({
     (tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO") => {
       appendFormaParticipacion({
         tipoAval,
+        referencia: "",
+        observacion: "",
         numEntrenadoresHombres: 0,
         numEntrenadoresMujeres: 0,
         numAtletasHombres: 0,
@@ -406,14 +408,14 @@ export function useEventoForm({
     (fuente: "FONDOS_PUBLICOS" | "AUTOGESTION") => {
       append({
         itemId: 0,
-        mes: 1,
+        mes: getValues("mesProgramado") || 1,
         presupuesto: 0,
         fuente,
         montoComprometido: 0,
         montoEjecutado: 0,
       });
     },
-    [append],
+    [append, getValues],
   );
 
   return {

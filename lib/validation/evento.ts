@@ -6,7 +6,6 @@ import {
   type EventoTipoParticipacion
 } from "@/lib/domain/evento-options";
 import { z } from "zod";
-import type { CreateEventoPayload as CreateEventoPayloadType } from "@/types/evento";
 
 export const eventoItemSchema = z.object({
   itemId: z.number().int().positive("Selecciona un item"),
@@ -21,6 +20,8 @@ export const eventoItemSchema = z.object({
 
 export const formaParticipacionSchema = z.object({
   tipoAval: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"]),
+  referencia: z.string().max(200, "Referencia: maximo 200 caracteres").optional(),
+  observacion: z.string().max(500, "Observacion: maximo 500 caracteres").optional(),
   numEntrenadoresHombres: z.number().int().min(0),
   numEntrenadoresMujeres: z.number().int().min(0),
   numAtletasHombres: z.number().int().min(0),
@@ -57,13 +58,10 @@ export const eventoSchema = z.object({
     .string()
     .min(3, "Nombre: minimo 3 caracteres")
     .max(200, "Nombre: maximo 200 caracteres"),
-  lugar: z.string().min(1, "Lugar requerido").max(200),
+  lugar: z.string().max(200).optional().or(z.literal("")),
   genero: z
     .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
-    .or(z.literal(""))
-    .refine((value) => value !== "", {
-      message: "Selecciona genero",
-    }),
+    .or(z.literal("")),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   categoriaCodigo: z
     .enum(
@@ -75,8 +73,8 @@ export const eventoSchema = z.object({
     .int()
     .min(1, "Selecciona un mes programado")
     .max(12, "Selecciona un mes programado"),
-  provincia: z.string().min(1, "Provincia requerida").max(100),
-  ciudad: z.string().min(1, "Ciudad requerida").max(100),
+  provincia: z.string().max(100).optional().or(z.literal("")),
+  ciudad: z.string().max(100).optional().or(z.literal("")),
   pais: z.string().min(1, "Pais requerido").max(100),
   alcance: z
     .enum(
@@ -98,7 +96,7 @@ export const eventoSchema = z.object({
   eventoItems: z.array(eventoItemSchema).optional(),
   formasParticipacion: z
     .array(formaParticipacionSchema)
-    .max(3, "Máximo 3 formas de participación")
+    .max(3, "Máximo 3 tipos de participación")
     .optional(),
 }).superRefine((values, ctx) => {
   const hasInicio = Boolean(values.fechaInicio && values.fechaInicio.trim());
@@ -129,26 +127,45 @@ export const eventoSchema = z.object({
   }
 });
 
+export const reformFormaParticipacionChangesSchema = z.object({
+  tipoAval: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"]),
+  numEntrenadoresHombres: z.number().int().min(0),
+  numEntrenadoresMujeres: z.number().int().min(0),
+  numAtletasHombres: z.number().int().min(0),
+  numAtletasMujeres: z.number().int().min(0),
+  items: z
+    .array(
+      z.object({
+        itemId: z.number().int().positive(),
+        mes: z.number().int().min(1).max(12),
+        presupuesto: z.number().min(0),
+      }),
+    )
+    .optional(),
+});
+
+export const reformChangesSchema = z
+  .object({
+    codigo: z.string().max(50).optional(),
+    tipoParticipacion: z.string().optional(),
+    tipoEvento: z.string().optional(),
+    nombre: z.string().min(3).max(200).optional(),
+    lugar: z.string().max(200).optional(),
+    genero: z.enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"]).optional(),
+    disciplinaId: z.number().int().positive().optional(),
+    categoriaId: z.number().int().positive().optional(),
+    provincia: z.string().max(100).optional(),
+    ciudad: z.string().max(100).optional(),
+    pais: z.string().max(100).optional(),
+    alcance: z.string().optional(),
+    mesProgramado: z.number().int().min(1).max(12).optional(),
+    fechaInicio: z.string().optional(),
+    fechaFin: z.string().optional(),
+    cargadoPorExcel: z.boolean().optional(),
+    formasParticipacion: z.array(reformFormaParticipacionChangesSchema).optional(),
+  })
+  .strict();
+
 export type EventoFormValues = z.input<typeof eventoSchema>;
 
-export type EventoItemPayload = {
-  itemId: number;
-  mes: number;
-  presupuesto: number;
-  fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
-  montoComprometido?: number;
-  montoEjecutado?: number;
-};
-
-export type FormaParticipacionPayload = {
-  tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO";
-  numEntrenadoresHombres: number;
-  numEntrenadoresMujeres: number;
-  numAtletasHombres: number;
-  numAtletasMujeres: number;
-};
-
-export type CreateEventoPayload = Omit<CreateEventoPayloadType, "eventoItems"> & {
-  eventoItems?: EventoItemPayload[];
-  formasParticipacion?: FormaParticipacionPayload[];
-};
+export type { CreateEventoPayload } from "@/types/evento";

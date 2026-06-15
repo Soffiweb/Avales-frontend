@@ -10,6 +10,9 @@ export type EventoMissingField =
   | "tipoParticipacion"
   | "categoriaId"
   | "tipoEvento"
+  | "lugar"
+  | "provincia"
+  | "ciudad"
   | "fechaInicio"
   | "fechaFin";
 export type EventoCategoriaCodigo =
@@ -57,13 +60,49 @@ export type PresupuestoFuente = {
   montoEjecutado: string;
 };
 
+export type EventoResumenCupos = {
+  participantesPlanificados: number;
+  participantesAsignados: number;
+  participantesDisponibles: number;
+  entrenadoresPlanificados: number;
+  entrenadoresAsignados: number;
+  entrenadoresDisponibles: number;
+  participantesPorModalidad?: Record<string, number>;
+};
+
 export type FormaParticipacionCupos = {
   id: number;
+  eventoId?: number;
   tipoAval: TipoAval;
+  referencia?: string | null;
+  observacion?: string | null;
   numEntrenadoresHombres: number;
   numEntrenadoresMujeres: number;
   numAtletasHombres: number;
   numAtletasMujeres: number;
+  presupuestoTotal?: string | null;
+  estado?: string | null;
+  deleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  items?: EventoItem[];
+};
+
+export type FormaParticipacionItemInput = {
+  itemId: number;
+  mes: number;
+  presupuesto: number;
+};
+
+export type FormaParticipacionInputDto = {
+  tipoAval: TipoAval;
+  referencia?: string;
+  observacion?: string;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+  items?: FormaParticipacionItemInput[];
 };
 
 export type Evento = {
@@ -101,6 +140,7 @@ export type Evento = {
   eventoItems?: EventoItem[];
   formasParticipacion?: FormaParticipacionCupos[];
   presupuestosFuente?: PresupuestoFuente[];
+  resumenCupos?: EventoResumenCupos | null;
   eventoIncompleto?: boolean;
   missingFields?: EventoMissingField[];
   editableFields?: EventoMissingField[];
@@ -111,33 +151,39 @@ export type CreateEventoPayload = {
   tipoParticipacion: EventoTipoParticipacion;
   tipoEvento: string;
   nombre: string;
-  lugar: string;
-  genero: EventoGenero;
+  lugar?: string;
+  genero?: EventoGenero;
   disciplinaCodigo: string;
-  categoriaCodigo: EventoCategoriaCodigo;
+  categoriaCodigo?: EventoCategoriaCodigo;
   mesProgramado: number;
-  provincia: string;
-  ciudad: string;
+  provincia?: string;
+  ciudad?: string;
   pais: string;
-  alcance: string;
+  alcance?: string;
   fechaInicio?: string | null;
   fechaFin?: string | null;
-  numEntrenadoresHombres: number;
-  numEntrenadoresMujeres: number;
-  numAtletasHombres: number;
-  numAtletasMujeres: number;
-  eventoItems?: {
-    itemId: number;
-    mes: number;
-    presupuesto: number;
-    fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
-    montoComprometido?: number;
-    montoEjecutado?: number;
-  }[];
+  formasParticipacion: FormaParticipacionInputDto[];
 };
 
 // La API devuelve el array directamente en data, y la paginación en meta
 export type EventoListResponse = Evento[];
+
+export type EventoFormaParticipacionView = {
+  id: number | string;
+  tipoAval: TipoAval;
+  referencia?: string | null;
+  observacion?: string | null;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
+};
+
+export type EventoPresupuestoView = {
+  fuente: "FONDOS_PUBLICOS" | "AUTOGESTION";
+  items: EventoItem[];
+  total: number;
+};
 
 export function calcularTotalEvento(evento: Evento): number {
   if (!evento.eventoItems || evento.eventoItems.length === 0) return 0;
@@ -167,6 +213,112 @@ export function eventoTieneFondosPublicos(evento?: Evento | null): boolean {
           parseMonto(presupuesto.montoComprometido) > 0
         ),
     ) ?? false
+  );
+}
+
+export function eventoTieneFormaParticipacion(
+  evento: Evento | null | undefined,
+  tipoAval: TipoAval,
+): boolean {
+  if (!evento) return false;
+  if (tipoAval === "SOLO_RESULTADO") return true;
+
+  return (
+    evento.formasParticipacion?.some((forma) => forma.tipoAval === tipoAval) ??
+    false
+  );
+}
+
+export function getEventoFormasParticipacion(
+  evento?: Evento | null,
+): EventoFormaParticipacionView[] {
+  if (!evento) return [];
+
+  if (evento.formasParticipacion?.length) {
+    return evento.formasParticipacion.map((forma) => ({
+      id: forma.id,
+      tipoAval: forma.tipoAval,
+      referencia: forma.referencia ?? null,
+      observacion: forma.observacion ?? null,
+      numEntrenadoresHombres: forma.numEntrenadoresHombres,
+      numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
+      numAtletasHombres: forma.numAtletasHombres,
+      numAtletasMujeres: forma.numAtletasMujeres,
+    }));
+  }
+
+  const hasRootParticipants =
+    (evento.numAtletasHombres || 0) > 0 ||
+    (evento.numAtletasMujeres || 0) > 0 ||
+    (evento.numEntrenadoresHombres || 0) > 0 ||
+    (evento.numEntrenadoresMujeres || 0) > 0;
+
+  if (!hasRootParticipants) return [];
+
+  return [
+    {
+      id: "general",
+      tipoAval: "SOLO_RESULTADO",
+      referencia: null,
+      observacion: null,
+      numEntrenadoresHombres: evento.numEntrenadoresHombres || 0,
+      numEntrenadoresMujeres: evento.numEntrenadoresMujeres || 0,
+      numAtletasHombres: evento.numAtletasHombres || 0,
+      numAtletasMujeres: evento.numAtletasMujeres || 0,
+    },
+  ];
+}
+
+export function getEventoPresupuestoPorFuente(
+  evento?: Evento | null,
+): EventoPresupuestoView[] {
+  if (!evento) return [];
+
+  const fromFormas = (evento.formasParticipacion ?? [])
+    .map((forma) => {
+      const fuente =
+        forma.tipoAval === "FONDOS_PUBLICOS" || forma.tipoAval === "AUTOGESTION"
+          ? forma.tipoAval
+          : null;
+
+      if (!fuente) return null;
+
+      const items = forma.items ?? [];
+      const total = items.reduce((sum, item) => {
+        const valor = Number.parseFloat(item.presupuesto) || 0;
+        return sum + valor;
+      }, 0);
+
+      return { fuente, items, total };
+    })
+    .filter((group): group is EventoPresupuestoView => Boolean(group));
+
+  if (fromFormas.length > 0) return fromFormas;
+
+  const fuentes: Array<"FONDOS_PUBLICOS" | "AUTOGESTION"> = [
+    "FONDOS_PUBLICOS",
+    "AUTOGESTION",
+  ];
+
+  return fuentes
+    .map((fuente) => {
+      const items = (evento.eventoItems ?? []).filter((item) => item.fuente === fuente);
+      const total = items.reduce((sum, item) => {
+        const valor = Number.parseFloat(item.presupuesto) || 0;
+        return sum + valor;
+      }, 0);
+
+      if (items.length === 0 && total === 0) return null;
+
+      return { fuente, items, total };
+    })
+    .filter((group): group is EventoPresupuestoView => Boolean(group));
+}
+
+export function getEventoPresupuestoTotal(evento?: Evento | null): number {
+  return getEventoPresupuestoPorFuente(evento).reduce(
+    (sum, group) => sum + group.total,
+    0,
   );
 }
 
@@ -202,10 +354,11 @@ export function getEventoEditableCompletionFields(
 
 export function isEventoIncompleto(evento?: Evento | null): boolean {
   if (!evento) return false;
+  const hasLocalMissingFields = getEventoMissingFields(evento).length > 0;
   if (typeof evento.eventoIncompleto === "boolean") {
-    return evento.eventoIncompleto;
+    return evento.eventoIncompleto || hasLocalMissingFields;
   }
-  return getEventoMissingFields(evento).length > 0;
+  return hasLocalMissingFields;
 }
 
 export function getEventoMissingFieldLabel(field: EventoMissingField): string {
@@ -220,6 +373,12 @@ export function getEventoMissingFieldLabel(field: EventoMissingField): string {
       return "categoría";
     case "tipoEvento":
       return "tipo de evento";
+    case "lugar":
+      return "lugar";
+    case "provincia":
+      return "provincia";
+    case "ciudad":
+      return "ciudad";
     case "fechaInicio":
       return "fecha de inicio";
     case "fechaFin":

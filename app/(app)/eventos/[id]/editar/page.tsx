@@ -31,6 +31,7 @@ export default function EditarEventoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const next = searchParams.get("next");
+  const mode = searchParams.get("mode");
 
   useEffect(() => {
     const loadEvento = async () => {
@@ -95,9 +96,7 @@ export default function EditarEventoPage() {
   }
 
   const shouldShowCompletionForm =
-    isEventoIncompleto(evento) &&
-    userRoles.includes("ENTRENADOR") &&
-    !canManageEvents;
+    userRoles.includes("ENTRENADOR") && !canManageEvents;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
@@ -110,24 +109,38 @@ export default function EditarEventoPage() {
           Volver a eventos
         </Link>
         <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-          {shouldShowCompletionForm ? "Completar evento" : "Editar evento"}
+          {shouldShowCompletionForm
+            ? `Completar: datos del evento`
+            : `Editar datos del evento`}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {shouldShowCompletionForm
-            ? `Completa los datos faltantes de ${evento.nombre} para habilitar la creación del aval.`
-            : `Modifica los datos del evento ${evento.nombre}.`}
+            ? `Actualiza los datos habilitados para completar el evento.`
+            : `Modifica los datos del evento.`}
         </p>
       </div>
 
       {shouldShowCompletionForm ? (
         <div className="space-y-4">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
-            <p className="font-medium">Este evento aún no está listo para aval.</p>
-            <p className="mt-1">
-              Campos faltantes: {getEventoMissingFields(evento).map(getEventoMissingFieldLabel).join(", ")}.
-            </p>
-          </div>
-          <EventoCompletionForm evento={evento} onCompleted={handleCompleted} />
+          {isEventoIncompleto(evento) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
+              <p className="font-medium">
+                Este evento aún no está listo para aval.
+              </p>
+              <p className="mt-1">
+                Campos faltantes:{" "}
+                {getEventoMissingFields(evento)
+                  .map(getEventoMissingFieldLabel)
+                  .join(", ")}
+                .
+              </p>
+            </div>
+          )}
+          <EventoCompletionForm
+            evento={evento}
+            onCompleted={handleCompleted}
+            showMissingBanner={mode === "complete"}
+          />
         </div>
       ) : (
         <EventoForm mode="edit" evento={evento} onUpdated={handleUpdated} />

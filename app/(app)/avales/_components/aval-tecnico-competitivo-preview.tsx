@@ -100,7 +100,10 @@ export default function AvalTecnicoCompetitivoPreview({
     0,
   );
   const delegacion = getAvalDelegationSummary(aval, {
-    deportistas: tecnico?.deportistasAval ?? [],
+    deportistas: (tecnico?.deportistasAval ?? []).map((d) => ({
+      genero: d.deportista?.genero,
+      payload: d.deportista?.payload as Record<string, unknown> | undefined,
+    })),
     entrenadores: aval.entrenadores ?? [],
   });
 

@@ -137,7 +137,7 @@ export default function EventoItemsPanel({
           setResults(
             (res.data ?? []).filter(
               (e) =>
-                eventoTieneFuentePresupuestaria(e, fuente) &&
+                eventoTieneFuentePresupuestaria(e, fuente as FuentePresupuestoReforma) &&
                 !e.tieneReformaPendiente &&
                 !selectedRef.current.some((s) => s.eventoId === e.id) &&
                 !excludeEventoIds.includes(e.id),

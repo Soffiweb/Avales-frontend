@@ -90,7 +90,7 @@ function sanitizePreviewDias(
   dias?: PresupuestoSalidaPreviewDiaInput[],
 ): PresupuestoSalidaPreviewDia[] {
   return (dias ?? [])
-    .map((dia) => {
+    .flatMap((dia) => {
       const rawNoDias =
         typeof dia.noDias === "string"
           ? Number.parseFloat(dia.noDias)
@@ -115,16 +115,15 @@ function sanitizePreviewDias(
         !Number.isFinite(rawValorUnitario) ||
         rawValorUnitario <= 0
       ) {
-        return null;
+        return [];
       }
 
       const noDias = rawNoDias;
       const cantidad = rawCantidad;
       const valorUnitario = rawValorUnitario;
 
-      return {
+      const result: PresupuestoSalidaPreviewDia = {
         noDias,
-        nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
         cantidad,
         valorUnitario,
         subtotal:
@@ -132,8 +131,11 @@ function sanitizePreviewDias(
             ? Number.parseFloat(dia.subtotal)
             : dia.subtotal ?? noDias * cantidad * valorUnitario,
       };
-    })
-    .filter((dia): dia is PresupuestoSalidaPreviewDia => dia !== null);
+      if (dia.nombrePersonalizado) {
+        result.nombrePersonalizado = dia.nombrePersonalizado;
+      }
+      return [result];
+    });
 }
 
 type Props = {

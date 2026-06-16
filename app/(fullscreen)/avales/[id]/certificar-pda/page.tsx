@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
@@ -31,6 +31,9 @@ import {
 import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
+import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
+import SaveIndicator from "@/components/ui/save-indicator";
+import DraftRestoredToast from "@/components/ui/draft-restored-toast";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -73,6 +76,11 @@ type BudgetDraftItem = {
   originalTotal: number;
   usaDetallePorDia: boolean;
   dias: BudgetDraftDia[];
+};
+
+type PdaAutosaveState = {
+  draft: PdaDraft;
+  budgetDraftItems: BudgetDraftItem[];
 };
 
 function resolveBudgetItemNombre(
@@ -190,6 +198,13 @@ function normalizePositiveNumber(value: string, fallback?: number) {
   return parsed;
 }
 
+function normalizeNonNegativeNumber(value: string, fallback?: number) {
+  if (!value.trim()) return fallback;
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return parsed;
+}
+
 function normalizePositiveInteger(value: string, fallback?: number) {
   if (!value.trim()) return fallback;
   const digitsOnly = value.replace(/\D/g, "");
@@ -249,7 +264,7 @@ function sanitizeBudgetDias(dias: BudgetDraftDia[]): BudgetDraftDia[] {
       dia.cantidad > 0 &&
       typeof dia.valorUnitario === "number" &&
       Number.isFinite(dia.valorUnitario) &&
-      dia.valorUnitario > 0,
+      dia.valorUnitario >= 0,
   );
 
   if (validDias.length === 1) {
@@ -445,9 +460,12 @@ export default function CertificarAvalPage() {
   const avalId = Number(params.id);
 
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
-  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>(
-    [],
-  );
+  const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
+  const [draftToastVisible, setDraftToastVisible] = useState(false);
+  const autosaveRef = useRef<{ clear: () => void }>({ clear: () => {} });
+  const autosaveRestoredRef = useRef(false);
+  const hasRestoredRef = useRef(false);
 
   const totalPresupuestoDraft = useMemo(
     () =>
@@ -460,6 +478,7 @@ export default function CertificarAvalPage() {
 
   const {
     authLoading,
+    user,
     hasRequiredRole: isPda,
     defaultSignerName,
     defaultSignerCargo,
@@ -494,18 +513,17 @@ export default function CertificarAvalPage() {
       const invalidItems = budgetDraftItems.filter(
         (item) =>
           sanitizeBudgetDias(item.dias).length === 0 ||
-          sanitizeBudgetDias(item.dias).some(
-            (dia) =>
-              !dia.noDias ||
-              !dia.cantidad ||
-              !dia.valorUnitario ||
-              dia.noDias <= 0 ||
-              dia.cantidad <= 0 ||
-              dia.valorUnitario <= 0,
-          ),
+              sanitizeBudgetDias(item.dias).some(
+                (dia) =>
+                  !dia.noDias ||
+                  !dia.cantidad ||
+                  dia.noDias <= 0 ||
+                  dia.cantidad <= 0 ||
+                  dia.valorUnitario! < 0,
+              ),
       );
       if (invalidItems.length > 0) {
-        return "Todos los ítems deben tener no. días, cantidad y valor unitario mayores a 0.";
+        return "Todos los ítems deben tener no. días y cantidad mayores a 0, y valor unitario mayor o igual a 0.";
       }
 
       return null;
@@ -568,9 +586,11 @@ export default function CertificarAvalPage() {
           await createPda(a.id, pdaPayload);
           await aprobarAval(a.id, userId, approvalEtapa);
         }
+        autosaveRef.current.clear();
       },
-      [draft, budgetDraftItems],
+      [draft, budgetDraftItems, autosaveRef],
     ),
+    onRejectSuccess: useCallback(() => { autosaveRef.current.clear(); }, [autosaveRef]),
     approveSuccessMessage: "PDA aprobado correctamente.",
     rejectSuccessMessage: "PDA rechazado correctamente.",
   });
@@ -579,6 +599,8 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);
     setBudgetDraftItems([]);
+    autosaveRestoredRef.current = false;
+    hasRestoredRef.current = false;
   }, [avalId]);
 
   // Populate draft description, numbers and firmante from the loaded aval.
@@ -606,16 +628,59 @@ export default function CertificarAvalPage() {
     }));
   }, [aval, draft.descripcion, defaultSignerName, defaultSignerCargo]);
 
-  // Build budget items by aval funding source
+  // Build budget items by aval funding source (skipped if restored from autosave)
   useEffect(() => {
     if (!aval) return;
+    if (autosaveRestoredRef.current) return;
     if (aval.tipoAval === "SOLO_RESULTADO") {
       setBudgetDraftItems([]);
       return;
     }
-    const nextItems = buildBudgetDraftItems(aval);
-    setBudgetDraftItems(nextItems);
+    setBudgetDraftItems(buildBudgetDraftItems(aval));
   }, [aval]);
+
+  const autosaveCombined = useMemo<PdaAutosaveState>(
+    () => ({ draft, budgetDraftItems }),
+    [draft, budgetDraftItems],
+  );
+
+  const {
+    status: autosaveStatus,
+    lastSavedAt: autosaveLastSavedAt,
+    restore: restoreAutosave,
+    clear: clearAutosave,
+  } = useAutosaveDraft<PdaAutosaveState>({
+    key: `aval:${avalId}:pda`,
+    state: autosaveCombined,
+    enabled: isEditable,
+    userId: user?.id,
+  });
+
+  useEffect(() => {
+    autosaveRef.current = { clear: clearAutosave };
+  }, [clearAutosave]);
+
+  // Restore autosave draft when the form first becomes editable
+  useEffect(() => {
+    if (!aval || !isEditable || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    const restored = restoreAutosave();
+    if (restored) {
+      setDraft(restored.state.draft);
+      setBudgetDraftItems(restored.state.budgetDraftItems);
+      setDraftRestoredAt(restored.savedAt);
+      setDraftToastVisible(true);
+      autosaveRestoredRef.current = true;
+    }
+  }, [aval, isEditable, restoreAutosave]);
+
+  const handleDiscardDraft = useCallback(() => {
+    clearAutosave();
+    if (aval) setBudgetDraftItems(buildBudgetDraftItems(aval));
+    setDraft(INITIAL_PDA_DRAFT);
+    setDraftToastVisible(false);
+    autosaveRestoredRef.current = false;
+  }, [clearAutosave, aval]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -685,7 +750,9 @@ export default function CertificarAvalPage() {
                     [field]:
                       field === "noDias"
                         ? normalizePositiveInteger(value)
-                        : normalizePositiveNumber(value),
+                        : field === "valorUnitario"
+                          ? normalizeNonNegativeNumber(value)
+                          : normalizePositiveNumber(value),
                   }
                 : dia,
             ),
@@ -858,6 +925,12 @@ export default function CertificarAvalPage() {
 
   return (
     <div className="h-screen flex">
+      <DraftRestoredToast
+        visible={draftToastVisible}
+        savedAt={draftRestoredAt}
+        onDiscard={handleDiscardDraft}
+        onDismiss={() => setDraftToastVisible(false)}
+      />
       {toast && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
           <AlertBanner
@@ -879,14 +952,23 @@ export default function CertificarAvalPage() {
             </button>
 
             <div className="space-y-5">
-              <div>
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                  Certificacion PDA
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Completa los datos del modelo PDA. El parrafo principal se
-                  agregara despues.
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                    Certificacion PDA
+                  </h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Completa los datos del modelo PDA. El parrafo principal se
+                    agregara despues.
+                  </p>
+                </div>
+                {isEditable && (
+                  <SaveIndicator
+                    status={autosaveStatus}
+                    lastSavedAt={autosaveLastSavedAt}
+                    className="mt-2 shrink-0"
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1179,12 +1261,12 @@ export default function CertificarAvalPage() {
                                             }}
                                           />
                                         </td>
-                                        <td className="px-3 py-2 text-right">
-                                          <input
-                                            type="text"
-                                            inputMode="decimal"
-                                            className="form-input w-24 ml-auto text-right"
-                                            value={dia.valorUnitario || ""}
+                                          <td className="px-3 py-2 text-right">
+                                            <input
+                                              type="text"
+                                              inputMode="decimal"
+                                              className="form-input w-24 ml-auto text-right"
+                                              value={dia.valorUnitario ?? ""}
                                             readOnly={!isEditable}
                                             disabled={!isEditable}
                                             onChange={(e) => {

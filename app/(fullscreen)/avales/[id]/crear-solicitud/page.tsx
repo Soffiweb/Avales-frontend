@@ -116,6 +116,7 @@ function getDeportistaFormId(deportista: DeportistaAval, index: number) {
 }
 
 function getEntrenadorDisplayName(entrenador: EntrenadorAval) {
+  if (entrenador.entrenadorNombre) return entrenador.entrenadorNombre;
   return (
     [
       entrenador.entrenador?.nombre ??

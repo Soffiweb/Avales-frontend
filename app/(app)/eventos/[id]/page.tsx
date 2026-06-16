@@ -15,7 +15,6 @@ import {
   FileText,
   Clock,
   UserCheck,
-  DollarSign,
   Upload,
   ClipboardEdit,
   History,
@@ -24,7 +23,6 @@ import {
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
-import AvalCollectionList from "@/components/avales/aval-collection-list";
 import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import Breadcrumb from "@/components/ui/breadcrumb";
 import ConfirmModal from "@/components/ui/confirm-modal";
@@ -61,9 +59,7 @@ import {
   getCalendarDayDiff,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import {
-  canCreateCollectionByType,
-} from "@/lib/utils/aval-collections";
+import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
@@ -111,7 +107,10 @@ function getStatusStyles(status?: string | null) {
 
 function getDaysUntilEvent(fechaInicio?: string | null) {
   if (!fechaInicio) return null;
-  return getCalendarDayDiff(formatDateInput(new Date().toISOString()), fechaInicio);
+  return getCalendarDayDiff(
+    formatDateInput(new Date().toISOString()),
+    fechaInicio,
+  );
 }
 
 function getEventDuration(
@@ -134,7 +133,6 @@ export default function EventoDetailPage() {
   const canShowEditButton = canEditEvents || canEditCompletionFields;
   const isDTM = isDTMUser(user);
   const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS") && !isDTM;
-  const canManageCollectionActions = isTrainerUser(user);
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);
@@ -143,7 +141,9 @@ export default function EventoDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [tipoAval, setTipoAval] = useState<TipoAval>("FONDOS_PUBLICOS");
-  const [formaParticipacionId, setFormaParticipacionId] = useState<number | null>(null);
+  const [formaParticipacionId, setFormaParticipacionId] = useState<
+    number | null
+  >(null);
   const [avalesEvento, setAvalesEvento] = useState<Aval[]>([]);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
@@ -266,7 +266,9 @@ export default function EventoDetailPage() {
           `/eventos/${evento.id}`,
         )}`,
       );
-      throw new Error("Completa los datos faltantes del evento antes de crear el aval.");
+      throw new Error(
+        "Completa los datos faltantes del evento antes de crear el aval.",
+      );
     }
 
     if (!canCreateCollectionByType(avalesEvento, tipoAval)) {
@@ -334,27 +336,6 @@ export default function EventoDetailPage() {
     : null;
 
   const formasParticipacion = evento.formasParticipacion ?? [];
-  const tiposParticipacion: TipoAval[] = [
-    "FONDOS_PUBLICOS",
-    "AUTOGESTION",
-    "SOLO_RESULTADO",
-  ];
-  const hasAval = avalesEvento.length > 0;
-  const presupuestoPorFuente = avalesEvento.reduce<
-    Record<
-      string,
-      { asignado: number; comprometido: number; disponible: number }
-    >
-  >((acc, aval) => {
-    if (!aval.presupuesto) return acc;
-    const fuente = aval.presupuesto.fuente ?? aval.tipoAval ?? "DESCONOCIDO";
-    if (!acc[fuente])
-      acc[fuente] = { asignado: 0, comprometido: 0, disponible: 0 };
-    acc[fuente].asignado += aval.presupuesto.asignado;
-    acc[fuente].comprometido += aval.presupuesto.comprometido;
-    acc[fuente].disponible += aval.presupuesto.disponible;
-    return acc;
-  }, {});
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const eventoIncompleto = isEventoIncompleto(evento);
   const missingFields = getEventoMissingFields(evento);
@@ -422,10 +403,12 @@ export default function EventoDetailPage() {
         {eventoIncompleto ? (
           <div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-800/70 dark:bg-amber-900/30 dark:text-amber-100">
             <p className="text-sm font-medium">
-              Este evento tiene datos faltantes y no puede usarse para crear aval todavía.
+              Este evento tiene datos faltantes y no puede usarse para crear
+              aval todavía.
             </p>
             <p className="mt-1 text-xs opacity-80">
-              Completa: {missingFields.map(getEventoMissingFieldLabel).join(", ")}.
+              Completa:{" "}
+              {missingFields.map(getEventoMissingFieldLabel).join(", ")}.
             </p>
           </div>
         ) : null}
@@ -443,149 +426,58 @@ export default function EventoDetailPage() {
               Datos del evento
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Información general del evento y acciones disponibles.
+              Información general del evento.
             </p>
           </div>
 
+          {canShowEditButton && (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2.5 shadow-sm flex flex-wrap items-center gap-2 ml-auto w-fit">
+              {canEditEvents && (
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  disabled={downloadingTemplate}
+                  className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {downloadingTemplate ? "Descargando..." : "Plantilla"}
+                </button>
+              )}
+              <Link
+                href={`/eventos/${evento.id}/editar`}
+                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar
+              </Link>
+              {canManageEvents && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(true)}
+                  className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Eliminar
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  {evento.nombre}
-                </h1>
-                {eventoIncompleto ? (
-                  <div className="mt-2">
-                    <EventoIncompletoBadge />
-                  </div>
-                ) : null}
-                {evento.codigo && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Código: {evento.codigo}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-3 xl:items-end">
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {canCreateAval && (
-                      <>
-                        {eventoIncompleto ? (
-                          <Link
-                            href={completionHref}
-                            className="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600"
-                          >
-                            <Upload className="w-4 h-4 mr-2" />
-                            Completar datos para aval
-                          </Link>
-                        ) : canStartAval ? (
-                          <button
-                            type="button"
-                            onClick={() => setUploadModalOpen(true)}
-                            className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
-                          >
-                            <Upload className="w-4 h-4 mr-2" />
-                            Crear aval
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled
-                            className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
-                          >
-                            <Upload className="w-4 h-4 mr-2" />
-                            {hasPendingReform
-                              ? "Bloqueado por reforma pendiente"
-                              : "No disponible para crear aval"}
-                          </button>
-                        )}
-                        {canManageReforms ? (
-                          canRequestReforma ? (
-                            <Link
-                              href={`/eventos/${evento.id}/reforma`}
-                              className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                            >
-                              <ClipboardEdit className="w-4 h-4 mr-2" />
-                              Solicitar reforma
-                            </Link>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                disabled
-                                className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
-                              >
-                                <ClipboardEdit className="w-4 h-4 mr-2" />
-                                Reforma no disponible
-                              </button>
-                              {hasPendingReform && pendingReformId ? (
-                                <Link
-                                  href={`/reformas/${pendingReformId}`}
-                                  className="inline-flex items-center rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                                >
-                                  Ver reforma
-                                </Link>
-                              ) : null}
-                            </>
-                          )
-                        ) : null}
-                        {canViewReforms ? (
-                          <Link
-                            href={`/eventos/${evento.id}/historial`}
-                            className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
-                          >
-                            <History className="w-4 h-4 mr-2" />
-                            Historial
-                          </Link>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                  {canCreateAval && hasAval ? (
-                    <div className="mt-2 space-y-1 px-1 text-xs text-gray-500 dark:text-gray-400">
-                      <p>Este evento puede tener varios avales asociados.</p>
-                    </div>
-                  ) : null}
-                  {canCreateAval && eventoIncompleto && (
-                    <div className="mt-2 space-y-1 px-1 text-xs text-amber-700 dark:text-amber-300">
-                      <p>Debes completar los datos obligatorios del evento antes de crear el aval.</p>
-                    </div>
-                  )}
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {evento.nombre}
+              </h1>
+              {eventoIncompleto ? (
+                <div className="mt-2">
+                  <EventoIncompletoBadge />
                 </div>
-
-                {canShowEditButton && (
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-sm flex flex-wrap items-center gap-2">
-                    {canEditEvents && (
-                      <button
-                        type="button"
-                        onClick={handleDownloadTemplate}
-                        disabled={downloadingTemplate}
-                        className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        {downloadingTemplate ? "Descargando..." : "Plantilla"}
-                      </button>
-                    )}
-                    <Link
-                      href={`/eventos/${evento.id}/editar`}
-                      className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Editar
-                    </Link>
-                    {canManageEvents && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmOpen(true)}
-                        className="inline-flex items-center rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/30"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Eliminar
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+              ) : null}
+              {evento.codigo && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Código: {evento.codigo}
+                </p>
+              )}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -622,397 +514,459 @@ export default function EventoDetailPage() {
                 </span>
               )}
             </div>
+          </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Fechas */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    Fechas
-                  </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Fechas */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 shadow-sm p-5 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4">
+                <Calendar className="w-5 h-5 text-gray-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                  Fechas
+                </h3>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Programación
+                  </p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {formatEventScheduleLabel(evento)}
+                  </p>
                 </div>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Programación
-                    </p>
+                {duration && (
+                  <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400">Duración</p>
                     <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {formatEventScheduleLabel(evento)}
+                      {duration} {duration === 1 ? "día" : "días"}
                     </p>
                   </div>
-                  {duration && (
-                    <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-                      <p className="text-gray-500 dark:text-gray-400">
-                        Duración
-                      </p>
-                      <p className="text-gray-900 dark:text-gray-100 font-medium">
-                        {duration} {duration === 1 ? "día" : "días"}
-                      </p>
+                )}
+                {daysUntil !== null && daysUntil >= 0 && (
+                  <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700">
+                      <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span className="text-gray-700 dark:text-gray-300 font-medium text-sm">
+                        {daysUntil === 0
+                          ? "¡Hoy!"
+                          : daysUntil === 1
+                            ? "Mañana"
+                            : `En ${daysUntil} días`}
+                      </span>
                     </div>
-                  )}
-                  {daysUntil !== null && daysUntil >= 0 && (
-                    <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700">
-                        <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        <span className="text-gray-700 dark:text-gray-300 font-medium text-sm">
-                          {daysUntil === 0
-                            ? "¡Hoy!"
-                            : daysUntil === 1
-                              ? "Mañana"
-                              : `En ${daysUntil} días`}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Ubicación */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 shadow-sm p-5 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4">
+                <MapPin className="w-5 h-5 text-gray-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                  Ubicación
+                </h3>
+              </div>
+              <div className="space-y-3 text-sm">
+                {evento.lugar && (
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Lugar</p>
+                    <p className="text-gray-900 dark:text-gray-100 font-medium">
+                      {evento.lugar}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Ciudad</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {evento.ciudad || "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Provincia</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {evento.provincia || "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">País</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {evento.pais || "-"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Categoría y Disciplina */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 shadow-sm p-5 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4">
+                <Tag className="w-5 h-5 text-gray-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                  Clasificación
+                </h3>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Disciplina</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {evento.disciplina?.nombre || "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Categoría</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {formatCategoryLabel(
+                      evento.categoria?.nombre ?? evento.categoriaCodigo,
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Género</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                    {formatGenero(evento.genero)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 shadow-sm p-5 dark:border-gray-700 flex flex-col">
+              <div className="flex items-center gap-3 mb-4">
+                <FileText className="w-5 h-5 text-gray-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                  Acciones
+                </h3>
+              </div>
+              <div className="flex flex-col gap-2 flex-1">
+                {canCreateAval && (
+                  <>
+                    {eventoIncompleto ? (
+                      <Link
+                        href={completionHref}
+                        className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600"
+                      >
+                        <Upload className="w-4 h-4 shrink-0" />
+                        <span>Completar datos para aval</span>
+                      </Link>
+                    ) : canStartAval ? (
+                      <button
+                        type="button"
+                        onClick={() => setUploadModalOpen(true)}
+                        className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                      >
+                        <Upload className="w-4 h-4 shrink-0" />
+                        <span>Crear aval</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-300 cursor-not-allowed"
+                      >
+                        <Upload className="w-4 h-4 shrink-0" />
+                        <span>
+                          {hasPendingReform
+                            ? "Bloqueado por reforma pendiente"
+                            : "No disponible para crear aval"}
                         </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Ubicación */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <MapPin className="w-5 h-5 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    Ubicación
-                  </h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  {evento.lugar && (
-                    <div>
-                      <p className="text-gray-500 dark:text-gray-400">Lugar</p>
-                      <p className="text-gray-900 dark:text-gray-100 font-medium">
-                        {evento.lugar}
-                      </p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">Ciudad</p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {evento.ciudad || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Provincia
-                    </p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {evento.provincia || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">País</p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {evento.pais || "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Categoría y Disciplina */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <Tag className="w-5 h-5 text-gray-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    Clasificación
-                  </h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Disciplina
-                    </p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {evento.disciplina?.nombre || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Categoría
-                    </p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {formatCategoryLabel(
-                        evento.categoria?.nombre ?? evento.categoriaCodigo,
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">Género</p>
-                    <p className="text-gray-900 dark:text-gray-100 font-medium">
-                      {formatGenero(evento.genero)}
-                    </p>
-                  </div>
-                </div>
+                      </button>
+                    )}
+                  </>
+                )}
+                {canManageReforms && canRequestReforma && (
+                  <Link
+                    href={`/eventos/${evento.id}/reforma`}
+                    className="flex items-center gap-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2.5 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                  >
+                    <ClipboardEdit className="w-4 h-4 shrink-0" />
+                    <span>Solicitar reforma</span>
+                  </Link>
+                )}
+                {hasPendingReform && pendingReformId && (
+                  <Link
+                    href={`/reformas/${pendingReformId}`}
+                    className="flex items-center gap-2 rounded-lg border border-amber-300 dark:border-amber-700 px-4 py-2.5 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  >
+                    <ClipboardEdit className="w-4 h-4 shrink-0" />
+                    <span>Ver reforma</span>
+                  </Link>
+                )}
+                {canViewReforms && (
+                  <Link
+                    href={`/eventos/${evento.id}/historial`}
+                    className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <History className="w-4 h-4 shrink-0" />
+                    <span>Historial</span>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
         </section>
 
+        <hr className="border-gray-300 dark:border-gray-800" />
+
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Tipos de participación
+              Participación y avales
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Cada tipo muestra su referencia, delegación, observación y presupuesto propio.
+              Formas de participación y avales asociados por tipo.
             </p>
           </div>
 
           <div className="space-y-4">
-            {tiposParticipacion.flatMap((tipoAval) => {
+            {(["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"] as const).map((tipoAval) => {
               const formasPorTipo = formasParticipacion.filter(
                 (forma) => forma.tipoAval === tipoAval,
               );
+              const avalesPorTipo = avalesEvento.filter(
+                (aval) => aval.tipoAval === tipoAval,
+              );
 
-              if (formasPorTipo.length === 0) {
-                const emptyMessage =
-                  tipoAval === "FONDOS_PUBLICOS"
-                    ? "En este evento no se participará mediante financiamiento de fondos públicos."
-                    : tipoAval === "AUTOGESTION"
-                      ? "En este evento no se participará mediante recursos de autogestión."
-                      : "En este evento no se registró participación solo por resultados, sin financiamiento.";
+              const mensajeSinPlan = {
+                FONDOS_PUBLICOS: "El presente evento no tiene ninguna planificación para participar mediante fondos públicos.",
+                AUTOGESTION: "El presente evento no tiene ninguna planificación para participar mediante fondos de autogestión de la federación.",
+                SOLO_RESULTADO: "El presente evento no tiene ninguna planificación para participar solo por resultados.",
+              }[tipoAval];
 
-                return [
-                  <details
-                    key={`empty-${tipoAval}`}
-                    className="group overflow-hidden rounded-2xl border border-dashed border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <summary className="list-none cursor-pointer px-5 py-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <span className="inline-flex w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                            {getTipoAvalLabel(tipoAval)}
-                          </span>
-                          <p className="mt-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                            {emptyMessage}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-gray-400">
-                          <span>Sin delegación</span>
-                          <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                        </div>
-                      </div>
-                    </summary>
-                    <div className="border-t border-gray-100 bg-gray-50 px-5 py-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-300">
-                      No hay delegación ni presupuesto registrados para este tipo de participación.
+              const accentBar = {
+                FONDOS_PUBLICOS: "bg-blue-500",
+                AUTOGESTION: "bg-emerald-500",
+                SOLO_RESULTADO: "bg-amber-500",
+              }[tipoAval];
+
+              return (
+                <details
+                  key={tipoAval}
+                  open
+                  className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <summary className="flex list-none cursor-pointer items-center gap-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4 transition-colors hover:bg-gray-100/50 dark:border-gray-700 dark:from-gray-900/40 dark:to-gray-800 dark:hover:bg-gray-800/60">
+                    <div className={`h-10 w-1 shrink-0 rounded-full ${accentBar}`} />
+                    <div className="flex flex-1 flex-wrap items-center gap-2">
+                      <span className="text-base font-bold text-gray-900 dark:text-gray-100">
+                        {getTipoAvalLabel(tipoAval)}
+                      </span>
+                      {avalesPorTipo.length > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                          {avalesPorTipo.length} {avalesPorTipo.length === 1 ? "aval" : "avales"}
+                        </span>
+                      ) : formasPorTipo.length > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+                          Sin aval
+                        </span>
+                      ) : null}
                     </div>
-                  </details>,
-                ];
-              }
+                    <ChevronDown className="h-5 w-5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                  </summary>
 
-              return formasPorTipo.map((forma) => {
-                const totalAtletas =
-                  forma.numAtletasHombres + forma.numAtletasMujeres;
-                const totalEntrenadores =
-                  forma.numEntrenadoresHombres + forma.numEntrenadoresMujeres;
-                const totalDelegacion = totalAtletas + totalEntrenadores;
-                const items = forma.items ?? [];
-                const totalPresupuesto =
-                  Number.parseFloat(forma.presupuestoTotal ?? "0") ||
-                  items.reduce((sum, item) => {
-                    const value = Number.parseFloat(item.presupuesto) || 0;
-                    return sum + value;
-                  }, 0);
-                const sinFinanciamiento = forma.tipoAval === "SOLO_RESULTADO";
+                  <div className="p-5">
+                    {formasPorTipo.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {mensajeSinPlan}
+                      </p>
+                    ) : (
+                      <div className="space-y-6">
+                        {formasPorTipo.map((forma) => {
+                          const totalAtletas =
+                            forma.numAtletasHombres + forma.numAtletasMujeres;
+                          const totalEntrenadores =
+                            forma.numEntrenadoresHombres + forma.numEntrenadoresMujeres;
+                          const totalDelegacion = totalAtletas + totalEntrenadores;
+                          const items = forma.items ?? [];
+                          const totalPresupuesto =
+                            Number.parseFloat(forma.presupuestoTotal ?? "0") ||
+                            items.reduce((sum, item) => {
+                              const value = Number.parseFloat(item.presupuesto) || 0;
+                              return sum + value;
+                            }, 0);
+                          const sinFinanciamiento = forma.tipoAval === "SOLO_RESULTADO";
 
-                return (
-                  <details
-                    key={forma.id}
-                    className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <summary className="list-none cursor-pointer border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4 dark:border-gray-700 dark:from-gray-900/40 dark:to-gray-800">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="min-w-0">
-                          <span className="inline-flex w-fit rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-                            {getTipoAvalLabel(forma.tipoAval)}
-                          </span>
-                          <p className="mt-2 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {forma.referencia?.trim() || "-"}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Referencia
-                          </p>
-                        </div>
+                          return (
+                            <div key={forma.id} className="space-y-4">
+                              <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1.2fr]">
+                                <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                                  <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Referencia</p>
+                                  <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {forma.referencia?.trim() || "-"}
+                                  </p>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                                  <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Delegación</p>
+                                  <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {totalDelegacion} participantes
+                                  </p>
+                                  <div className="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
+                                    <span>Deportistas hombres: {forma.numAtletasHombres}</span>
+                                    <span>Deportistas mujeres: {forma.numAtletasMujeres}</span>
+                                    <span>Entrenadores hombres: {forma.numEntrenadoresHombres}</span>
+                                    <span>Entrenadores mujeres: {forma.numEntrenadoresMujeres}</span>
+                                  </div>
+                                </div>
+                                <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                                  <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Observación</p>
+                                  <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                                    {forma.observacion?.trim() || "-"}
+                                  </p>
+                                </div>
+                              </div>
 
-                        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[620px]">
-                          <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Delegación
-                            </p>
-                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {totalDelegacion} participantes
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Presupuesto
-                            </p>
-                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {sinFinanciamiento
-                                ? "-"
-                                : formatCurrency(totalPresupuesto)}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Items
-                              </p>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {sinFinanciamiento ? "No aplica" : items.length}
-                              </p>
+                              <div>
+                                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Presupuesto</h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {sinFinanciamiento
+                                        ? "Participación sin financiamiento."
+                                        : `${items.length} items presupuestarios`}
+                                    </p>
+                                  </div>
+                                  {!sinFinanciamiento ? (
+                                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                                      {formatCurrency(totalPresupuesto)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                {sinFinanciamiento ? (
+                                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                                    Este tipo de participación no registra presupuesto.
+                                  </div>
+                                ) : items.length > 0 ? (
+                                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700/60">
+                                    <table className="w-full">
+                                      <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-900/30 dark:text-gray-400">
+                                        <tr>
+                                          <th className="px-4 py-3 text-left">Item</th>
+                                          <th className="px-4 py-3 text-left">Actividad</th>
+                                          <th className="px-4 py-3 text-left">Descripción</th>
+                                          <th className="px-4 py-3 text-center">Mes</th>
+                                          <th className="px-4 py-3 text-right">V. Unitario</th>
+                                          <th className="px-4 py-3 text-right">Presupuesto</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                                        {items.map((eventoItem) => (
+                                          <tr key={eventoItem.id} className="text-sm">
+                                            <td className="px-4 py-3">
+                                              <div className="font-medium text-gray-900 dark:text-gray-100">
+                                                {eventoItem.item.numero}. {eventoItem.item.nombre}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                              {eventoItem.item.actividad ? (
+                                                <span>{eventoItem.item.actividad.numero}. {eventoItem.item.actividad.nombre}</span>
+                                              ) : (
+                                                <span className="text-gray-400">-</span>
+                                              )}
+                                            </td>
+                                            <td className="max-w-xs truncate px-4 py-3 text-gray-600 dark:text-gray-300">
+                                              {eventoItem.item.descripcion || "-"}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                              <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                                {formatMonth(eventoItem.mes)}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                                              {eventoItem.valorUnitario
+                                                ? formatCurrency(parseFloat(eventoItem.valorUnitario))
+                                                : "-"}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
+                                              {formatCurrency(parseFloat(eventoItem.presupuesto) || 0)}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                                    No hay items presupuestarios registrados para este tipo de participación.
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
-                          </div>
-                        </div>
-                      </div>
-                    </summary>
+                          );
+                        })}
 
-                    <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white px-5 py-4 dark:border-gray-700 dark:from-gray-900/40 dark:to-gray-800">
-                      <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1.2fr]">
-                        <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Referencia
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {forma.referencia?.trim() || "-"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Delegación
-                          </p>
-                          <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {totalDelegacion} participantes
-                          </p>
-                          <div className="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
-                            <span>
-                              Deportistas hombres: {forma.numAtletasHombres}
-                            </span>
-                            <span>
-                              Deportistas mujeres: {forma.numAtletasMujeres}
-                            </span>
-                            <span>
-                              Entrenadores hombres:{" "}
-                              {forma.numEntrenadoresHombres}
-                            </span>
-                            <span>
-                              Entrenadores mujeres:{" "}
-                              {forma.numEntrenadoresMujeres}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                          <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Observación
-                          </p>
-                          <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                            {forma.observacion?.trim() || "-"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="px-5 py-4">
-                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                            Presupuesto
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {sinFinanciamiento
-                              ? "Participación sin financiamiento."
-                              : `${items.length} items presupuestarios`}
-                          </p>
-                        </div>
-                        {!sinFinanciamiento ? (
-                          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                            {formatCurrency(totalPresupuesto)}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {sinFinanciamiento ? (
-                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
-                          Este tipo de participación no registra presupuesto.
-                        </div>
-                      ) : items.length > 0 ? (
-                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700/60">
-                          <table className="w-full">
-                            <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-900/30 dark:text-gray-400">
-                              <tr>
-                                <th className="px-4 py-3 text-left">Item</th>
-                                <th className="px-4 py-3 text-left">
-                                  Actividad
-                                </th>
-                                <th className="px-4 py-3 text-left">
-                                  Descripción
-                                </th>
-                                <th className="px-4 py-3 text-center">Mes</th>
-                                <th className="px-4 py-3 text-right">
-                                  V. Unitario
-                                </th>
-                                <th className="px-4 py-3 text-right">
-                                  Presupuesto
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                              {items.map((eventoItem) => (
-                                <tr key={eventoItem.id} className="text-sm">
-                                  <td className="px-4 py-3">
-                                    <div className="font-medium text-gray-900 dark:text-gray-100">
-                                      {eventoItem.item.numero}.{" "}
-                                      {eventoItem.item.nombre}
+                          <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Avales</h3>
+                          {avalesPorTipo.length > 0 ? (
+                            <div className="space-y-3">
+                              {avalesPorTipo.map((aval) => (
+                                <div
+                                  key={aval.id}
+                                  className="w-fit min-w-[360px] max-w-xl rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/30"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                          {aval.avalTecnico?.numeroAval?.trim() ||
+                                            aval.numeroColeccion?.trim() ||
+                                            `AV-${aval.id}`}
+                                        </span>
+                                        <span className="shrink-0 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                          {aval.estado}
+                                        </span>
+                                        {aval.etapaActual && (
+                                          <span className="shrink-0 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                            {aval.etapaActual}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <span>Deportistas: {aval.participantes?.length ?? 0}</span>
+                                        <span>Entrenadores: {aval.entrenadores?.length ?? 0}</span>
+                                        {aval.fechaEmision && (
+                                          <span>Emisión: {new Date(aval.fechaEmision).toLocaleDateString()}</span>
+                                        )}
+                                        {aval.montoSolicitado != null && (
+                                          <span>Solicitado: {formatCurrency(aval.montoSolicitado)}</span>
+                                        )}
+                                        {aval.montoAsignado != null && (
+                                          <span>Asignado: {formatCurrency(aval.montoAsignado)}</span>
+                                        )}
+                                      </div>
+                                      {aval.presupuesto && (
+                                        <div className="mt-2 flex gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                          <span>Asignado: {formatCurrency(aval.presupuesto.asignado)}</span>
+                                          <span>Comprometido: {formatCurrency(aval.presupuesto.comprometido)}</span>
+                                          <span>Disponible: {formatCurrency(aval.presupuesto.disponible)}</span>
+                                        </div>
+                                      )}
+                                      {aval.participantes && aval.participantes.length > 0 && (
+                                        <div className="mt-2 truncate text-xs text-gray-400 dark:text-gray-500">
+                                          {aval.participantes.slice(0, 3).map((p) => p.nombreCompleto).join(", ")}
+                                          {aval.participantes.length > 3 && ` y ${aval.participantes.length - 3} más`}
+                                        </div>
+                                      )}
                                     </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                    {eventoItem.item.actividad ? (
-                                      <span>
-                                        {eventoItem.item.actividad.numero}.{" "}
-                                        {eventoItem.item.actividad.nombre}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-400">-</span>
-                                    )}
-                                  </td>
-                                  <td className="max-w-xs truncate px-4 py-3 text-gray-600 dark:text-gray-300">
-                                    {eventoItem.item.descripcion || "-"}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                                      {formatMonth(eventoItem.mes)}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
-                                    {eventoItem.valorUnitario
-                                      ? formatCurrency(
-                                          parseFloat(
-                                            eventoItem.valorUnitario,
-                                          ),
-                                        )
-                                      : "-"}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(
-                                      parseFloat(eventoItem.presupuesto) || 0,
-                                    )}
-                                  </td>
-                                </tr>
+                                    <Link
+                                      href={`/avales/${aval.id}`}
+                                      className="shrink-0 inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                    >
+                                      Ver detalle
+                                    </Link>
+                                  </div>
+                                </div>
                               ))}
-                            </tbody>
-                          </table>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Todavía no se ha creado ningún aval para este tipo de participación.
+                            </p>
+                          )}
                         </div>
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
-                          No hay items presupuestarios registrados para este tipo de participación.
-                        </div>
-                      )}
-                    </div>
-                  </details>
-                );
-              });
+                      </div>
+                    )}
+                  </div>
+                </details>
+              );
             })}
           </div>
         </section>
@@ -1040,86 +994,7 @@ export default function EventoDetailPage() {
           </div>
         )}
 
-        {/* Resumen consolidado de avales */}
-        {avalesEvento.length > 0 && (
-          <div className="space-y-4">
-            {/* Avales asociados */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    Avales asociados
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {avalesEvento.length}{" "}
-                    {avalesEvento.length === 1 ? "aval" : "avales"} registrados
-                  </p>
-                </div>
-              </div>
-              <div className="p-5">
-                <AvalCollectionList
-                  avales={avalesEvento}
-                  canManageRequestActions={canManageCollectionActions}
-                  emptyMessage="No hay avales registrados para este evento."
-                />
-              </div>
-            </div>
 
-            {/* Presupuesto por fuente */}
-            {Object.keys(presupuestoPorFuente).length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    Presupuesto por fuente
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                  {Object.entries(presupuestoPorFuente).map(
-                    ([fuente, montos]) => (
-                      <div key={fuente} className="px-5 py-4">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                          {getTipoAvalLabel(fuente)}
-                        </p>
-                        <div className="grid grid-cols-3 gap-3 text-center text-sm">
-                          <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Asignado
-                            </p>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">
-                              {formatCurrency(montos.asignado)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Comprometido
-                            </p>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">
-                              {formatCurrency(montos.comprometido)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Disponible
-                            </p>
-                            <p className="font-semibold text-emerald-700 dark:text-emerald-400">
-                              {formatCurrency(montos.disponible)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       <ConfirmModal

@@ -126,6 +126,7 @@ function isChangedField(field: ReformFieldComparison) {
 
 function isChangedItem(item: ReformItemComparison) {
   if (item.tipoCambio === "AGREGADO" || item.tipoCambio === "ELIMINADO") return true;
+  if (item.mesAntes != null && item.mesAntes !== item.mes) return true;
   if (typeof item.diferencia === "number") return item.diferencia !== 0;
   if (
     typeof item.antesPresupuesto === "number" &&

@@ -116,8 +116,8 @@ export default function Paso04Presupuesto({
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
   const isFondosPublicos = tipoAval === "FONDOS_PUBLICOS";
   const isSoloResultado = tipoAval === "SOLO_RESULTADO";
-  const usesManualRequirements =
-    tipoAval === "AUTOGESTION" || tipoAval === "SOLO_RESULTADO";
+  const isAutogestion = tipoAval === "AUTOGESTION";
+  const usesManualRequirements = tipoAval === "SOLO_RESULTADO";
 
   const serializedManualRequirements = useMemo(
     () => serializeManualRequirements(manualRequirements),
@@ -536,6 +536,76 @@ export default function Paso04Presupuesto({
                 </p>
               </div>
             )}
+          </section>
+        )}
+
+        {isAutogestion && (
+          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-4 flex items-start gap-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                <DollarSign className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Presupuesto asignado por la federación
+                </h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  El presidente de la federación fijó este presupuesto al crear el evento. Solo puede ser aprobado por el PDA.
+                </p>
+              </div>
+            </div>
+
+            {aval.montoAsignado != null && (
+              <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-900/70 dark:bg-indigo-950/30">
+                <p className="text-xs text-indigo-600 dark:text-indigo-400">Monto asignado</p>
+                <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                  {formatCurrency(aval.montoAsignado)}
+                </p>
+              </div>
+            )}
+
+            {presupuestoItems.length > 0 ? (
+              <div className="rounded-xl border border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-800/60">
+                <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {presupuestoItems.length}{" "}
+                    {presupuestoItems.length === 1 ? "requerimiento" : "requerimientos"}
+                  </p>
+                </div>
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {presupuestoItems.map((presupuestoItem) => {
+                    const valor = parseFloat(presupuestoItem.presupuesto) || 0;
+                    return (
+                      <div key={presupuestoItem.id} className="px-4 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="flex-1 min-w-0 font-semibold text-gray-900 dark:text-gray-100">
+                            {presupuestoItem.item.nombre}
+                          </p>
+                          <p className="whitespace-nowrap font-semibold text-gray-900 dark:text-gray-100">
+                            {formatCurrency(valor)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900/60">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                    Total presupuesto
+                  </p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(getTotalPresupuesto())}
+                  </p>
+                </div>
+              </div>
+            ) : aval.montoAsignado == null ? (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800">
+                <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-400" />
+                <p className="text-gray-600 dark:text-gray-400">
+                  No hay presupuesto registrado para este evento.
+                </p>
+              </div>
+            ) : null}
           </section>
         )}
 

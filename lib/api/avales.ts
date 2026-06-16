@@ -434,12 +434,13 @@ export async function adminSaveRevisionMetodologo(
   id: number,
   usuarioId: number,
   revisionMetodologo: ApproveRevisionMetodologoPayload,
+  etapa: EtapaFlujo = "REVISION_METODOLOGO",
 ) {
   return apiFetch<{ id: number }>(
     `/avales/${id}/admin/revision-metodologo`,
     {
       method: "PATCH",
-      body: JSON.stringify({ usuarioId, revisionMetodologo }),
+      body: JSON.stringify({ usuarioId, etapa, revisionMetodologo }),
     },
   );
 }
@@ -448,10 +449,11 @@ export async function adminSaveRevisionDtm(
   id: number,
   usuarioId: number,
   revisionDtm: ApproveRevisionDtmPayload,
+  etapa: EtapaFlujo = "REVISION_DTM",
 ) {
   return apiFetch<{ id: number }>(`/avales/${id}/admin/revision-dtm`, {
     method: "PATCH",
-    body: JSON.stringify({ usuarioId, revisionDtm }),
+    body: JSON.stringify({ usuarioId, etapa, revisionDtm }),
   });
 }
 

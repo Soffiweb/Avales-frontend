@@ -236,7 +236,7 @@ export default function RevisionMetodologoPage() {
     approvalEtapa: "REVISION_METODOLOGO",
     enableEtapaDestino: true,
     onApproveAction: useCallback(
-      async ({ aval: a, userId, adminSaveOnly }) => {
+      async ({ aval: a, userId, adminSaveOnly, approvalEtapa }) => {
         const items = reviewItems
           .map((item) => {
             const state = reviewState[item.key];
@@ -273,7 +273,7 @@ export default function RevisionMetodologoPage() {
         };
 
         if (adminSaveOnly) {
-          await adminSaveRevisionMetodologo(a.id, userId, payload);
+          await adminSaveRevisionMetodologo(a.id, userId, payload, approvalEtapa);
         } else {
           await aprobarAval(a.id, userId, "REVISION_METODOLOGO", payload);
         }

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval, createPda } from "@/lib/api/avales";
+import { aprobarAval, adminSavePda, createPda } from "@/lib/api/avales";
 import type { Aval, AvalPresupuestoFuente } from "@/types/aval";
 import {
   formatCurrency,
@@ -562,10 +562,10 @@ export default function CertificarAvalPage() {
           items,
         });
 
-        await createPda(a.id, pdaPayload);
-        // En modo admin sobre etapa pasada no avanzamos el flujo, solo
-        // persistimos el PDA (upsert) — fix de datos sin tocar BDD.
-        if (!adminSaveOnly) {
+        if (adminSaveOnly) {
+          await adminSavePda(a.id, userId, pdaPayload, approvalEtapa);
+        } else {
+          await createPda(a.id, pdaPayload);
           await aprobarAval(a.id, userId, approvalEtapa);
         }
       },

@@ -457,6 +457,62 @@ export async function adminSaveRevisionDtm(
   });
 }
 
+export async function adminSaveComprasPublicas(
+  id: number,
+  usuarioId: number,
+  payload: CreateComprasPublicasPayload,
+  etapa: EtapaFlujo = "COMPRAS_PUBLICAS",
+) {
+  return apiFetch<Aval>(`/avales/${id}/admin/compras-publicas`, {
+    method: "PATCH",
+    body: JSON.stringify({ usuarioId, etapa, ...payload }),
+  });
+}
+
+export async function adminSavePda(
+  id: number,
+  usuarioId: number,
+  payload: CreatePdaPayload,
+  etapa: EtapaFlujo = "PDA",
+) {
+  return apiFetch<Aval>(`/avales/${id}/admin/pda`, {
+    method: "PATCH",
+    body: JSON.stringify({ usuarioId, etapa, ...payload }),
+  });
+}
+
+export async function adminSaveControlPrevio(
+  id: number,
+  usuarioId: number,
+  descripcion: string,
+  etapa: EtapaFlujo = "CONTROL_PREVIO",
+) {
+  return apiFetch<{ id: number }>(`/avales/${id}/admin/control-previo`, {
+    method: "PATCH",
+    body: JSON.stringify({ usuarioId, etapa, descripcion }),
+  });
+}
+
+export async function adminSaveFinanciero(
+  id: number,
+  usuarioId: number,
+  payload: {
+    financieroNotas?: ApproveFinancieroNotasPayload;
+    numeroFinanciero?: string;
+    numeroPresupuestoSalida?: string;
+    numeroCertificacionPresupuestaria?: string;
+    periodoComision?: string;
+    periodoComisionFin?: string;
+    periodoContable?: string;
+  },
+  etapa: EtapaFlujo = "FINANCIERO",
+) {
+  return apiFetch<{ id: number }>(`/avales/${id}/admin/financiero`, {
+    method: "PATCH",
+    body: JSON.stringify({ usuarioId, etapa, ...payload }),
+  });
+}
+
 export async function rechazarAval(
   id: number,
   usuarioId: number,

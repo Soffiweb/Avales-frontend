@@ -290,7 +290,7 @@ export default function RevisionMetodologoPage() {
 
   // showApprovalPanel combines role + stage — page is viewable by non-metodologos
   const showApprovalPanel =
-    isMetodologo && isEditable && (reviewSection?.visible ?? true);
+    isMetodologo && (isEditable || adminSaveOnly) && (reviewSection?.visible ?? true);
 
   // Reset local state on aval navigation
   useEffect(() => {

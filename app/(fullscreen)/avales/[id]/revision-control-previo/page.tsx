@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval, getRevisionMetodologoItems } from "@/lib/api/avales";
+import { aprobarAval, adminSaveControlPrevio, getRevisionMetodologoItems } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
@@ -178,18 +178,22 @@ export default function RevisionControlPrevioPage() {
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     onApproveAction: useCallback(
-      async ({ aval: a, userId, approvalEtapa }) => {
+      async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const descripcionControlPrevio =
           descripcion.trim() || buildDefaultControlPrevioDescripcion(a);
-        await aprobarAval(
-          a.id,
-          userId,
-          approvalEtapa,
-          undefined,
-          undefined,
-          undefined,
-          descripcionControlPrevio,
-        );
+        if (adminSaveOnly) {
+          await adminSaveControlPrevio(a.id, userId, descripcionControlPrevio, approvalEtapa);
+        } else {
+          await aprobarAval(
+            a.id,
+            userId,
+            approvalEtapa,
+            undefined,
+            undefined,
+            undefined,
+            descripcionControlPrevio,
+          );
+        }
       },
       [descripcion],
     ),

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval } from "@/lib/api/avales";
+import { aprobarAval, adminSaveFinanciero } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import CertificacionFinancieraPreview from "@/app/(app)/avales/_components/certificacion-financiera-preview";
@@ -268,21 +268,33 @@ export default function CertificacionFinancieraPage() {
           adminSaveOnly,
         });
 
-        await aprobarAval(
-          a.id,
-          userId,
-          approvalEtapa,
-          undefined,
-          undefined,
-          {
-            notas: notasPayload,
-            nombreFirmante: draft.firmanteNombre.trim() || undefined,
-            cargoFirmante: draft.firmanteCargo.trim() || undefined,
-          },
-          undefined,
-          draft.periodoComision.trim() || undefined,
-          draft.periodoComisionFin.trim() || undefined,
-        );
+        if (adminSaveOnly) {
+          await adminSaveFinanciero(a.id, userId, {
+            financieroNotas: {
+              notas: notasPayload,
+              nombreFirmante: draft.firmanteNombre.trim() || undefined,
+              cargoFirmante: draft.firmanteCargo.trim() || undefined,
+            },
+            periodoComision: draft.periodoComision.trim() || undefined,
+            periodoComisionFin: draft.periodoComisionFin.trim() || undefined,
+          }, approvalEtapa);
+        } else {
+          await aprobarAval(
+            a.id,
+            userId,
+            approvalEtapa,
+            undefined,
+            undefined,
+            {
+              notas: notasPayload,
+              nombreFirmante: draft.firmanteNombre.trim() || undefined,
+              cargoFirmante: draft.firmanteCargo.trim() || undefined,
+            },
+            undefined,
+            draft.periodoComision.trim() || undefined,
+            draft.periodoComisionFin.trim() || undefined,
+          );
+        }
       },
       [
         draft.notas,

@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
   aprobarAval,
+  adminSaveComprasPublicas,
   createComprasPublicas,
   getAval,
 } from "@/lib/api/avales";
@@ -216,7 +217,7 @@ export default function CertificarComprasPublicasPage() {
       return null;
     }, [draft.realizoProceso, draftCodigos]),
     onApproveAction: useCallback(
-      async ({ aval: a, userId, adminSaveOnly }) => {
+      async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const requiresContratacion = draft.realizoProceso === true;
         const fechaEmision = getTodayInputDate();
         const payload = {
@@ -242,9 +243,10 @@ export default function CertificarComprasPublicasPage() {
           payload,
         });
 
-        await createComprasPublicas(a.id, payload);
-        // Modo admin sobre etapa pasada: solo persistimos compras, no avanzamos.
-        if (!adminSaveOnly) {
+        if (adminSaveOnly) {
+          await adminSaveComprasPublicas(a.id, userId, payload, approvalEtapa);
+        } else {
+          await createComprasPublicas(a.id, payload);
           // Refresh aval to get updated etapa after creating compras
           const refreshed = await getAval(a.id);
           const refreshedEtapa = getAvalCurrentEtapa(refreshed.data);

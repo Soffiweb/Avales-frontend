@@ -319,9 +319,36 @@ export default function ReformaDetailPage() {
       | undefined;
   const budgetReformTipoAval = budgetReformFormas?.[0]?.tipoAval ?? null;
 
+  // Mapa de nombre/número por itemId desde todos los items del evento base,
+  // sin importar el mes. Sirve como fallback cuando el backend no resuelve
+  // itemNombre (sucede cuando el item propuesto cambia de mes respecto a la base).
+  const catalogNameMap = useMemo(() => {
+    const map = new Map<number, { nombre: string; numero: number | undefined }>();
+    (baseEvento?.eventoItems ?? []).forEach((ei) => {
+      if (!map.has(ei.item.id)) {
+        map.set(ei.item.id, { nombre: ei.item.nombre, numero: ei.item.numero ?? undefined });
+      }
+    });
+    return map;
+  }, [baseEvento]);
+
+  function resolveItemName(itemId: number, itemNombre?: string | null) {
+    if (itemNombre) return itemNombre;
+    return catalogNameMap.get(itemId)?.nombre ?? `Item #${itemId}`;
+  }
+
+  function resolveItemNumero(itemId: number, itemNumero?: number | null) {
+    if (itemNumero != null) return itemNumero;
+    return catalogNameMap.get(itemId)?.numero ?? itemId;
+  }
+
   const itemComparisons = useMemo(() => {
     if (reform?.comparacion?.eventoItems?.length) {
-      return reform.comparacion.eventoItems.filter(isChangedItem);
+      return reform.comparacion.eventoItems.filter(isChangedItem).map((item) => ({
+        ...item,
+        itemNombre: resolveItemName(item.itemId, item.itemNombre),
+        itemNumero: resolveItemNumero(item.itemId, item.itemNumero),
+      }));
     }
 
     const comparisonFormaItems = (reform?.comparacion?.formasParticipacion ?? [])
@@ -329,7 +356,12 @@ export default function ReformaDetailPage() {
         budgetReformTipoAval ? forma.tipoAval === budgetReformTipoAval : true,
       )
       .flatMap((forma) => forma.items ?? [])
-      .filter(isChangedItem);
+      .filter(isChangedItem)
+      .map((item) => ({
+        ...item,
+        itemNombre: resolveItemName(item.itemId, item.itemNombre),
+        itemNumero: resolveItemNumero(item.itemId, item.itemNumero),
+      }));
     if (comparisonFormaItems.length > 0) {
       return comparisonFormaItems;
     }
@@ -338,8 +370,8 @@ export default function ReformaDetailPage() {
     if (readableItems.length > 0) {
       return readableItems.map((item) => ({
         itemId: item.itemId,
-        itemNumero: item.itemNumero,
-        itemNombre: item.itemNombre,
+        itemNumero: resolveItemNumero(item.itemId, item.itemNumero),
+        itemNombre: resolveItemName(item.itemId, item.itemNombre),
         mes: item.mes,
         mesNombre: item.mesNombre,
         antesPresupuesto: null,
@@ -379,8 +411,8 @@ export default function ReformaDetailPage() {
 
         comparisons.push({
           itemId: item.itemId,
-          itemNumero: beforeItem?.item.numero ?? item.itemId,
-          itemNombre: beforeItem?.item.nombre ?? `Item #${item.itemId}`,
+          itemNumero: resolveItemNumero(item.itemId, beforeItem?.item.numero),
+          itemNombre: resolveItemName(item.itemId, beforeItem?.item.nombre),
           mes: item.mes,
           mesNombre: MES_NOMBRES[item.mes] ?? `Mes ${item.mes}`,
           antesPresupuesto: beforeBudget,

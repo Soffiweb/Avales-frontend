@@ -374,6 +374,8 @@ export default function ReformaDetailPage() {
         itemNombre: resolveItemName(item.itemId, item.itemNombre),
         mes: item.mes,
         mesNombre: item.mesNombre,
+        mesAntes: null,
+        mesNombreAntes: null,
         antesPresupuesto: null,
         despuesPresupuesto: item.presupuesto,
         diferencia: null,

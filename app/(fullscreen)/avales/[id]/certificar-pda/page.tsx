@@ -66,7 +66,7 @@ type BudgetDraftDia = {
 type BudgetDraftItem = {
   id: number;
   itemId: number;
-  codigo: number;
+  codigo: string | number;
   nombreBase: string;
   nombrePersonalizado: string;
   actividad: string;
@@ -356,7 +356,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       return {
         id: item.id,
         itemId: item.item.id,
-        codigo: item.item.numero,
+        codigo: item.item.codigo ?? String(item.item.numero),
         nombreBase: item.item.nombre,
         nombrePersonalizado:
           pdaItem.nombrePersonalizado?.trim() || item.item.nombre,
@@ -386,7 +386,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
     return {
       id: item.id,
       itemId: item.item.id,
-      codigo: item.item.numero,
+      codigo: item.item.codigo ?? String(item.item.numero),
       nombreBase: item.item.nombre,
       nombrePersonalizado: item.item.nombre,
       actividad:
@@ -645,6 +645,7 @@ export default function CertificarAvalPage() {
     () =>
       budgetDraftItems.map((item) => ({
         id: item.id,
+        itemId: item.itemId,
         nombre: resolveBudgetItemNombre(item),
         total: getDraftItemTotal(item),
         dias: sanitizeBudgetDias(item.dias)
@@ -1005,13 +1006,7 @@ export default function CertificarAvalPage() {
                         className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
                       >
                         {(() => {
-                          const visibleDias = item.usaDetallePorDia
-                            ? normalizeVisibleBudgetDias(item.dias)
-                            : collapseBudgetDias(
-                                item.dias,
-                                item.originalTotal,
-                                resolveBudgetItemNombre(item),
-                              );
+                          const visibleDias = normalizeVisibleBudgetDias(item.dias);
                           const currentTotal = getDraftItemTotal(item);
                           const itemDifference = roundCurrency(
                             currentTotal - item.originalTotal,

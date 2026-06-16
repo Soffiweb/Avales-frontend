@@ -920,7 +920,9 @@ export default function ReformaDetailPage() {
                           </span>
                           <span className="inline-flex items-center gap-2">
                             <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                            {item.mesNombre}
+                            {item.mesAntes != null && item.mesAntes !== item.mes
+                              ? `${item.mesNombreAntes} → ${item.mesNombre}`
+                              : item.mesNombre}
                           </span>
                         </div>
                       </div>

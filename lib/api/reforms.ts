@@ -82,6 +82,8 @@ export type ReformItemComparison = {
   itemNombre?: string | null;
   mes: number;
   mesNombre: string;
+  mesAntes?: number | null;
+  mesNombreAntes?: string | null;
   antesPresupuesto?: number | null;
   despuesPresupuesto?: number | null;
   diferencia?: number | null;

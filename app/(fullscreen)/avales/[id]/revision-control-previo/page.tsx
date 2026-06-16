@@ -166,6 +166,7 @@ export default function RevisionControlPrevioPage() {
     setRechazoMotivo,
     currentEtapa,
     isEditable,
+    adminSaveOnly,
     handleApprove,
     handleReject,
   } = useApprovalFlow({
@@ -200,7 +201,7 @@ export default function RevisionControlPrevioPage() {
   const rejectAction = getActionConfig(formConfig, "RECHAZAR");
 
   const showApprovalPanel =
-    isControlPrevio && isEditable && (controlPrevioSection?.visible ?? true);
+    isControlPrevio && (isEditable || adminSaveOnly) && (controlPrevioSection?.visible ?? true);
 
   useEffect(() => {
     let active = true;
@@ -407,8 +408,8 @@ export default function RevisionControlPrevioPage() {
                 actionLoading={actionLoading}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                approveVisible={approveAction?.visible ?? true}
-                approveEnabled={approveAction?.enabled ?? true}
+                approveVisible={adminSaveOnly ? true : (approveAction?.visible ?? true)}
+                approveEnabled={adminSaveOnly ? true : (approveAction?.enabled ?? true)}
                 rejectVisible={rejectAction?.visible ?? true}
                 rejectEnabled={rejectAction?.enabled ?? true}
               />

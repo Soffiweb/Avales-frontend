@@ -159,6 +159,8 @@ export default function CertificarComprasPublicasPage() {
   const [draft, setDraft] = useState<ComprasPublicasDraft>(INITIAL_DRAFT);
   const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
   const [draftToastVisible, setDraftToastVisible] = useState(false);
+  const [forceEdit, setForceEdit] = useState(false);
+  const [forceEditLoading, setForceEditLoading] = useState(false);
 
   // Ref so onApproveAction/onRejectSuccess can call autosave.clear()
   // without creating a circular dependency (autosave needs isEditable from hook)
@@ -262,38 +264,42 @@ export default function CertificarComprasPublicasPage() {
     rejectSuccessMessage: "Aval rechazado correctamente.",
   });
 
+  const effectiveEditable = isEditable || forceEdit;
+
   const { config: formConfig } = useAvalFormConfig(aval);
   const comprasSection = getSectionConfig(formConfig, "COMPRAS_PUBLICAS");
   const approveAction = getActionConfig(formConfig, "APROBAR");
   const rejectAction = getActionConfig(formConfig, "RECHAZAR");
 
+  // Autosave desactivado para este paso — patrón disponible en otros pasos
   const autosave = useAutosaveDraft<ComprasPublicasDraft>({
     key: `aval:${avalId}:compras-publicas`,
     state: draft,
-    enabled: isEditable && Number.isFinite(avalId),
+    enabled: false,
     userId: user?.id,
   });
 
   // Keep ref in sync so callbacks can access current autosave.clear()
-  useEffect(() => { autosaveRef.current = autosave; }, [autosave]);
+  // useEffect(() => { autosaveRef.current = autosave; }, [autosave]);
 
   // Reset local state on aval navigation
   useEffect(() => {
     setDraft(INITIAL_DRAFT);
+    setForceEdit(false);
   }, [avalId]);
 
-  // Restore autosave draft when entering editable state
-  useEffect(() => {
-    if (!isEditable) return;
-    if (!Number.isFinite(avalId)) return;
-    const restored = autosave.restore();
-    if (restored) {
-      setDraft(normalizeComprasDraft(restored.state));
-      setDraftRestoredAt(restored.savedAt);
-      setDraftToastVisible(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditable, avalId]);
+  // Restore autosave draft cuando entra en modo editable (desactivado)
+  // useEffect(() => {
+  //   if (!isEditable) return;
+  //   if (!Number.isFinite(avalId)) return;
+  //   const restored = autosave.restore();
+  //   if (restored) {
+  //     setDraft(normalizeComprasDraft(restored.state));
+  //     setDraftRestoredAt(restored.savedAt);
+  //     setDraftToastVisible(true);
+  //   }
+  // }, [isEditable, avalId]);
+
 
   // Populate draft (incluye firmante) desde Compras Publicas guardado.
   // Preserva el firmante original si ya hay uno. Si no, cae al usuario
@@ -330,11 +336,38 @@ export default function CertificarComprasPublicasPage() {
     }));
   }, [aval, defaultSignerName, defaultSignerCargo]);
 
-  const handleDiscardDraft = useCallback(() => {
-    autosave.clear();
-    setDraft(INITIAL_DRAFT);
-    setDraftToastVisible(false);
-  }, [autosave]);
+  // const handleDiscardDraft = useCallback(() => {
+  //   autosave.clear();
+  //   setDraft(INITIAL_DRAFT);
+  //   setDraftToastVisible(false);
+  // }, [autosave]);
+
+  const handleAdminSave = useCallback(async () => {
+    if (!aval) return;
+    const requiresContratacion = draft.realizoProceso === true;
+    const payload = {
+      numeroCertificado: draft.numeroCertificado?.trim() || undefined,
+      realizoProceso: typeof draft.realizoProceso === "boolean" ? draft.realizoProceso : undefined,
+      codigos: requiresContratacion
+        ? draftCodigos
+            .map((item) => ({ codigo: item.codigo.trim(), descripcion: item.descripcion.trim() }))
+            .filter((item) => item.codigo && item.descripcion)
+        : undefined,
+      nombreFirmante: draft.nombreFirmante?.trim() || undefined,
+      cargoFirmante: draft.cargoFirmante?.trim() || undefined,
+      fechaEmision: draft.fechaEmision || getTodayInputDate(),
+    };
+    setForceEditLoading(true);
+    try {
+      await createComprasPublicas(aval.id, payload);
+      setForceEdit(false);
+      setToast({ variant: "success", message: "Cambios guardados correctamente." });
+    } catch (err) {
+      setToast({ variant: "error", message: err instanceof Error ? err.message : "No se pudo guardar." });
+    } finally {
+      setForceEditLoading(false);
+    }
+  }, [aval, draft, draftCodigos, setToast]);
 
   const handleCodigoChange = useCallback(
     (index: number, field: "codigo" | "descripcion", value: string) => {
@@ -414,12 +447,13 @@ export default function CertificarComprasPublicasPage() {
 
   return (
     <div className="h-screen flex">
+      {/* DraftRestoredToast desactivado para este paso
       <DraftRestoredToast
         visible={draftToastVisible}
         savedAt={draftRestoredAt}
         onDiscard={handleDiscardDraft}
         onDismiss={() => setDraftToastVisible(false)}
-      />
+      /> */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
           <AlertBanner
@@ -450,13 +484,14 @@ export default function CertificarComprasPublicasPage() {
                     Completa los datos para emitir el certificado.
                   </p>
                 </div>
+                {/* SaveIndicator desactivado para este paso
                 {isEditable && (
                   <SaveIndicator
                     status={autosave.status}
                     lastSavedAt={autosave.lastSavedAt}
                     className="mt-2 shrink-0"
                   />
-                )}
+                )} */}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -468,8 +503,8 @@ export default function CertificarComprasPublicasPage() {
                     type="date"
                     className="form-input w-full mt-1"
                     value={draft.fechaEmision}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
+                    readOnly={!effectiveEditable}
+                    disabled={!effectiveEditable}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, fechaEmision: e.target.value }))
                     }
@@ -486,7 +521,7 @@ export default function CertificarComprasPublicasPage() {
                         type="radio"
                         className="form-radio"
                         checked={draft.realizoProceso === true}
-                        disabled={!isEditable}
+                        disabled={!effectiveEditable}
                         onChange={() =>
                           setDraft((prev) => ({
                             ...prev,
@@ -505,7 +540,7 @@ export default function CertificarComprasPublicasPage() {
                         type="radio"
                         className="form-radio"
                         checked={draft.realizoProceso === false}
-                        disabled={!isEditable}
+                        disabled={!effectiveEditable}
                         onChange={() =>
                           setDraft((prev) => ({
                             ...prev,
@@ -524,7 +559,7 @@ export default function CertificarComprasPublicasPage() {
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Códigos de necesidad
                     </span>
-                    {isEditable && requiresContratacionData && (
+                    {effectiveEditable && requiresContratacionData && (
                       <button
                         type="button"
                         onClick={handleAddCodigo}
@@ -550,8 +585,8 @@ export default function CertificarComprasPublicasPage() {
                         <input
                           className="form-input w-full"
                           value={item.codigo}
-                          readOnly={!isEditable || !requiresContratacionData}
-                          disabled={!isEditable || !requiresContratacionData}
+                          readOnly={!effectiveEditable || !requiresContratacionData}
+                          disabled={!effectiveEditable || !requiresContratacionData}
                           onChange={(e) =>
                             handleCodigoChange(index, "codigo", e.target.value)
                           }
@@ -561,8 +596,8 @@ export default function CertificarComprasPublicasPage() {
                           className="form-textarea w-full min-h-[88px] resize-y"
                           rows={3}
                           value={item.descripcion}
-                          readOnly={!isEditable || !requiresContratacionData}
-                          disabled={!isEditable || !requiresContratacionData}
+                          readOnly={!effectiveEditable || !requiresContratacionData}
+                          disabled={!effectiveEditable || !requiresContratacionData}
                           onChange={(e) =>
                             handleCodigoChange(index, "descripcion", e.target.value)
                           }
@@ -571,7 +606,7 @@ export default function CertificarComprasPublicasPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveCodigo(index)}
-                          disabled={!isEditable || !requiresContratacionData}
+                          disabled={!effectiveEditable || !requiresContratacionData}
                           className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900/60 dark:hover:bg-rose-950/30"
                           aria-label={`Eliminar código ${index + 1}`}
                         >
@@ -589,8 +624,8 @@ export default function CertificarComprasPublicasPage() {
                   <input
                     className="form-input w-full mt-1"
                     value={draft.nombreFirmante}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
+                    readOnly={!effectiveEditable}
+                    disabled={!effectiveEditable}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, nombreFirmante: e.target.value }))
                     }
@@ -605,8 +640,8 @@ export default function CertificarComprasPublicasPage() {
                   <input
                     className="form-input w-full mt-1"
                     value={draft.cargoFirmante}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
+                    readOnly={!effectiveEditable}
+                    disabled={!effectiveEditable}
                     onChange={(e) =>
                       setDraft((prev) => ({ ...prev, cargoFirmante: e.target.value }))
                     }
@@ -615,7 +650,7 @@ export default function CertificarComprasPublicasPage() {
                 </label>
               </div>
 
-              {isEditable && (comprasSection?.visible ?? true) && (
+              {(isEditable || forceEdit) && (comprasSection?.visible ?? true) && (
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
                     <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -671,36 +706,66 @@ export default function CertificarComprasPublicasPage() {
                   )}
 
                   <div className="flex items-center justify-end gap-2">
-                    {!adminSaveOnly && (rejectAction?.visible ?? true) && (
-                      <button
-                        type="button"
-                        onClick={handleReject}
-                        disabled={actionLoading || !(rejectAction?.enabled ?? true)}
-                        className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
-                      >
-                        Rechazar
-                      </button>
-                    )}
-                    {(approveAction?.visible ?? true) && (
-                      <button
-                        type="button"
-                        onClick={handleApprove}
-                        disabled={actionLoading || !(approveAction?.enabled ?? true)}
-                        className={`btn text-white disabled:opacity-50 ${
-                          adminSaveOnly
-                            ? "bg-amber-500 hover:bg-amber-600"
-                            : "bg-emerald-500 hover:bg-emerald-600"
-                        }`}
-                      >
-                        {adminSaveOnly ? "Guardar (admin)" : "Aprobar"}
-                      </button>
+                    {forceEdit ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setForceEdit(false)}
+                          disabled={forceEditLoading}
+                          className="btn border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAdminSave}
+                          disabled={forceEditLoading}
+                          className="btn bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
+                        >
+                          {forceEditLoading ? "Guardando..." : "Guardar cambios"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {!adminSaveOnly && (rejectAction?.visible ?? true) && (
+                          <button
+                            type="button"
+                            onClick={handleReject}
+                            disabled={actionLoading || !(rejectAction?.enabled ?? true)}
+                            className="btn bg-rose-500 hover:bg-rose-600 text-white disabled:opacity-50"
+                          >
+                            Rechazar
+                          </button>
+                        )}
+                        {(adminSaveOnly ? true : (approveAction?.visible ?? true)) && (
+                          <button
+                            type="button"
+                            onClick={handleApprove}
+                            disabled={actionLoading || !(adminSaveOnly ? true : (approveAction?.enabled ?? true))}
+                            className={`btn text-white disabled:opacity-50 ${
+                              adminSaveOnly
+                                ? "bg-amber-500 hover:bg-amber-600"
+                                : "bg-emerald-500 hover:bg-emerald-600"
+                            }`}
+                          >
+                            {adminSaveOnly ? "Guardar (admin)" : "Aprobar"}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
               )}
-              {!isEditable && aval?.comprasPublicas && (
-                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-                  Este aval ya fue certificado por Compras Públicas.
+              {!isEditable && !forceEdit && aval?.comprasPublicas && (
+                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-3">
+                  <span>Este aval ya fue certificado por Compras Públicas.</span>
+                  <button
+                    type="button"
+                    onClick={() => setForceEdit(true)}
+                    className="shrink-0 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                  >
+                    Editar
+                  </button>
                 </div>
               )}
             </div>

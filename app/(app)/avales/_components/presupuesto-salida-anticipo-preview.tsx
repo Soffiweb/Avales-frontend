@@ -71,72 +71,13 @@ export type PresupuestoSalidaPreviewDia = {
   subtotal?: number;
 };
 
-type PresupuestoSalidaPreviewDiaInput = {
-  noDias?: number | string | null;
-  nombrePersonalizado?: string | null;
-  cantidad: number | string | null | undefined;
-  valorUnitario: number | string | null | undefined;
-  subtotal?: number | string | null | undefined;
-};
-
 export type PresupuestoSalidaPreviewItem = {
   id: number;
   nombre: string;
   total?: number;
+  itemId?: number;
   dias?: PresupuestoSalidaPreviewDia[];
 };
-
-function sanitizePreviewDias(
-  dias?: PresupuestoSalidaPreviewDiaInput[],
-): PresupuestoSalidaPreviewDia[] {
-  return (dias ?? [])
-    .flatMap((dia) => {
-      const rawNoDias =
-        typeof dia.noDias === "string"
-          ? Number.parseFloat(dia.noDias)
-          : dia.noDias;
-      const rawCantidad =
-        typeof dia.cantidad === "string"
-          ? Number.parseFloat(dia.cantidad)
-          : dia.cantidad;
-      const rawValorUnitario =
-        typeof dia.valorUnitario === "string"
-          ? Number.parseFloat(dia.valorUnitario)
-          : dia.valorUnitario;
-
-      if (
-        typeof rawNoDias !== "number" ||
-        !Number.isFinite(rawNoDias) ||
-        rawNoDias <= 0 ||
-        typeof rawCantidad !== "number" ||
-        !Number.isFinite(rawCantidad) ||
-        rawCantidad <= 0 ||
-        typeof rawValorUnitario !== "number" ||
-        !Number.isFinite(rawValorUnitario) ||
-        rawValorUnitario <= 0
-      ) {
-        return [];
-      }
-
-      const noDias = rawNoDias;
-      const cantidad = rawCantidad;
-      const valorUnitario = rawValorUnitario;
-
-      const result: PresupuestoSalidaPreviewDia = {
-        noDias,
-        cantidad,
-        valorUnitario,
-        subtotal:
-          typeof dia.subtotal === "string"
-            ? Number.parseFloat(dia.subtotal)
-            : dia.subtotal ?? noDias * cantidad * valorUnitario,
-      };
-      if (dia.nombrePersonalizado) {
-        result.nombrePersonalizado = dia.nombrePersonalizado;
-      }
-      return [result];
-    });
-}
 
 type Props = {
   aval: Aval;
@@ -191,60 +132,112 @@ export default function PresupuestoSalidaAnticipoPreview({
       [item.item.id, item.item.nombre] as const,
     ]),
   );
-  const presupuestoTotalLookup = new Map(
-    presupuestoSourceItems.flatMap((item) => [
-      [item.id, Number.parseFloat(item.presupuesto) || 0] as const,
-      [item.item.id, Number.parseFloat(item.presupuesto) || 0] as const,
-    ]),
-  );
 
-  const presupuestoItems: PresupuestoSalidaPreviewItem[] =
-    items?.map((item) => ({
-      id: item.id,
-      nombre: item.nombre,
-      total: item.total,
-      dias: sanitizePreviewDias(item.dias),
-    })) ??
-    (aval.pda?.items?.length
-      ? aval.pda.items.map((item) => ({
-          id: item.id ?? item.itemId,
-          nombre:
-            item.nombrePersonalizado?.trim() ||
-            presupuestoLookup.get(item.itemId) ||
-            `Item ${item.itemId}`,
-          total:
-            item.presupuesto > 0
-              ? item.presupuesto
-              : presupuestoTotalLookup.get(item.itemId) ?? 0,
-          dias: sanitizePreviewDias(
-            item.dias?.map((dia) => ({
-              noDias: dia.noDias,
-              nombrePersonalizado: dia.nombrePersonalizado ?? undefined,
-              cantidad: dia.cantidad,
-              valorUnitario: dia.valorUnitario,
-              subtotal: dia.subtotal,
-            })),
-          ),
-        }))
-      : presupuestoSourceItems.map((item) => ({
-          id: item.id,
-          nombre: item.item.nombre,
-          total: Number.parseFloat(item.presupuesto) || 0,
-        })));
+  const isFondosPublicos = aval.tipoAval === "FONDOS_PUBLICOS";
 
-  const hasDiaBreakdown = presupuestoItems.some((item) => (item.dias?.length ?? 0) > 0);
+  // Build formaMap for V. CERT PDA
+  const formaMap = new Map<number, number>();
+  for (const fi of aval.evento.formaParticipacionActual?.items ?? []) {
+    formaMap.set(
+      fi.item.id,
+      (formaMap.get(fi.item.id) ?? 0) + Number.parseFloat(fi.presupuesto),
+    );
+  }
 
-  const total = presupuestoItems.reduce((sum, item) => {
-    if (typeof item.total === "number") return sum + item.total;
-    const itemTotal =
-      item.dias?.reduce(
-        (diasTotal, dia) =>
-          diasTotal +
-          (dia.subtotal ?? dia.noDias * dia.cantidad * dia.valorUnitario),
-        0,
-      ) ?? 0;
-    return sum + itemTotal;
-  }, 0);
+  type TableRow = {
+    key: string;
+    detalle: string;
+    valorCertPda: number;
+    showCertPda: boolean;
+    certPdaClass: string;
+    noDias: number;
+    cantidad: number;
+    valorUnitario: number;
+    total: number;
+  };
+
+  function pushDias(
+    id: number | string,
+    itemNombre: string,
+    valorCertPda: number,
+    dias: Array<{ noDias?: number; cantidad: number; valorUnitario: number; nombrePersonalizado?: string | null }>,
+  ) {
+    const multi = dias.length > 1;
+    for (const [i, dia] of dias.entries()) {
+      const noDias = dia.noDias ?? 1;
+      const isFirst = i === 0;
+      const isLast = i === dias.length - 1;
+      let certPdaClass = "";
+      if (multi) {
+        if (isFirst) certPdaClass = "border-b-0";
+        else if (isLast) certPdaClass = "border-t-0";
+        else certPdaClass = "border-t-0 border-b-0";
+      }
+      tableRows.push({
+        key: `${id}-${i}`,
+        detalle: dia.nombrePersonalizado?.trim() || itemNombre,
+        valorCertPda,
+        showCertPda: isFirst || !multi,
+        certPdaClass,
+        noDias,
+        cantidad: dia.cantidad,
+        valorUnitario: dia.valorUnitario,
+        total: noDias * dia.cantidad * dia.valorUnitario,
+      });
+    }
+  }
+
+  // Build rows from items prop (draft) or aval.pda.items
+  const tableRows: TableRow[] = [];
+
+  if (items) {
+    for (const item of items) {
+      const valorCertPda = formaMap.get(item.itemId ?? 0) ?? 0;
+      const dias = item.dias ?? [];
+      if (dias.length === 0) {
+        tableRows.push({
+          key: String(item.id),
+          detalle: item.nombre,
+          valorCertPda,
+          showCertPda: true,
+          certPdaClass: "",
+          noDias: 1,
+          cantidad: 1,
+          valorUnitario: item.total ?? 0,
+          total: item.total ?? 0,
+        });
+      } else {
+        pushDias(item.id, item.nombre, valorCertPda, dias);
+      }
+    }
+  } else if (aval.pda?.items?.length) {
+    for (const pdaItem of aval.pda.items) {
+      const itemNombre =
+        pdaItem.nombrePersonalizado?.trim() ||
+        pdaItem.itemNombre ||
+        presupuestoLookup.get(pdaItem.itemId) ||
+        `Item ${pdaItem.itemId}`;
+      const valorCertPda = formaMap.get(pdaItem.itemId) ?? 0;
+      const dias = pdaItem.dias ?? [];
+      if (dias.length === 0) {
+        tableRows.push({
+          key: String(pdaItem.id ?? pdaItem.itemId),
+          detalle: itemNombre,
+          valorCertPda,
+          showCertPda: true,
+          certPdaClass: "",
+          noDias: 1,
+          cantidad: 1,
+          valorUnitario: pdaItem.presupuesto,
+          total: pdaItem.presupuesto,
+        });
+      } else {
+        pushDias(pdaItem.itemId, itemNombre, valorCertPda, dias);
+      }
+    }
+  }
+
+  const tableTotal = tableRows.reduce((sum, r) => sum + r.total, 0);
 
   const codigoActividad = (
     draft?.codigoActividad?.trim() || aval.pda?.codigoActividad?.trim() || "004"
@@ -340,96 +333,73 @@ export default function PresupuestoSalidaAnticipoPreview({
         </table>
       </div>
 
-      <div className="border border-slate-400">
-        <table className="w-full border-collapse text-[10px]">
-          <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-400 px-2 py-1">Concepto</th>
-              {hasDiaBreakdown ? (
-                <>
-                  <th className="border border-slate-400 px-2 py-1">No. dias</th>
-                  <th className="border border-slate-400 px-2 py-1">Cantidad</th>
-                  <th className="border border-slate-400 px-2 py-1">Valor unitario</th>
-                </>
-              ) : null}
-              <th className="border border-slate-400 px-2 py-1">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {presupuestoItems.flatMap((item) => {
-              if (!hasDiaBreakdown) {
-                const itemTotal =
-                  typeof item.total === "number"
-                    ? item.total
-                    : item.dias?.reduce(
-                        (diasTotal, dia) =>
-                          diasTotal +
-                          (dia.subtotal ?? dia.noDias * dia.cantidad * dia.valorUnitario),
-                        0,
-                      ) ?? 0;
-
-                return (
-                  <tr key={item.id}>
-                    <td className="border border-slate-400 px-2 py-1">{item.nombre}</td>
-                    <td className="border border-slate-400 px-2 py-1 text-right">
-                      {formatDecimal(itemTotal)}
+      {tableRows.length > 0 ? (
+        <div className="border border-slate-400">
+          <table className="w-full border-collapse text-[10px]">
+            <thead>
+              <tr className="bg-slate-100">
+                {isFondosPublicos ? (
+                  <>
+                    <th className="border border-slate-400 px-2 py-1">DETALLE</th>
+                    <th className="border border-slate-400 px-2 py-1">V. CERT PDA</th>
+                    <th className="border border-slate-400 px-2 py-1">No. DIAS</th>
+                    <th className="border border-slate-400 px-2 py-1">CANT.</th>
+                    <th className="border border-slate-400 px-2 py-1">V. UNIT.</th>
+                    <th className="border border-slate-400 px-2 py-1">TOTAL</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="border border-slate-400 px-2 py-1">CONCEPTO</th>
+                    <th className="border border-slate-400 px-2 py-1">No. DIAS</th>
+                    <th className="border border-slate-400 px-2 py-1">CANT.</th>
+                    <th className="border border-slate-400 px-2 py-1">V. UNIT.</th>
+                    <th className="border border-slate-400 px-2 py-1">TOTAL</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((row) => (
+                <tr key={row.key}>
+                  <td className="border border-slate-400 px-2 py-1">{row.detalle}</td>
+                  {isFondosPublicos && (
+                    <td className={`border border-slate-400 px-2 py-1 text-right ${row.certPdaClass}`}>
+                      {row.showCertPda ? formatDecimal(row.valorCertPda) : ""}
                     </td>
-                  </tr>
-                );
-              }
-
-              if (!item.dias?.length) {
-                return (
-                  <tr key={item.id}>
-                    <td className="border border-slate-400 px-2 py-1">{item.nombre}</td>
-                    <td className="border border-slate-400 px-2 py-1 text-center">-</td>
-                    <td className="border border-slate-400 px-2 py-1 text-center">-</td>
-                    <td className="border border-slate-400 px-2 py-1 text-right">-</td>
-                    <td className="border border-slate-400 px-2 py-1 text-right">
-                      {formatDecimal(item.total ?? 0)}
-                    </td>
-                  </tr>
-                );
-              }
-
-              return item.dias.map((dia, index) => {
-                const diaTotal =
-                  dia.subtotal ?? dia.noDias * dia.cantidad * dia.valorUnitario;
-                return (
-                  <tr key={`${item.id}-${index}`}>
-                    <td className="border border-slate-400 px-2 py-1">
-                      {dia.nombrePersonalizado?.trim() || item.nombre}
-                    </td>
-                    <td className="border border-slate-400 px-2 py-1 text-center">
-                      {formatCantidad(dia.noDias)}
-                    </td>
-                    <td className="border border-slate-400 px-2 py-1 text-center">
-                      {formatCantidad(dia.cantidad)}
-                    </td>
-                    <td className="border border-slate-400 px-2 py-1 text-right">
-                      {formatDecimal(dia.valorUnitario)}
-                    </td>
-                    <td className="border border-slate-400 px-2 py-1 text-right">
-                      {formatDecimal(diaTotal)}
-                    </td>
-                  </tr>
-                );
-              });
-            })}
-            <tr>
-              <td
-                className="border border-slate-400 px-2 py-1 font-semibold text-right"
-                colSpan={hasDiaBreakdown ? 4 : 1}
-              >
-                TOTAL
-              </td>
-              <td className="border border-slate-400 px-2 py-1 font-semibold text-right">
-                {formatDecimal(total)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                  )}
+                  <td className="border border-slate-400 px-2 py-1 text-center">
+                    {formatCantidad(row.noDias)}
+                  </td>
+                  <td className="border border-slate-400 px-2 py-1 text-center">
+                    {formatCantidad(row.cantidad)}
+                  </td>
+                  <td className="border border-slate-400 px-2 py-1 text-right">
+                    {formatDecimal(row.valorUnitario)}
+                  </td>
+                  <td className="border border-slate-400 px-2 py-1 text-right">
+                    {formatDecimal(row.total)}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td
+                  className="border border-slate-400 px-2 py-1 font-semibold text-right"
+                  colSpan={isFondosPublicos ? 5 : 4}
+                >
+                  TOTAL
+                </td>
+                <td className="border border-slate-400 px-2 py-1 font-semibold text-right">
+                  {formatDecimal(tableTotal)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="border border-slate-400 p-4 text-center text-[10px] text-slate-500">
+          Sin items presupuestarios.
+        </div>
+      )}
 
       <div className="space-y-1 text-[10px] leading-4">
         {(draft?.notas ?? []).map((nota, index) => (

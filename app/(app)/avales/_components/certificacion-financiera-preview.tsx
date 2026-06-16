@@ -142,7 +142,7 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
                 <td className="border border-slate-400 px-2 py-1">
                   EVENTOS DE PREPARACION Y COMPETENCIA
                 </td>
-                <td className="border border-slate-400 px-2 py-1">{item.item.numero}</td>
+                <td className="border border-slate-400 px-2 py-1">{item.item.codigo ?? item.item.numero}</td>
                 <td className="border border-slate-400 px-2 py-1">
                   {item.item.nombre.toUpperCase()}
                 </td>

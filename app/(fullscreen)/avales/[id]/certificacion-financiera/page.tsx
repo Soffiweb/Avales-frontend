@@ -42,6 +42,10 @@ import {
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
+type FinancieroNotaDraft = {
+  texto: string;
+};
+
 type FinancieroDraft = {
   descripcionCertificacion: string;
   periodoComision: string;
@@ -49,7 +53,7 @@ type FinancieroDraft = {
   firmanteNombre: string;
   firmanteCargo: string;
   fechaEmision: string;
-  notas: string[];
+  notas: FinancieroNotaDraft[];
 };
 
 const INITIAL_DRAFT: FinancieroDraft = {
@@ -59,7 +63,7 @@ const INITIAL_DRAFT: FinancieroDraft = {
   firmanteNombre: "",
   firmanteCargo: "",
   fechaEmision: "",
-  notas: ["", "", ""],
+  notas: [],
 };
 
 const EMPTY_PDA_DRAFT: PdaDraft = {
@@ -249,18 +253,11 @@ export default function CertificacionFinancieraPage() {
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const notasPayload = draft.notas
-          .map((texto, index) => ({
+          .map((nota, index) => ({
             titulo: `NOTA ${index + 1}`,
-            texto: texto.trim(),
+            texto: nota.texto.trim(),
           }))
           .filter((nota) => nota.texto.length > 0);
-
-        const defaultNotas = buildDefaultNotas(a);
-        const notasActualesNorm = draft.notas.map((n) => n.trim());
-        const notasDefaultNorm = defaultNotas.map((n) => n.trim());
-        const notasSinCambios =
-          notasActualesNorm.length === notasDefaultNorm.length &&
-          notasActualesNorm.every((n, i) => n === notasDefaultNorm[i]);
 
         avalFlowDebugLog("financiero", "payload final de aprobacion listo", {
           aval: summarizeAval(a),
@@ -268,7 +265,6 @@ export default function CertificacionFinancieraPage() {
           approvalEtapa,
           draft,
           notasPayload,
-          notasSinCambios,
           adminSaveOnly,
         });
 
@@ -279,7 +275,7 @@ export default function CertificacionFinancieraPage() {
           undefined,
           undefined,
           {
-            notas: notasSinCambios ? [] : notasPayload,
+            notas: notasPayload,
             nombreFirmante: draft.firmanteNombre.trim() || undefined,
             cargoFirmante: draft.firmanteCargo.trim() || undefined,
           },
@@ -366,7 +362,7 @@ export default function CertificacionFinancieraPage() {
   useEffect(() => {
     setDraft(INITIAL_DRAFT);
     setFixedSigner({ nombre: "", cargo: "" });
-    setEditableNotas([false, false, false]);
+    setEditableNotas([]);
     setNotesInitialized(false);
   }, [avalId]);
 
@@ -483,25 +479,29 @@ export default function CertificacionFinancieraPage() {
     fixedSigner.nombre,
   ]);
 
-  // Initialize notes once aval loads
+  // Initialize notes once aval loads — prefer BD data, fall back to computed defaults
   useEffect(() => {
     if (notesInitialized) return;
     if (!aval) return;
-    const defaultNotas = buildDefaultNotas(aval);
-    setDraft((prev) => ({ ...prev, notas: defaultNotas }));
-    setEditableNotas(defaultNotas.map(() => false));
+    const savedNotas = parseNotasFromBd(financieroRecord?.notas);
+    const initialNotas = savedNotas ?? buildDefaultNotas(aval);
+    const fromBd = savedNotas !== null;
+    setDraft((prev) => ({ ...prev, notas: initialNotas }));
+    setEditableNotas(initialNotas.map(() => fromBd));
     setNotesInitialized(true);
-  }, [notesInitialized, aval]);
+  }, [notesInitialized, aval, financieroRecord]);
 
   const handleNotaChange = useCallback((index: number, value: string) => {
     setDraft((prev) => ({
       ...prev,
-      notas: prev.notas.map((nota, i) => (i === index ? value : nota)),
+      notas: prev.notas.map((nota, i) =>
+        i === index ? { ...nota, texto: value } : nota,
+      ),
     }));
   }, []);
 
   const handleAddNota = useCallback(() => {
-    setDraft((prev) => ({ ...prev, notas: [...prev.notas, ""] }));
+    setDraft((prev) => ({ ...prev, notas: [...prev.notas, { texto: "" }] }));
     setEditableNotas((prev) => [...prev, true]);
   }, []);
 
@@ -728,7 +728,7 @@ export default function CertificacionFinancieraPage() {
                     <textarea
                       className="form-textarea w-full text-sm"
                       rows={4}
-                      value={nota}
+                      value={nota.texto}
                       readOnly={!editableNotas[index]}
                       disabled={!editableNotas[index]}
                       onChange={(e) => handleNotaChange(index, e.target.value)}
@@ -828,7 +828,7 @@ export default function CertificacionFinancieraPage() {
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
                 draft={{
-                  notas: draft.notas,
+                  notas: draft.notas.map((n) => n.texto),
                   codigoActividad: pdaDraft.codigoActividad,
                   numeroAval: pdaDraft.numeroAval,
                   fechaSalida: draft.fechaEmision,
@@ -848,25 +848,41 @@ export default function CertificacionFinancieraPage() {
   );
 }
 
-function buildDefaultNotas(aval: Aval) {
+function buildDefaultNotas(aval: Aval): FinancieroNotaDraft[] {
   const requerimientosRaw = getAvalPresupuestoItems(aval)
     .map((item) => item.item?.nombre?.trim().toLowerCase())
     .filter((item): item is string => Boolean(item));
   const requerimientos = Array.from(new Set(requerimientosRaw));
   const requerimientosTexto = joinWithCommaAndY(requerimientos);
 
-  const nota1 = requerimientosTexto
-    ? `El requerimiento es ${requerimientosTexto}`
-    : "El requerimiento es pasajes ida y vuelta, hospedaje, transporte de personal y deportistas, afiliacion y alimentacion";
-
-  const nota2 = `Las facturas de gastos deben solicitarse con los siguientes datos:
+  return [
+    {
+      texto: requerimientosTexto
+        ? `El requerimiento es ${requerimientosTexto}`
+        : "El requerimiento es pasajes ida y vuelta, hospedaje, transporte de personal y deportistas, afiliacion y alimentacion",
+    },
+    {
+      texto: `Las facturas de gastos deben solicitarse con los siguientes datos:
 Razon Social: Federacion Deportiva Provincial de Loja
 RUC: 1191708241001
 Direccion: Macara entre Mercadillo y Azuay
-Telefono: 0999819109`;
+Telefono: 0999819109`,
+    },
+    {
+      texto: "El informe de gastos, se entregara como maximo 72 horas culminada la competencia",
+    },
+  ];
+}
 
-  const nota3 =
-    "El informe de gastos, se entregara como maximo 72 horas culminada la competencia";
-
-  return [nota1, nota2, nota3];
+function parseNotasFromBd(notasJson: string | null | undefined): FinancieroNotaDraft[] | null {
+  if (!notasJson) return null;
+  try {
+    const parsed: unknown = JSON.parse(notasJson);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return (parsed as Array<Record<string, unknown>>).map((n) => ({
+      texto: typeof n.texto === "string" ? n.texto : "",
+    }));
+  } catch {
+    return null;
+  }
 }

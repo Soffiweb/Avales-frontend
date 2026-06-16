@@ -25,7 +25,7 @@ export type PdaDraft = {
 
 type PdaPreviewItem = {
   id: number;
-  codigo?: number;
+  codigo?: string | number;
   nombre: string;
   total: number;
 };
@@ -57,6 +57,8 @@ export default function PdaPreview({ aval, draft, items }: Props) {
         `Item ${pdaItem.itemId}`;
       const codigo = presupuestoSourceItems.find(
         (item) => item.item.id === pdaItem.itemId,
+      )?.item?.codigo ?? presupuestoSourceItems.find(
+        (item) => item.item.id === pdaItem.itemId,
       )?.item?.numero;
 
       if (!pdaItem.dias?.length) {
@@ -81,7 +83,7 @@ export default function PdaPreview({ aval, draft, items }: Props) {
     }) ??
       presupuestoSourceItems.map((item) => ({
         id: item.id,
-        codigo: item.item?.numero,
+        codigo: item.item?.codigo ?? item.item?.numero,
         nombre: item.item?.nombre || "-",
         total: Number.parseFloat(item.presupuesto) || 0,
       })));

@@ -50,7 +50,7 @@ export default function AvalPresupuestoSection({
             <div className="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400">
               <span className="flex items-center gap-1">
                 <Tag className="w-3 h-3" />
-                Item #{item.item.numero}
+                Item #{item.item.codigo ?? item.item.numero}
               </span>
               <span className="flex items-center gap-1">
                 <Building2 className="w-3 h-3" />

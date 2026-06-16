@@ -54,6 +54,7 @@ export type ItemSimple = {
   id: number;
   nombre: string;
   numero: number;
+  codigo?: string | null;
   actividad: ActividadSimple;
 };
 
@@ -321,6 +322,7 @@ export type Aval = {
     items?: Array<{
       id?: number;
       itemId: number;
+      itemNombre?: string | null;
       nombrePersonalizado?: string | null;
       presupuesto: number;
       dias: PdaItemDia[];

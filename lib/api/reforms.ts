@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
+import type { CatalogItem } from "@/types/catalog";
 import type { EventoEstado } from "@/types/evento";
 import type { TipoAval } from "@/types/aval";
 
@@ -122,7 +123,14 @@ export type ReformResponse = {
     codigo?: string | null;
     nombre: string;
     estado?: EventoEstado | null;
+    disciplina?: CatalogItem | null;
   };
+  solicitante?: {
+    id: number;
+    nombre?: string | null;
+    apellido?: string | null;
+    email?: string | null;
+  } | null;
   createdAt?: string;
   reviewedAt?: string | null;
 };

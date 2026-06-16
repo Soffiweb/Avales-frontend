@@ -64,6 +64,7 @@ const MES_NOMBRES_CORTOS = [
 export default function ReformasPage() {
   const { user, loading: authLoading } = useAuth();
   const [reforms, setReforms] = useState<ReformResponse[]>([]);
+  const [disciplinaMap, setDisciplinaMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -88,17 +89,24 @@ export default function ReformasPage() {
         setLoading(true);
         setError(null);
 
-        const response = await listReforms(
-          tipoFilter ? { tipo: tipoFilter } : undefined,
-        );
-        let filteredReforms = response.data ?? [];
+        const [reformsResponse, eventosResponse] = await Promise.all([
+          listReforms(tipoFilter ? { tipo: tipoFilter } : undefined),
+          listEventos({ limit: 1000 }),
+        ]);
+
+        let filteredReforms = reformsResponse.data ?? [];
+        const eventos = eventosResponse.data ?? [];
+
+        const map = new Map<number, string>();
+        for (const evento of eventos) {
+          if (evento.disciplina?.nombre) {
+            map.set(evento.id, evento.disciplina.nombre);
+          }
+        }
+        setDisciplinaMap(map);
 
         if (isEntrenador) {
-          const eventosResponse = await listEventos({ limit: 1000 });
-          const allowedEventoIds = new Set(
-            (eventosResponse.data ?? []).map((evento) => evento.id),
-          );
-
+          const allowedEventoIds = new Set(eventos.map((evento) => evento.id));
           filteredReforms = filteredReforms.filter((reform) =>
             allowedEventoIds.has(reform.eventoId),
           );
@@ -253,7 +261,7 @@ export default function ReformasPage() {
             {filteredReforms.map((reform) => (
               <article
                 key={reform.id}
-                className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                className="flex flex-col h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
               >
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1 pr-2">
@@ -289,18 +297,33 @@ export default function ReformasPage() {
                         {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
                       </span>
                     ) : null}
+                    {disciplinaMap.get(reform.eventoId) ? (
+                      <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-medium bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
+                        {disciplinaMap.get(reform.eventoId)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
-                <dl className="space-y-3 text-sm">
+                <dl className="flex-1 space-y-3 text-sm">
                   <div>
                     <dt className="text-gray-500 dark:text-gray-400">Motivo</dt>
-                    <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    <dd className="mt-1 line-clamp-2 text-gray-900 dark:text-gray-100">
                       {reform.motivo || "-"}
                     </dd>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400">
+                        Solicitante
+                      </dt>
+                      <dd className="mt-1 truncate text-gray-900 dark:text-gray-100">
+                        {reform.solicitante
+                          ? `${reform.solicitante.nombre ?? ""} ${reform.solicitante.apellido ?? ""}`
+                          : "-"}
+                      </dd>
+                    </div>
                     <div>
                       <dt className="text-gray-500 dark:text-gray-400">
                         Estado del evento
@@ -321,7 +344,7 @@ export default function ReformasPage() {
                           : "-"}
                       </dd>
                     </div>
-                    <div className="col-span-2">
+                    <div>
                       <dt className="text-gray-500 dark:text-gray-400">
                         Fecha de solicitud
                       </dt>
@@ -331,23 +354,12 @@ export default function ReformasPage() {
                       </dd>
                     </div>
                   </div>
-
-                  {reform.observacion ? (
-                    <div>
-                      <dt className="text-gray-500 dark:text-gray-400">
-                        Observación
-                      </dt>
-                      <dd className="mt-1 text-gray-700 dark:text-gray-300">
-                        {reform.observacion}
-                      </dd>
-                    </div>
-                  ) : null}
                 </dl>
 
                 <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700/60">
                   <Link
                     href={`/reformas/${reform.id}`}
-                    className="inline-flex items-center text-sm font-medium text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
                   >
                     Ver detalle
                   </Link>

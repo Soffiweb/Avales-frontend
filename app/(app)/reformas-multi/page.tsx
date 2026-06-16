@@ -191,10 +191,17 @@ export default function ReformasMultiPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {reforms.map((reform) => (
+            {reforms.map((reform) => {
+              const disciplinas = Array.from(
+                new Set([
+                  ...reform.origenes.map((o) => o.evento.disciplina?.nombre).filter(Boolean),
+                  ...reform.destinos.map((d) => d.evento.disciplina?.nombre).filter(Boolean),
+                ]),
+              ) as string[];
+              return (
               <article
                 key={reform.id}
-                className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                className="flex flex-col h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -222,10 +229,15 @@ export default function ReformasMultiPage() {
                     >
                       {FUENTE_REFORMA_LABELS[reform.fuente] ?? reform.fuente}
                     </span>
+                    {disciplinas.length > 0 && (
+                      <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-medium bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
+                        {disciplinas.join(", ")}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <dl className="space-y-2 text-sm">
+                <dl className="flex-1 space-y-2 text-sm">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <dt className="text-xs text-gray-500 dark:text-gray-400">Orígenes</dt>
@@ -266,13 +278,14 @@ export default function ReformasMultiPage() {
                 <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-700/60">
                   <Link
                     href={`/reformas-multi/${reform.id}`}
-                    className="text-sm font-medium text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
                   >
                     Ver detalle
                   </Link>
                 </div>
               </article>
-            ))}
+            );
+            })}
           </div>
         )}
 

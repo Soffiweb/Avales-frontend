@@ -249,6 +249,7 @@ export default function RevisionDtmPage() {
         const payload = {
           descripcion: draft.descripcion.trim(),
           observacion: draft.observacion.trim() || undefined,
+          fechaPresentacion: draft.fechaPresentacion || getTodayLocalDate(),
           firmanteNombre: draft.firmanteNombre.trim() || undefined,
           firmanteCargo: draft.firmanteCargo.trim() || undefined,
           items,

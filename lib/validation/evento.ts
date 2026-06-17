@@ -125,6 +125,20 @@ export const eventoSchema = z.object({
       message: "No puede repetirse el mismo tipo de aval.",
     });
   }
+
+  (values.formasParticipacion ?? []).forEach((forma, index) => {
+    if (
+      forma.tipoAval === "SOLO_RESULTADO" &&
+      !forma.referencia?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["formasParticipacion", index, "referencia"],
+        message:
+          "La referencia es obligatoria para Solo resultado (club, delegación o grupo).",
+      });
+    }
+  });
 });
 
 export const reformFormaParticipacionChangesSchema = z.object({

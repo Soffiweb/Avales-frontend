@@ -37,7 +37,12 @@ export default function AvalUploadOptions({
       onTipoAvalChange("AUTOGESTION");
       return;
     }
-    onTipoAvalChange("SOLO_RESULTADO");
+    if (eventoTieneFormaParticipacion(evento, "SOLO_RESULTADO")) {
+      onTipoAvalChange("SOLO_RESULTADO");
+      return;
+    }
+    // El evento no tiene ninguna forma de participación; los tres botones
+    // quedan deshabilitados y se mantiene el tipo seleccionado sin auto-fallback.
   }, [evento, onTipoAvalChange, tipoAval]);
 
   const formasDisponibles = (evento?.formasParticipacion ?? []).filter(
@@ -117,10 +122,10 @@ export default function AvalUploadOptions({
               </p>
               {blockedByCollection && (
                 <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-300">
-                  Ya existe una colección activa de fondos públicos.
+                  Ya existe un aval activo de {option.label.toLowerCase()}.
                 </p>
               )}
-              {blockedByForma && option.value !== "SOLO_RESULTADO" && (
+              {blockedByForma && (
                 <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-300">
                   No existe esta forma de participación en el evento.
                 </p>

@@ -105,6 +105,12 @@ export function hasActiveFondosPublicosCollection(avales: Aval[]) {
   );
 }
 
+export function hasActiveAutogestionCollection(avales: Aval[]) {
+  return avales.some(
+    (aval) => aval.tipoAval === "AUTOGESTION" && isAvalCollectionActive(aval),
+  );
+}
+
 export function getCollectionIdentifier(aval: Aval) {
   return (
     aval.avalTecnico?.numeroAval?.trim() ||
@@ -209,6 +215,11 @@ export function canCreateCollectionByType(
   avales: Aval[],
   tipoAval: TipoAval,
 ) {
-  if (tipoAval !== "FONDOS_PUBLICOS") return true;
-  return !hasActiveFondosPublicosCollection(avales);
+  if (tipoAval === "FONDOS_PUBLICOS") {
+    return !hasActiveFondosPublicosCollection(avales);
+  }
+  if (tipoAval === "AUTOGESTION") {
+    return !hasActiveAutogestionCollection(avales);
+  }
+  return true;
 }

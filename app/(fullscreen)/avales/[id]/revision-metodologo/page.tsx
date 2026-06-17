@@ -146,7 +146,7 @@ function buildDefaultDescripcion(aval: Aval) {
     aval,
     "[NOMBRE ENTRENADOR RESPONSABLE]",
   );
-  return `En base a la presentacion del Aval Tecnico de Participacion Competitiva de ${disciplina}, ${eventoNombre}, con fecha ${fecha}, suscrito por el entrenador ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los items revisados.`;
+  return `En base a la presentación del Aval Técnico de Participación Competitiva de ${disciplina}, "${eventoNombre}", con fechas ${fecha}, suscrito por ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los ítems revisados.`;
 }
 
 type ReviewSection = ReviewItem["section"];

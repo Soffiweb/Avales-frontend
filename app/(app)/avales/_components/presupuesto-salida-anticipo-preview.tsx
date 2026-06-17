@@ -238,6 +238,10 @@ export default function PresupuestoSalidaAnticipoPreview({
   }
 
   const tableTotal = tableRows.reduce((sum, r) => sum + r.total, 0);
+  const tableCertPdaTotal = tableRows.reduce(
+    (sum, r) => (r.showCertPda ? sum + r.valorCertPda : sum),
+    0,
+  );
 
   const codigoActividad = (
     draft?.codigoActividad?.trim() || aval.pda?.codigoActividad?.trim() || "004"
@@ -384,10 +388,18 @@ export default function PresupuestoSalidaAnticipoPreview({
               <tr>
                 <td
                   className="border border-slate-400 px-2 py-1 font-semibold text-right"
-                  colSpan={isFondosPublicos ? 5 : 4}
+                  colSpan={isFondosPublicos ? 1 : 4}
                 >
                   TOTAL
                 </td>
+                {isFondosPublicos && (
+                  <>
+                    <td className="border border-slate-400 px-2 py-1 font-semibold text-right">
+                      {formatDecimal(tableCertPdaTotal)}
+                    </td>
+                    <td className="border border-slate-400 px-2 py-1" colSpan={3} />
+                  </>
+                )}
                 <td className="border border-slate-400 px-2 py-1 font-semibold text-right">
                   {formatDecimal(tableTotal)}
                 </td>

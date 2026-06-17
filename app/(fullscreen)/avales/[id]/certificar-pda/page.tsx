@@ -349,7 +349,7 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
     (aval.pda?.items ?? []).map((pdaItem) => [pdaItem.itemId, pdaItem]),
   );
 
-  return getAvalPresupuestoItems(aval).map((item, itemIndex) => {
+  return getAvalPresupuestoItems(aval).map((item) => {
     const totalOriginal = roundCurrency(
       Number.parseFloat(item.presupuesto ?? "0") || 0,
     );
@@ -386,7 +386,9 @@ function buildBudgetDraftItems(aval: Aval): BudgetDraftItem[] {
       };
     }
 
-    const requerimiento = requerimientos[itemIndex];
+    const requerimiento = requerimientos.find(
+      (c) => c.formaParticipacionItemId === item.id,
+    );
     const noDias =
       normalizePositiveInteger(requerimiento?.cantidadDias ?? "1") || 1;
     const cantidad =

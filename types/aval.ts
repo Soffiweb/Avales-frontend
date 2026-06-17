@@ -130,6 +130,7 @@ export type AvalCriterio = {
 
 export type RubroPresupuestario = {
   id: number;
+  formaParticipacionItemId?: number;
   otroConcepto?: string;
   detalle?: string;
   origen?: OrigenAvalRequerimiento;
@@ -403,6 +404,7 @@ export type CriterioDto = {
 };
 
 export type RubroPresupuestarioDto = {
+  formaParticipacionItemId?: number;
   origen?: OrigenAvalRequerimiento;
   tipoCobertura?: TipoCoberturaAval;
   otroConcepto?: string;

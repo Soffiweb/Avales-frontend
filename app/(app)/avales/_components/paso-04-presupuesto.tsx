@@ -106,8 +106,8 @@ export default function Paso04Presupuesto({
     const reqs = aval.avalTecnico?.requerimientos ?? [];
     const items = getAvalPresupuestoItems(aval);
     const result: Record<number, string> = {};
-    items.forEach((pi, i) => {
-      const detalle = reqs[i]?.detalle;
+    items.forEach((pi) => {
+      const detalle = reqs.find((r) => r.formaParticipacionItemId === pi.id)?.detalle;
       if (detalle) result[pi.item.id] = detalle;
     });
     return result;
@@ -367,6 +367,7 @@ export default function Paso04Presupuesto({
           ? serializedManualRequirements
           : presupuestoItems.length > 0
             ? presupuestoItems.map((pi) => ({
+                formaParticipacionItemId: pi.id,
                 detalle: detallesByItemId[pi.item.id] || undefined,
               }))
             : undefined,

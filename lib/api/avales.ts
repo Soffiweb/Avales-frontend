@@ -337,7 +337,7 @@ export type ApproveRevisionMetodologoPayload = {
   descripcionEncabezado: string;
   firmanteNombre: string;
   firmanteCargo: string;
-  fechaRevision: string;
+  fechaRevision?: string;
   observacionesFinales: string;
   items: Array<{
     key: string;
@@ -349,7 +349,7 @@ export type ApproveRevisionMetodologoPayload = {
 export type ApproveRevisionDtmPayload = {
   descripcion: string;
   observacion?: string;
-  fechaPresentacion: string;
+  fechaPresentacion?: string;
   firmanteNombre?: string;
   firmanteCargo?: string;
   items: Array<{

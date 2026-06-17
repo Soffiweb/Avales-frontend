@@ -219,7 +219,6 @@ export default function CertificarComprasPublicasPage() {
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const requiresContratacion = draft.realizoProceso === true;
-        const fechaEmision = getTodayInputDate();
         const payload = {
           numeroCertificado: draft.numeroCertificado?.trim() || undefined,
           realizoProceso:
@@ -234,7 +233,6 @@ export default function CertificarComprasPublicasPage() {
             : undefined,
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
-          fechaEmision,
         };
 
         avalFlowDebugLog("compras-publicas", "payload de aprobacion listo", {
@@ -357,7 +355,6 @@ export default function CertificarComprasPublicasPage() {
         : undefined,
       nombreFirmante: draft.nombreFirmante?.trim() || undefined,
       cargoFirmante: draft.cargoFirmante?.trim() || undefined,
-      fechaEmision: draft.fechaEmision || getTodayInputDate(),
     };
     setForceEditLoading(true);
     try {

@@ -9,7 +9,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
@@ -21,7 +20,6 @@ import {
 import { updateEvento } from "@/lib/api/eventos";
 import { getTipoAvalLabel } from "@/lib/constants";
 import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
-import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type {
   Aval,
   EditAvalPayload,
@@ -33,7 +31,6 @@ import type {
 import { inferEventoGenero } from "@/types/evento";
 import {
   buildInitialManualRequirements,
-  getCatalogItemActivity,
   getDraftSubtotal,
   getDraftTitle,
   getTotalOriginalManual,
@@ -105,9 +102,16 @@ export default function Paso04Presupuesto({
   const [manualRequirements, setManualRequirements] = useState<
     ManualRequirementDraft[]
   >(() => buildInitialManualRequirements(formData.requerimientos));
-  const [itemsCatalogo, setItemsCatalogo] = useState<
-    CatalogItemPresupuestario[]
-  >([]);
+  const [detallesByItemId, setDetallesByItemId] = useState<Record<number, string>>(() => {
+    const reqs = aval.avalTecnico?.requerimientos ?? [];
+    const items = getAvalPresupuestoItems(aval);
+    const result: Record<number, string> = {};
+    items.forEach((pi, i) => {
+      const detalle = reqs[i]?.detalle;
+      if (detalle) result[pi.item.id] = detalle;
+    });
+    return result;
+  });
   const [error, setError] = useState<string | null>(null);
   const [createdAvalIdWithError, setCreatedAvalIdWithError] = useState<
     number | null
@@ -129,12 +133,6 @@ export default function Paso04Presupuesto({
   );
 
   useEffect(() => {
-    void getItemsPresupuestarios()
-      .then((response) => setItemsCatalogo(response.data ?? []))
-      .catch(() => setItemsCatalogo([]));
-  }, []);
-
-  useEffect(() => {
     onPreviewChange?.({
       observaciones,
       adjuntosSolicitud,
@@ -153,21 +151,6 @@ export default function Paso04Presupuesto({
     serializedManualRequirements,
     totalMontoSolicitado,
   ]);
-
-  const updateManualRequirementRubro = (id: string, rubroIdValue: string) => {
-    const rubroId = Number.parseInt(rubroIdValue, 10);
-    setManualRequirements((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        return {
-          ...item,
-          rubroId:
-            Number.isFinite(rubroId) && rubroId > 0 ? rubroId : undefined,
-          otroConcepto: "",
-        };
-      }),
-    );
-  };
 
   const toggleEspecie = (id: string) => {
     setManualRequirements((prev) =>
@@ -248,14 +231,13 @@ export default function Paso04Presupuesto({
     setAdjuntosSolicitud((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const addManualRequirement = (mode: "CATALOGO" | "CUSTOM") => {
-    const nextMode = isSoloResultado ? "CUSTOM" : mode;
+  const addManualRequirement = () => {
     setManualRequirements((prev) => [
       ...prev,
       {
-        id: `${nextMode}-${Date.now()}-${prev.length}`,
-        mode: nextMode,
+        id: `req-${Date.now()}-${prev.length}`,
         otroConcepto: "",
+        detalle: "",
         cantidad: "1",
         montoSolicitado: isSoloResultado ? "0.00" : "",
         tipoCobertura: isSoloResultado ? "ESPECIE" : "DINERO",
@@ -291,11 +273,9 @@ export default function Paso04Presupuesto({
 
       if (
         usesManualRequirements &&
-        serializedManualRequirements.some(
-          (item) => !item.rubroId && !item.otroConcepto?.trim(),
-        )
+        serializedManualRequirements.some((item) => !item.otroConcepto?.trim())
       ) {
-        setError("Cada rubro debe tener item seleccionado o concepto.");
+        setError("Cada requerimiento debe tener un concepto.");
         return;
       }
 
@@ -304,7 +284,6 @@ export default function Paso04Presupuesto({
         serializedManualRequirements.some((item) => {
           const monto = Number.parseFloat(item.montoSolicitado ?? "0");
           return (
-            Boolean(item.rubroId) ||
             item.tipoCobertura !== "ESPECIE" ||
             (Number.isFinite(monto) && monto > 0)
           );
@@ -386,7 +365,11 @@ export default function Paso04Presupuesto({
         })),
         requerimientos: usesManualRequirements
           ? serializedManualRequirements
-          : undefined,
+          : presupuestoItems.length > 0
+            ? presupuestoItems.map((pi) => ({
+                detalle: detallesByItemId[pi.item.id] || undefined,
+              }))
+            : undefined,
         observaciones: observaciones.trim() || undefined,
       };
 
@@ -506,7 +489,7 @@ export default function Paso04Presupuesto({
                   {presupuestoItems.map((presupuestoItem) => {
                     const valor = parseFloat(presupuestoItem.presupuesto) || 0;
                     return (
-                      <div key={presupuestoItem.id} className="px-4 py-4">
+                      <div key={presupuestoItem.id} className="px-4 py-4 space-y-2">
                         <div className="flex items-start justify-between gap-3">
                           <p className="flex-1 min-w-0 font-semibold text-gray-900 dark:text-gray-100">
                             {presupuestoItem.item.nombre}
@@ -515,6 +498,24 @@ export default function Paso04Presupuesto({
                             {formatCurrency(valor)}
                           </p>
                         </div>
+                        <label className="block">
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                            Detalle{" "}
+                            <span className="font-normal text-gray-400">(opcional)</span>
+                          </span>
+                          <input
+                            type="text"
+                            maxLength={500}
+                            value={detallesByItemId[presupuestoItem.item.id] ?? ""}
+                            onChange={(e) =>
+                              setDetallesByItemId((prev) => ({
+                                ...prev,
+                                [presupuestoItem.item.id]: e.target.value,
+                              }))
+                            }
+                            className="form-input mt-1 w-full border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
+                          />
+                        </label>
                       </div>
                     );
                   })}
@@ -576,7 +577,7 @@ export default function Paso04Presupuesto({
                   {presupuestoItems.map((presupuestoItem) => {
                     const valor = parseFloat(presupuestoItem.presupuesto) || 0;
                     return (
-                      <div key={presupuestoItem.id} className="px-4 py-4">
+                      <div key={presupuestoItem.id} className="px-4 py-4 space-y-2">
                         <div className="flex items-start justify-between gap-3">
                           <p className="flex-1 min-w-0 font-semibold text-gray-900 dark:text-gray-100">
                             {presupuestoItem.item.nombre}
@@ -585,6 +586,24 @@ export default function Paso04Presupuesto({
                             {formatCurrency(valor)}
                           </p>
                         </div>
+                        <label className="block">
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                            Detalle{" "}
+                            <span className="font-normal text-gray-400">(opcional)</span>
+                          </span>
+                          <input
+                            type="text"
+                            maxLength={500}
+                            value={detallesByItemId[presupuestoItem.item.id] ?? ""}
+                            onChange={(e) =>
+                              setDetallesByItemId((prev) => ({
+                                ...prev,
+                                [presupuestoItem.item.id]: e.target.value,
+                              }))
+                            }
+                            className="form-input mt-1 w-full border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-900"
+                          />
+                        </label>
                       </div>
                     );
                   })}
@@ -654,19 +673,9 @@ export default function Paso04Presupuesto({
             )}
 
             <div className="mb-4 flex flex-wrap gap-2">
-              {!isSoloResultado && (
-                <button
-                  type="button"
-                  onClick={() => addManualRequirement("CATALOGO")}
-                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300"
-                >
-                  <Plus className="h-4 w-4" />
-                  Del catálogo
-                </button>
-              )}
               <button
                 type="button"
-                onClick={() => addManualRequirement("CUSTOM")}
+                onClick={() => addManualRequirement()}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
               >
                 <Plus className="h-4 w-4" />
@@ -683,13 +692,8 @@ export default function Paso04Presupuesto({
             ) : (
               <div className="space-y-3">
                 {manualRequirements.map((item, index) => {
-                  const isCatalog = item.mode === "CATALOGO";
                   const isEspecie =
                     isSoloResultado || item.tipoCobertura === "ESPECIE";
-                  const activity = getCatalogItemActivity(
-                    itemsCatalogo,
-                    item.rubroId,
-                  );
                   return (
                     <div
                       key={item.id}
@@ -699,29 +703,16 @@ export default function Paso04Presupuesto({
                         <div className="flex items-center gap-2 min-w-0">
                           <span
                             className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                              isCatalog
-                                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
-                                : isEspecie
-                                  ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                                  : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              isEspecie
+                                ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
                             }`}
                           >
-                            {isCatalog
-                              ? "Catálogo"
-                              : isEspecie
-                                ? "En especie"
-                                : "Propio"}
+                            {isEspecie ? "En especie" : "Propio"}
                           </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {getDraftTitle(item, index, itemsCatalogo)}
-                            </p>
-                            {activity && (
-                              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                                {activity}
-                              </p>
-                            )}
-                          </div>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {getDraftTitle(item, index)}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -734,68 +725,59 @@ export default function Paso04Presupuesto({
                       </div>
 
                       <div className="space-y-3 p-4">
-                        {isCatalog ? (
+                        <div>
                           <label className="block">
                             <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                              Rubro del catálogo
+                              Concepto
                             </span>
-                            <select
-                              value={item.rubroId ?? ""}
+                            <input
+                              type="text"
+                              value={item.otroConcepto}
                               onChange={(e) =>
-                                updateManualRequirementRubro(
+                                updateManualRequirement(
                                   item.id,
+                                  "otroConcepto",
                                   e.target.value,
                                 )
                               }
-                              className="form-select mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
-                            >
-                              <option value="">Selecciona un rubro</option>
-                              {itemsCatalogo.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {option.numero} - {option.nombre}
-                                </option>
-                              ))}
-                            </select>
+                              placeholder="Ej: Pesas, uniformes, fisioterapeuta..."
+                              className="form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+                            />
                           </label>
-                        ) : (
-                          <div>
-                            <label className="block">
-                              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                                Concepto
-                              </span>
+                          {isSoloResultado ? (
+                            <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                              Sin costo monetario
+                            </p>
+                          ) : (
+                            <label className="mt-2 flex cursor-pointer items-center gap-2">
                               <input
-                                type="text"
-                                value={item.otroConcepto}
-                                onChange={(e) =>
-                                  updateManualRequirement(
-                                    item.id,
-                                    "otroConcepto",
-                                    e.target.value,
-                                  )
-                                }
-                                placeholder="Ej: Pesas, uniformes, fisioterapeuta..."
-                                className="form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+                                type="checkbox"
+                                checked={isEspecie}
+                                onChange={() => toggleEspecie(item.id)}
+                                className="rounded border-gray-300 dark:border-gray-600"
                               />
-                            </label>
-                            {isSoloResultado ? (
-                              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
                                 Sin costo monetario
-                              </p>
-                            ) : (
-                              <label className="mt-2 flex cursor-pointer items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={isEspecie}
-                                  onChange={() => toggleEspecie(item.id)}
-                                  className="rounded border-gray-300 dark:border-gray-600"
-                                />
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  Sin costo monetario
-                                </span>
-                              </label>
-                            )}
-                          </div>
-                        )}
+                              </span>
+                            </label>
+                          )}
+                        </div>
+
+                        <label className="block w-full">
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                            Detalle{" "}
+                            <span className="font-normal text-gray-400">(opcional)</span>
+                          </span>
+                          <input
+                            type="text"
+                            maxLength={500}
+                            value={item.detalle}
+                            onChange={(e) =>
+                              updateManualRequirement(item.id, "detalle", e.target.value)
+                            }
+                            className="form-input mt-1 w-full border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+                          />
+                        </label>
 
                         <div className="flex flex-wrap items-end gap-3">
                           <label className="block w-24 shrink-0">

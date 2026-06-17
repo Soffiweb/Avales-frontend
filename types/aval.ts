@@ -130,9 +130,8 @@ export type AvalCriterio = {
 
 export type RubroPresupuestario = {
   id: number;
-  rubroId?: number;
-  rubro?: CatalogItemSimple;
   otroConcepto?: string;
+  detalle?: string;
   origen?: OrigenAvalRequerimiento;
   tipoCobertura?: TipoCoberturaAval;
   cantidad?: string;
@@ -404,10 +403,10 @@ export type CriterioDto = {
 };
 
 export type RubroPresupuestarioDto = {
-  rubroId?: number;
   origen?: OrigenAvalRequerimiento;
   tipoCobertura?: TipoCoberturaAval;
   otroConcepto?: string;
+  detalle?: string;
   cantidad?: string;
   montoSolicitado?: string;
   editable?: boolean;

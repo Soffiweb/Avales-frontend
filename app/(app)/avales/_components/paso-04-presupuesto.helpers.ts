@@ -1,4 +1,3 @@
-import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type {
   Aval,
   RubroPresupuestarioDto,
@@ -7,9 +6,8 @@ import type {
 
 export type ManualRequirementDraft = {
   id: string;
-  mode: "CATALOGO" | "CUSTOM";
-  rubroId?: number;
   otroConcepto: string;
+  detalle: string;
   cantidad: string;
   montoSolicitado: string;
   tipoCobertura: TipoCoberturaAval;
@@ -22,9 +20,8 @@ export function buildInitialManualRequirements(
 
   return requerimientos.map((item, index) => ({
     id: `saved-${index}`,
-    mode: item.rubroId ? "CATALOGO" : "CUSTOM" as "CATALOGO" | "CUSTOM",
-    rubroId: item.rubroId,
     otroConcepto: item.otroConcepto ?? "",
+    detalle: item.detalle ?? "",
     cantidad: item.cantidad ?? "",
     montoSolicitado: item.montoSolicitado ?? "",
     tipoCobertura: item.tipoCobertura ?? "DINERO",
@@ -50,7 +47,6 @@ export function serializeManualRequirements(
         rawMonto !== "" && parsedMonto >= 0 ? normalizedMonto : undefined;
 
       if (
-        !item.rubroId &&
         !concept &&
         !cantidad &&
         (!rawMonto || !Number.isFinite(parsedMonto) || parsedMonto === 0)
@@ -59,8 +55,8 @@ export function serializeManualRequirements(
       }
 
       return {
-        rubroId: item.rubroId,
         otroConcepto: concept || undefined,
+        detalle: item.detalle.trim() || undefined,
         cantidad,
         montoSolicitado: monto,
         tipoCobertura: item.tipoCobertura,
@@ -80,33 +76,10 @@ export function sumManualRequirementAmount(
   }, 0);
 }
 
-export function getCatalogItemLabel(
-  itemsCatalogo: CatalogItemPresupuestario[],
-  rubroId?: number,
-): string {
-  if (!rubroId) return "";
-  const item = itemsCatalogo.find((option) => option.id === rubroId);
-  return item ? `${item.numero} - ${item.nombre}` : "";
-}
-
-export function getCatalogItemActivity(
-  itemsCatalogo: CatalogItemPresupuestario[],
-  rubroId?: number,
-): string {
-  if (!rubroId) return "";
-  return itemsCatalogo.find((option) => option.id === rubroId)?.actividad?.nombre ?? "";
-}
-
 export function getDraftTitle(
   item: ManualRequirementDraft,
   index: number,
-  itemsCatalogo: CatalogItemPresupuestario[],
 ): string {
-  if (item.mode === "CATALOGO") {
-    return item.rubroId
-      ? getCatalogItemLabel(itemsCatalogo, item.rubroId) || `Rubro ${index + 1}`
-      : `Rubro ${index + 1}`;
-  }
   return item.otroConcepto.trim() || `Concepto ${index + 1}`;
 }
 

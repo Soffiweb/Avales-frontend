@@ -249,9 +249,6 @@ export default function RevisionDtmPage() {
         const payload = {
           descripcion: draft.descripcion.trim(),
           observacion: draft.observacion.trim() || undefined,
-          fechaPresentacion: adminSaveOnly
-            ? a.revisionDtm?.fechaPresentacion ?? draft.fechaPresentacion
-            : approvalDate,
           firmanteNombre: draft.firmanteNombre.trim() || undefined,
           firmanteCargo: draft.firmanteCargo.trim() || undefined,
           items,

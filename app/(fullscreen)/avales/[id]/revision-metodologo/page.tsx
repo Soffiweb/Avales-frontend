@@ -265,7 +265,6 @@ export default function RevisionMetodologoPage() {
           descripcionEncabezado: revisionHeader.descripcionEncabezado.trim(),
           firmanteNombre: revisionFooter.firmanteNombre.trim(),
           firmanteCargo: revisionFooter.firmanteCargo.trim(),
-          fechaRevision: revisionHeader.fechaRevision || getTodayLocalDate(),
           observacionesFinales:
             revisionHeader.observacionFechaTramite.trim() ||
             revisionFooter.observacionesFinales.trim(),
@@ -396,6 +395,14 @@ export default function RevisionMetodologoPage() {
         aval.revisionMetodologo?.observacionesFinales ||
         "",
     }));
+    // Firmante: BD siempre tiene prioridad sobre el usuario actual
+    setRevisionFooter((prev) => ({
+      ...prev,
+      firmanteNombre:
+        aval.revisionMetodologo?.firmanteNombre || prev.firmanteNombre || "",
+      firmanteCargo:
+        aval.revisionMetodologo?.firmanteCargo || prev.firmanteCargo || "",
+    }));
   }, [aval]);
 
   // Populate revisionHeader "Dirigido a" from DTM user
@@ -408,9 +415,10 @@ export default function RevisionMetodologoPage() {
     }));
   }, [dtmName, dtmCargo]);
 
-  // Populate revisionFooter from current user
+  // Populate revisionFooter from current user solo si no hay revision preexistente en BD
   useEffect(() => {
     if (!user) return;
+    if (aval?.revisionMetodologo?.firmanteNombre) return;
     const nombre = [user.nombre, user.apellido]
       .filter(Boolean)
       .join(" ")
@@ -421,7 +429,7 @@ export default function RevisionMetodologoPage() {
       firmanteNombre: prev.firmanteNombre || nombre,
       firmanteCargo: prev.firmanteCargo || cargo,
     }));
-  }, [user]);
+  }, [user, aval]);
 
   // Merge API review items into reviewState when aval loads
   useEffect(() => {
@@ -435,13 +443,6 @@ export default function RevisionMetodologoPage() {
         prev.observacionesFinales ||
         aval.revisionMetodologo?.observacionesFinales ||
         "",
-      // El firmante guardado tiene prioridad: si la revision ya fue
-      // firmada, no queremos que un admin editando data pise al metodologo
-      // original que aprobo.
-      firmanteNombre:
-        aval.revisionMetodologo?.firmanteNombre || prev.firmanteNombre || "",
-      firmanteCargo:
-        aval.revisionMetodologo?.firmanteCargo || prev.firmanteCargo || "",
     }));
   }, [aval, reviewItems]);
 

@@ -48,6 +48,7 @@ type FormData = {
   tipoAval?: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO";
   requerimientos?: Array<{
     otroConcepto?: string;
+    detalle?: string;
     cantidad?: string;
     montoSolicitado?: string;
     tipoCobertura?: "DINERO" | "ESPECIE";
@@ -504,6 +505,7 @@ export default function AvalDocumentPreview({
                     N.º
                   </th>
                   <th className="border border-slate-400 px-2 py-1 text-left">RUBRO</th>
+                  <th className="border border-slate-400 px-2 py-1 text-left">DETALLE</th>
                   <th className="w-24 border border-slate-400 px-2 py-1 text-right">
                     CANT.
                   </th>
@@ -517,7 +519,7 @@ export default function AvalDocumentPreview({
                   manualRequerimientos.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="border border-slate-400 px-2 py-2 text-slate-500"
                       >
                         Sin requerimientos manuales registrados.
@@ -532,6 +534,9 @@ export default function AvalDocumentPreview({
                         <td className="border border-slate-400 px-2 py-1">
                           {item.otroConcepto || "-"}
                         </td>
+                        <td className="border border-slate-400 px-2 py-1">
+                          {item.detalle || "-"}
+                        </td>
                         <td className="border border-slate-400 px-2 py-1 text-right">
                           {item.cantidad?.trim() || "0"}
                         </td>
@@ -544,7 +549,7 @@ export default function AvalDocumentPreview({
                 ) : presupuestoItems.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="border border-slate-400 px-2 py-2 text-slate-500"
                     >
                       Sin items presupuestarios en este evento.
@@ -559,6 +564,7 @@ export default function AvalDocumentPreview({
                       <td className="border border-slate-400 px-2 py-1">
                         {item.item.nombre}
                       </td>
+                      <td className="border border-slate-400 px-2 py-1" />
                       <td className="border border-slate-400 px-2 py-1 text-right">
                         1
                       </td>
@@ -574,6 +580,7 @@ export default function AvalDocumentPreview({
                   <tr>
                     <td className="border border-slate-400 px-2 py-1" />
                     <td className="border border-slate-400 px-2 py-1 font-semibold">TOTAL</td>
+                    <td className="border border-slate-400 px-2 py-1" />
                     <td className="border border-slate-400 px-2 py-1" />
                     <td className="border border-slate-400 px-2 py-1 text-right font-semibold">
                       {formatCurrencyFromString(String(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles } from "@/lib/auth/access";
 import { getAval } from "@/lib/api/avales";
@@ -31,9 +31,6 @@ import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuest
 import { Loader2 } from "lucide-react";
 import { inferEventoGenero } from "@/types/evento";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
-import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
-import SaveIndicator from "@/components/ui/save-indicator";
-import DraftRestoredToast from "@/components/ui/draft-restored-toast";
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -82,8 +79,6 @@ type FormData = {
   requerimientos?: RubroPresupuestarioDto[];
   montoSolicitado?: number;
 };
-
-type SolicitudAutosaveState = Omit<FormData, "adjuntosSolicitud">;
 
 const INITIAL_FORM_DATA: FormData = {
   deportistas: [],
@@ -205,29 +200,7 @@ export default function CrearSolicitudPage() {
   const [error, setError] = useState<string | null>(null);
   const [secretariaDtm, setSecretariaDtm] = useState<User | null>(null);
   const [secretariaError, setSecretariaError] = useState<string | null>(null);
-  const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
-  const [draftToastVisible, setDraftToastVisible] = useState(false);
-  const hasRestoredRef = useRef(false);
   const { config: formConfig } = useAvalFormConfig(aval);
-
-  const isFormEditable = !loading && !!aval && getEditableSolicitudState(aval, isAdminLike);
-
-  const autosaveState = useMemo((): SolicitudAutosaveState => {
-    const { adjuntosSolicitud: _, ...rest } = formData;
-    return rest;
-  }, [formData]);
-
-  const {
-    status: autosaveStatus,
-    lastSavedAt: autosaveLastSavedAt,
-    restore: restoreAutosave,
-    clear: clearAutosave,
-  } = useAutosaveDraft<SolicitudAutosaveState>({
-    key: `aval:${avalId}:solicitud`,
-    state: autosaveState,
-    enabled: isFormEditable,
-    userId: user?.id,
-  });
 
   const loadAval = useCallback(async () => {
     try {
@@ -253,19 +226,6 @@ export default function CrearSolicitudPage() {
   useEffect(() => {
     loadAval();
   }, [loadAval]);
-
-  // Restore autosave draft after aval loads and form is editable
-  useEffect(() => {
-    if (loading || !aval || hasRestoredRef.current) return;
-    if (!getEditableSolicitudState(aval, isAdminLike)) return;
-    hasRestoredRef.current = true;
-    const restored = restoreAutosave();
-    if (restored) {
-      setFormData((prev) => ({ ...prev, ...restored.state, adjuntosSolicitud: prev.adjuntosSolicitud ?? [] }));
-      setDraftRestoredAt(restored.savedAt);
-      setDraftToastVisible(true);
-    }
-  }, [loading, aval, isAdminLike, restoreAutosave]);
 
   useEffect(() => {
     let active = true;
@@ -293,12 +253,6 @@ export default function CrearSolicitudPage() {
     return () => { active = false; };
   }, []);
 
-  const handleDiscardDraft = useCallback(() => {
-    clearAutosave();
-    if (aval) setFormData(buildInitialFormData(aval));
-    setDraftToastVisible(false);
-  }, [clearAutosave, aval]);
-
   const handleStepComplete = useCallback(
     (stepData: Partial<FormData>) => {
       avalFlowDebugLog("crear-solicitud", "paso completado", {
@@ -308,11 +262,9 @@ export default function CrearSolicitudPage() {
       setFormData((prev) => ({ ...prev, ...stepData }));
       if (currentStep < 4) {
         setCurrentStep((prev) => (prev + 1) as WizardStep);
-      } else {
-        clearAutosave();
       }
     },
-    [currentStep, clearAutosave],
+    [currentStep],
   );
 
   const handlePreviewDataChange = useCallback((stepData: Partial<FormData>) => {
@@ -387,12 +339,6 @@ export default function CrearSolicitudPage() {
 
   return (
     <div className="h-screen flex">
-      <DraftRestoredToast
-        visible={draftToastVisible}
-        savedAt={draftRestoredAt}
-        onDiscard={handleDiscardDraft}
-        onDismiss={() => setDraftToastVisible(false)}
-      />
       {/* Left Panel - Form */}
       <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900 flex flex-col">
         <div className="h-full overflow-y-auto">
@@ -420,11 +366,7 @@ export default function CrearSolicitudPage() {
               </button>
               {/* Progress Steps + badge */}
               <div className="mb-8">
-                <div className="flex justify-end items-center gap-3 mb-2">
-                  <SaveIndicator
-                    status={autosaveStatus}
-                    lastSavedAt={autosaveLastSavedAt}
-                  />
+                <div className="flex justify-end mb-2">
                   <div className="shrink-0 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
                     {getTipoAvalLabel(formData.tipoAval ?? aval.tipoAval)}
                   </div>

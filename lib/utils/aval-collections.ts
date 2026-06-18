@@ -98,19 +98,6 @@ export function isAvalCollectionActive(aval: Aval) {
   return aval.estado === "BORRADOR" || aval.estado === "SOLICITADO";
 }
 
-export function hasActiveFondosPublicosCollection(avales: Aval[]) {
-  return avales.some(
-    (aval) =>
-      aval.tipoAval === "FONDOS_PUBLICOS" && isAvalCollectionActive(aval),
-  );
-}
-
-export function hasActiveAutogestionCollection(avales: Aval[]) {
-  return avales.some(
-    (aval) => aval.tipoAval === "AUTOGESTION" && isAvalCollectionActive(aval),
-  );
-}
-
 export function getCollectionIdentifier(aval: Aval) {
   return (
     aval.avalTecnico?.numeroAval?.trim() ||
@@ -211,15 +198,3 @@ export function getAvalDelegationSummary(
   };
 }
 
-export function canCreateCollectionByType(
-  avales: Aval[],
-  tipoAval: TipoAval,
-) {
-  if (tipoAval === "FONDOS_PUBLICOS") {
-    return !hasActiveFondosPublicosCollection(avales);
-  }
-  if (tipoAval === "AUTOGESTION") {
-    return !hasActiveAutogestionCollection(avales);
-  }
-  return true;
-}

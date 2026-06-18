@@ -59,7 +59,6 @@ import {
   getCalendarDayDiff,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
@@ -215,11 +214,7 @@ export default function EventoDetailPage() {
       setTipoAval("SOLO_RESULTADO");
       return;
     }
-
-    if (!canCreateCollectionByType(avalesEvento, tipoAval)) {
-      setTipoAval("AUTOGESTION");
-    }
-  }, [avalesEvento, evento, tipoAval]);
+  }, [evento, tipoAval]);
 
   const handleDelete = async () => {
     if (!evento) return;
@@ -268,12 +263,6 @@ export default function EventoDetailPage() {
       );
       throw new Error(
         "Completa los datos faltantes del evento antes de crear el aval.",
-      );
-    }
-
-    if (!canCreateCollectionByType(avalesEvento, tipoAval)) {
-      throw new Error(
-        "Ya existe un aval activo de fondos públicos para este evento.",
       );
     }
 
@@ -341,9 +330,14 @@ export default function EventoDetailPage() {
   const missingFields = getEventoMissingFields(evento);
   const canManageReforms = canCreateReforma(user) && !isDTM;
   const canViewReforms = canAccessReforms(user) || isDTM || isTrainerUser(user);
+  // Un evento es "creable" mientras exista al menos una forma de participación
+  // configurada. La cantidad de avales por tipo no limita: FP/AG/SR aceptan N.
+  const tiposCreables = (
+    ["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"] as const
+  ).filter((tipo) => eventoTieneFormaParticipacion(evento, tipo));
   const canStartAval =
     canCreateAval &&
-    evento.estado === "DISPONIBLE" &&
+    tiposCreables.length > 0 &&
     !hasPendingReform &&
     !eventoIncompleto;
   const canRequestReforma = canManageReforms && !hasPendingReform;
@@ -380,7 +374,6 @@ export default function EventoDetailPage() {
       >
         <AvalUploadOptions
           evento={evento}
-          avales={avalesEvento}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
           formaParticipacionId={formaParticipacionId}

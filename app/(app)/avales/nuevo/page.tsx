@@ -24,7 +24,6 @@ import {
   getCalendarDateTimestamp,
 } from "@/lib/utils/formatters";
 import { avalFlowDebugLog } from "@/lib/debug/aval-flow";
-import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
 
 const PAGE_SIZE = 6;
 const FETCH_LIMIT = 20;
@@ -51,12 +50,10 @@ function getEventSortTimestamp(evento: Evento) {
   return 0;
 }
 
-function getAvailableTipos(evento: Evento, avales: Aval[]): TipoAval[] {
-  const tipos = Array.from(
+function getAvailableTipos(evento: Evento): TipoAval[] {
+  return Array.from(
     new Set(getEventoFormasParticipacion(evento).map((forma) => forma.tipoAval)),
   );
-
-  return tipos.filter((tipo) => canCreateCollectionByType(avales, tipo));
 }
 
 export default function NuevoAvalPage() {
@@ -83,13 +80,10 @@ export default function NuevoAvalPage() {
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
   useEffect(() => {
     if (!selectedEvento) return;
-    const availableTipos = getAvailableTipos(
-      selectedEvento,
-      avalesByEvento[selectedEvento.id] ?? [],
-    );
+    const availableTipos = getAvailableTipos(selectedEvento);
     if (availableTipos.includes(tipoAval)) return;
     setTipoAval(availableTipos[0] ?? "SOLO_RESULTADO");
-  }, [avalesByEvento, selectedEvento, tipoAval]);
+  }, [selectedEvento, tipoAval]);
 
   useEffect(() => {
     if (isComprasPublicas) {
@@ -145,7 +139,7 @@ export default function NuevoAvalPage() {
       );
       const avalesMap = Object.fromEntries(avalEntries);
       const filtered = sorted.filter(
-        (evento) => getAvailableTipos(evento, avalesMap[evento.id] ?? []).length > 0,
+        (evento) => getAvailableTipos(evento).length > 0,
       );
       setAvalesByEvento(avalesMap);
       setEventos(filtered.slice(0, PAGE_SIZE));
@@ -157,10 +151,7 @@ export default function NuevoAvalPage() {
           codigo: evento.codigo,
           nombre: evento.nombre,
           disciplinaId: evento.disciplina?.id,
-          tiposDisponibles: getAvailableTipos(
-            evento,
-            avalesMap[evento.id] ?? [],
-          ),
+          tiposDisponibles: getAvailableTipos(evento),
         })),
       });
     } catch (err: any) {
@@ -182,10 +173,7 @@ export default function NuevoAvalPage() {
         codigo: evento.codigo,
         nombre: evento.nombre,
         disciplinaId: evento.disciplina?.id,
-        tiposDisponibles: getAvailableTipos(
-          evento,
-          avalesByEvento[evento.id] ?? [],
-        ),
+        tiposDisponibles: getAvailableTipos(evento),
       },
       tipoAval,
     });
@@ -274,7 +262,6 @@ export default function NuevoAvalPage() {
       >
         <AvalUploadOptions
           evento={selectedEvento}
-          avales={selectedEvento ? avalesByEvento[selectedEvento.id] ?? [] : []}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
           formaParticipacionId={formaParticipacionId}

@@ -3,16 +3,14 @@
 import { useEffect } from "react";
 
 import { TIPO_AVAL_OPTIONS, getTipoAvalLabel } from "@/lib/constants";
-import { canCreateCollectionByType } from "@/lib/utils/aval-collections";
 import {
   eventoTieneFormaParticipacion,
   type Evento,
 } from "@/types/evento";
-import type { Aval, TipoAval } from "@/types/aval";
+import type { TipoAval } from "@/types/aval";
 
 type AvalUploadOptionsProps = {
   evento?: Evento | null;
-  avales?: Aval[];
   tipoAval: TipoAval;
   onTipoAvalChange: (value: TipoAval) => void;
   formaParticipacionId?: number | null;
@@ -21,7 +19,6 @@ type AvalUploadOptionsProps = {
 
 export default function AvalUploadOptions({
   evento,
-  avales = [],
   tipoAval,
   onTipoAvalChange,
   formaParticipacionId,
@@ -90,11 +87,7 @@ export default function AvalUploadOptions({
             evento,
             option.value,
           );
-          const blockedByCollection = !canCreateCollectionByType(
-            avales,
-            option.value,
-          );
-          const disabled = blockedByForma || blockedByCollection;
+          const disabled = blockedByForma;
           return (
             <button
               key={option.value}
@@ -120,11 +113,6 @@ export default function AvalUploadOptions({
                     ? "Permite monto solicitado editable luego por PDA."
                     : "Permite requerimientos manuales en la solicitud."}
               </p>
-              {blockedByCollection && (
-                <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-300">
-                  Ya existe un aval activo de {option.label.toLowerCase()}.
-                </p>
-              )}
               {blockedByForma && (
                 <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-300">
                   No existe esta forma de participación en el evento.

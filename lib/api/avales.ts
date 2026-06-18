@@ -225,9 +225,15 @@ export async function deleteAdjuntoSolicitud(
   });
 }
 
-export async function uploadPronosticoDeportistas(id: number, archivo: File) {
+export async function uploadPronosticoDeportistas(
+  id: number,
+  archivos: File | File[],
+) {
   const formData = new FormData();
-  formData.append("pronosticoDeportistas", archivo);
+  const lista = Array.isArray(archivos) ? archivos : [archivos];
+  for (const archivo of lista) {
+    formData.append("pronosticoDeportistas", archivo);
+  }
 
   return apiFetch<Aval>(`/avales/${id}/pronostico-deportistas`, {
     method: "PATCH",

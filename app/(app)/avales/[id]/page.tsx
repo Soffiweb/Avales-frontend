@@ -439,8 +439,9 @@ type DocumentAction = {
   label: string;
   url?: string | null;
   icon: ComponentType<LucideProps>;
-  replaceHandler?: (file: File) => Promise<Aval>;
+  replaceHandler?: (files: File[]) => Promise<Aval>;
   replaceLabel?: string;
+  allowMultiple?: boolean;
 };
 
 type DocumentActionRowProps = {
@@ -470,12 +471,12 @@ function DocumentActionRow({
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = e.target.files ? Array.from(e.target.files) : [];
     e.target.value = "";
-    if (!file || !item.replaceHandler) return;
+    if (files.length === 0 || !item.replaceHandler) return;
     try {
       setReplacing(true);
-      const updated = await item.replaceHandler(file);
+      const updated = await item.replaceHandler(files);
       onReplaced(updated);
     } catch (err: unknown) {
       const message =
@@ -514,6 +515,7 @@ function DocumentActionRow({
           type="file"
           className="hidden"
           accept={acceptedTypes}
+          multiple={item.allowMultiple}
           onChange={handleFileChange}
         />
         <button
@@ -553,6 +555,7 @@ function DocumentActionRow({
             type="file"
             className="hidden"
             accept={acceptedTypes}
+            multiple={item.allowMultiple}
             onChange={handleFileChange}
           />
           <button
@@ -1023,25 +1026,26 @@ export default function AvalDetailPage() {
       label: "Descargar convocatoria",
       url: aval.convocatoriaUrl,
       icon: Download,
-      replaceHandler: (file) =>
-        uploadConvocatoriaPrincipal(aval.id, file).then((r) => r.data),
+      replaceHandler: (files) =>
+        uploadConvocatoriaPrincipal(aval.id, files[0]).then((r) => r.data),
       replaceLabel: "Reemplazar convocatoria",
     },
     {
       label: "Descargar certificado médico",
       url: aval.certificadoMedicoUrl,
       icon: HeartPulse,
-      replaceHandler: (file) =>
-        uploadCertificadoMedico(aval.id, file).then((r) => r.data),
+      replaceHandler: (files) =>
+        uploadCertificadoMedico(aval.id, files[0]).then((r) => r.data),
       replaceLabel: "Reemplazar certificado médico",
     },
     {
       label: "Descargar pronóstico de deportistas",
       url: aval.pronosticoDeportistasUrl,
       icon: ClipboardCheck,
-      replaceHandler: (file) =>
-        uploadPronosticoDeportistas(aval.id, file).then((r) => r.data),
-      replaceLabel: "Reemplazar pronóstico de deportistas",
+      replaceHandler: (files) =>
+        uploadPronosticoDeportistas(aval.id, files).then((r) => r.data),
+      replaceLabel: "Reemplazar / agregar pronósticos",
+      allowMultiple: true,
     },
   ];
   const canShowPresupuestoSalida =

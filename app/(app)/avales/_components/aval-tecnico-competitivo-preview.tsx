@@ -63,20 +63,26 @@ export default function AvalTecnicoCompetitivoPreview({
     .slice(1)
     .map((item) => {
       const withUser = item as typeof item & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
+        usuario?: { nombre?: string; apellido?: string; cedula?: string };
+        entrenador?: { nombre?: string; apellido?: string; cedula?: string };
         nombre?: string;
         apellido?: string;
+        cedula?: string;
       };
-      return (
+      const nombreCompleto =
         [
           withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
           withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
-          .trim() || `Entrenador ${item.entrenadorId}`
-      ).toUpperCase();
+          .trim() || `Entrenador ${item.entrenadorId}`;
+      const cedula =
+        withUser.entrenador?.cedula ??
+        withUser.usuario?.cedula ??
+        withUser.cedula;
+      const linea = cedula ? `${nombreCompleto} - ${cedula}` : nombreCompleto;
+      return linea.toUpperCase();
     })
     .join(", ") || "-";
 

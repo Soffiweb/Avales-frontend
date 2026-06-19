@@ -770,12 +770,32 @@ export default function EventoDetailPage() {
                             forma.numEntrenadoresHombres + forma.numEntrenadoresMujeres;
                           const totalDelegacion = totalAtletas + totalEntrenadores;
                           const items = forma.items ?? [];
-                          const totalPresupuesto =
-                            Number.parseFloat(forma.presupuestoTotal ?? "0") ||
-                            items.reduce((sum, item) => {
-                              const value = Number.parseFloat(item.presupuesto) || 0;
-                              return sum + value;
-                            }, 0);
+                          // "Disponible" por item = presupuesto asignado − comprometido − ejecutado.
+                          // El total que mostramos al usuario es la suma de disponibles, no del
+                          // presupuesto bruto: así cuando un aval ya se aprobó (y el monto quedó
+                          // comprometido o ejecutado), el evento refleja que ya no hay esos fondos.
+                          const itemsConDisponible = items.map((item) => {
+                            const asignado = Number.parseFloat(item.presupuesto) || 0;
+                            const comprometido =
+                              Number.parseFloat(item.montoComprometido ?? "0") || 0;
+                            const ejecutado =
+                              Number.parseFloat(item.montoEjecutado ?? "0") || 0;
+                            return {
+                              ...item,
+                              asignado,
+                              comprometido,
+                              ejecutado,
+                              disponible: asignado - comprometido - ejecutado,
+                            };
+                          });
+                          const totalDisponible = itemsConDisponible.reduce(
+                            (sum, item) => sum + item.disponible,
+                            0,
+                          );
+                          const totalAsignado = itemsConDisponible.reduce(
+                            (sum, item) => sum + item.asignado,
+                            0,
+                          );
                           const sinFinanciamiento = forma.tipoAval === "SOLO_RESULTADO";
 
                           return (
@@ -818,9 +838,14 @@ export default function EventoDetailPage() {
                                     </p>
                                   </div>
                                   {!sinFinanciamiento ? (
-                                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                                      {formatCurrency(totalPresupuesto)}
-                                    </p>
+                                    <div className="text-right">
+                                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                                        {formatCurrency(totalDisponible)}
+                                      </p>
+                                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                        Disponible · Asignado {formatCurrency(totalAsignado)}
+                                      </p>
+                                    </div>
                                   ) : null}
                                 </div>
                                 {sinFinanciamiento ? (
@@ -837,11 +862,12 @@ export default function EventoDetailPage() {
                                           <th className="px-4 py-3 text-left">Descripción</th>
                                           <th className="px-4 py-3 text-center">Mes</th>
                                           <th className="px-4 py-3 text-right">V. Unitario</th>
-                                          <th className="px-4 py-3 text-right">Presupuesto</th>
+                                          <th className="px-4 py-3 text-right">Asignado</th>
+                                          <th className="px-4 py-3 text-right">Disponible</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-                                        {items.map((eventoItem) => (
+                                        {itemsConDisponible.map((eventoItem) => (
                                           <tr key={eventoItem.id} className="text-sm">
                                             <td className="px-4 py-3">
                                               <div className="font-medium text-gray-900 dark:text-gray-100">
@@ -868,8 +894,17 @@ export default function EventoDetailPage() {
                                                 ? formatCurrency(parseFloat(eventoItem.valorUnitario))
                                                 : "-"}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                                              {formatCurrency(parseFloat(eventoItem.presupuesto) || 0)}
+                                            <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                                              {formatCurrency(eventoItem.asignado)}
+                                            </td>
+                                            <td
+                                              className={`px-4 py-3 text-right font-medium ${
+                                                eventoItem.disponible <= 0
+                                                  ? "text-rose-600 dark:text-rose-300"
+                                                  : "text-gray-900 dark:text-gray-100"
+                                              }`}
+                                            >
+                                              {formatCurrency(eventoItem.disponible)}
                                             </td>
                                           </tr>
                                         ))}

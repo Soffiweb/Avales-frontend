@@ -13,12 +13,41 @@ const TRANSPORTE_LABELS: Record<string, string> = {
 };
 
 type ExtendedTrainer = NonNullable<Aval["entrenadores"]>[number] & {
-  usuario?: { nombre?: string; apellido?: string; cedula?: string };
-  entrenador?: { nombre?: string; apellido?: string; cedula?: string };
+  usuario?: {
+    nombre?: string;
+    apellido?: string;
+    cedula?: string;
+    ruc?: string | null;
+    usarRuc?: boolean;
+  };
+  entrenador?: {
+    nombre?: string;
+    apellido?: string;
+    cedula?: string;
+    ruc?: string | null;
+    usarRuc?: boolean;
+  };
   nombre?: string;
   apellido?: string;
   cedula?: string;
+  ruc?: string | null;
+  usarRuc?: boolean;
 };
+
+function pickIdentificador(t: ExtendedTrainer): {
+  identificador: string;
+  esRuc: boolean;
+} {
+  // Prioridad: usuario, entrenador, raíz.
+  const usarRuc =
+    t.usuario?.usarRuc ?? t.entrenador?.usarRuc ?? t.usarRuc ?? false;
+  const ruc = t.usuario?.ruc ?? t.entrenador?.ruc ?? t.ruc;
+  const cedula = t.usuario?.cedula ?? t.entrenador?.cedula ?? t.cedula;
+  if (usarRuc && ruc?.trim()) {
+    return { identificador: ruc.trim(), esRuc: true };
+  }
+  return { identificador: cedula?.trim() || "-", esRuc: false };
+}
 
 export function getResponsibleTrainerName(
   aval: Aval,
@@ -52,7 +81,7 @@ export function getResponsibleTrainerData(
   const first = sorted[0] as ExtendedTrainer | undefined;
 
   if (!first) {
-    return { nombre: fallbackName, cedula: "-" };
+    return { nombre: fallbackName, cedula: "-", identificador: "-", esRuc: false };
   }
 
   const nombre = (
@@ -65,10 +94,12 @@ export function getResponsibleTrainerData(
       .trim() || fallbackName
   ).toUpperCase();
 
-  const cedula =
-    first.entrenador?.cedula ?? first.usuario?.cedula ?? first.cedula ?? "-";
-
-  return { nombre, cedula };
+  const { identificador, esRuc } = pickIdentificador(first);
+  // `cedula` se mantiene como alias del identificador (RUC o cédula) para no
+  // romper los previews actuales (PDA, presupuesto-salida, certificación
+  // financiera) que muestran "C.I." pero ahora reciben el RUC cuando el
+  // responsable lo tiene activado.
+  return { nombre, cedula: identificador, identificador, esRuc };
 }
 
 export function formatTransport(value?: string | null): string {

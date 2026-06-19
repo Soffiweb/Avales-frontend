@@ -168,6 +168,8 @@ export default function ProfilePanel({ viewUserId }: Props) {
       apellido: subjectUser.apellido ?? "",
       email: subjectUser.email ?? "",
       cedula: subjectUser.cedula ?? "",
+      ruc: subjectUser.ruc ?? "",
+      usarRuc: subjectUser.usarRuc ?? false,
       categoriaId: getPrimaryCategoriaId(subjectUser, categorias),
       disciplinaId: getPrimaryDisciplinaId(subjectUser, disciplinas),
     };
@@ -294,6 +296,55 @@ export default function ProfilePanel({ viewUserId }: Props) {
                   {errors.cedula.message}
                 </p>
               )}
+            </div>
+          </div>
+        </section>
+
+        {/* Facturación: RUC opcional */}
+        <section>
+          <h2 className="text-xl leading-snug text-gray-800 dark:text-gray-100 font-bold mb-1">
+            Facturación
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Si activás &quot;Usar RUC&quot;, los documentos financieros (presupuesto de salida,
+            certificación financiera, PDA) usarán el RUC en lugar de la cédula.
+          </p>
+
+          <div className="sm:flex sm:items-start space-y-4 sm:space-y-0 sm:space-x-4 mt-2">
+            <div className="sm:w-1/3">
+              <label className="block text-sm font-medium mb-1" htmlFor="ruc">
+                RUC
+              </label>
+              <input
+                id="ruc"
+                className="form-input w-full"
+                type="text"
+                inputMode="numeric"
+                placeholder="13 dígitos"
+                disabled={isReadOnly}
+                {...register("ruc")}
+              />
+              {errors.ruc && (
+                <p className="mt-1 text-xs text-red-600">{errors.ruc.message}</p>
+              )}
+            </div>
+
+            <div className="sm:w-1/3">
+              <label className="block text-sm font-medium mb-1" htmlFor="usarRuc">
+                Usar RUC en documentos
+              </label>
+              <label className="inline-flex items-center gap-2 mt-2">
+                <input
+                  id="usarRuc"
+                  type="checkbox"
+                  className="form-checkbox"
+                  disabled={isReadOnly}
+                  {...register("usarRuc")}
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Sí, usar RUC
+                </span>
+              </label>
             </div>
           </div>
         </section>

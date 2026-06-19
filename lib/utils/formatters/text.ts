@@ -81,10 +81,13 @@ export function formatRoles(
   return roles
     .map((role) => {
       if (typeof role === "string") return formatRole(role);
-      const code = role?.codigo?.trim();
-      if (code) return formatRole(code);
+      // Priorizamos el `nombre` configurado del rol (ej. "Director del DTM")
+      // porque es el texto que el usuario configuró en el catálogo y puede
+      // cambiar. Solo si no viene nombre, hacemos fallback al código formateado.
       const name = role?.nombre?.trim();
-      return name || "-";
+      if (name) return name;
+      const code = role?.codigo?.trim();
+      return code ? formatRole(code) : "-";
     })
     .join(", ");
 }

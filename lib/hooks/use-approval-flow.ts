@@ -120,10 +120,14 @@ export function useApprovalFlow({
     return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
   }, [user]);
 
-  const defaultSignerCargo = useMemo(
-    () => (user?.roles?.length ? formatRoles(user.roles) : ""),
-    [user],
-  );
+  const defaultSignerCargo = useMemo(() => {
+    // Preferimos `rolesDetalle` porque trae el `nombre` configurado en el
+    // catálogo (ej. "Director del DTM") que es lo que el usuario quiere ver
+    // en los formularios y PDFs. `roles` (strings) es el fallback.
+    if (user?.rolesDetalle?.length) return formatRoles(user.rolesDetalle);
+    if (user?.roles?.length) return formatRoles(user.roles);
+    return "";
+  }, [user]);
 
   useEffect(() => {
     setActionError(null);

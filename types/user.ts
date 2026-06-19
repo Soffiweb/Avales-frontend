@@ -21,6 +21,10 @@ export type User = {
   nombre: string;
   apellido: string;
   cedula: string;
+  /** RUC del usuario (opcional). Si está y `usarRuc=true`, se usa en documentos contables en vez de la cédula. */
+  ruc?: string | null;
+  /** Si true, en documentos contables (financiero, presupuesto salida, PDA) se usa el RUC. */
+  usarRuc?: boolean;
   genero?: Genero;
   categoria?: CatalogItem;
   categoriaId?: number;
@@ -30,6 +34,11 @@ export type User = {
   disciplinaCodigo?: string | null;
   disciplinasDetalle?: CatalogItem[];
   roles?: RoleLike[];
+  /** Roles del usuario con su nombre configurado (ej. "Director del DTM").
+   *  Lo manda el backend en `cleanUser` junto a `roles` (que son solo códigos).
+   *  Preferí este para mostrar el rol al usuario; el `nombre` es lo que se
+   *  configuró en el catálogo de roles. */
+  rolesDetalle?: RoleDto[];
   /** Rol con el que el usuario está operando en esta sesión (elegido en /auth/select-role). */
   rolActivo?: RoleLike;
   rolId?: number;

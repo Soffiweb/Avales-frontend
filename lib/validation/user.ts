@@ -4,6 +4,13 @@ const rolesSchema = z
   .array(z.string().trim().min(1))
   .min(1, "Asigna al menos un rol");
 
+const rucSchema = z
+  .string()
+  .max(13, "RUC: máximo 13 caracteres")
+  .regex(/^\d*$/, "RUC: solo dígitos")
+  .optional()
+  .or(z.literal(""));
+
 const baseUserSchema = z.object({
   nombre: z.string().min(2, "Nombre: minimo 2 caracteres").max(60),
   apellido: z
@@ -15,6 +22,8 @@ const baseUserSchema = z.object({
   cedula: z
     .string()
     .regex(/^\d{10}$/, "Cedula invalida: deben ser 10 digitos"),
+  ruc: rucSchema,
+  usarRuc: z.boolean().optional(),
   genero: z
     .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
     .optional()
@@ -27,16 +36,28 @@ const baseUserSchema = z.object({
   puedeSolicitarReformas: z.boolean().default(false),
 });
 
-export const profileSchema = z.object({
-  nombre: z.string().min(2, "Nombre: minimo 2 caracteres").max(60),
-  apellido: z.string().min(2, "Apellido: minimo 2 caracteres").max(60),
-  email: z.string().email("Email invalido").max(120),
-  cedula: z
-    .string()
-    .regex(/^\d{10}$/, "Cedula invalida: deben ser 10 digitos"),
-  categoriaId: z.number().int().positive("Categoria invalida").optional(),
-  disciplinaId: z.number().int().positive("Disciplina invalida").optional(),
-});
+export const profileSchema = z
+  .object({
+    nombre: z.string().min(2, "Nombre: minimo 2 caracteres").max(60),
+    apellido: z.string().min(2, "Apellido: minimo 2 caracteres").max(60),
+    email: z.string().email("Email invalido").max(120),
+    cedula: z
+      .string()
+      .regex(/^\d{10}$/, "Cedula invalida: deben ser 10 digitos"),
+    ruc: rucSchema,
+    usarRuc: z.boolean().optional(),
+    categoriaId: z.number().int().positive("Categoria invalida").optional(),
+    disciplinaId: z.number().int().positive("Disciplina invalida").optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.usarRuc && !values.ruc?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ruc"],
+        message: "Si activás 'usar RUC', ingresá el RUC.",
+      });
+    }
+  });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 

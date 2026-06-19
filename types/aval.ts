@@ -192,17 +192,23 @@ export type EntrenadorAval = {
   nombre?: string;
   apellido?: string;
   cedula?: string;
+  ruc?: string | null;
+  usarRuc?: boolean;
   genero?: string;
   entrenador?: {
     nombre?: string;
     apellido?: string;
     cedula?: string;
+    ruc?: string | null;
+    usarRuc?: boolean;
     genero?: string;
   };
   usuario?: {
     nombre?: string;
     apellido?: string;
     cedula?: string;
+    ruc?: string | null;
+    usarRuc?: boolean;
     genero?: string;
   };
 };

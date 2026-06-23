@@ -62,6 +62,7 @@ export function formatRole(role?: string | null): string {
     CONTROL_PREVIO: "Control previo",
     COMPRAS_PUBLICAS: "Compras públicas",
     FINANCIERO: "Financiero",
+    LECTOR: "Lector",
   };
   if (map[key]) return map[key];
 

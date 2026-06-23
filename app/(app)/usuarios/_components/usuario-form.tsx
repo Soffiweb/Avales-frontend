@@ -46,6 +46,7 @@ const ROLE_OPTIONS: Role[] = [
   "CONTROL_PREVIO",
   "FINANCIERO",
   "COMPRAS_PUBLICAS",
+  "LECTOR",
 ];
 
 const defaultRoleSelection: Role[] = [];

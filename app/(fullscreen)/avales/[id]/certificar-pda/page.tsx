@@ -33,7 +33,7 @@ import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documento
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
 import SaveIndicator from "@/components/ui/save-indicator";
-import DraftRestoredToast from "@/components/ui/draft-restored-toast";
+// import DraftRestoredToast from "@/components/ui/draft-restored-toast";
 
 const INITIAL_PDA_DRAFT: PdaDraft = {
   descripcion: "",
@@ -461,11 +461,12 @@ export default function CertificarAvalPage() {
 
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
   const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
-  const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
-  const [draftToastVisible, setDraftToastVisible] = useState(false);
+  // Autosave desactivado — refs y state conservados comentados por si se reactiva
+  // const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
+  // const [draftToastVisible, setDraftToastVisible] = useState(false);
   const autosaveRef = useRef<{ clear: () => void }>({ clear: () => {} });
   const autosaveRestoredRef = useRef(false);
-  const hasRestoredRef = useRef(false);
+  // const hasRestoredRef = useRef(false);
 
   const totalPresupuestoDraft = useMemo(
     () =>
@@ -601,7 +602,6 @@ export default function CertificarAvalPage() {
     setDraft(INITIAL_PDA_DRAFT);
     setBudgetDraftItems([]);
     autosaveRestoredRef.current = false;
-    hasRestoredRef.current = false;
   }, [avalId]);
 
   // Populate draft description, numbers and firmante from the loaded aval.
@@ -640,6 +640,7 @@ export default function CertificarAvalPage() {
     setBudgetDraftItems(buildBudgetDraftItems(aval));
   }, [aval]);
 
+  // Autosave desactivado para este paso
   const autosaveCombined = useMemo<PdaAutosaveState>(
     () => ({ draft, budgetDraftItems }),
     [draft, budgetDraftItems],
@@ -648,40 +649,40 @@ export default function CertificarAvalPage() {
   const {
     status: autosaveStatus,
     lastSavedAt: autosaveLastSavedAt,
-    restore: restoreAutosave,
-    clear: clearAutosave,
+    // restore: restoreAutosave,
+    // clear: clearAutosave,
   } = useAutosaveDraft<PdaAutosaveState>({
     key: `aval:${avalId}:pda`,
     state: autosaveCombined,
-    enabled: isEditable,
+    enabled: false,
     userId: user?.id,
   });
 
-  useEffect(() => {
-    autosaveRef.current = { clear: clearAutosave };
-  }, [clearAutosave]);
+  // useEffect(() => {
+  //   autosaveRef.current = { clear: clearAutosave };
+  // }, [clearAutosave]);
 
   // Restore autosave draft when the form first becomes editable
-  useEffect(() => {
-    if (!aval || !isEditable || hasRestoredRef.current) return;
-    hasRestoredRef.current = true;
-    const restored = restoreAutosave();
-    if (restored) {
-      setDraft(restored.state.draft);
-      setBudgetDraftItems(restored.state.budgetDraftItems);
-      setDraftRestoredAt(restored.savedAt);
-      setDraftToastVisible(true);
-      autosaveRestoredRef.current = true;
-    }
-  }, [aval, isEditable, restoreAutosave]);
+  // useEffect(() => {
+  //   if (!aval || !isEditable || hasRestoredRef.current) return;
+  //   hasRestoredRef.current = true;
+  //   const restored = restoreAutosave();
+  //   if (restored) {
+  //     setDraft(restored.state.draft);
+  //     setBudgetDraftItems(restored.state.budgetDraftItems);
+  //     setDraftRestoredAt(restored.savedAt);
+  //     setDraftToastVisible(true);
+  //     autosaveRestoredRef.current = true;
+  //   }
+  // }, [aval, isEditable, restoreAutosave]);
 
-  const handleDiscardDraft = useCallback(() => {
-    clearAutosave();
-    if (aval) setBudgetDraftItems(buildBudgetDraftItems(aval));
-    setDraft(INITIAL_PDA_DRAFT);
-    setDraftToastVisible(false);
-    autosaveRestoredRef.current = false;
-  }, [clearAutosave, aval]);
+  // const handleDiscardDraft = useCallback(() => {
+  //   clearAutosave();
+  //   if (aval) setBudgetDraftItems(buildBudgetDraftItems(aval));
+  //   setDraft(INITIAL_PDA_DRAFT);
+  //   setDraftToastVisible(false);
+  //   autosaveRestoredRef.current = false;
+  // }, [clearAutosave, aval]);
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -926,12 +927,13 @@ export default function CertificarAvalPage() {
 
   return (
     <div className="h-screen flex">
+      {/* DraftRestoredToast desactivado — autosave deshabilitado
       <DraftRestoredToast
         visible={draftToastVisible}
         savedAt={draftRestoredAt}
         onDiscard={handleDiscardDraft}
         onDismiss={() => setDraftToastVisible(false)}
-      />
+      /> */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full drop-shadow-lg">
           <AlertBanner

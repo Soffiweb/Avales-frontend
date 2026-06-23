@@ -221,7 +221,6 @@ export function eventoTieneFormaParticipacion(
   tipoAval: TipoAval,
 ): boolean {
   if (!evento) return false;
-  if (tipoAval === "SOLO_RESULTADO") return true;
 
   return (
     evento.formasParticipacion?.some((forma) => forma.tipoAval === tipoAval) ??

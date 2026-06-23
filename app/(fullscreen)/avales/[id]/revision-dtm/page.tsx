@@ -36,6 +36,10 @@ import {
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { isDTMUser } from "@/lib/auth/access";
+import {
+  formatEventScheduleSentence,
+  getResponsibleTrainerName,
+} from "@/lib/utils/formatters";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
@@ -108,8 +112,21 @@ function buildDtmDraft(
   };
 }
 
-function buildDefaultDtmDescripcion() {
-  return "El Departamento Técnico Metodológico de la Federación Deportiva Provincial de Loja, una vez recibido, analizado, discutido el Aval Técnico, anexos y demás documentos necesarios para el efecto y al existir las factibilidades para su participación, concede el presente aval técnico, de acuerdo con el siguiente detalle:";
+function buildDefaultDtmDescripcion(aval: Aval) {
+  const evento = aval.evento;
+  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
+  const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
+  const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
+  const numeroSolicitud =
+    aval.avalTecnico?.numeroAval ??
+    aval.aval ??
+    aval.numeroColeccion ??
+    `[SOLICITUD ${aval.id}]`;
+  const lugar =
+    evento?.lugar || evento?.ciudad || evento?.provincia || "[LUGAR]";
+  const rangoFechas = formatEventScheduleSentence(evento);
+
+  return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}. El Departamento Técnico Metodológico de la Federación Deportiva Provincial de Loja, una vez recibido, analizado, discutido la solicitud, anexos y demás documentos necesarios para el efecto, concede el presente aval técnico, de acuerdo con el siguiente detalle:`;
 }
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
@@ -293,7 +310,7 @@ export default function RevisionDtmPage() {
     if (draft.descripcion.trim()) return;
     setDraft((prev) => ({
       ...prev,
-      descripcion: buildDefaultDtmDescripcion(),
+      descripcion: buildDefaultDtmDescripcion(aval),
     }));
   }, [aval, draft.descripcion]);
 

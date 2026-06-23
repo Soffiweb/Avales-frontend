@@ -135,6 +135,10 @@ export function isSecretariaDtmUser(user: User | null | undefined) {
   return getNormalizedRoles(user).includes("SECRETARIA_DTM");
 }
 
+export function isLectorUser(user: User | null | undefined) {
+  return getNormalizedRoles(user).includes("LECTOR");
+}
+
 export function isAvalReviewer(user: User | null | undefined) {
   return (
     isDTMUser(user) ||

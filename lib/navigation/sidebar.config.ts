@@ -48,6 +48,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
       "SECRETARIA",
       "SECRETARIA_DTM",
       "COMPRAS_PUBLICAS",
+      "LECTOR",
     ],
   },
   {
@@ -92,6 +93,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
       "SECRETARIA",
       "SECRETARIA_DTM",
       "COMPRAS_PUBLICAS",
+      "LECTOR",
     ],
   },
   {
@@ -117,7 +119,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/eventos",
     segment: "eventos",
     icon: "eventos",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "SECRETARIA_DTM", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE", "METODOLOGO"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "SECRETARIA_DTM", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE", "METODOLOGO", "LECTOR"],
   },
   {
     type: "link",

@@ -533,6 +533,7 @@ export default function CertificarAvalPage() {
         const items = budgetDraftItems
           .map((item) => ({
             itemId: item.itemId,
+            formaParticipacionItemId: item.id,
             nombrePersonalizado:
               item.nombrePersonalizado.trim() &&
               item.nombrePersonalizado.trim() !== item.nombreBase

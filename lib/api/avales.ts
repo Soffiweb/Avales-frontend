@@ -273,6 +273,7 @@ export type CreatePdaItemDiaPayload = {
 
 export type CreatePdaItemPayload = {
   itemId: number;
+  formaParticipacionItemId?: number;
   nombrePersonalizado?: string;
   presupuesto: number;
   dias: CreatePdaItemDiaPayload[];

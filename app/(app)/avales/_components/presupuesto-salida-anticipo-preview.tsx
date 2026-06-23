@@ -217,7 +217,7 @@ export default function PresupuestoSalidaAnticipoPreview({
         pdaItem.itemNombre ||
         presupuestoLookup.get(pdaItem.itemId) ||
         `Item ${pdaItem.itemId}`;
-      const valorCertPda = formaMap.get(pdaItem.itemId) ?? 0;
+      const valorCertPda = pdaItem.presupuestoCertificado ?? formaMap.get(pdaItem.itemId) ?? 0;
       const dias = pdaItem.dias ?? [];
       if (dias.length === 0) {
         tableRows.push({

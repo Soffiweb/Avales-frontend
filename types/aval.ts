@@ -332,6 +332,8 @@ export type Aval = {
       itemNombre?: string | null;
       nombrePersonalizado?: string | null;
       presupuesto: number;
+      formaParticipacionItemId?: number | null;
+      presupuestoCertificado?: number | null;
       dias: PdaItemDia[];
     }> | null;
   } | null;

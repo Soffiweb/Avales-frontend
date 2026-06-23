@@ -582,6 +582,8 @@ export default function CertificarAvalPage() {
           items,
         });
 
+        console.log("[PDA] payload enviado:", JSON.stringify(pdaPayload, null, 2));
+        console.log("[PDA] params:", { avalId: a.id, userId, approvalEtapa, adminSaveOnly });
         if (adminSaveOnly) {
           await adminSavePda(a.id, userId, pdaPayload, approvalEtapa);
         } else {

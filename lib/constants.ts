@@ -43,6 +43,7 @@ export const ROLES = [
   "control_previo",
   "compras_publicas",
   "financiero",
+  "lector",
 ] as const;
 
 export type Role = (typeof ROLES)[number];

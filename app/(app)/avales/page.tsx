@@ -78,7 +78,7 @@ export default function AvalesPage() {
     search: "",
     estado: "",
     tipoAval: "",
-    mixto: "",
+    disciplina: "",
   });
 
   // Defaults por rol — se calculan una vez y entran en el queryKey
@@ -105,7 +105,7 @@ export default function AvalesPage() {
         filters.search,
         efectivoEstado,
         filters.tipoAval,
-        filters.mixto,
+        filters.disciplina,
         efectivoEtapa,
         page,
         user?.id,
@@ -131,16 +131,6 @@ export default function AvalesPage() {
           const matchesTipoAval =
             !filters.tipoAval || aval.tipoAval === filters.tipoAval;
           if (!matchesTipoAval) return false;
-          const hasSoloResultadoParticipant =
-            (aval.avalTecnico?.deportistasAval ?? []).some(
-              (deportista) =>
-                deportista.modalidadParticipacion === "SOLO_RESULTADO",
-            );
-          const matchesMixto =
-            !filters.mixto ||
-            (filters.mixto === "SI" && hasSoloResultadoParticipant) ||
-            (filters.mixto === "NO" && !hasSoloResultadoParticipant);
-          if (!matchesMixto) return false;
           if (!term) return true;
           const candidates = [
             aval.evento?.nombre,
@@ -191,8 +181,8 @@ export default function AvalesPage() {
       )}
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto space-y-6">
-        <div className="sm:flex sm:justify-between sm:items-center gap-4">
-          <div className="mb-4 sm:mb-0">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
             <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
               {isAdmin ? "Gestión de Avales" : "Mis Avales"}
             </h1>
@@ -203,15 +193,37 @@ export default function AvalesPage() {
             </p>
           </div>
 
-          <div className="grid grid-flow-row sm:grid-flow-col sm:auto-cols-max sm:justify-end gap-2 w-full sm:w-auto">
-            <SearchInput
-              className="w-full sm:w-64"
-              placeholder="Buscar por evento, disciplina, código o número de aval"
-              value={filters.search}
-              onChange={(v) => setFilter("search", v)}
-            />
+          {!isAdmin && !isReviewer && !isSecretaria &&
+            (hasDisciplina ? (
+              <Link
+                href="/avales/nuevo"
+                className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white shrink-0"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Crear aval
+              </Link>
+            ) : (
+              <button
+                disabled
+                className="btn bg-gray-400 text-gray-100 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400 shrink-0"
+                title="Debes tener una disciplina asignada para crear avales"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Crear aval
+              </button>
+            ))}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <SearchInput
+            className="w-full sm:flex-1"
+            placeholder="Buscar por evento, disciplina, código o número de aval"
+            value={filters.search}
+            onChange={(v) => setFilter("search", v)}
+          />
+          <div className="flex flex-wrap gap-2 shrink-0">
             <select
-              className="form-select w-full sm:w-48"
+              className="form-select w-full sm:w-auto"
               value={filters.estado}
               onChange={(e) => setFilter("estado", e.target.value)}
             >
@@ -222,7 +234,7 @@ export default function AvalesPage() {
               ))}
             </select>
             <select
-              className="form-select w-full sm:w-48"
+              className="form-select w-full sm:w-auto"
               value={filters.tipoAval}
               onChange={(e) => setFilter("tipoAval", e.target.value)}
             >
@@ -234,16 +246,14 @@ export default function AvalesPage() {
               ))}
             </select>
             <select
-              className="form-select w-full sm:w-40"
-              value={filters.mixto}
-              onChange={(e) => setFilter("mixto", e.target.value)}
+              className="form-select w-full sm:w-auto"
+              value={filters.disciplina}
+              onChange={(e) => setFilter("disciplina", e.target.value)}
             >
-              <option value="">Todos</option>
-              <option value="SI">Mixtos</option>
-              <option value="NO">Sin mixtos</option>
+              <option value="">Todas las disciplinas</option>
             </select>
             <select
-              className="form-select w-full sm:w-56"
+              className="form-select w-full sm:w-auto"
               value={etapa}
               onChange={(e) => {
                 setEtapa(e.target.value);
@@ -256,25 +266,6 @@ export default function AvalesPage() {
                 </option>
               ))}
             </select>
-            {!isAdmin && !isReviewer && !isSecretaria &&
-              (hasDisciplina ? (
-                <Link
-                  href="/avales/nuevo"
-                  className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Crear aval
-                </Link>
-              ) : (
-                <button
-                  disabled
-                  className="btn bg-gray-400 text-gray-100 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400"
-                  title="Debes tener una disciplina asignada para crear avales"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Crear aval
-                </button>
-              ))}
           </div>
         </div>
 

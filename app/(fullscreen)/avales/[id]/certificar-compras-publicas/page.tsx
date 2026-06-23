@@ -158,6 +158,7 @@ export default function CertificarComprasPublicasPage() {
   const avalId = Number(params.id);
 
   const [draft, setDraft] = useState<ComprasPublicasDraft>(INITIAL_DRAFT);
+  const [sumilla, setSumilla] = useState("Se emite el certificado y se adjunta la Resolución ");
   const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
   const [draftToastVisible, setDraftToastVisible] = useState(false);
   const [forceEdit, setForceEdit] = useState(false);
@@ -203,6 +204,9 @@ export default function CertificarComprasPublicasPage() {
     enableEtapaDestino: true,
     additionalEditableCheck: useCallback((a: Aval) => !a.comprasPublicas, []),
     validateApprove: useCallback((_currentAval: Aval) => {
+      if (!sumilla.trim()) {
+        return "Debes completar la sumilla indicando la resolución adjunta.";
+      }
       if (draft.realizoProceso === true) {
         if (draftCodigos.length === 0) {
           return "Debes ingresar al menos un código de necesidad.";
@@ -215,7 +219,7 @@ export default function CertificarComprasPublicasPage() {
         }
       }
       return null;
-    }, [draft.realizoProceso, draftCodigos]),
+    }, [sumilla, draft.realizoProceso, draftCodigos]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const requiresContratacion = draft.realizoProceso === true;
@@ -253,11 +257,11 @@ export default function CertificarComprasPublicasPage() {
             refreshedEtapa,
           );
           const resolvedEtapa = nextEtapa ?? refreshedEtapa;
-          await aprobarAval(a.id, userId, resolvedEtapa);
+          await aprobarAval(a.id, userId, resolvedEtapa, { comentario: sumilla });
         }
         autosaveRef.current.clear();
       },
-      [draft, autosaveRef],
+      [draft, sumilla, autosaveRef],
     ),
     onRejectSuccess: useCallback(() => { autosaveRef.current.clear(); }, [autosaveRef]),
     approveSuccessMessage: "Certificación de Compras Públicas registrada correctamente.",
@@ -659,6 +663,19 @@ export default function CertificarComprasPublicasPage() {
                       {summaryText}
                     </p>
                   </div>
+
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                      Sumilla
+                    </span>
+                    <textarea
+                      className="form-textarea w-full mt-1 text-sm"
+                      rows={2}
+                      value={sumilla}
+                      onChange={(e) => setSumilla(e.target.value)}
+                      placeholder="Ej: Se emite el certificado y se adjunta la Resolución FDPL-2026-001"
+                    />
+                  </label>
 
                   {!adminSaveOnly && (
                     <label className="block">

@@ -388,45 +388,44 @@ export async function updateNumeracion(id: number, payload: UpdateNumeracionPayl
   });
 }
 
+export type AprobarAvalOptions = {
+  revisionMetodologo?: ApproveRevisionMetodologoPayload;
+  revisionDtm?: ApproveRevisionDtmPayload;
+  financieroNotas?: ApproveFinancieroNotasPayload;
+  descripcionControlPrevio?: string;
+  periodoComision?: string;
+  periodoComisionFin?: string;
+  comentario?: string;
+};
+
 export async function aprobarAval(
   id: number,
   usuarioId: number,
   etapa: EtapaFlujo,
-  revisionMetodologo?: ApproveRevisionMetodologoPayload,
-  revisionDtm?: ApproveRevisionDtmPayload,
-  financieroNotas?: ApproveFinancieroNotasPayload,
-  descripcionControlPrevio?: string,
-  periodoComision?: string,
-  periodoComisionFin?: string,
+  options?: AprobarAvalOptions,
 ) {
-  const body: {
-    usuarioId: number;
-    etapa: EtapaFlujo;
-    revisionMetodologo?: ApproveRevisionMetodologoPayload;
-    revisionDtm?: ApproveRevisionDtmPayload;
-    descripcionControlPrevio?: string;
-    financieroNotas?: ApproveFinancieroNotasPayload;
-    periodoComision?: string;
-    periodoComisionFin?: string;
-  } = { usuarioId, etapa };
+  const body: Record<string, unknown> = { usuarioId, etapa };
 
-  if (revisionMetodologo) {
-    body.revisionMetodologo = revisionMetodologo;
+  if (options?.revisionMetodologo) {
+    body.revisionMetodologo = options.revisionMetodologo;
   }
-  if (revisionDtm) {
-    body.revisionDtm = revisionDtm;
+  if (options?.revisionDtm) {
+    body.revisionDtm = options.revisionDtm;
   }
-  if (financieroNotas) {
-    body.financieroNotas = financieroNotas;
+  if (options?.financieroNotas) {
+    body.financieroNotas = options.financieroNotas;
   }
-  if (descripcionControlPrevio) {
-    body.descripcionControlPrevio = descripcionControlPrevio;
+  if (options?.descripcionControlPrevio) {
+    body.descripcionControlPrevio = options.descripcionControlPrevio;
   }
-  if (periodoComision !== undefined) {
-    body.periodoComision = periodoComision;
+  if (options?.periodoComision !== undefined) {
+    body.periodoComision = options.periodoComision;
   }
-  if (periodoComisionFin !== undefined) {
-    body.periodoComisionFin = periodoComisionFin;
+  if (options?.periodoComisionFin !== undefined) {
+    body.periodoComisionFin = options.periodoComisionFin;
+  }
+  if (options?.comentario?.trim()) {
+    body.comentario = options.comentario.trim();
   }
 
   return apiFetch<Aval>(`/avales/${id}/aprobar`, {

@@ -184,15 +184,7 @@ export default function RevisionControlPrevioPage() {
         if (adminSaveOnly) {
           await adminSaveControlPrevio(a.id, userId, descripcionControlPrevio, approvalEtapa);
         } else {
-          await aprobarAval(
-            a.id,
-            userId,
-            approvalEtapa,
-            undefined,
-            undefined,
-            undefined,
-            descripcionControlPrevio,
-          );
+          await aprobarAval(a.id, userId, approvalEtapa, { descripcionControlPrevio });
         }
       },
       [descripcion],

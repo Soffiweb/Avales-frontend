@@ -279,21 +279,15 @@ export default function CertificacionFinancieraPage() {
             periodoComisionFin: draft.periodoComisionFin.trim() || undefined,
           }, approvalEtapa);
         } else {
-          await aprobarAval(
-            a.id,
-            userId,
-            approvalEtapa,
-            undefined,
-            undefined,
-            {
+          await aprobarAval(a.id, userId, approvalEtapa, {
+            financieroNotas: {
               notas: notasPayload,
               nombreFirmante: draft.firmanteNombre.trim() || undefined,
               cargoFirmante: draft.firmanteCargo.trim() || undefined,
             },
-            undefined,
-            draft.periodoComision.trim() || undefined,
-            draft.periodoComisionFin.trim() || undefined,
-          );
+            periodoComision: draft.periodoComision.trim() || undefined,
+            periodoComisionFin: draft.periodoComisionFin.trim() || undefined,
+          });
         }
       },
       [

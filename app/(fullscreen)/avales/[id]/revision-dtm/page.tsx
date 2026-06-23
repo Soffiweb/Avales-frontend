@@ -36,11 +36,6 @@ import {
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { isDTMUser } from "@/lib/auth/access";
-import {
-  formatEventScheduleSentence,
-  formatLocationWithProvince,
-  getResponsibleTrainerName,
-} from "@/lib/utils/formatters";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
@@ -113,23 +108,8 @@ function buildDtmDraft(
   };
 }
 
-function buildDefaultDtmDescripcion(aval: Aval) {
-  const evento = aval.evento;
-  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
-  const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
-  const eventoNombre = (evento?.nombre ?? "[NOMBRE EVENTO]").toUpperCase();
-  const numeroSolicitud =
-    aval.avalTecnico?.numeroAval ??
-    aval.aval ??
-    aval.numeroColeccion ??
-    `[SOLICITUD ${aval.id}]`;
-  const lugar =
-    [evento?.provincia, evento?.ciudad].filter(Boolean).join("-") ||
-    formatLocationWithProvince(evento) ||
-    "[LUGAR]";
-  const rangoFechas = formatEventScheduleSentence(evento);
-
-  return `En base a la presentación de la solicitud de aval ${numeroSolicitud}, presentado por ${entrenador}, entrenador de ${disciplina}, el cual solicita aval de participación para ${eventoNombre} a desarrollarse en ${lugar}, ${rangoFechas}.`;
+function buildDefaultDtmDescripcion() {
+  return "El Departamento Técnico Metodológico de la Federación Deportiva Provincial de Loja, una vez recibido, analizado, discutido el Aval Técnico, anexos y demás documentos necesarios para el efecto y al existir las factibilidades para su participación, concede el presente aval técnico, de acuerdo con el siguiente detalle:";
 }
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
@@ -151,7 +131,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
+    .sort(
+      (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
+    )
     .map((item) => {
       const withUser = item as typeof item & {
         usuario?: { nombre?: string; apellido?: string };
@@ -161,8 +143,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       };
       const nombre = (
         [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
+          withUser.entrenador?.nombre ??
+            withUser.usuario?.nombre ??
+            withUser.nombre,
+          withUser.entrenador?.apellido ??
+            withUser.usuario?.apellido ??
+            withUser.apellido,
         ]
           .filter(Boolean)
           .join(" ")
@@ -199,8 +185,12 @@ export default function RevisionDtmPage() {
   const avalId = Number(params.id);
 
   const [draft, setDraft] = useState<DtmDraft>(INITIAL_DTM_DRAFT);
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
-  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>({});
+  const [sumilla, setSumilla] = useState("");
+  const [reviewItems, setReviewItems] =
+    useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
+  const [reviewState, setReviewState] = useState<
+    Record<string, ReviewStateItem>
+  >({});
 
   const {
     authLoading,
@@ -257,10 +247,13 @@ export default function RevisionDtmPage() {
         if (adminSaveOnly) {
           await adminSaveRevisionDtm(a.id, userId, payload);
         } else {
-          await aprobarAval(a.id, userId, approvalEtapa, undefined, payload);
+          await aprobarAval(a.id, userId, approvalEtapa, {
+            revisionDtm: payload,
+            comentario: sumilla,
+          });
         }
       },
-      [draft, reviewItems, reviewState],
+      [draft, sumilla, reviewItems, reviewState],
     ),
     approveSuccessMessage: "Revisión DTM aprobada correctamente.",
   });
@@ -281,7 +274,9 @@ export default function RevisionDtmPage() {
       }
     }
     void loadReviewItems();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -298,14 +293,17 @@ export default function RevisionDtmPage() {
     if (draft.descripcion.trim()) return;
     setDraft((prev) => ({
       ...prev,
-      descripcion: buildDefaultDtmDescripcion(aval),
+      descripcion: buildDefaultDtmDescripcion(),
     }));
   }, [aval, draft.descripcion]);
 
   useEffect(() => {
     if (!aval) return;
     setReviewState(
-      mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? []),
+      mergeReviewStateFromApi(
+        reviewItems,
+        aval.revisionMetodologo?.items ?? [],
+      ),
     );
   }, [aval, reviewItems]);
 
@@ -319,7 +317,9 @@ export default function RevisionDtmPage() {
     return {
       numeroCertificado: compras.numeroCertificado ?? "",
       realizoProceso:
-        typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
+        typeof compras.realizoProceso === "boolean"
+          ? compras.realizoProceso
+          : null,
       codigos:
         compras.codigos?.map((item) => ({
           codigo: item.codigo ?? "",
@@ -336,14 +336,16 @@ export default function RevisionDtmPage() {
       numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
       dirigidoA: aval?.revisionMetodologo?.dirigidoA ?? "",
       cargoDirigidoA: aval?.revisionMetodologo?.cargoDirigidoA ?? "",
-      descripcionEncabezado: aval?.revisionMetodologo?.descripcionEncabezado ?? "",
+      descripcionEncabezado:
+        aval?.revisionMetodologo?.descripcionEncabezado ?? "",
       fechaRevision: aval?.revisionMetodologo?.fechaRevision ?? "",
     }),
     [aval],
   );
   const revisionFooter = useMemo(
     () => ({
-      observacionesFinales: aval?.revisionMetodologo?.observacionesFinales ?? "",
+      observacionesFinales:
+        aval?.revisionMetodologo?.observacionesFinales ?? "",
       firmanteNombre: aval?.revisionMetodologo?.firmanteNombre ?? "",
       firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
     }),
@@ -355,7 +357,9 @@ export default function RevisionDtmPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
-          <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Cargando sesión...
+          </p>
         </div>
       </div>
     );
@@ -427,21 +431,25 @@ export default function RevisionDtmPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                {/* <label className="block">
+                <label className="block">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Fecha del documento
+                    Descripción
                   </span>
-                  <input
-                    type="date"
-                    className="form-input w-full mt-1"
-                    value={draft.fechaPresentacion}
+                  <textarea
+                    className="form-textarea w-full mt-1"
+                    rows={4}
+                    value={draft.descripcion}
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, fechaPresentacion: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        descripcion: e.target.value,
+                      }))
                     }
+                    placeholder="Descripción de la revisión DTM..."
                   />
-                </label> */}
+                </label>
 
                 <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-3">
                   <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -458,7 +466,10 @@ export default function RevisionDtmPage() {
                       readOnly={!isEditable}
                       disabled={!isEditable}
                       onChange={(e) =>
-                        setDraft((prev) => ({ ...prev, firmanteNombre: e.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          firmanteNombre: e.target.value,
+                        }))
                       }
                       placeholder="Nombre del DTM"
                     />
@@ -474,7 +485,10 @@ export default function RevisionDtmPage() {
                       readOnly={!isEditable}
                       disabled={!isEditable}
                       onChange={(e) =>
-                        setDraft((prev) => ({ ...prev, firmanteCargo: e.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          firmanteCargo: e.target.value,
+                        }))
                       }
                       placeholder="Cargo del DTM"
                     />
@@ -492,7 +506,10 @@ export default function RevisionDtmPage() {
                     readOnly={!isEditable}
                     disabled={!isEditable}
                     onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, observacion: e.target.value }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        observacion: e.target.value,
+                      }))
                     }
                     placeholder="Observaciones adicionales..."
                   />
@@ -500,7 +517,9 @@ export default function RevisionDtmPage() {
               </div>
 
               {actionError && (
-                <div className="text-xs text-rose-600 dark:text-rose-400">{actionError}</div>
+                <div className="text-xs text-rose-600 dark:text-rose-400">
+                  {actionError}
+                </div>
               )}
 
               {isEditable && (
@@ -513,6 +532,19 @@ export default function RevisionDtmPage() {
                       {summaryText}
                     </p>
                   </div>
+
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                      Sumilla (opcional)
+                    </span>
+                    <textarea
+                      className="form-textarea w-full mt-1 text-sm"
+                      rows={2}
+                      value={sumilla}
+                      onChange={(e) => setSumilla(e.target.value)}
+                      placeholder="Autorizado trámite de pago"
+                    />
+                  </label>
 
                   {!adminSaveOnly && (
                     <label className="block">

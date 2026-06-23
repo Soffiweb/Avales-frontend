@@ -585,7 +585,7 @@ export default function CertificarAvalPage() {
           await adminSavePda(a.id, userId, pdaPayload, approvalEtapa);
         } else {
           await createPda(a.id, pdaPayload);
-          await aprobarAval(a.id, userId, approvalEtapa);
+          await aprobarAval(a.id, userId, approvalEtapa, {});
         }
         autosaveRef.current.clear();
       },

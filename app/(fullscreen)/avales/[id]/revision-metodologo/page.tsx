@@ -274,7 +274,7 @@ export default function RevisionMetodologoPage() {
         if (adminSaveOnly) {
           await adminSaveRevisionMetodologo(a.id, userId, payload, approvalEtapa);
         } else {
-          await aprobarAval(a.id, userId, "REVISION_METODOLOGO", payload);
+          await aprobarAval(a.id, userId, "REVISION_METODOLOGO", { revisionMetodologo: payload });
         }
       },
       [reviewItems, reviewState, revisionHeader, revisionFooter],

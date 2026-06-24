@@ -789,9 +789,14 @@ export default function CertificarAvalPage() {
   const handleNombrePersonalizadoChange = useCallback(
     (itemId: number, value: string) => {
       setBudgetDraftItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId ? { ...item, nombrePersonalizado: value } : item,
-        ),
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          const updated = { ...item, nombrePersonalizado: value };
+          if (!item.usaDetallePorDia && item.dias.length === 1) {
+            updated.dias = [{ ...item.dias[0], nombrePersonalizado: value }];
+          }
+          return updated;
+        }),
       );
     },
     [],
@@ -803,16 +808,34 @@ export default function CertificarAvalPage() {
         if (item.id !== itemId) return item;
 
         const nextUsesBreakdown = !item.usaDetallePorDia;
+        if (nextUsesBreakdown) {
+          const dias = normalizeVisibleBudgetDias(item.dias);
+          const nombre = resolveBudgetItemNombre(item);
+          return {
+            ...item,
+            usaDetallePorDia: true,
+            dias: dias.length < 2
+              ? [
+                  ...dias,
+                  {
+                    localId: createBudgetDiaLocalId(),
+                    nombrePersonalizado: nombre,
+                    noDias: 1,
+                    cantidad: 1,
+                    valorUnitario: dias[0]?.valorUnitario ?? 0,
+                  },
+                ]
+              : dias,
+          };
+        }
         return {
           ...item,
-          usaDetallePorDia: nextUsesBreakdown,
-          dias: nextUsesBreakdown
-            ? normalizeVisibleBudgetDias(item.dias)
-            : collapseBudgetDias(
-                item.dias,
-                item.originalTotal,
-                resolveBudgetItemNombre(item),
-              ),
+          usaDetallePorDia: false,
+          dias: collapseBudgetDias(
+            item.dias,
+            item.originalTotal,
+            resolveBudgetItemNombre(item),
+          ),
         };
       }),
     );

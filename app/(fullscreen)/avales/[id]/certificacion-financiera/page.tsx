@@ -869,9 +869,10 @@ function buildDefaultNotas(aval: Aval): FinancieroNotaDraft[] {
     },
     {
       texto: `Las facturas de gastos deben solicitarse con los siguientes datos:
-Razon Social: Federacion Deportiva Provincial de Loja
+Razon Social: FEDERACION DEPORTIVA PROVINCIAL DE LOJA
 RUC: 1191708241001
-Direccion: Macara entre Mercadillo y Azuay
+Direccion: EL TEJAR, CALLE MACARA SN ENTRE MERCADILLO Y AZUAY
+Email: federacionloja@yahoo.es
 Telefono: 0999819109`,
     },
     {

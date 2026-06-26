@@ -135,6 +135,10 @@ export function isSecretariaDtmUser(user: User | null | undefined) {
   return getNormalizedRoles(user).includes("SECRETARIA_DTM");
 }
 
+export function canManageEvents(user: User | null | undefined) {
+  return isAdminUser(user) || isSecretariaDtmUser(user);
+}
+
 export function isLectorUser(user: User | null | undefined) {
   return getNormalizedRoles(user).includes("LECTOR");
 }

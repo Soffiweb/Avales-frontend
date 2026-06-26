@@ -34,8 +34,8 @@ import { downloadEventsTemplate } from "@/lib/api/template-download";
 import {
   canAccessReforms,
   canCreateReforma,
+  canManageEvents as canManageEventsCheck,
   getNormalizedRoles,
-  isAdminUser,
   isDTMUser,
   isPdaUser,
   isTrainerUser,
@@ -126,8 +126,8 @@ export default function EventoDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const userRoles = getNormalizedRoles(user);
-  const canManageEvents = isAdminUser(user);
-  const canEditEvents = isAdminUser(user) || isPdaUser(user);
+  const canManageEvents = canManageEventsCheck(user);
+  const canEditEvents = canManageEvents || isPdaUser(user);
   const canEditCompletionFields = isTrainerUser(user);
   const canShowEditButton = canEditEvents || canEditCompletionFields;
   const isDTM = isDTMUser(user);

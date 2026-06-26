@@ -11,7 +11,7 @@ import EventoCard from "./_components/evento-card";
 import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
-import { getNormalizedRoles, isAdminUser, isDTMUser, isMetodologoUser, isPdaUser } from "@/lib/auth/access";
+import { getNormalizedRoles, canManageEvents as canManageEventsCheck, isDTMUser, isMetodologoUser, isPdaUser } from "@/lib/auth/access";
 import { getDisciplinas } from "@/lib/api/catalog";
 import { listEventos, softDeleteEvento } from "@/lib/api/eventos";
 import type { CatalogItem } from "@/types/catalog";
@@ -32,7 +32,7 @@ const STATUS_OPTIONS = [
 export default function EventosPage() {
   const { user } = useAuth();
   const userRoles = getNormalizedRoles(user);
-  const canManageEvents = isAdminUser(user);
+  const canManageEvents = canManageEventsCheck(user);
   const isDTM = isDTMUser(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !canManageEvents;
   // El filtro de disciplina lo ven admins y PDA (item 4: PDA no tenía filtro en eventos).

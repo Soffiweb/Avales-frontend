@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
-import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
+import { getNormalizedRoles, canManageEvents as canManageEventsCheck } from "@/lib/auth/access";
 import EventoCompletionForm from "../../_components/evento-completion-form";
 import EventoForm from "../../_components/evento-form";
 import EventoFormSkeleton from "../../_components/evento-form-skeleton";
@@ -25,7 +25,7 @@ export default function EditarEventoPage() {
   const { user } = useAuth();
   const id = Number(params.id);
   const userRoles = getNormalizedRoles(user);
-  const canManageEvents = isAdminUser(user);
+  const canManageEvents = canManageEventsCheck(user);
 
   const [evento, setEvento] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);

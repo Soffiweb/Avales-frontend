@@ -65,7 +65,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/usuarios",
     segment: "usuarios",
     icon: "usuarios",
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA_DTM"],
   },
   {
     type: "link",
@@ -74,6 +74,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     segment: "roles",
     icon: "roles",
     roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    type: "link",
+    label: "Revisar Avales",
+    href: "/revisar-avales",
+    segment: "revisar-avales",
+    icon: "revisarAvales",
+    roles: ["METODOLOGO"],
   },
   {
     type: "link",
@@ -143,7 +151,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/carga-masiva",
     segment: "carga-masiva",
     icon: "cargaMasiva",
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA_DTM"],
   },
   {
     type: "link",

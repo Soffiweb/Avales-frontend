@@ -656,7 +656,7 @@ export default function EventoForm({
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Entrenadores hombres
+                    Entrenadores y otro personal (hombres)
                   </label>
                   <input
                     className="form-input w-full"
@@ -667,6 +667,9 @@ export default function EventoForm({
                       { setValueAs: parseIntegerInput },
                     )}
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Cupo compartido: entrenadores, jueces, delegados, etc.
+                  </p>
                   {errors.formasParticipacion?.[formaIndex]
                     ?.numEntrenadoresHombres && (
                     <p className="mt-1 text-xs text-red-600">
@@ -680,7 +683,7 @@ export default function EventoForm({
 
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Entrenadores mujeres
+                    Entrenadores y otro personal (mujeres)
                   </label>
                   <input
                     className="form-input w-full"
@@ -691,6 +694,9 @@ export default function EventoForm({
                       { setValueAs: parseIntegerInput },
                     )}
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Cupo compartido: entrenadores, jueces, delegados, etc.
+                  </p>
                   {errors.formasParticipacion?.[formaIndex]
                     ?.numEntrenadoresMujeres && (
                     <p className="mt-1 text-xs text-red-600">

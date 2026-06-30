@@ -50,6 +50,11 @@ type FormData = {
     esTextoLibre?: boolean;
     genero?: string;
   }>;
+  otrosParticipantes?: Array<{
+    cargo: string;
+    nombre?: string;
+    usuarioId?: number;
+  }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -76,6 +81,7 @@ type SelectedDeportista = Deportista & {
   modalidadParticipacion?: ModalidadParticipacion;
 };
 type SelectedEntrenador = User | { id: number; nombre: string; apellido: string; cedula?: undefined; esTextoLibre: true };
+type SelectedOtroParticipante = { id: number; cargo: string; nombre: string };
 
 function formatDeportistaNombre(
   deportista: Pick<Deportista, "nombres" | "apellidos">
@@ -177,6 +183,22 @@ export default function Paso01Deportistas({
   );
   const [freeTextEntrenadorNombre, setFreeTextEntrenadorNombre] = useState("");
 
+  const otroParticipanteIdCounterRef = useRef(-1);
+  const [selectedOtrosParticipantes, setSelectedOtrosParticipantes] = useState<
+    SelectedOtroParticipante[]
+  >(() =>
+    (formData.otrosParticipantes ?? []).map((o) => {
+      const id = otroParticipanteIdCounterRef.current;
+      otroParticipanteIdCounterRef.current -= 1;
+      return { id, cargo: o.cargo, nombre: o.nombre ?? "" };
+    }),
+  );
+  const [otroCargoInput, setOtroCargoInput] = useState("");
+  const [otroNombreInput, setOtroNombreInput] = useState("");
+  const [tipoPersonal, setTipoPersonal] = useState<
+    "ENTRENADOR" | "JUEZ" | "DELEGADO" | "OTRO"
+  >("ENTRENADOR");
+
   const [principalEntrenadorId, setPrincipalEntrenadorId] = useState<
     number | null
   >(() => formData.entrenadores?.[0]?.id ?? null);
@@ -188,6 +210,10 @@ export default function Paso01Deportistas({
     cupos.numAtletasHombres + cupos.numAtletasMujeres;
   const totalEntrenadoresRequeridos =
     cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
+  // Cupo compartido: entrenadores + otros participantes (jueces, delegados, etc.)
+  // no pueden superar juntos lo definido en la forma de participación.
+  const cupoEntrenadoresOtrosOcupado =
+    selectedEntrenadores.length + selectedOtrosParticipantes.length;
   const tipoAval = formData.tipoAval ?? aval.tipoAval ?? undefined;
   const trimmedSearchDeportistas = searchDeportistas.trim();
   const canSearchDeportistas =
@@ -241,6 +267,10 @@ export default function Paso01Deportistas({
         esTextoLibre: "esTextoLibre" in e && e.esTextoLibre ? true : undefined,
         genero: "genero" in e ? e.genero ?? undefined : undefined,
       })),
+      otrosParticipantes: selectedOtrosParticipantes.map((o) => ({
+        cargo: o.cargo,
+        nombre: o.nombre,
+      })),
       fechaEmision,
       tipoAval,
     };
@@ -249,6 +279,7 @@ export default function Paso01Deportistas({
     principalEntrenadorId,
     selectedDeportistas,
     selectedEntrenadores,
+    selectedOtrosParticipantes,
     tipoAval,
   ]);
 
@@ -391,7 +422,7 @@ export default function Paso01Deportistas({
     const alreadySelected = selectedEntrenadores.some((e) => e.id === entrenador.id);
     const limitReached =
       totalEntrenadoresRequeridos > 0 &&
-      selectedEntrenadores.length >= totalEntrenadoresRequeridos;
+      cupoEntrenadoresOtrosOcupado >= totalEntrenadoresRequeridos;
     if (alreadySelected || limitReached) {
       return;
     }
@@ -406,6 +437,12 @@ export default function Paso01Deportistas({
   const handleAddEntrenadorTextoLibre = () => {
     const nombre = freeTextEntrenadorNombre.trim();
     if (!nombre) return;
+    if (
+      totalEntrenadoresRequeridos > 0 &&
+      cupoEntrenadoresOtrosOcupado >= totalEntrenadoresRequeridos
+    ) {
+      return;
+    }
     const freeTextId = freeTextIdCounterRef.current;
     freeTextIdCounterRef.current -= 1;
     const entry: SelectedEntrenador = {
@@ -429,6 +466,31 @@ export default function Paso01Deportistas({
     }
   };
 
+  const cargosUsados = Array.from(
+    new Set(selectedOtrosParticipantes.map((o) => o.cargo)),
+  );
+
+  const otrosParticipantesLimitReached =
+    totalEntrenadoresRequeridos > 0 &&
+    cupoEntrenadoresOtrosOcupado >= totalEntrenadoresRequeridos;
+
+  const handleAddOtroParticipante = () => {
+    const cargo = (
+      tipoPersonal === "OTRO" ? otroCargoInput.trim() : tipoPersonal
+    ).toUpperCase();
+    const nombre = otroNombreInput.trim();
+    if (!cargo || !nombre) return;
+    if (otrosParticipantesLimitReached) return;
+    const id = otroParticipanteIdCounterRef.current;
+    otroParticipanteIdCounterRef.current -= 1;
+    setSelectedOtrosParticipantes((prev) => [...prev, { id, cargo, nombre }]);
+    setOtroNombreInput("");
+  };
+
+  const handleRemoveOtroParticipante = (id: number) => {
+    setSelectedOtrosParticipantes((prev) => prev.filter((o) => o.id !== id));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -449,12 +511,12 @@ export default function Paso01Deportistas({
 
     if (
       totalEntrenadoresRequeridos > 0 &&
-      selectedEntrenadores.length !== totalEntrenadoresRequeridos
+      cupoEntrenadoresOtrosOcupado !== totalEntrenadoresRequeridos
     ) {
       setError(
         `Debes seleccionar exactamente ${totalEntrenadoresRequeridos} ${
-          totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"
-        } según los requisitos del evento.`
+          totalEntrenadoresRequeridos === 1 ? "persona" : "personas"
+        } entre entrenadores y otros participantes, según los requisitos del evento.`
       );
       return;
     }
@@ -667,35 +729,36 @@ export default function Paso01Deportistas({
     );
   };
 
-  const renderEntrenadorSearch = () => {
-    const dropdownLimitReached =
+  const renderPersonal = () => {
+    const limitReached =
       totalEntrenadoresRequeridos > 0 &&
-      selectedEntrenadores.length >= totalEntrenadoresRequeridos;
+      cupoEntrenadoresOtrosOcupado >= totalEntrenadoresRequeridos;
 
     return (
       <div>
         {totalEntrenadoresRequeridos > 0 && (
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Entrenadores
+              Personal
             </label>
             <span
               className={`text-sm font-medium ${
-                selectedEntrenadores.length === totalEntrenadoresRequeridos
+                cupoEntrenadoresOtrosOcupado === totalEntrenadoresRequeridos
                   ? "text-emerald-600 dark:text-emerald-400"
-                  : selectedEntrenadores.length > totalEntrenadoresRequeridos
+                  : cupoEntrenadoresOtrosOcupado > totalEntrenadoresRequeridos
                   ? "text-rose-600 dark:text-rose-400"
                   : "text-gray-500 dark:text-gray-400"
               }`}
             >
-              {selectedEntrenadores.length} / {totalEntrenadoresRequeridos}
+              {cupoEntrenadoresOtrosOcupado} / {totalEntrenadoresRequeridos}
             </span>
           </div>
         )}
         {totalEntrenadoresRequeridos > 0 ? (
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
             El evento requiere {totalEntrenadoresRequeridos}{" "}
-            {totalEntrenadoresRequeridos === 1 ? "entrenador" : "entrenadores"}.
+            {totalEntrenadoresRequeridos === 1 ? "persona" : "personas"} entre
+            entrenadores y otros participantes (jueces, delegados, etc.).
           </p>
         ) : (
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
@@ -703,106 +766,184 @@ export default function Paso01Deportistas({
           </p>
         )}
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            className="form-input w-full pl-10 pr-10"
-            placeholder="Buscar entrenador registrado..."
-            value={searchEntrenadores}
-            onChange={(e) => setSearchEntrenadores(e.target.value)}
-            onFocus={() => setEntrenadoresFocused(true)}
-            onBlur={() => setTimeout(() => setEntrenadoresFocused(false), 150)}
-            disabled={dropdownLimitReached}
-          />
-          {searchEntrenadores.trim() && (
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {(
+            [
+              { tipo: "ENTRENADOR" as const, label: "Entrenador" },
+              { tipo: "JUEZ" as const, label: "Juez" },
+              { tipo: "DELEGADO" as const, label: "Delegado" },
+              { tipo: "OTRO" as const, label: "Otro" },
+            ]
+          ).map(({ tipo, label }) => (
             <button
+              key={tipo}
               type="button"
-              onClick={() => setSearchEntrenadores("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              onClick={() => setTipoPersonal(tipo)}
+              disabled={limitReached}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                tipoPersonal === tipo
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
             >
-              <X className="w-5 h-5" />
+              {label}
             </button>
-          )}
-
-          {entrenadoresFocused && (loadingEntrenadores || entrenadores.length > 0) && (
-            <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {loadingEntrenadores ? (
-                <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  Cargando entrenadores...
-                </div>
-              ) : entrenadores.length === 0 ? (
-                <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
-                  No se encontraron entrenadores
-                </div>
-              ) : (
-                entrenadores.map((entrenador) => {
-                  const alreadySelected = selectedEntrenadores.some(
-                    (e) => e.id === entrenador.id
-                  );
-                  const isDisabled = alreadySelected || dropdownLimitReached;
-
-                  return (
-                    <button
-                      key={entrenador.id}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleAddEntrenador(entrenador)}
-                      disabled={isDisabled}
-                      className={`w-full px-4 py-3 text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
-                        isDisabled
-                          ? "opacity-50 cursor-not-allowed"
-                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {entrenador.nombre} {entrenador.apellido}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {entrenador.cedula}
-                          </p>
-                        </div>
-                        {alreadySelected && (
-                          <span className="text-xs text-indigo-600 dark:text-indigo-400 ml-2">
-                            Agregado
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )}
+          ))}
         </div>
 
-        {!dropdownLimitReached && (
-          <div className="mt-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              ¿El entrenador no está en el sistema?
-            </p>
+        {tipoPersonal === "ENTRENADOR" ? (
+          <>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                className="form-input w-full pl-10 pr-10"
+                placeholder="Buscar entrenador registrado..."
+                value={searchEntrenadores}
+                onChange={(e) => setSearchEntrenadores(e.target.value)}
+                onFocus={() => setEntrenadoresFocused(true)}
+                onBlur={() => setTimeout(() => setEntrenadoresFocused(false), 150)}
+                disabled={limitReached}
+              />
+              {searchEntrenadores.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearchEntrenadores("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+
+              {entrenadoresFocused && (loadingEntrenadores || entrenadores.length > 0) && (
+                <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {loadingEntrenadores ? (
+                    <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      Cargando entrenadores...
+                    </div>
+                  ) : entrenadores.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      No se encontraron entrenadores
+                    </div>
+                  ) : (
+                    entrenadores.map((entrenador) => {
+                      const alreadySelected = selectedEntrenadores.some(
+                        (e) => e.id === entrenador.id
+                      );
+                      const isDisabled = alreadySelected || limitReached;
+
+                      return (
+                        <button
+                          key={entrenador.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleAddEntrenador(entrenador)}
+                          disabled={isDisabled}
+                          className={`w-full px-4 py-3 text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                            isDisabled
+                              ? "opacity-50 cursor-not-allowed"
+                              : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {entrenador.nombre} {entrenador.apellido}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {entrenador.cedula}
+                              </p>
+                            </div>
+                            {alreadySelected && (
+                              <span className="text-xs text-indigo-600 dark:text-indigo-400 ml-2">
+                                Agregado
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {!limitReached && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  ¿El entrenador no está en el sistema?
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="form-input flex-1"
+                    placeholder="Nombre completo del entrenador"
+                    value={freeTextEntrenadorNombre}
+                    onChange={(e) => setFreeTextEntrenadorNombre(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddEntrenadorTextoLibre();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddEntrenadorTextoLibre}
+                    disabled={!freeTextEntrenadorNombre.trim()}
+                    className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-2">
+            {tipoPersonal === "OTRO" && (
+              <>
+                <input
+                  type="text"
+                  list="cargos-usados"
+                  className="form-input w-full"
+                  placeholder="Cargo (ej. ASISTENTE, FISIOTERAPEUTA)"
+                  value={otroCargoInput}
+                  onChange={(e) => setOtroCargoInput(e.target.value)}
+                  disabled={limitReached}
+                />
+                <datalist id="cargos-usados">
+                  {cargosUsados.map((cargo) => (
+                    <option key={cargo} value={cargo} />
+                  ))}
+                </datalist>
+              </>
+            )}
             <div className="flex gap-2">
               <input
                 type="text"
-                className="form-input flex-1"
-                placeholder="Nombre completo del entrenador"
-                value={freeTextEntrenadorNombre}
-                onChange={(e) => setFreeTextEntrenadorNombre(e.target.value)}
+                className="form-input flex-1 min-w-0"
+                placeholder="Nombre completo"
+                value={otroNombreInput}
+                onChange={(e) => setOtroNombreInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    handleAddEntrenadorTextoLibre();
+                    handleAddOtroParticipante();
                   }
                 }}
+                disabled={limitReached}
               />
               <button
                 type="button"
-                onClick={handleAddEntrenadorTextoLibre}
-                disabled={!freeTextEntrenadorNombre.trim()}
-                className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                onClick={handleAddOtroParticipante}
+                disabled={
+                  (tipoPersonal === "OTRO" && !otroCargoInput.trim()) ||
+                  !otroNombreInput.trim() ||
+                  limitReached
+                }
+                className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md shrink-0"
               >
                 Agregar
               </button>
@@ -810,7 +951,7 @@ export default function Paso01Deportistas({
           </div>
         )}
 
-        {selectedEntrenadores.length > 0 && (
+        {(selectedEntrenadores.length > 0 || selectedOtrosParticipantes.length > 0) && (
           <div className="mt-3 space-y-2">
             {selectedEntrenadores.map((entrenador) => {
               const isFreeText = "esTextoLibre" in entrenador && entrenador.esTextoLibre;
@@ -819,13 +960,16 @@ export default function Paso01Deportistas({
                 : `${entrenador.nombre} ${entrenador.apellido ?? ""}`.trim();
               return (
                 <div
-                  key={entrenador.id}
+                  key={`entrenador-${entrenador.id}`}
                   className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm">
                       {displayName}
                     </p>
+                    <span className="inline-flex mt-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      ENTRENADOR
+                    </span>
                     {!isFreeText && entrenador.cedula && (
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                         {entrenador.cedula}
@@ -863,6 +1007,28 @@ export default function Paso01Deportistas({
                 </div>
               );
             })}
+
+            {selectedOtrosParticipantes.map((otro) => (
+              <div
+                key={`otro-${otro.id}`}
+                className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{otro.nombre}</p>
+                  <span className="inline-flex mt-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                    {otro.cargo}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveOtroParticipante(otro.id)}
+                  className="text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -912,10 +1078,10 @@ export default function Paso01Deportistas({
         <section className="space-y-4 rounded-xl border border-emerald-200/70 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-900/10 p-4">
           <div className="pb-2 border-b border-emerald-200 dark:border-emerald-800">
             <h2 className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">
-              Entrenadores
+              Personal
             </h2>
           </div>
-          {renderEntrenadorSearch()}
+          {renderPersonal()}
         </section>
 
         {error && (

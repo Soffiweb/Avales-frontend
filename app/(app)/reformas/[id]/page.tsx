@@ -791,12 +791,12 @@ export default function ReformaDetailPage() {
                         after: forma.despuesNumAtletasMujeres,
                       },
                       {
-                        label: "Entrenadores hombres",
+                        label: "Entrenadores/otros hombres",
                         before: forma.antesNumEntrenadoresHombres,
                         after: forma.despuesNumEntrenadoresHombres,
                       },
                       {
-                        label: "Entrenadores mujeres",
+                        label: "Entrenadores/otros mujeres",
                         before: forma.antesNumEntrenadoresMujeres,
                         after: forma.despuesNumEntrenadoresMujeres,
                       },

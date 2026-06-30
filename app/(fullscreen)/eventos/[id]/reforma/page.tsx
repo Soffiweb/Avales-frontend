@@ -537,7 +537,7 @@ export default function EventoReformaPage() {
         next: participantsForm?.numAtletasMujeres ?? 0,
       },
       {
-        label: "Entrenadores hombres",
+        label: "Entrenadores/otros hombres",
         previous:
           selectedForma?.numEntrenadoresHombres ??
           evento?.numEntrenadoresHombres ??
@@ -545,7 +545,7 @@ export default function EventoReformaPage() {
         next: participantsForm?.numEntrenadoresHombres ?? 0,
       },
       {
-        label: "Entrenadores mujeres",
+        label: "Entrenadores/otros mujeres",
         previous:
           selectedForma?.numEntrenadoresMujeres ??
           evento?.numEntrenadoresMujeres ??
@@ -1368,7 +1368,7 @@ export default function EventoReformaPage() {
                         </label>
                         <label className="space-y-2">
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Entrenadores hombres
+                            Entrenadores y otro personal (hombres)
                           </span>
                           <input
                             type="text"
@@ -1390,7 +1390,7 @@ export default function EventoReformaPage() {
                         </label>
                         <label className="space-y-2">
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Entrenadores mujeres
+                            Entrenadores y otro personal (mujeres)
                           </span>
                           <input
                             type="text"

@@ -54,6 +54,11 @@ type FormData = {
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
   entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
+  otrosParticipantes?: Array<{
+    cargo: string;
+    nombre?: string;
+    usuarioId?: number;
+  }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
   fechaHoraRetorno: string;
@@ -362,6 +367,10 @@ export default function Paso04Presupuesto({
             : { entrenadorId: e.id }),
           rol: index === 0 ? "ENTRENADOR PRINCIPAL" : "ENTRENADOR",
           esPrincipal: index === 0,
+        })),
+        otrosParticipantes: (formData.otrosParticipantes ?? []).map((o) => ({
+          cargo: o.cargo,
+          ...(o.usuarioId ? { usuarioId: o.usuarioId } : { nombre: o.nombre }),
         })),
         requerimientos: usesManualRequirements
           ? serializedManualRequirements

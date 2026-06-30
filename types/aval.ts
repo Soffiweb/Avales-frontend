@@ -213,6 +213,19 @@ export type EntrenadorAval = {
   };
 };
 
+export type OtroParticipanteAval = {
+  id: number;
+  cargo: string;
+  usuarioId?: number | null;
+  usuario?: {
+    id: number;
+    nombre?: string;
+    apellido?: string;
+    email?: string;
+  } | null;
+  nombre?: string | null;
+};
+
 export type AvalTecnico = {
   id: number;
   descripcion?: string | null;
@@ -393,6 +406,7 @@ export type Aval = {
   avalTecnico?: AvalTecnico;
   participantes?: AvalParticipante[] | null;
   entrenadores: EntrenadorAval[];
+  otrosParticipantes?: OtroParticipanteAval[];
   historial: Historial[];
   createdAt: string;
   updatedAt: string;
@@ -441,6 +455,12 @@ export type EntrenadorAvalDto = {
   esPrincipal?: boolean;
 };
 
+export type OtroParticipanteAvalDto = {
+  cargo: string;
+  usuarioId?: number;
+  nombre?: string;
+};
+
 export type CreateAvalPayload = {
   coleccionAvalId: number;
   tipoAval?: TipoAval;
@@ -457,6 +477,7 @@ export type CreateAvalPayload = {
   criterios: CriterioDto[];
   deportistas: DeportistaAvalDto[];
   entrenadores: EntrenadorAvalDto[];
+  otrosParticipantes?: OtroParticipanteAvalDto[];
   requerimientos?: RubroPresupuestarioDto[];
   observaciones?: string;
 };

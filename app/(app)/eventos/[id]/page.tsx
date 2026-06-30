@@ -814,8 +814,8 @@ export default function EventoDetailPage() {
                                   <div className="mt-3 grid gap-1 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-2">
                                     <span>Deportistas hombres: {forma.numAtletasHombres}</span>
                                     <span>Deportistas mujeres: {forma.numAtletasMujeres}</span>
-                                    <span>Entrenadores hombres: {forma.numEntrenadoresHombres}</span>
-                                    <span>Entrenadores mujeres: {forma.numEntrenadoresMujeres}</span>
+                                    <span>Entrenadores/otros hombres: {forma.numEntrenadoresHombres}</span>
+                                    <span>Entrenadores/otros mujeres: {forma.numEntrenadoresMujeres}</span>
                                   </div>
                                 </div>
                                 <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">

@@ -10,6 +10,7 @@ import type {
   DeportistaAval,
   EntrenadorAval,
   ModalidadParticipacion,
+  OtroParticipanteAval,
   RubroPresupuestarioDto,
   TipoAval,
 } from "@/types/aval";
@@ -59,6 +60,11 @@ type FormData = {
     esTextoLibre?: boolean;
     genero?: string;
   }>;
+  otrosParticipantes?: Array<{
+    cargo: string;
+    nombre?: string;
+    usuarioId?: number;
+  }>;
 
   // Paso 2: Logística
   fechaHoraSalida: string;
@@ -83,6 +89,7 @@ type FormData = {
 const INITIAL_FORM_DATA: FormData = {
   deportistas: [],
   entrenadores: [],
+  otrosParticipantes: [],
   fechaHoraSalida: "",
   fechaHoraRetorno: "",
   lugarSalida: "",
@@ -127,6 +134,14 @@ function getEntrenadorDisplayName(entrenador: EntrenadorAval) {
   );
 }
 
+function getOtroParticipanteDisplayName(otro: OtroParticipanteAval) {
+  if (otro.nombre) return otro.nombre;
+  return (
+    [otro.usuario?.nombre, otro.usuario?.apellido].filter(Boolean).join(" ").trim() ||
+    `Participante ${otro.id}`
+  );
+}
+
 function buildInitialFormData(aval: Aval): FormData {
   const deportistas = (aval.avalTecnico?.deportistasAval ?? []).map((item, index) => ({
     id: getDeportistaFormId(item, index),
@@ -164,9 +179,16 @@ function buildInitialFormData(aval: Aval): FormData {
       };
     });
 
+  const otrosParticipantes = (aval.otrosParticipantes ?? []).map((item) => ({
+    cargo: item.cargo,
+    nombre: getOtroParticipanteDisplayName(item),
+    usuarioId: item.usuarioId ?? undefined,
+  }));
+
   return {
     deportistas,
     entrenadores,
+    otrosParticipantes,
     fechaHoraSalida: aval.avalTecnico?.fechaHoraSalida ?? "",
     fechaHoraRetorno: aval.avalTecnico?.fechaHoraRetorno ?? "",
     lugarSalida: aval.avalTecnico?.lugarSalida ?? "",

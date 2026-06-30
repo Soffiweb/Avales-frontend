@@ -17,7 +17,7 @@ import {
 } from "@/types/evento";
 import type { Aval, TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
-import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
+import { getNormalizedRoles, isAdminUser, isTrainerUser } from "@/lib/auth/access";
 import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
@@ -76,7 +76,7 @@ export default function NuevoAvalPage() {
 
   const userRoles = getNormalizedRoles(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !isAdminUser(user);
-  const isComprasPublicas = userRoles.includes("COMPRAS_PUBLICAS");
+  const canCreateAval = isTrainerUser(user) || isAdminUser(user);
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
   useEffect(() => {
     if (!selectedEvento) return;
@@ -86,10 +86,10 @@ export default function NuevoAvalPage() {
   }, [selectedEvento, tipoAval]);
 
   useEffect(() => {
-    if (isComprasPublicas) {
+    if (!canCreateAval) {
       router.replace("/avales");
     }
-  }, [isComprasPublicas, router]);
+  }, [canCreateAval, router]);
 
   const fetchEventos = useCallback(async () => {
     try {
@@ -178,7 +178,7 @@ export default function NuevoAvalPage() {
       tipoAval,
     });
 
-    if (isComprasPublicas) {
+    if (!canCreateAval) {
       setSubmitError("Tu rol no tiene permisos para crear avales.");
       return;
     }

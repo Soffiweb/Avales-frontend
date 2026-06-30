@@ -35,7 +35,7 @@ import {
   canAccessReforms,
   canCreateReforma,
   canManageEvents as canManageEventsCheck,
-  getNormalizedRoles,
+  isAdminUser,
   isDTMUser,
   isPdaUser,
   isTrainerUser,
@@ -125,13 +125,12 @@ export default function EventoDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const userRoles = getNormalizedRoles(user);
   const canManageEvents = canManageEventsCheck(user);
   const canEditEvents = canManageEvents || isPdaUser(user);
   const canEditCompletionFields = isTrainerUser(user);
   const canShowEditButton = canEditEvents || canEditCompletionFields;
   const isDTM = isDTMUser(user);
-  const canCreateAval = !userRoles.includes("COMPRAS_PUBLICAS") && !isDTM;
+  const canCreateAval = isTrainerUser(user) || isAdminUser(user);
   const id = Number(params.id);
 
   const [evento, setEvento] = useState<Evento | null>(null);

@@ -25,6 +25,7 @@ export type ListAvalesOptions = {
   procesadosPorUsuarioId?: number;
   estadoHistorial?: EstadoHistorial;
   etapaHistorial?: EtapaFlujo;
+  modo?: "revision" | "historial";
 };
 
 export async function listAvales(options: ListAvalesOptions = {}) {
@@ -42,6 +43,7 @@ export async function listAvales(options: ListAvalesOptions = {}) {
     params.set("estadoHistorial", options.estadoHistorial);
   if (options.etapaHistorial)
     params.set("etapaHistorial", options.etapaHistorial);
+  if (options.modo) params.set("modo", options.modo);
 
   const qs = params.toString();
   const url = qs ? `/avales?${qs}` : "/avales";

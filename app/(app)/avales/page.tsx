@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
@@ -24,6 +24,11 @@ import {
   isLectorUser,
 } from "@/lib/auth/access";
 import AvalListCard from "./_components/aval-list-card";
+import {
+  getAvalCurrentEtapa,
+  getApprovalFlowStages,
+  getPreviousApprovalStagesForAval,
+} from "@/lib/approval-flow";
 import { AVALES_PAGE_SIZE, TIPO_AVAL_OPTIONS } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
@@ -52,6 +57,68 @@ const ETAPA_OPTIONS = [
   { label: "Financiero", value: "FINANCIERO" },
 ];
 
+type RoleFlags = {
+  isPda: boolean;
+  isComprasPublicas: boolean;
+  isMetodologo: boolean;
+  isDTM: boolean;
+  isControlPrevio: boolean;
+  isFinanciero: boolean;
+  isTrainer: boolean;
+};
+
+function isAvalPendingForUser(
+  aval: Aval,
+  flags: RoleFlags,
+  userId?: number,
+): boolean {
+  const etapa = getAvalCurrentEtapa(aval);
+  const isProcessable = aval.estado === "SOLICITADO";
+  const lastHistorial = aval.historial?.[0];
+  const wasRecentlyRejected = lastHistorial?.estado === "RECHAZADO";
+  const canAct = isProcessable && !wasRecentlyRejected;
+
+  if (canAct) {
+    if (flags.isPda && etapa === "SOLICITUD") return true;
+    if (flags.isComprasPublicas) {
+      const flow = getApprovalFlowStages(aval);
+      if (flow.includes("COMPRAS_PUBLICAS") && etapa === "PDA") return true;
+    }
+    if (flags.isMetodologo) {
+      const metStage =
+        getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
+        "SOLICITUD";
+      if (etapa === metStage) return true;
+    }
+    if (flags.isDTM && etapa === "REVISION_METODOLOGO") return true;
+    if (flags.isControlPrevio) {
+      const flow = getApprovalFlowStages(aval);
+      if (flow.includes("CONTROL_PREVIO") && etapa === "REVISION_DTM")
+        return true;
+    }
+    if (flags.isFinanciero) {
+      const flow = getApprovalFlowStages(aval);
+      const finStage = flow.includes("CONTROL_PREVIO")
+        ? "CONTROL_PREVIO"
+        : "REVISION_DTM";
+      if (etapa === finStage) return true;
+    }
+  }
+
+  if (flags.isTrainer && userId !== undefined) {
+    const isOwner =
+      aval.userId === userId ||
+      aval.entrenadores?.some((e) => e.entrenadorId === userId);
+    if (
+      isOwner &&
+      (aval.estado === "BORRADOR" || (isProcessable && etapa === "SOLICITUD"))
+    )
+      return true;
+  }
+
+  return false;
+}
+
 export default function AvalesPage() {
   const { user } = useAuth();
 
@@ -66,7 +133,6 @@ export default function AvalesPage() {
   const isTrainer = isTrainerUser(user);
   const isLector = isLectorUser(user);
   const isReviewer = isAvalReviewer(user);
-  const isReviewerWithDefaults = isMetodologo || isPda || isControlPrevio || isComprasPublicas || isFinanciero;
 
   const hasDisciplina =
     Boolean(user?.disciplinaCodigo) ||
@@ -83,22 +149,8 @@ export default function AvalesPage() {
     disciplina: "",
   });
 
-  // Defaults por rol — se calculan una vez y entran en el queryKey
-  const defaultEstado = isReviewerWithDefaults ? "SOLICITADO" : "";
-  const defaultEtapa: EtapaFlujo | "" = isPda
-    ? "SOLICITUD"
-    : isMetodologo
-    ? ""
-    : isControlPrevio
-    ? "REVISION_DTM"
-    : isFinanciero
-    ? "CONTROL_PREVIO"
-    : isComprasPublicas
-    ? "PDA"
-    : "";
-
-  const efectivoEstado = filters.estado || defaultEstado;
-  const efectivoEtapa = etapa || defaultEtapa;
+  const efectivoEstado = filters.estado;
+  const efectivoEtapa = etapa;
 
   const { items: avales, loading, error, pagination, totalPages, currentPage } =
     useResourceList<Aval>({
@@ -119,6 +171,7 @@ export default function AvalesPage() {
           estado: efectivoEstado ? (efectivoEstado as Aval["estado"]) : undefined,
           etapa: efectivoEtapa ? (efectivoEtapa as EtapaFlujo) : undefined,
           search: filters.search.trim() || undefined,
+          modo: isReviewer ? "historial" : undefined,
         };
         return listAvales(options);
       },
@@ -163,6 +216,48 @@ export default function AvalesPage() {
     if (page !== currentPage) setPage(currentPage);
   }, [page, currentPage, setPage]);
 
+  const hasReviewRole = isReviewer || isTrainer;
+
+  const roleFlags: RoleFlags = {
+    isPda,
+    isComprasPublicas,
+    isMetodologo,
+    isDTM,
+    isControlPrevio,
+    isFinanciero,
+    isTrainer,
+  };
+
+  const { pendientes, otros } = useMemo(() => {
+    if (!hasReviewRole)
+      return { pendientes: [] as Aval[], otros: avales };
+
+    const p: Aval[] = [];
+    const o: Aval[] = [];
+    for (const aval of avales) {
+      if (isAvalPendingForUser(aval, roleFlags, user?.id)) {
+        p.push(aval);
+      } else {
+        o.push(aval);
+      }
+    }
+    return { pendientes: p, otros: o };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avales, hasReviewRole, isPda, isComprasPublicas, isMetodologo, isDTM, isControlPrevio, isFinanciero, isTrainer, user?.id]);
+
+  const avalCardProps = {
+    isAdmin,
+    isSecretaria,
+    isPda,
+    isDtm: isDTM,
+    isMetodologo,
+    isControlPrevio,
+    isFinanciero,
+    isComprasPublicas,
+    isTrainer,
+    userId: user?.id,
+  };
+
   return (
     <>
       {toast && (
@@ -186,11 +281,13 @@ export default function AvalesPage() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-              {isAdmin ? "Gestión de Avales" : "Mis Avales"}
+              {isAdmin ? "Gestión de Avales" : isReviewer ? "Avales de mi Disciplina" : "Mis Avales"}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {isAdmin
                 ? "Visualiza todos los avales solicitados en el sistema."
+                : isReviewer
+                ? "Todos los avales de tu disciplina en cualquier estado."
                 : "Gestiona tus solicitudes de avales para eventos deportivos."}
             </p>
           </div>
@@ -301,21 +398,43 @@ export default function AvalesPage() {
           </div>
         )}
 
-        <AvalListCard
-          avales={avales}
-          loading={loading}
-          error={error}
-          isAdmin={isAdmin}
-          isSecretaria={isSecretaria}
-          isPda={isPda}
-          isDtm={isDTM}
-          isMetodologo={isMetodologo}
-          isControlPrevio={isControlPrevio}
-          isFinanciero={isFinanciero}
-          isComprasPublicas={isComprasPublicas}
-          isTrainer={isTrainer}
-          userId={user?.id}
-        />
+        {hasReviewRole && !loading && !error ? (
+          <>
+            {pendientes.length > 0 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Pendientes de tu revisión
+                  </h2>
+                  <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                    {pendientes.length}
+                  </span>
+                </div>
+                <AvalListCard avales={pendientes} {...avalCardProps} />
+              </>
+            )}
+            {otros.length > 0 && (
+              <>
+                {pendientes.length > 0 && (
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 pt-2">
+                    Otros avales
+                  </h2>
+                )}
+                <AvalListCard avales={otros} {...avalCardProps} />
+              </>
+            )}
+            {avales.length === 0 && (
+              <AvalListCard avales={[]} {...avalCardProps} />
+            )}
+          </>
+        ) : (
+          <AvalListCard
+            avales={avales}
+            loading={loading}
+            error={error}
+            {...avalCardProps}
+          />
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-6">
           <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 sm:mb-0">

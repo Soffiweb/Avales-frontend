@@ -77,14 +77,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
   {
     type: "link",
-    label: "Revisar Avales",
-    href: "/revisar-avales",
-    segment: "revisar-avales",
-    icon: "revisarAvales",
-    roles: ["METODOLOGO"],
-  },
-  {
-    type: "link",
     label: "Avales",
     href: "/avales",
     segment: "avales",

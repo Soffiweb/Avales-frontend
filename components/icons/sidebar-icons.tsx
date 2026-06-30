@@ -7,7 +7,6 @@ import {
   ClipboardEdit,
   UploadCloud,
   FolderKanban,
-  History,
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
@@ -21,7 +20,6 @@ export const SidebarIcons = {
   reformas: ClipboardEdit,
   cargaMasiva: UploadCloud,
   catalogos: FolderKanban,
-  miHistorial: History,
   monitoreo: ShieldAlert,
   roles: ShieldCheck,
 };

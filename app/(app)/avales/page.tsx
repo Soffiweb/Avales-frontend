@@ -171,7 +171,6 @@ export default function AvalesPage() {
           estado: efectivoEstado ? (efectivoEstado as Aval["estado"]) : undefined,
           etapa: efectivoEtapa ? (efectivoEtapa as EtapaFlujo) : undefined,
           search: filters.search.trim() || undefined,
-          modo: isReviewer ? "historial" : undefined,
         };
         return listAvales(options);
       },

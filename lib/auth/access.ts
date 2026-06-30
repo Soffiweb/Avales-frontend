@@ -80,6 +80,7 @@ export function canAccessReforms(user: User | null | undefined) {
     isAdminUser(user) ||
     roles.includes("PDA") ||
     isDTMUser(user) ||
+    isControlPrevioUser(user) ||
     (roles.includes("ENTRENADOR") && Boolean(user.puedeSolicitarReformas))
   );
 }

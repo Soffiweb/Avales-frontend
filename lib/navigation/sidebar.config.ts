@@ -98,28 +98,11 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
   {
     type: "link",
-    label: "Mi Historial",
-    href: "/mi-historial",
-    segment: "mi-historial",
-    icon: "miHistorial",
-    roles: [
-      "METODOLOGO",
-      "DTM",
-      "PDA",
-      "CONTROL_PREVIO",
-      "FINANCIERO",
-      "SECRETARIA",
-      "SECRETARIA_DTM",
-      "COMPRAS_PUBLICAS",
-    ],
-  },
-  {
-    type: "link",
     label: "Eventos",
     href: "/eventos",
     segment: "eventos",
     icon: "eventos",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "SECRETARIA_DTM", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE", "METODOLOGO", "LECTOR"],
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA", "SECRETARIA_DTM", "ENTRENADOR", "PDA", "DTM", "DTM_EIDE", "METODOLOGO", "CONTROL_PREVIO", "LECTOR"],
   },
   {
     type: "link",
@@ -127,7 +110,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/reformas",
     segment: "reformas",
     icon: "reformas",
-    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE"],
+    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE", "CONTROL_PREVIO"],
   },
   {
     type: "link",
@@ -135,7 +118,7 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     href: "/reformas-multi",
     segment: "reformas-multi",
     icon: "reformas",
-    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE"],
+    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE", "CONTROL_PREVIO"],
   },
   {
     type: "link",

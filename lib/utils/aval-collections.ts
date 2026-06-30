@@ -1,4 +1,5 @@
-import type { Aval, PresupuestoItem, TipoAval } from "@/types/aval";
+import type { Aval, Estado, PresupuestoItem, TipoAval } from "@/types/aval";
+import type { FormaParticipacionCupos } from "@/types/evento";
 
 type GeneroCountEntry = {
   genero?: string | null;
@@ -154,6 +155,35 @@ function getFormaParticipacionActual(aval: Aval) {
     forma.numEntrenadoresMujeres > 0;
 
   return tieneCupos || (forma.items?.length ?? 0) > 0 ? forma : null;
+}
+
+// TODO: confirmar con negocio si un aval RECHAZADO debe liberar la forma
+// de participación que ocupaba (permitir reintentar). Por ahora, conservador:
+// queda ocupada sin importar el estado del aval.
+const ESTADOS_QUE_OCUPAN_FORMA: Estado[] = [
+  "BORRADOR",
+  "SOLICITADO",
+  "ACEPTADO",
+  "RECHAZADO",
+];
+
+export type FormaParticipacionConOcupacion = FormaParticipacionCupos & {
+  ocupada: boolean;
+  avalOcupanteId?: number;
+};
+
+export function getFormasParticipacionConOcupacion(
+  formas: FormaParticipacionCupos[],
+  avalesEvento: Aval[],
+): FormaParticipacionConOcupacion[] {
+  return formas.map((forma) => {
+    const ocupante = avalesEvento.find(
+      (aval) =>
+        aval.evento?.formaParticipacionActual?.id === forma.id &&
+        ESTADOS_QUE_OCUPAN_FORMA.includes(aval.estado),
+    );
+    return { ...forma, ocupada: Boolean(ocupante), avalOcupanteId: ocupante?.id };
+  });
 }
 
 export function getAvalCupos(aval: Aval) {

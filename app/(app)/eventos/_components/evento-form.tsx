@@ -610,12 +610,13 @@ export default function EventoForm({
               <div className="mb-4 grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Referencia
+                    Referencia <span className="text-red-600">*</span>
                   </label>
                   <input
                     className="form-input w-full"
                     type="text"
                     placeholder="Referencia de la participación (ej: nombre de la organización, institución o similar)"
+                    required
                     {...register(
                       `formasParticipacion.${formaIndex}.referencia`,
                     )}

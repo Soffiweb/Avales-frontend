@@ -18,6 +18,7 @@ import {
 import type { Aval, TipoAval } from "@/types/aval";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser, isTrainerUser } from "@/lib/auth/access";
+import { getFormasParticipacionConOcupacion } from "@/lib/utils/aval-collections";
 import {
   formatEventScheduleLabel,
   formatLocationWithProvince,
@@ -50,9 +51,17 @@ function getEventSortTimestamp(evento: Evento) {
   return 0;
 }
 
-function getAvailableTipos(evento: Evento): TipoAval[] {
+function getAvailableTipos(evento: Evento, avalesEvento: Aval[] = []): TipoAval[] {
+  const formasConOcupacion = getFormasParticipacionConOcupacion(
+    evento.formasParticipacion ?? [],
+    avalesEvento,
+  );
   return Array.from(
-    new Set(getEventoFormasParticipacion(evento).map((forma) => forma.tipoAval)),
+    new Set(
+      formasConOcupacion
+        .filter((forma) => !forma.ocupada)
+        .map((forma) => forma.tipoAval),
+    ),
   );
 }
 
@@ -80,10 +89,13 @@ export default function NuevoAvalPage() {
   const primaryDisciplinaId = user?.disciplinaId ?? undefined;
   useEffect(() => {
     if (!selectedEvento) return;
-    const availableTipos = getAvailableTipos(selectedEvento);
+    const availableTipos = getAvailableTipos(
+      selectedEvento,
+      avalesByEvento[selectedEvento.id] ?? [],
+    );
     if (availableTipos.includes(tipoAval)) return;
     setTipoAval(availableTipos[0] ?? "SOLO_RESULTADO");
-  }, [selectedEvento, tipoAval]);
+  }, [selectedEvento, tipoAval, avalesByEvento]);
 
   useEffect(() => {
     if (!canCreateAval) {
@@ -139,7 +151,7 @@ export default function NuevoAvalPage() {
       );
       const avalesMap = Object.fromEntries(avalEntries);
       const filtered = sorted.filter(
-        (evento) => getAvailableTipos(evento).length > 0,
+        (evento) => getAvailableTipos(evento, avalesMap[evento.id] ?? []).length > 0,
       );
       setAvalesByEvento(avalesMap);
       setEventos(filtered.slice(0, PAGE_SIZE));
@@ -151,7 +163,7 @@ export default function NuevoAvalPage() {
           codigo: evento.codigo,
           nombre: evento.nombre,
           disciplinaId: evento.disciplina?.id,
-          tiposDisponibles: getAvailableTipos(evento),
+          tiposDisponibles: getAvailableTipos(evento, avalesMap[evento.id] ?? []),
         })),
       });
     } catch (err: any) {
@@ -237,6 +249,18 @@ export default function NuevoAvalPage() {
     router.push(`/avales/${response.data.id}/crear-solicitud`);
   };
 
+  const avalesSelectedEvento = selectedEvento
+    ? avalesByEvento[selectedEvento.id] ?? []
+    : [];
+  const formasDelTipoSeleccionado = selectedEvento
+    ? getFormasParticipacionConOcupacion(
+        selectedEvento.formasParticipacion ?? [],
+        avalesSelectedEvento,
+      ).filter((forma) => forma.tipoAval === tipoAval)
+    : [];
+  const submitDisabled =
+    formasDelTipoSeleccionado.length > 0 && formaParticipacionId == null;
+
   return (
     <>
       {submitError && (
@@ -259,9 +283,12 @@ export default function NuevoAvalPage() {
         description={`Sube la convocatoria y el certificado médico para crear el aval${
           selectedEvento?.nombre ? ` de "${selectedEvento.nombre}"` : ""
         }.`}
+        submitDisabled={submitDisabled}
+        submitDisabledReason="Selecciona una forma de participación para continuar."
       >
         <AvalUploadOptions
           evento={selectedEvento}
+          avalesEvento={avalesSelectedEvento}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
           formaParticipacionId={formaParticipacionId}

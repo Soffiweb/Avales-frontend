@@ -95,6 +95,7 @@ export type FormaParticipacionItemInput = {
 };
 
 export type FormaParticipacionInputDto = {
+  id?: number;
   tipoAval: TipoAval;
   referencia?: string;
   observacion?: string;

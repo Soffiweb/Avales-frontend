@@ -42,7 +42,6 @@ import {
 } from "@/lib/auth/access";
 import { listReformsByEvento } from "@/lib/api/reforms";
 import {
-  eventoTieneFormaParticipacion,
   getEventoMissingFieldLabel,
   getEventoMissingFields,
   isEventoIncompleto,
@@ -63,6 +62,7 @@ import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
 } from "@/lib/constants";
+import { getFormasParticipacionConOcupacion } from "@/lib/utils/aval-collections";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> =
   {
@@ -197,24 +197,6 @@ export default function EventoDetailPage() {
     void fetchPendingReform();
   }, [evento?.id, evento?.tieneReformaPendiente]);
 
-  useEffect(() => {
-    if (!evento) return;
-    if (!eventoTieneFormaParticipacion(evento, tipoAval)) {
-      if (eventoTieneFormaParticipacion(evento, "FONDOS_PUBLICOS")) {
-        setTipoAval("FONDOS_PUBLICOS");
-        return;
-      }
-
-      if (eventoTieneFormaParticipacion(evento, "AUTOGESTION")) {
-        setTipoAval("AUTOGESTION");
-        return;
-      }
-
-      setTipoAval("SOLO_RESULTADO");
-      return;
-    }
-  }, [evento, tipoAval]);
-
   const handleDelete = async () => {
     if (!evento) return;
     try {
@@ -330,15 +312,26 @@ export default function EventoDetailPage() {
   const canManageReforms = canCreateReforma(user) && !isDTM;
   const canViewReforms = canAccessReforms(user) || isDTM || isTrainerUser(user);
   // Un evento es "creable" mientras exista al menos una forma de participación
-  // configurada. La cantidad de avales por tipo no limita: FP/AG/SR aceptan N.
+  // sin aval asociado. Cada forma de participación solo admite un aval.
+  const formasConOcupacion = getFormasParticipacionConOcupacion(
+    formasParticipacion,
+    avalesEvento,
+  );
   const tiposCreables = (
     ["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"] as const
-  ).filter((tipo) => eventoTieneFormaParticipacion(evento, tipo));
+  ).filter((tipo) =>
+    formasConOcupacion.some((forma) => forma.tipoAval === tipo && !forma.ocupada),
+  );
   const canStartAval =
     canCreateAval &&
     tiposCreables.length > 0 &&
     !hasPendingReform &&
     !eventoIncompleto;
+  const formasDelTipoSeleccionado = formasConOcupacion.filter(
+    (forma) => forma.tipoAval === tipoAval,
+  );
+  const submitDisabled =
+    formasDelTipoSeleccionado.length > 0 && formaParticipacionId == null;
   const canRequestReforma = canManageReforms && !hasPendingReform;
   const completionHref = `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
     `/eventos/${evento.id}`,
@@ -370,9 +363,12 @@ export default function EventoDetailPage() {
         onUpload={handleUploadConvocatoria}
         title="Subir documentos obligatorios"
         description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
+        submitDisabled={submitDisabled}
+        submitDisabledReason="Selecciona una forma de participación para continuar."
       >
         <AvalUploadOptions
           evento={evento}
+          avalesEvento={avalesEvento}
           tipoAval={tipoAval}
           onTipoAvalChange={setTipoAval}
           formaParticipacionId={formaParticipacionId}

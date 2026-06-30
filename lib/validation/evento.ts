@@ -19,8 +19,12 @@ export const eventoItemSchema = z.object({
 });
 
 export const formaParticipacionSchema = z.object({
+  id: z.number().optional(),
   tipoAval: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION", "SOLO_RESULTADO"]),
-  referencia: z.string().max(200, "Referencia: maximo 200 caracteres").optional(),
+  referencia: z
+    .string()
+    .min(1, "Referencia es obligatoria")
+    .max(200, "Referencia: maximo 200 caracteres"),
   observacion: z.string().max(500, "Observacion: maximo 500 caracteres").optional(),
   numEntrenadoresHombres: z.number().int().min(0),
   numEntrenadoresMujeres: z.number().int().min(0),
@@ -126,19 +130,6 @@ export const eventoSchema = z.object({
     });
   }
 
-  (values.formasParticipacion ?? []).forEach((forma, index) => {
-    if (
-      forma.tipoAval === "SOLO_RESULTADO" &&
-      !forma.referencia?.trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["formasParticipacion", index, "referencia"],
-        message:
-          "La referencia es obligatoria para Solo resultado (club, delegación o grupo).",
-      });
-    }
-  });
 });
 
 export const reformFormaParticipacionChangesSchema = z.object({

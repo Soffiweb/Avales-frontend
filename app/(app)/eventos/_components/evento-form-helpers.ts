@@ -128,6 +128,7 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
         : fallbackEventoItems,
     formasParticipacion:
       evento.formasParticipacion?.map((forma) => ({
+        id: forma.id,
         tipoAval: forma.tipoAval,
         referencia: forma.referencia ?? "",
         observacion: forma.observacion ?? "",
@@ -165,6 +166,7 @@ function buildFormasParticipacionInput(
       : [];
 
     return {
+      ...(forma.id ? { id: forma.id } : {}),
       tipoAval: forma.tipoAval,
       referencia: forma.referencia?.trim() || undefined,
       observacion: forma.observacion?.trim() || undefined,

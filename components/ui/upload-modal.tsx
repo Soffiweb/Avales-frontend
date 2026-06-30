@@ -24,6 +24,8 @@ type UploadModalProps = {
   description?: string;
   acceptedTypes?: string;
   children?: ReactNode;
+  submitDisabled?: boolean;
+  submitDisabledReason?: string;
 };
 
 const ALLOWED_EXTENSIONS = [
@@ -52,6 +54,8 @@ export default function UploadModal({
   description = "Sube la convocatoria, el certificado médico y el pronóstico de deportistas para crear el borrador del aval.",
   acceptedTypes = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv",
   children,
+  submitDisabled = false,
+  submitDisabledReason,
 }: UploadModalProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +176,11 @@ export default function UploadModal({
       setError(
         "Debes subir la convocatoria, el certificado médico y el pronóstico de deportistas para continuar.",
       );
+      return;
+    }
+
+    if (submitDisabled) {
+      setError(submitDisabledReason ?? "Completa la selección requerida para continuar.");
       return;
     }
 
@@ -422,6 +431,11 @@ export default function UploadModal({
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-700 sm:px-6">
+            {submitDisabled && submitDisabledReason && (
+              <p className="mr-auto text-xs text-amber-600 dark:text-amber-400">
+                {submitDisabledReason}
+              </p>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -437,7 +451,8 @@ export default function UploadModal({
                 convocatoriaFiles.length === 0 ||
                 !certificadoMedicoFile ||
                 pronosticoFiles.length === 0 ||
-                uploading
+                uploading ||
+                submitDisabled
               }
               className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >

@@ -8,12 +8,16 @@ import {
   X,
   Plus,
   Trash2,
+  Loader2,
+  Pencil,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { useRouter } from "next/navigation";
 import {
   createAval,
+  deleteAdjuntoSolicitud,
+  replaceAdjuntoSolicitud,
   updateAvalRequest,
   uploadAdjuntosSolicitud,
 } from "@/lib/api/avales";
@@ -22,6 +26,7 @@ import { getTipoAvalLabel } from "@/lib/constants";
 import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import type {
   Aval,
+  AdjuntoSolicitud,
   EditAvalPayload,
   ModalidadParticipacion,
   RubroPresupuestarioDto,
@@ -103,6 +108,10 @@ export default function Paso04Presupuesto({
   const [adjuntosSolicitud, setAdjuntosSolicitud] = useState<File[]>(
     formData.adjuntosSolicitud ?? [],
   );
+  const [existingAdjuntosSolicitud, setExistingAdjuntosSolicitud] = useState<
+    AdjuntoSolicitud[]
+  >(aval.adjuntosSolicitud ?? []);
+  const [adjuntoBusyId, setAdjuntoBusyId] = useState<number | null>(null);
   const [adjuntosWarning, setAdjuntosWarning] = useState<string | null>(null);
   const [manualRequirements, setManualRequirements] = useState<
     ManualRequirementDraft[]
@@ -203,6 +212,9 @@ export default function Paso04Presupuesto({
     return `${(value / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const totalAdjuntosSolicitud =
+    existingAdjuntosSolicitud.length + adjuntosSolicitud.length;
+
   const handleAdjuntosSolicitudChange = (e: ChangeEvent<HTMLInputElement>) => {
     const incoming = Array.from(e.target.files ?? []);
     if (incoming.length === 0) return;
@@ -216,13 +228,20 @@ export default function Paso04Presupuesto({
       );
 
       const combined = [...prev, ...fresh];
-      if (combined.length > MAX_ADJUNTOS_SOLICITUD) {
+      const total = existingAdjuntosSolicitud.length + combined.length;
+      if (total > MAX_ADJUNTOS_SOLICITUD) {
         setAdjuntosWarning(
           `Solo podes subir hasta ${MAX_ADJUNTOS_SOLICITUD} archivos. Se descartaron ${
-            combined.length - MAX_ADJUNTOS_SOLICITUD
+            total - MAX_ADJUNTOS_SOLICITUD
           } archivo(s).`,
         );
-        return combined.slice(0, MAX_ADJUNTOS_SOLICITUD);
+        return combined.slice(
+          0,
+          Math.max(
+            MAX_ADJUNTOS_SOLICITUD - existingAdjuntosSolicitud.length,
+            0,
+          ),
+        );
       }
       return combined;
     });
@@ -234,6 +253,51 @@ export default function Paso04Presupuesto({
   const handleRemoveAdjunto = (index: number) => {
     setAdjuntosWarning(null);
     setAdjuntosSolicitud((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleReplaceExistingAdjunto = async (
+    adjunto: AdjuntoSolicitud,
+    file: File,
+  ) => {
+    try {
+      setAdjuntoBusyId(adjunto.id);
+      const updated = await replaceAdjuntoSolicitud(
+        aval.id,
+        adjunto.id,
+        file,
+      ).then((r) => r.data);
+      setExistingAdjuntosSolicitud(updated.adjuntosSolicitud ?? []);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo reemplazar el documento adjunto.",
+      );
+    } finally {
+      setAdjuntoBusyId(null);
+    }
+  };
+
+  const handleDeleteExistingAdjunto = async (adjunto: AdjuntoSolicitud) => {
+    if (!window.confirm(`¿Eliminar el archivo "${adjunto.nombreOriginal}"?`)) {
+      return;
+    }
+    try {
+      setAdjuntoBusyId(adjunto.id);
+      const updated = await deleteAdjuntoSolicitud(aval.id, adjunto.id).then(
+        (r) => r.data,
+      );
+      setExistingAdjuntosSolicitud(updated.adjuntosSolicitud ?? []);
+      setAdjuntosWarning(null);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo eliminar el documento adjunto.",
+      );
+    } finally {
+      setAdjuntoBusyId(null);
+    }
   };
 
   const addManualRequirement = () => {
@@ -870,14 +934,14 @@ export default function Paso04Presupuesto({
               </div>
             </div>
             <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-              {adjuntosSolicitud.length}/{MAX_ADJUNTOS_SOLICITUD}
+              {totalAdjuntosSolicitud}/{MAX_ADJUNTOS_SOLICITUD}
             </span>
           </div>
           <input
             type="file"
             multiple
             onChange={handleAdjuntosSolicitudChange}
-            disabled={adjuntosSolicitud.length >= MAX_ADJUNTOS_SOLICITUD}
+            disabled={totalAdjuntosSolicitud >= MAX_ADJUNTOS_SOLICITUD}
             className="form-input w-full border-gray-200 bg-white file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-950 dark:file:bg-gray-800 dark:file:text-gray-200"
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -888,6 +952,80 @@ export default function Paso04Presupuesto({
             <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
               {adjuntosWarning}
             </p>
+          )}
+          {existingAdjuntosSolicitud.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Adjuntos ya subidos
+              </p>
+              <ul className="space-y-2">
+                {existingAdjuntosSolicitud.map((adjunto) => {
+                  const isBusy = adjuntoBusyId === adjunto.id;
+                  return (
+                    <li
+                      key={adjunto.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                      <a
+                        href={adjunto.url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        download
+                        className="min-w-0 flex-1 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        title={`Descargar ${adjunto.nombreOriginal}`}
+                      >
+                        <p className="truncate font-medium text-gray-900 dark:text-gray-100">
+                          {adjunto.nombreOriginal}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Archivo guardado
+                        </p>
+                      </a>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <label
+                          className={`cursor-pointer text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 ${
+                            isBusy ? "pointer-events-none opacity-50" : ""
+                          }`}
+                          title="Reemplazar"
+                          aria-label="Reemplazar"
+                        >
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) {
+                                void handleReplaceExistingAdjunto(
+                                  adjunto,
+                                  file,
+                                );
+                              }
+                            }}
+                          />
+                          {isBusy ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Pencil className="w-4 h-4" />
+                          )}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeleteExistingAdjunto(adjunto)
+                          }
+                          disabled={isBusy}
+                          className="text-gray-400 hover:text-rose-600 disabled:opacity-50 dark:hover:text-rose-400"
+                          aria-label={`Eliminar ${adjunto.nombreOriginal}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
           {adjuntosSolicitud.length > 0 && (
             <ul className="mt-3 space-y-2">

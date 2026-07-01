@@ -50,6 +50,7 @@ export default function AvalDocumentosSection({ aval }: Props) {
   const hasConvocatoria = Boolean(aval.convocatoriaUrl);
   const hasCertificado = Boolean(aval.certificadoMedicoUrl);
   const hasPronostico = Boolean(aval.pronosticoDeportistasUrl);
+  const adjuntosSolicitud = aval.adjuntosSolicitud ?? [];
   const convocatoriaAdjuntos = aval.convocatoriaAdjuntos ?? [];
   const pronosticoAdjuntos = aval.pronosticoDeportistasAdjuntos ?? [];
 
@@ -57,6 +58,7 @@ export default function AvalDocumentosSection({ aval }: Props) {
     hasConvocatoria ||
     hasCertificado ||
     hasPronostico ||
+    adjuntosSolicitud.length > 0 ||
     convocatoriaAdjuntos.length > 0 ||
     pronosticoAdjuntos.length > 0;
 
@@ -88,6 +90,21 @@ export default function AvalDocumentosSection({ aval }: Props) {
             label="Descargar pronóstico de deportistas"
             icon={ClipboardCheck}
           />
+        )}
+
+        {adjuntosSolicitud.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+              Adjuntos de solicitud
+            </p>
+            <ul className="space-y-2">
+              {adjuntosSolicitud.map((adj) => (
+                <li key={adj.id}>
+                  <AdjuntoLink adjunto={adj} />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {convocatoriaAdjuntos.length > 0 && (

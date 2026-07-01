@@ -47,6 +47,7 @@ import {
   regenerarAvalPdfs,
   replaceAdjuntoSolicitud,
   uploadCertificadoMedico,
+  uploadAdjuntosSolicitud,
   uploadConvocatoriaPrincipal,
   uploadPronosticoDeportistas,
 } from "@/lib/api/avales";
@@ -580,6 +581,86 @@ function DocumentActionRow({
 
 const DOCUMENT_ACTION_ACCEPTED_TYPES =
   ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv";
+const MAX_ADJUNTOS_SOLICITUD = 10;
+
+type AddAdjuntosSolicitudButtonProps = {
+  avalId: number;
+  currentCount: number;
+  onUpdated: (aval: Aval) => void;
+  onError: (message: string) => void;
+};
+
+function AddAdjuntosSolicitudButton({
+  avalId,
+  currentCount,
+  onUpdated,
+  onError,
+}: AddAdjuntosSolicitudButtonProps) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const remaining = Math.max(MAX_ADJUNTOS_SOLICITUD - currentCount, 0);
+  const canUpload = remaining > 0 && !uploading;
+
+  const handleClick = () => {
+    if (!canUpload) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = "";
+    if (files.length === 0) return;
+    if (files.length > remaining) {
+      onError(
+        `Solo puedes agregar ${remaining} archivo${remaining === 1 ? "" : "s"} más.`,
+      );
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const updated = await uploadAdjuntosSolicitud(avalId, files).then(
+        (r) => r.data,
+      );
+      onUpdated(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudieron subir los adjuntos";
+      onError(message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="mt-4">
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept={DOCUMENT_ACTION_ACCEPTED_TYPES}
+        multiple
+        onChange={handleFileChange}
+      />
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={!canUpload}
+        className="btn w-full justify-center border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+      >
+        {uploading ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <Upload className="w-4 h-4 mr-2" />
+        )}
+        {uploading ? "Subiendo adjuntos..." : "Agregar archivos adjuntos"}
+      </button>
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        {currentCount}/{MAX_ADJUNTOS_SOLICITUD} adjuntos de solicitud.
+      </p>
+    </div>
+  );
+}
 
 type AdjuntoExtraRowProps = {
   avalId: number;
@@ -729,7 +810,7 @@ export default function AvalDetailPage() {
   const userRoles = getNormalizedRoles(user);
   const isAdminLike =
     userRoles.includes("ADMIN") || userRoles.includes("SUPER_ADMIN");
-  const canEditAvalFiles = isTrainerUser(user);
+  const canEditAvalFiles = isTrainerUser(user) || isAdminLike;
 
   const handleRegeneratePdfs = useCallback(async () => {
     if (!aval || regenerating) return;
@@ -1674,6 +1755,49 @@ export default function AvalDetailPage() {
                   />
                 ))}
               </div>
+
+              {canEditAvalFiles && (
+                <AddAdjuntosSolicitudButton
+                  avalId={aval.id}
+                  currentCount={aval.adjuntosSolicitud?.length ?? 0}
+                  onUpdated={(updated) => {
+                    setAval(updated);
+                    setToast({
+                      variant: "success",
+                      message: "Adjuntos agregados correctamente.",
+                    });
+                  }}
+                  onError={(message) => setToast({ variant: "error", message })}
+                />
+              )}
+
+              {(aval.adjuntosSolicitud?.length ?? 0) > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Adjuntos de solicitud
+                  </p>
+                  <ul className="space-y-2">
+                    {aval.adjuntosSolicitud.map((adj) => (
+                      <AdjuntoExtraRow
+                        key={adj.id}
+                        avalId={aval.id}
+                        adjunto={adj}
+                        canEdit={canEditAvalFiles}
+                        onUpdated={(updated) => {
+                          setAval(updated);
+                          setToast({
+                            variant: "success",
+                            message: "Archivo actualizado correctamente.",
+                          });
+                        }}
+                        onError={(message) =>
+                          setToast({ variant: "error", message })
+                        }
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Adicionales de convocatoria — editables individualmente */}
               {(aval.convocatoriaAdjuntos?.length ?? 0) > 0 && (

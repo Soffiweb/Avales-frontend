@@ -259,14 +259,19 @@ export default function Paso01Deportistas({
         modalidadParticipacion:
           d.modalidadParticipacion ?? getDefaultModalidad(tipoAval),
       })),
-      entrenadores: orderedEntrenadores.map((e) => ({
-        id: e.id,
-        nombre: "esTextoLibre" in e && e.esTextoLibre
-          ? e.nombre
-          : `${e.nombre} ${e.apellido ?? ""}`.trim(),
-        esTextoLibre: "esTextoLibre" in e && e.esTextoLibre ? true : undefined,
-        genero: "genero" in e ? e.genero ?? undefined : undefined,
-      })),
+      entrenadores:
+        totalEntrenadoresRequeridos === 0
+          ? []
+          : orderedEntrenadores.map((e) => ({
+              id: e.id,
+              nombre:
+                "esTextoLibre" in e && e.esTextoLibre
+                  ? e.nombre
+                  : `${e.nombre} ${e.apellido ?? ""}`.trim(),
+              esTextoLibre:
+                "esTextoLibre" in e && e.esTextoLibre ? true : undefined,
+              genero: "genero" in e ? e.genero ?? undefined : undefined,
+            })),
       otrosParticipantes: selectedOtrosParticipantes.map((o) => ({
         cargo: o.cargo,
         nombre: o.nombre,
@@ -281,6 +286,7 @@ export default function Paso01Deportistas({
     selectedEntrenadores,
     selectedOtrosParticipantes,
     tipoAval,
+    totalEntrenadoresRequeridos,
   ]);
 
   useEffect(() => {
@@ -298,6 +304,7 @@ export default function Paso01Deportistas({
     const isEntrenador =
       getNormalizedRoles(user).includes("ENTRENADOR") && !isAdminUser(user);
     if (!isEntrenador) return;
+    if (totalEntrenadoresRequeridos === 0) return;
 
     const alreadySelected = selectedEntrenadores.some((e) => e.id === user.id);
     if (alreadySelected) {
@@ -504,7 +511,7 @@ export default function Paso01Deportistas({
       return;
     }
 
-    if (selectedEntrenadores.length === 0) {
+    if (totalEntrenadoresRequeridos > 0 && selectedEntrenadores.length === 0) {
       setError("Debe asignar al menos un entrenador responsable.");
       return;
     }
@@ -521,7 +528,7 @@ export default function Paso01Deportistas({
       return;
     }
 
-    if (principalEntrenadorId == null) {
+    if (totalEntrenadoresRequeridos > 0 && principalEntrenadorId == null) {
       setError("Debes seleccionar un entrenador principal.");
       return;
     }
@@ -762,38 +769,41 @@ export default function Paso01Deportistas({
           </p>
         ) : (
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Asigna al menos un entrenador responsable para continuar.
+            Esta forma de participación no requiere entrenadores ni personal adicional.
           </p>
         )}
 
-        <div className="flex gap-2 mb-3 flex-wrap">
-          {(
-            [
-              { tipo: "ENTRENADOR" as const, label: "Entrenador" },
-              { tipo: "JUEZ" as const, label: "Juez" },
-              { tipo: "DELEGADO" as const, label: "Delegado" },
-              { tipo: "OTRO" as const, label: "Otro" },
-            ]
-          ).map(({ tipo, label }) => (
-            <button
-              key={tipo}
-              type="button"
-              onClick={() => setTipoPersonal(tipo)}
-              disabled={limitReached}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                tipoPersonal === tipo
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {totalEntrenadoresRequeridos > 0 && (
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {(
+              [
+                { tipo: "ENTRENADOR" as const, label: "Entrenador" },
+                { tipo: "JUEZ" as const, label: "Juez" },
+                { tipo: "DELEGADO" as const, label: "Delegado" },
+                { tipo: "OTRO" as const, label: "Otro" },
+              ]
+            ).map(({ tipo, label }) => (
+              <button
+                key={tipo}
+                type="button"
+                onClick={() => setTipoPersonal(tipo)}
+                disabled={limitReached}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                  tipoPersonal === tipo
+                    ? "bg-indigo-600 text-white border-indigo-600"
+                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {tipoPersonal === "ENTRENADOR" ? (
-          <>
-            <div className="relative">
+        {totalEntrenadoresRequeridos > 0 ? (
+          tipoPersonal === "ENTRENADOR" ? (
+            <>
+              <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
@@ -867,89 +877,92 @@ export default function Paso01Deportistas({
                   )}
                 </div>
               )}
-            </div>
+              </div>
 
-            {!limitReached && (
-              <div className="mt-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  ¿El entrenador no está en el sistema?
-                </p>
-                <div className="flex gap-2">
+              {!limitReached && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    ¿El entrenador no está en el sistema?
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="form-input flex-1"
+                      placeholder="Nombre completo del entrenador"
+                      value={freeTextEntrenadorNombre}
+                      onChange={(e) =>
+                        setFreeTextEntrenadorNombre(e.target.value)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddEntrenadorTextoLibre();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddEntrenadorTextoLibre}
+                      disabled={!freeTextEntrenadorNombre.trim()}
+                      className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-2">
+              {tipoPersonal === "OTRO" && (
+                <>
                   <input
                     type="text"
-                    className="form-input flex-1"
-                    placeholder="Nombre completo del entrenador"
-                    value={freeTextEntrenadorNombre}
-                    onChange={(e) => setFreeTextEntrenadorNombre(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddEntrenadorTextoLibre();
-                      }
-                    }}
+                    list="cargos-usados"
+                    className="form-input w-full"
+                    placeholder="Cargo (ej. ASISTENTE, FISIOTERAPEUTA)"
+                    value={otroCargoInput}
+                    onChange={(e) => setOtroCargoInput(e.target.value)}
+                    disabled={limitReached}
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddEntrenadorTextoLibre}
-                    disabled={!freeTextEntrenadorNombre.trim()}
-                    className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
-                  >
-                    Agregar
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="space-y-2">
-            {tipoPersonal === "OTRO" && (
-              <>
+                  <datalist id="cargos-usados">
+                    {cargosUsados.map((cargo) => (
+                      <option key={cargo} value={cargo} />
+                    ))}
+                  </datalist>
+                </>
+              )}
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  list="cargos-usados"
-                  className="form-input w-full"
-                  placeholder="Cargo (ej. ASISTENTE, FISIOTERAPEUTA)"
-                  value={otroCargoInput}
-                  onChange={(e) => setOtroCargoInput(e.target.value)}
+                  className="form-input flex-1 min-w-0"
+                  placeholder="Nombre completo"
+                  value={otroNombreInput}
+                  onChange={(e) => setOtroNombreInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddOtroParticipante();
+                    }
+                  }}
                   disabled={limitReached}
                 />
-                <datalist id="cargos-usados">
-                  {cargosUsados.map((cargo) => (
-                    <option key={cargo} value={cargo} />
-                  ))}
-                </datalist>
-              </>
-            )}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="form-input flex-1 min-w-0"
-                placeholder="Nombre completo"
-                value={otroNombreInput}
-                onChange={(e) => setOtroNombreInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddOtroParticipante();
+                <button
+                  type="button"
+                  onClick={handleAddOtroParticipante}
+                  disabled={
+                    (tipoPersonal === "OTRO" && !otroCargoInput.trim()) ||
+                    !otroNombreInput.trim() ||
+                    limitReached
                   }
-                }}
-                disabled={limitReached}
-              />
-              <button
-                type="button"
-                onClick={handleAddOtroParticipante}
-                disabled={
-                  (tipoPersonal === "OTRO" && !otroCargoInput.trim()) ||
-                  !otroNombreInput.trim() ||
-                  limitReached
-                }
-                className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md shrink-0"
-              >
-                Agregar
-              </button>
+                  className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md shrink-0"
+                >
+                  Agregar
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        ) : null}
 
         {(selectedEntrenadores.length > 0 || selectedOtrosParticipantes.length > 0) && (
           <div className="mt-3 space-y-2">

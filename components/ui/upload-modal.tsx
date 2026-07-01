@@ -9,7 +9,7 @@ import {
 import { X, Upload, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 
 type UploadFiles = {
-  convocatoria: File[];
+  convocatoria: File;
   certificadoMedico: File;
   pronosticoDeportistas: File[];
 };
@@ -43,8 +43,11 @@ const isAllowedFile = (file: File) => {
   return ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
 };
 
+const isPdfFile = (file: File) => file.name.toLowerCase().endsWith(".pdf");
+
 const FORMATS_ERROR =
   "Formatos permitidos: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV.";
+const CONVOCATORIA_FORMAT_ERROR = "La convocatoria debe ser un único archivo PDF.";
 
 export default function UploadModal({
   isOpen,
@@ -59,7 +62,7 @@ export default function UploadModal({
 }: UploadModalProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [convocatoriaFiles, setConvocatoriaFiles] = useState<File[]>([]);
+  const [convocatoriaFile, setConvocatoriaFile] = useState<File | null>(null);
   const [certificadoMedicoFile, setCertificadoMedicoFile] =
     useState<File | null>(null);
   const [pronosticoFiles, setPronosticoFiles] = useState<File[]>([]);
@@ -70,7 +73,7 @@ export default function UploadModal({
 
   useEffect(() => {
     if (!isOpen) {
-      setConvocatoriaFiles([]);
+      setConvocatoriaFile(null);
       setCertificadoMedicoFile(null);
       setPronosticoFiles([]);
       setError(null);
@@ -102,9 +105,15 @@ export default function UploadModal({
   };
 
   const handleConvocatoriaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      appendToList(setConvocatoriaFiles, Array.from(e.target.files));
-      e.currentTarget.value = "";
+    const file = e.target.files?.[0];
+    e.currentTarget.value = "";
+    if (file) {
+      if (!isPdfFile(file)) {
+        setError(CONVOCATORIA_FORMAT_ERROR);
+        return;
+      }
+      setConvocatoriaFile(file);
+      setError(null);
     }
   };
 
@@ -150,7 +159,13 @@ export default function UploadModal({
     if (dropped.length === 0) return;
 
     if (type === "convocatoria") {
-      appendToList(setConvocatoriaFiles, dropped);
+      const file = dropped[0];
+      if (!isPdfFile(file) || dropped.length > 1) {
+        setError(CONVOCATORIA_FORMAT_ERROR);
+        return;
+      }
+      setConvocatoriaFile(file);
+      setError(null);
       return;
     }
     if (type === "pronostico") {
@@ -169,7 +184,7 @@ export default function UploadModal({
 
   const handleUpload = async () => {
     if (
-      convocatoriaFiles.length === 0 ||
+      !convocatoriaFile ||
       !certificadoMedicoFile ||
       pronosticoFiles.length === 0
     ) {
@@ -188,7 +203,7 @@ export default function UploadModal({
       setUploading(true);
       setError(null);
       await onUpload({
-        convocatoria: convocatoriaFiles,
+        convocatoria: convocatoriaFile,
         certificadoMedico: certificadoMedicoFile,
         pronosticoDeportistas: pronosticoFiles,
       });
@@ -274,14 +289,14 @@ export default function UploadModal({
             <div className="space-y-4">
               {children ? <div>{children}</div> : null}
 
-              {/* Convocatoria — múltiples archivos */}
+              {/* Convocatoria — único PDF */}
               <div>
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Convocatoria
                 </p>
-                {convocatoriaFiles.length > 0 &&
-                  renderFileList(convocatoriaFiles, (idx) =>
-                    removeFromList(setConvocatoriaFiles, idx),
+                {convocatoriaFile &&
+                  renderFileList([convocatoriaFile], () =>
+                    setConvocatoriaFile(null),
                   )}
                 <div
                   onClick={() => convocatoriaInputRef.current?.click()}
@@ -294,17 +309,16 @@ export default function UploadModal({
                     ref={convocatoriaInputRef}
                     type="file"
                     className="hidden"
-                    accept={acceptedTypes}
-                    multiple
+                    accept=".pdf,application/pdf"
                     onChange={handleConvocatoriaChange}
                     disabled={uploading}
                   />
                   <div>
-                    {convocatoriaFiles.length > 0 ? (
+                    {convocatoriaFile ? (
                       <>
-                        <Plus className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                        <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Agregar más documentos
+                          Reemplazar convocatoria
                         </p>
                       </>
                     ) : (
@@ -314,7 +328,7 @@ export default function UploadModal({
                           Subir convocatoria
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Arrastra archivos aquí o haz clic para seleccionar
+                          Arrastra un PDF aquí o haz clic para seleccionar
                         </p>
                       </>
                     )}
@@ -448,7 +462,7 @@ export default function UploadModal({
               type="button"
               onClick={handleUpload}
               disabled={
-                convocatoriaFiles.length === 0 ||
+                !convocatoriaFile ||
                 !certificadoMedicoFile ||
                 pronosticoFiles.length === 0 ||
                 uploading ||

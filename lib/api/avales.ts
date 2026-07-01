@@ -84,7 +84,7 @@ export async function regenerarAvalPdfs(id: number) {
 
 export async function uploadConvocatoria(
   eventoId: number,
-  convocatoria: File | File[],
+  convocatoria: File,
   certificadoMedico: File,
   pronosticoDeportistas: File | File[],
   options?: {
@@ -95,12 +95,7 @@ export async function uploadConvocatoria(
 ) {
   const formData = new FormData();
   formData.append("eventoId", String(eventoId));
-  const convocatoriaFiles = Array.isArray(convocatoria)
-    ? convocatoria
-    : [convocatoria];
-  for (const file of convocatoriaFiles) {
-    formData.append("convocatoria", file);
-  }
+  formData.append("convocatoria", convocatoria);
   formData.append("certificadoMedico", certificadoMedico);
   const pronosticoFiles = Array.isArray(pronosticoDeportistas)
     ? pronosticoDeportistas

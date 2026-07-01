@@ -212,7 +212,7 @@ export default function NuevoAvalPage() {
     certificadoMedico,
     pronosticoDeportistas,
   }: {
-    convocatoria: File[];
+    convocatoria: File;
     certificadoMedico: File;
     pronosticoDeportistas: File[];
   }) => {

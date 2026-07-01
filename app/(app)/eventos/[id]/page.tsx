@@ -231,7 +231,7 @@ export default function EventoDetailPage() {
     certificadoMedico,
     pronosticoDeportistas,
   }: {
-    convocatoria: File[];
+    convocatoria: File;
     certificadoMedico: File;
     pronosticoDeportistas: File[];
   }) => {

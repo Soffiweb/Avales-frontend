@@ -23,7 +23,7 @@ import CertificacionAfiliacionesPreview, {
   SECRETARIA_DTM_CARGO_DEFAULT,
 } from "@/app/(app)/avales/_components/certificacion-afiliaciones-preview";
 import { listUsers } from "@/lib/api/user";
-import type { User } from "@/types/user";
+import type { Genero, User } from "@/types/user";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import Paso01Deportistas from "@/app/(app)/avales/_components/paso-01-deportistas";
 import Paso02Logistica from "@/app/(app)/avales/_components/paso-02-logistica";
@@ -64,7 +64,7 @@ type FormData = {
     cargo: string;
     nombre?: string;
     usuarioId?: number;
-    genero?: string;
+    genero?: Genero;
   }>;
 
   // Paso 2: Logística
@@ -105,6 +105,15 @@ const INITIAL_FORM_DATA: FormData = {
   requerimientos: [],
   montoSolicitado: undefined,
 };
+
+function normalizeGenero(value: unknown): Genero | undefined {
+  if (typeof value !== "string") return undefined;
+  const genero = value.trim().toUpperCase();
+  if (genero === "MASCULINO") return "MASCULINO";
+  if (genero === "FEMENINO") return "FEMENINO";
+  if (genero === "MASCULINO_FEMENINO") return "MASCULINO_FEMENINO";
+  return undefined;
+}
 
 function getEditableSolicitudState(aval: Aval, isAdmin = false) {
   if (isAdmin) return true;
@@ -184,7 +193,7 @@ function buildInitialFormData(aval: Aval): FormData {
     cargo: item.cargo,
     nombre: getOtroParticipanteDisplayName(item),
     usuarioId: item.usuarioId ?? undefined,
-    genero: item.genero ?? item.usuario?.genero ?? undefined,
+    genero: normalizeGenero(item.genero ?? item.usuario?.genero),
   }));
 
   return {

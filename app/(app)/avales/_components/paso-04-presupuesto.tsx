@@ -28,6 +28,7 @@ import type {
   Aval,
   AdjuntoSolicitud,
   EditAvalPayload,
+  Genero,
   ModalidadParticipacion,
   RubroPresupuestarioDto,
   TipoAval,
@@ -63,7 +64,7 @@ type FormData = {
     cargo: string;
     nombre?: string;
     usuarioId?: number;
-    genero?: string;
+    genero?: Genero;
   }>;
   fechaEmision?: string;
   fechaHoraSalida: string;

@@ -59,7 +59,12 @@ type FormData = {
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
   }>;
-  entrenadores: Array<{ id: number; nombre: string; esTextoLibre?: boolean }>;
+  entrenadores: Array<{
+    id: number;
+    nombre: string;
+    esTextoLibre?: boolean;
+    genero?: Genero;
+  }>;
   otrosParticipantes?: Array<{
     cargo: string;
     nombre?: string;
@@ -431,6 +436,7 @@ export default function Paso04Presupuesto({
           ...(e.esTextoLibre
             ? { entrenadorNombre: e.nombre }
             : { entrenadorId: e.id }),
+          genero: e.genero,
           rol: index === 0 ? "ENTRENADOR PRINCIPAL" : "ENTRENADOR",
           esPrincipal: index === 0,
         })),

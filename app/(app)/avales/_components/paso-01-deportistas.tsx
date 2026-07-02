@@ -48,7 +48,7 @@ type FormData = {
     id: number;
     nombre: string;
     esTextoLibre?: boolean;
-    genero?: string;
+    genero?: Genero;
   }>;
   otrosParticipantes?: Array<{
     cargo: string;
@@ -81,7 +81,16 @@ type SelectedDeportista = Deportista & {
   rol?: string;
   modalidadParticipacion?: ModalidadParticipacion;
 };
-type SelectedEntrenador = User | { id: number; nombre: string; apellido: string; cedula?: undefined; esTextoLibre: true };
+type SelectedEntrenador =
+  | User
+  | {
+      id: number;
+      nombre: string;
+      apellido: string;
+      cedula?: undefined;
+      esTextoLibre: true;
+      genero?: Genero;
+    };
 type SelectedOtroParticipante = {
   id: number;
   cargo: string;
@@ -176,6 +185,7 @@ export default function Paso01Deportistas({
           nombre: e.nombre,
           apellido: "",
           esTextoLibre: true as const,
+          genero: e.genero,
         };
       }
       const [nombre = "", ...apellidoParts] = (e.nombre ?? "").split(" ");
@@ -188,6 +198,9 @@ export default function Paso01Deportistas({
     }),
   );
   const [freeTextEntrenadorNombre, setFreeTextEntrenadorNombre] = useState("");
+  const [freeTextEntrenadorGenero, setFreeTextEntrenadorGenero] = useState<
+    Genero | ""
+  >("");
 
   const otroParticipanteIdCounterRef = useRef(-1);
   const [selectedOtrosParticipantes, setSelectedOtrosParticipantes] = useState<
@@ -470,12 +483,14 @@ export default function Paso01Deportistas({
       nombre,
       apellido: "",
       esTextoLibre: true,
+      genero: freeTextEntrenadorGenero || undefined,
     };
     setSelectedEntrenadores((prev) => [...prev, entry]);
     if (principalEntrenadorId == null) {
       setPrincipalEntrenadorId(freeTextId);
     }
     setFreeTextEntrenadorNombre("");
+    setFreeTextEntrenadorGenero("");
   };
 
   const handleRemoveEntrenador = (entrenadorId: number) => {
@@ -901,10 +916,10 @@ export default function Paso01Deportistas({
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                     ¿El entrenador no está en el sistema?
                   </p>
-                  <div className="flex gap-2">
+                  <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_auto]">
                     <input
                       type="text"
-                      className="form-input flex-1"
+                      className="form-input min-w-0"
                       placeholder="Nombre completo del entrenador"
                       value={freeTextEntrenadorNombre}
                       onChange={(e) =>
@@ -917,11 +932,24 @@ export default function Paso01Deportistas({
                         }
                       }}
                     />
+                    <select
+                      className="form-select"
+                      value={freeTextEntrenadorGenero}
+                      onChange={(e) =>
+                        setFreeTextEntrenadorGenero(e.target.value as Genero | "")
+                      }
+                    >
+                      <option value="">Genero</option>
+                      <option value="MASCULINO">Masculino</option>
+                      <option value="FEMENINO">Femenino</option>
+                    </select>
                     <button
                       type="button"
                       onClick={handleAddEntrenadorTextoLibre}
-                      disabled={!freeTextEntrenadorNombre.trim()}
-                      className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md"
+                      disabled={
+                        !freeTextEntrenadorNombre.trim() || !freeTextEntrenadorGenero
+                      }
+                      className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md shrink-0"
                     >
                       Agregar
                     </button>
@@ -1019,6 +1047,11 @@ export default function Paso01Deportistas({
                     {isFreeText && (
                       <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
                         No registrado en el sistema
+                      </p>
+                    )}
+                    {entrenador.genero && (
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {formatGenero(entrenador.genero)}
                       </p>
                     )}
                     <div className="mt-1">

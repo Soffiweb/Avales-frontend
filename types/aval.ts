@@ -453,6 +453,7 @@ export type DeportistaAvalDto = {
 export type EntrenadorAvalDto = {
   entrenadorId?: number;
   entrenadorNombre?: string;
+  genero?: Genero;
   rol: string;
   esPrincipal?: boolean;
 };
@@ -461,7 +462,7 @@ export type OtroParticipanteAvalDto = {
   cargo: string;
   usuarioId?: number;
   nombre?: string;
-  genero?: string;
+  genero?: Genero;
 };
 
 export type CreateAvalPayload = {

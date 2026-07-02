@@ -58,7 +58,7 @@ type FormData = {
     id: number;
     nombre: string;
     esTextoLibre?: boolean;
-    genero?: string;
+    genero?: Genero;
   }>;
   otrosParticipantes?: Array<{
     cargo: string;
@@ -184,7 +184,9 @@ function buildInitialFormData(aval: Aval): FormData {
       return {
         id: isTextoLibre ? -(index + 1) : entrenadorUserId!,
         nombre: getEntrenadorDisplayName(item),
-        genero: item.genero ?? item.entrenador?.genero ?? item.usuario?.genero ?? undefined,
+        genero: normalizeGenero(
+          item.genero ?? item.entrenador?.genero ?? item.usuario?.genero,
+        ),
         ...(isTextoLibre ? { esTextoLibre: true as const } : {}),
       };
     });

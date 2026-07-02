@@ -217,11 +217,13 @@ export type OtroParticipanteAval = {
   id: number;
   cargo: string;
   usuarioId?: number | null;
+  genero?: string | null;
   usuario?: {
     id: number;
     nombre?: string;
     apellido?: string;
     email?: string;
+    genero?: string | null;
   } | null;
   nombre?: string | null;
 };
@@ -459,6 +461,7 @@ export type OtroParticipanteAvalDto = {
   cargo: string;
   usuarioId?: number;
   nombre?: string;
+  genero?: string;
 };
 
 export type CreateAvalPayload = {

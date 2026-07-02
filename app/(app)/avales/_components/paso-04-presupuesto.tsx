@@ -63,6 +63,7 @@ type FormData = {
     cargo: string;
     nombre?: string;
     usuarioId?: number;
+    genero?: string;
   }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
@@ -434,6 +435,7 @@ export default function Paso04Presupuesto({
         })),
         otrosParticipantes: (formData.otrosParticipantes ?? []).map((o) => ({
           cargo: o.cargo,
+          genero: o.genero,
           ...(o.usuarioId ? { usuarioId: o.usuarioId } : { nombre: o.nombre }),
         })),
         requerimientos: usesManualRequirements

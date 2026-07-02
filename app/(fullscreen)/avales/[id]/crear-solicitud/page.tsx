@@ -64,6 +64,7 @@ type FormData = {
     cargo: string;
     nombre?: string;
     usuarioId?: number;
+    genero?: string;
   }>;
 
   // Paso 2: Logística
@@ -183,6 +184,7 @@ function buildInitialFormData(aval: Aval): FormData {
     cargo: item.cargo,
     nombre: getOtroParticipanteDisplayName(item),
     usuarioId: item.usuarioId ?? undefined,
+    genero: item.genero ?? item.usuario?.genero ?? undefined,
   }));
 
   return {

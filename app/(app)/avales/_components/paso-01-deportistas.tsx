@@ -8,7 +8,7 @@ import {
 } from "@/lib/api/deportistas";
 import { listEntrenadores, type ListEntrenadoresOptions } from "@/lib/api/user";
 import type { Deportista } from "@/types/deportista";
-import type { User } from "@/types/user";
+import type { Genero, User } from "@/types/user";
 import type { Aval } from "@/types/aval";
 import { formatGenero } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
@@ -54,6 +54,7 @@ type FormData = {
     cargo: string;
     nombre?: string;
     usuarioId?: number;
+    genero?: Genero;
   }>;
   fechaEmision?: string;
   fechaHoraSalida: string;
@@ -81,7 +82,12 @@ type SelectedDeportista = Deportista & {
   modalidadParticipacion?: ModalidadParticipacion;
 };
 type SelectedEntrenador = User | { id: number; nombre: string; apellido: string; cedula?: undefined; esTextoLibre: true };
-type SelectedOtroParticipante = { id: number; cargo: string; nombre: string };
+type SelectedOtroParticipante = {
+  id: number;
+  cargo: string;
+  nombre: string;
+  genero?: Genero;
+};
 
 function formatDeportistaNombre(
   deportista: Pick<Deportista, "nombres" | "apellidos">
@@ -190,11 +196,17 @@ export default function Paso01Deportistas({
     (formData.otrosParticipantes ?? []).map((o) => {
       const id = otroParticipanteIdCounterRef.current;
       otroParticipanteIdCounterRef.current -= 1;
-      return { id, cargo: o.cargo, nombre: o.nombre ?? "" };
+      return {
+        id,
+        cargo: o.cargo,
+        nombre: o.nombre ?? "",
+        genero: o.genero,
+      };
     }),
   );
   const [otroCargoInput, setOtroCargoInput] = useState("");
   const [otroNombreInput, setOtroNombreInput] = useState("");
+  const [otroGeneroInput, setOtroGeneroInput] = useState<Genero | "">("");
   const [tipoPersonal, setTipoPersonal] = useState<
     "ENTRENADOR" | "JUEZ" | "DELEGADO" | "OTRO"
   >("ENTRENADOR");
@@ -275,6 +287,7 @@ export default function Paso01Deportistas({
       otrosParticipantes: selectedOtrosParticipantes.map((o) => ({
         cargo: o.cargo,
         nombre: o.nombre,
+        genero: o.genero,
       })),
       fechaEmision,
       tipoAval,
@@ -486,12 +499,16 @@ export default function Paso01Deportistas({
       tipoPersonal === "OTRO" ? otroCargoInput.trim() : tipoPersonal
     ).toUpperCase();
     const nombre = otroNombreInput.trim();
-    if (!cargo || !nombre) return;
+    if (!cargo || !nombre || !otroGeneroInput) return;
     if (otrosParticipantesLimitReached) return;
     const id = otroParticipanteIdCounterRef.current;
     otroParticipanteIdCounterRef.current -= 1;
-    setSelectedOtrosParticipantes((prev) => [...prev, { id, cargo, nombre }]);
+    setSelectedOtrosParticipantes((prev) => [
+      ...prev,
+      { id, cargo, nombre, genero: otroGeneroInput },
+    ]);
     setOtroNombreInput("");
+    setOtroGeneroInput("");
   };
 
   const handleRemoveOtroParticipante = (id: number) => {
@@ -932,10 +949,10 @@ export default function Paso01Deportistas({
                   </datalist>
                 </>
               )}
-              <div className="flex gap-2">
+              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_auto]">
                 <input
                   type="text"
-                  className="form-input flex-1 min-w-0"
+                  className="form-input min-w-0"
                   placeholder="Nombre completo"
                   value={otroNombreInput}
                   onChange={(e) => setOtroNombreInput(e.target.value)}
@@ -947,12 +964,23 @@ export default function Paso01Deportistas({
                   }}
                   disabled={limitReached}
                 />
+                <select
+                  className="form-select"
+                  value={otroGeneroInput}
+                  onChange={(e) => setOtroGeneroInput(e.target.value as Genero | "")}
+                  disabled={limitReached}
+                >
+                  <option value="">Genero</option>
+                  <option value="MASCULINO">Masculino</option>
+                  <option value="FEMENINO">Femenino</option>
+                </select>
                 <button
                   type="button"
                   onClick={handleAddOtroParticipante}
                   disabled={
                     (tipoPersonal === "OTRO" && !otroCargoInput.trim()) ||
                     !otroNombreInput.trim() ||
+                    !otroGeneroInput ||
                     limitReached
                   }
                   className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md shrink-0"
@@ -1028,9 +1056,14 @@ export default function Paso01Deportistas({
               >
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm">{otro.nombre}</p>
-                  <span className="inline-flex mt-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                    {otro.cargo}
-                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <span className="inline-flex rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      {otro.cargo}
+                    </span>
+                    <span className="inline-flex rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      {formatGenero(otro.genero)}
+                    </span>
+                  </div>
                 </div>
 
                 <button

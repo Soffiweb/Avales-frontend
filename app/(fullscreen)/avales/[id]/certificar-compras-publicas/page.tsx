@@ -152,6 +152,31 @@ function normalizeComprasDraft(
   };
 }
 
+function validateComprasDraft(
+  draft: ComprasPublicasDraft,
+  codigos: Array<{ codigo: string; descripcion: string }>,
+) {
+  if (typeof draft.realizoProceso !== "boolean") {
+    return "Debes indicar si se realizó o no el proceso de contratación pública.";
+  }
+
+  if (draft.realizoProceso) {
+    if (codigos.length === 0) {
+      return "Debes ingresar al menos un código de necesidad.";
+    }
+
+    const invalidRow = codigos.find(
+      (item) => !item.codigo.trim() || !item.descripcion.trim(),
+    );
+
+    if (invalidRow) {
+      return "Cada código de necesidad debe tener código y descripción.";
+    }
+  }
+
+  return null;
+}
+
 export default function CertificarComprasPublicasPage() {
   const params = useParams();
   const router = useRouter();
@@ -207,18 +232,7 @@ export default function CertificarComprasPublicasPage() {
       if (!sumilla.trim()) {
         return "Debes completar la sumilla indicando la resolución adjunta.";
       }
-      if (draft.realizoProceso === true) {
-        if (draftCodigos.length === 0) {
-          return "Debes ingresar al menos un código de necesidad.";
-        }
-        const invalidRow = draftCodigos.find(
-          (item) => !item.codigo.trim() || !item.descripcion.trim(),
-        );
-        if (invalidRow) {
-          return "Cada fila debe tener código y descripción.";
-        }
-      }
-      return null;
+      return validateComprasDraft(draft, draftCodigos);
     }, [sumilla, draft.realizoProceso, draftCodigos]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
@@ -348,6 +362,11 @@ export default function CertificarComprasPublicasPage() {
 
   const handleAdminSave = useCallback(async () => {
     if (!aval) return;
+    const validationError = validateComprasDraft(draft, draftCodigos);
+    if (validationError) {
+      setToast({ variant: "error", message: validationError });
+      return;
+    }
     const requiresContratacion = draft.realizoProceso === true;
     const payload = {
       numeroCertificado: draft.numeroCertificado?.trim() || undefined,
@@ -523,6 +542,7 @@ export default function CertificarComprasPublicasPage() {
                       <input
                         type="radio"
                         className="form-radio"
+                        name="realizoProceso"
                         checked={draft.realizoProceso === true}
                         disabled={!effectiveEditable}
                         onChange={() =>
@@ -542,6 +562,7 @@ export default function CertificarComprasPublicasPage() {
                       <input
                         type="radio"
                         className="form-radio"
+                        name="realizoProceso"
                         checked={draft.realizoProceso === false}
                         disabled={!effectiveEditable}
                         onChange={() =>
@@ -588,6 +609,7 @@ export default function CertificarComprasPublicasPage() {
                         <input
                           className="form-input w-full"
                           value={item.codigo}
+                          required={requiresContratacionData}
                           readOnly={!effectiveEditable || !requiresContratacionData}
                           disabled={!effectiveEditable || !requiresContratacionData}
                           onChange={(e) =>
@@ -599,6 +621,7 @@ export default function CertificarComprasPublicasPage() {
                           className="form-textarea w-full min-h-[88px] resize-y"
                           rows={3}
                           value={item.descripcion}
+                          required={requiresContratacionData}
                           readOnly={!effectiveEditable || !requiresContratacionData}
                           disabled={!effectiveEditable || !requiresContratacionData}
                           onChange={(e) =>

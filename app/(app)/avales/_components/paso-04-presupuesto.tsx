@@ -434,9 +434,8 @@ export default function Paso04Presupuesto({
         })),
         entrenadores: formData.entrenadores.map((e, index) => ({
           ...(e.esTextoLibre
-            ? { entrenadorNombre: e.nombre }
+            ? { entrenadorNombre: e.nombre, genero: e.genero }
             : { entrenadorId: e.id }),
-          genero: e.genero,
           rol: index === 0 ? "ENTRENADOR PRINCIPAL" : "ENTRENADOR",
           esPrincipal: index === 0,
         })),

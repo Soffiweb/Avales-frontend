@@ -72,12 +72,19 @@ import {
   getTipoAvalLabel,
   getApprovalStageLabel,
 } from "@/lib/constants";
-import { getNormalizedRoles, isTrainerUser } from "@/lib/auth/access";
+import {
+  getNormalizedRoles,
+  isDTMUser,
+  isMetodologoUser,
+  isPdaUser,
+  isTrainerUser,
+} from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
   getAvalCurrentEtapa,
   getFinalApprovalStageForAval,
   isAvalFlowApproved,
+  normalizeEtapaFlujo,
 } from "@/lib/approval-flow";
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
@@ -198,6 +205,8 @@ type StageTimelineProps = {
   flowStages: EtapaFlujo[];
   isAdmin?: boolean;
   avalId?: number;
+  isDraft?: boolean;
+  isApproved?: boolean;
 };
 
 const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
@@ -216,22 +225,23 @@ function StageTimeline({
   flowStages,
   isAdmin = false,
   avalId,
+  isDraft = false,
+  isApproved = false,
 }: StageTimelineProps) {
   const finalStage = flowStages[flowStages.length - 1] ?? currentStage;
-  const isFlowApproved = currentStage === finalStage;
   const stages = flowStages
     .filter((etapa) => etapa !== "SECRETARIA")
     .map((etapa) => ({
-    etapa,
-    label:
-      isFlowApproved && etapa === finalStage
-        ? "Aprobado"
-        : getApprovalStageLabel(etapa),
-    shortLabel:
-      isFlowApproved && etapa === finalStage
-        ? "Aprobado"
-        : (STAGE_SHORT_LABELS[etapa] ?? etapa),
-  }));
+      etapa,
+      label:
+        isApproved && etapa === finalStage
+          ? "Aprobado"
+          : getApprovalStageLabel(etapa),
+      shortLabel:
+        isApproved && etapa === finalStage
+          ? "Aprobado"
+          : (STAGE_SHORT_LABELS[etapa] ?? etapa),
+    }));
   const timelineCurrentStage =
     stages.find((stage) => stage.etapa === currentStage)?.etapa ??
     stages[stages.length - 1]?.etapa ??
@@ -243,11 +253,13 @@ function StageTimeline({
     Math.max(rawIndex === -1 ? 0 : rawIndex, 0),
     Math.max(stages.length - 1, 0),
   );
-  const progressPercent = isFlowApproved
-    ? 100
-    : stages.length > 1
-      ? (currentIndex / Math.max(stages.length - 1, 1)) * 100
-      : 0;
+  const progressPercent = isDraft
+    ? 0
+    : isApproved
+      ? 100
+      : stages.length > 1
+        ? (currentIndex / Math.max(stages.length - 1, 1)) * 100
+        : 0;
 
   const currentStageInfo = stages[currentIndex];
 
@@ -260,7 +272,7 @@ function StageTimeline({
             Paso {currentIndex + 1} de {stages.length}
           </p>
           <h2 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {isFlowApproved
+            {isApproved
               ? "Aval aprobado"
               : `En: ${currentStageInfo?.label ?? "—"}`}
           </h2>
@@ -272,7 +284,7 @@ function StageTimeline({
           <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                isFlowApproved ? "bg-emerald-500" : "bg-blue-600"
+                isApproved ? "bg-emerald-500" : "bg-blue-600"
               }`}
               style={{ width: `${progressPercent}%` }}
             />
@@ -291,8 +303,9 @@ function StageTimeline({
         />
         <div className="relative flex justify-between gap-1">
           {stages.map((stage, idx) => {
-            const isStageCompleted = idx < currentIndex || isFlowApproved;
-            const isCurrentStage = idx === currentIndex && !isFlowApproved;
+            const isStageCompleted = idx < currentIndex || isApproved;
+            const isCurrentStage = idx === currentIndex && !isApproved;
+            const isDraftStage = isDraft && isCurrentStage;
             const status = isStageCompleted
               ? "done"
               : isCurrentStage
@@ -302,16 +315,20 @@ function StageTimeline({
             const circleClasses =
               status === "done"
                 ? "bg-emerald-500 border-emerald-500 text-white shadow-sm"
-                : status === "current"
-                  ? "border-blue-600 bg-white text-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/40 shadow-md"
-                  : "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500";
+                : isDraftStage
+                  ? "border-amber-500 bg-amber-50 text-amber-700 ring-4 ring-amber-100 shadow-md dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900/40"
+                  : status === "current"
+                    ? "border-blue-600 bg-white text-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/40 shadow-md"
+                    : "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500";
 
             const labelClasses =
               status === "done"
                 ? "text-emerald-700 dark:text-emerald-300"
-                : status === "current"
-                  ? "text-blue-700 dark:text-blue-300 font-semibold"
-                  : "text-gray-500 dark:text-gray-400";
+                : isDraftStage
+                  ? "text-amber-700 dark:text-amber-300 font-semibold"
+                  : status === "current"
+                    ? "text-blue-700 dark:text-blue-300 font-semibold"
+                    : "text-gray-500 dark:text-gray-400";
 
             const stageHref = ETAPA_TO_PATH[stage.etapa];
             const isClickable = isAdmin && avalId && stageHref;
@@ -811,6 +828,8 @@ export default function AvalDetailPage() {
   const isAdminLike =
     userRoles.includes("ADMIN") || userRoles.includes("SUPER_ADMIN");
   const canEditAvalFiles = isTrainerUser(user) || isAdminLike;
+  const canRegeneratePdfs =
+    isAdminLike || isPdaUser(user) || isMetodologoUser(user) || isDTMUser(user);
 
   const handleRegeneratePdfs = useCallback(async () => {
     if (!aval || regenerating) return;
@@ -900,9 +919,16 @@ export default function AvalDetailPage() {
 
   const currentEtapa = getAvalCurrentEtapa(aval);
   const flowStages = getApprovalFlowStages(aval);
-  const currentStageLabel = isAvalFlowApproved(aval)
+  const isAvalCompleto = isAvalFlowApproved(aval);
+  const pendingEtapa = normalizeEtapaFlujo(aval?.siguienteEtapa);
+  const displayCurrentEtapa = isAvalCompleto
+    ? getFinalApprovalStageForAval(aval)
+    : aval?.estado === "BORRADOR"
+      ? currentEtapa
+      : pendingEtapa ?? currentEtapa;
+  const currentStageLabel = isAvalCompleto
     ? "Aprobado"
-    : getApprovalStageLabel(currentEtapa);
+    : getApprovalStageLabel(displayCurrentEtapa);
 
   const fetchAval = useCallback(async () => {
     if (!id || Number.isNaN(id)) {
@@ -1027,10 +1053,6 @@ export default function AvalDetailPage() {
           : `Faltan ${daysUntil} días para el inicio del evento.`
       : null,
   ].filter((line): line is string => Boolean(line));
-  const isAvalCompleto = isAvalFlowApproved(aval);
-  const displayCurrentEtapa = isAvalCompleto
-    ? getFinalApprovalStageForAval(aval)
-    : currentEtapa;
   const canDownloadAvalCompleto = Boolean(aval.aval) || isAvalCompleto;
   const isAvalOwner =
     isTrainerUser(user) &&
@@ -1222,7 +1244,7 @@ export default function AvalDetailPage() {
                 {canDeleteAsAdmin ? "Eliminar aval" : "Eliminar solicitud"}
               </button>
             )}
-            {isAdminLike && (
+            {canRegeneratePdfs && (
               <button
                 type="button"
                 onClick={handleRegeneratePdfs}
@@ -1284,6 +1306,8 @@ export default function AvalDetailPage() {
             flowStages={flowStages}
             isAdmin={isAdminLike}
             avalId={aval.id}
+            isDraft={aval.estado === "BORRADOR"}
+            isApproved={isAvalCompleto}
           />
           {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
             <p>{stageDescription}</p>

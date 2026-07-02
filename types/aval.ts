@@ -230,6 +230,15 @@ export type OtroParticipanteAval = {
 
 export type AvalTecnico = {
   id: number;
+  // Creador del aval. Responsable de respaldo cuando no hay entrenadores.
+  creador?: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    cedula?: string | null;
+    ruc?: string | null;
+    usarRuc?: boolean;
+  } | null;
   descripcion?: string | null;
   archivo?: string | null;
   numeroAval?: string | null;

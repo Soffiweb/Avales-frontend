@@ -58,7 +58,17 @@ export function getResponsibleTrainerName(
   );
   const first = sorted[0] as ExtendedTrainer | undefined;
 
-  if (!first) return fallback;
+  if (!first) {
+    // Sin entrenadores en la delegación: el creador del aval es el responsable.
+    const creador = aval.avalTecnico?.creador;
+    if (creador) {
+      return (
+        [creador.nombre, creador.apellido].filter(Boolean).join(" ").trim() ||
+        fallback
+      );
+    }
+    return fallback;
+  }
 
   return (
     [
@@ -81,6 +91,20 @@ export function getResponsibleTrainerData(
   const first = sorted[0] as ExtendedTrainer | undefined;
 
   if (!first) {
+    // Sin entrenadores: usar el creador del aval como responsable.
+    const creador = aval.avalTecnico?.creador;
+    if (creador) {
+      const nombre = (
+        [creador.nombre, creador.apellido].filter(Boolean).join(" ").trim() ||
+        fallbackName
+      ).toUpperCase();
+      const { identificador, esRuc } = pickIdentificador({
+        cedula: creador.cedula ?? undefined,
+        ruc: creador.ruc,
+        usarRuc: creador.usarRuc,
+      } as ExtendedTrainer);
+      return { nombre, cedula: identificador, identificador, esRuc };
+    }
     return { nombre: fallbackName, cedula: "-", identificador: "-", esRuc: false };
   }
 

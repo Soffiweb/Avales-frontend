@@ -167,17 +167,22 @@ export function useEventoForm({
 
   const addFormaParticipacion = useCallback(
     (tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO") => {
+      const existingForma = evento?.formasParticipacion?.find(
+        (forma) => forma.tipoAval === tipoAval,
+      );
+
       appendFormaParticipacion({
+        ...(existingForma?.id ? { id: existingForma.id } : {}),
         tipoAval,
-        referencia: "",
-        observacion: "",
-        numEntrenadoresHombres: 0,
-        numEntrenadoresMujeres: 0,
-        numAtletasHombres: 0,
-        numAtletasMujeres: 0,
+        referencia: existingForma?.referencia ?? "",
+        observacion: existingForma?.observacion ?? "",
+        numEntrenadoresHombres: existingForma?.numEntrenadoresHombres ?? 0,
+        numEntrenadoresMujeres: existingForma?.numEntrenadoresMujeres ?? 0,
+        numAtletasHombres: existingForma?.numAtletasHombres ?? 0,
+        numAtletasMujeres: existingForma?.numAtletasMujeres ?? 0,
       });
     },
-    [appendFormaParticipacion],
+    [appendFormaParticipacion, evento?.formasParticipacion],
   );
 
   useEffect(() => {
@@ -316,6 +321,7 @@ export function useEventoForm({
             values,
             disciplina?.id,
             categoria?.id,
+            evento,
           );
           if (!updatePayload) {
             setSubmitError("Completa los campos obligatorios del evento.");

@@ -150,8 +150,12 @@ function tipoAvalToFuente(
 
 function buildFormasParticipacionInput(
   values: EventoFormValues,
+  existingFormas?: Evento["formasParticipacion"],
 ): FormaParticipacionInputDto[] {
   const eventoItems = values.eventoItems ?? [];
+  const existingFormaByTipoAval = new Map(
+    (existingFormas ?? []).map((forma) => [forma.tipoAval, forma]),
+  );
 
   return (values.formasParticipacion ?? []).map((forma) => {
     const fuente = tipoAvalToFuente(forma.tipoAval);
@@ -164,9 +168,11 @@ function buildFormasParticipacionInput(
             presupuesto: item.presupuesto,
           }))
       : [];
+    const existingForma = existingFormaByTipoAval.get(forma.tipoAval);
+    const resolvedId = forma.id ?? existingForma?.id;
 
     return {
-      ...(forma.id ? { id: forma.id } : {}),
+      ...(resolvedId ? { id: resolvedId } : {}),
       tipoAval: forma.tipoAval,
       referencia: forma.referencia?.trim() || undefined,
       observacion: forma.observacion?.trim() || undefined,
@@ -226,6 +232,7 @@ export function buildUpdateEventoPayloadFromForm(
   values: EventoFormValues,
   disciplinaId?: number,
   categoriaId?: number,
+  evento?: Evento,
 ): UpdateEventoPayload | null {
   const tipoParticipacion =
     normalizeEventoTipoParticipacion(values.tipoParticipacion) ?? undefined;
@@ -264,7 +271,10 @@ export function buildUpdateEventoPayloadFromForm(
       ? formatDateInput(values.fechaInicio)
       : null,
     fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
-    formasParticipacion: buildFormasParticipacionInput(values),
+    formasParticipacion: buildFormasParticipacionInput(
+      values,
+      evento?.formasParticipacion,
+    ),
   };
 }
 

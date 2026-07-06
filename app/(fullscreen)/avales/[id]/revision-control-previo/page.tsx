@@ -43,6 +43,7 @@ import {
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { parseNotasFromBd } from "@/lib/utils/aval-collections";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -274,7 +275,7 @@ export default function RevisionControlPrevioPage() {
   );
   const presupuestoSalidaDraft = useMemo(
     () => ({
-      notas: [],
+      notas: (parseNotasFromBd(aval?.pda?.notas) ?? []).map((n) => n.texto),
       codigoActividad: aval?.pda?.codigoActividad ?? "004",
       numeroAval:
         aval?.pda?.numeroAval ??

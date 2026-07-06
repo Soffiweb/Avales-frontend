@@ -11,6 +11,7 @@ import {
   getRevisionMetodologoItems,
 } from "@/lib/api/avales";
 import { getDirigido } from "@/lib/api/user";
+import { listRoles } from "@/lib/api/roles";
 import type { Aval } from "@/types/aval";
 import {
   formatRoles,
@@ -341,19 +342,23 @@ export default function RevisionMetodologoPage() {
     };
   }, []);
 
-  // Load DTM user for "Dirigido a" field
+  // Load DTM user + nombre del rol DTM (catalogo de roles) para "Dirigido a"
   useEffect(() => {
     let active = true;
     async function loadDtmUser() {
       try {
-        const res = await getDirigido("DTM");
+        const [dirigidoRes, rolesRes] = await Promise.all([
+          getDirigido("DTM"),
+          listRoles().catch(() => null),
+        ]);
         if (!active) return;
-        const first = res.data;
+        const first = dirigidoRes.data;
         const nombre = first
           ? [first.nombre, first.apellido].filter(Boolean).join(" ").trim()
           : "";
+        const rolDtm = rolesRes?.data?.find((r) => r.codigo === "DTM");
         setDtmName(nombre);
-        setDtmCargo(first?.cargo?.trim() || "DTM");
+        setDtmCargo(rolDtm?.nombre?.trim() || "DTM");
       } catch {
         if (!active) return;
         setDtmName("");

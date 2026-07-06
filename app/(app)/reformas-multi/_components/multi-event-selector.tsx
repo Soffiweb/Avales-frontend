@@ -3,16 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Search, Plus } from "lucide-react";
 import {
-  getEventoPresupuestoPorFuente,
   type Evento,
-  type EventoItem,
 } from "@/types/evento";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
-import { getEvento, listEventos } from "@/lib/api/eventos";
+import { getEvento } from "@/lib/api/eventos";
 import { getItemsPresupuestarios } from "@/lib/api/catalog";
-import type { FuentePresupuestoReforma } from "@/types/reforma-multi";
-import { formatCurrency, formatCurrencyFromString } from "@/lib/utils/formatters";
-import { MES_NOMBRES, MES_OPCIONES } from "@/lib/api/reforms-multi";
+import {
+  getEventosDisponiblesReformaMulti,
+  MES_NOMBRES,
+  MES_OPCIONES,
+} from "@/lib/api/reforms-multi";
+import type {
+  EventoDisponibleReformaMulti,
+  FuentePresupuestoReforma,
+} from "@/types/reforma-multi";
+import { formatCurrency } from "@/lib/utils/formatters";
 
 export type EventoLineItem = {
   itemId: number;
@@ -26,8 +31,17 @@ export type EventoLineItem = {
 
 export type SelectedEvento = {
   eventoId: number;
+  formaParticipacionId: number;
   nombre: string;
   codigo: string;
+  provincia?: string;
+  ciudad?: string;
+  genero?: Evento["genero"];
+  mesProgramado?: number | null;
+  numEntrenadoresHombres: number;
+  numEntrenadoresMujeres: number;
+  numAtletasHombres: number;
+  numAtletasMujeres: number;
   items: EventoLineItem[];
 };
 
@@ -51,41 +65,25 @@ function getFuenteLabel(fuente: FuentePresupuestoReforma) {
   return fuente === "FONDOS_PUBLICOS" ? "Fondos Públicos" : "Autogestión";
 }
 
-function getItemDisponible(ei: EventoItem): number {
-  const presupuesto = parseFloat(ei.presupuesto) || 0;
-  const comprometido = parseFloat(ei.montoComprometido) || 0;
-  const ejecutado = parseFloat(ei.montoEjecutado) || 0;
-  return Math.max(0, presupuesto - comprometido - ejecutado);
-}
-
-function eventoTieneFuentePresupuestaria(
-  evento: Evento,
-  fuente: FuentePresupuestoReforma,
-) {
-  return getEventoPresupuestoPorFuente(evento).some(
-    (group) => group.fuente === fuente && group.items.length > 0,
-  );
-}
-
 function buildEventoLineItems(
-  evento: Evento,
+  items: NonNullable<EventoDisponibleReformaMulti["items"]> | undefined,
   fuente: FuentePresupuestoReforma,
 ): EventoLineItem[] {
-  const presupuesto = getEventoPresupuestoPorFuente(evento).find(
-    (group) => group.fuente === fuente,
-  );
-
-  return (presupuesto?.items ?? []).map((ei): EventoLineItem => {
-    const monto = parseFloat(ei.presupuesto) || 0;
-    const disponible = getItemDisponible(ei);
+  return (items ?? []).map((item): EventoLineItem => {
+    const presupuesto = parseFloat(item.presupuesto) || 0;
+    const comprometido = parseFloat(item.montoComprometido) || 0;
+    const ejecutado = parseFloat(item.montoEjecutado) || 0;
+    const disponible =
+      parseFloat(item.saldoDisponible) ||
+      Math.max(0, presupuesto - comprometido - ejecutado);
 
     return {
-      itemId: ei.item.id,
-      itemNombre: ei.item.nombre,
-      mes: ei.mes,
+      itemId: item.itemId,
+      itemNombre: item.nombre,
+      mes: item.mes,
       fuente,
-      monto,
-      presupuesto: monto,
+      monto: presupuesto,
+      presupuesto,
       disponible,
     };
   });
@@ -103,7 +101,7 @@ export default function EventoItemsPanel({
 }: Props) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [results, setResults] = useState<Evento[]>([]);
+  const [results, setResults] = useState<EventoDisponibleReformaMulti[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -123,23 +121,25 @@ export default function EventoItemsPanel({
 
   useEffect(() => {
     if (!fuente) { setResults([]); return; }
+    const fuenteSeleccionada = fuente;
     let cancelled = false;
 
     async function fetchEvents() {
       setLoadingSearch(true);
       try {
-        const res = await listEventos({
+        const res = await getEventosDisponiblesReformaMulti({
+          fuente: fuenteSeleccionada,
           search: debouncedSearch || undefined,
-          limit: 20,
-          sinAval: true,
         });
         if (!cancelled) {
           setResults(
             (res.data ?? []).filter(
               (e) =>
-                eventoTieneFuentePresupuestaria(e, fuente as FuentePresupuestoReforma) &&
-                !e.tieneReformaPendiente &&
-                !selectedRef.current.some((s) => s.eventoId === e.id) &&
+                !selectedRef.current.some(
+                  (s) =>
+                    s.eventoId === e.id &&
+                    s.formaParticipacionId === e.formaParticipacionId,
+                ) &&
                 !excludeEventoIds.includes(e.id),
             ),
           );
@@ -171,20 +171,44 @@ export default function EventoItemsPanel({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  async function handleSelect(evento: Evento) {
+  async function handleSelect(evento: EventoDisponibleReformaMulti) {
     if (!fuente) return;
 
     try {
       const response = await getEvento(evento.id);
       const detailedEvento = response.data;
-      const eventoItems = buildEventoLineItems(detailedEvento, fuente);
+      const formaParticipacion = detailedEvento.formasParticipacion?.find(
+        (forma) => forma.id === evento.formaParticipacionId,
+      );
+      const eventoItems = buildEventoLineItems(evento.items, fuente);
 
       onChange([
         ...selected,
         {
           eventoId: detailedEvento.id,
+          formaParticipacionId: evento.formaParticipacionId,
           nombre: detailedEvento.nombre,
           codigo: detailedEvento.codigo,
+          provincia: detailedEvento.provincia,
+          ciudad: detailedEvento.ciudad,
+          genero: detailedEvento.genero,
+          mesProgramado: detailedEvento.mesProgramado,
+          numEntrenadoresHombres:
+            formaParticipacion?.numEntrenadoresHombres ??
+            detailedEvento.numEntrenadoresHombres ??
+            0,
+          numEntrenadoresMujeres:
+            formaParticipacion?.numEntrenadoresMujeres ??
+            detailedEvento.numEntrenadoresMujeres ??
+            0,
+          numAtletasHombres:
+            formaParticipacion?.numAtletasHombres ??
+            detailedEvento.numAtletasHombres ??
+            0,
+          numAtletasMujeres:
+            formaParticipacion?.numAtletasMujeres ??
+            detailedEvento.numAtletasMujeres ??
+            0,
           items: eventoItems,
         },
       ]);
@@ -195,8 +219,16 @@ export default function EventoItemsPanel({
     }
   }
 
-  function handleRemoveEvento(eventoId: number) {
-    onChange(selected.filter((s) => s.eventoId !== eventoId));
+  function handleRemoveEvento(eventoId: number, formaParticipacionId: number) {
+    onChange(
+      selected.filter(
+        (s) =>
+          !(
+            s.eventoId === eventoId &&
+            s.formaParticipacionId === formaParticipacionId
+          ),
+      ),
+    );
     setAddingItem((prev) => {
       const next = { ...prev };
       delete next[eventoId];
@@ -334,7 +366,7 @@ export default function EventoItemsPanel({
             ) : (
               <ul className="max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
                 {results.map((evento) => (
-                  <li key={evento.id}>
+                  <li key={`${evento.id}-${evento.formaParticipacionId}`}>
                     <button
                       type="button"
                       className="w-full px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -346,6 +378,7 @@ export default function EventoItemsPanel({
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {evento.codigo}
                         {evento.disciplina ? ` · ${evento.disciplina.nombre}` : ""}
+                        {` · FP #${evento.formaParticipacionId}`}
                       </p>
                     </button>
                   </li>
@@ -360,11 +393,15 @@ export default function EventoItemsPanel({
         {sorted.map((ev) => {
           const isHighlighted = highlightEventoIds.includes(ev.eventoId);
           const adding = addingItem[ev.eventoId];
-          const totalEvento = ev.items.reduce((s, it) => s + it.monto, 0);
+          const totalOriginal = ev.items.reduce((s, it) => s + it.presupuesto, 0);
+          const totalActual = ev.items.reduce((s, it) => s + it.monto, 0);
+          const totalAjuste = isOrigen
+            ? Math.max(0, totalOriginal - totalActual)
+            : Math.max(0, totalActual - totalOriginal);
 
           return (
             <div
-              key={ev.eventoId}
+              key={`${ev.eventoId}-${ev.formaParticipacionId}`}
               className={`rounded-xl border p-3 space-y-2 ${
                 isHighlighted
                   ? "border-indigo-300 bg-indigo-50/40 dark:border-indigo-700 dark:bg-indigo-950/20"
@@ -378,27 +415,22 @@ export default function EventoItemsPanel({
                       mismo evento
                     </p>
                   )}
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  <p
+                    className="text-xs font-semibold text-gray-900 dark:text-gray-100 overflow-hidden"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
                     {ev.nombre}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{ev.codigo}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 mt-0.5">
-                  {totalEvento > 0 && (
-                    <span
-                      className={`text-xs font-semibold tabular-nums ${
-                        isOrigen
-                          ? "text-rose-600 dark:text-rose-400"
-                          : "text-emerald-600 dark:text-emerald-400"
-                      }`}
-                    >
-                      {isOrigen ? "-" : "+"}
-                      {formatCurrency(totalEvento)}
-                    </span>
-                  )}
                   <button
                     type="button"
-                    onClick={() => handleRemoveEvento(ev.eventoId)}
+                    onClick={() => handleRemoveEvento(ev.eventoId, ev.formaParticipacionId)}
                     className="p-1 rounded-full text-gray-400 hover:text-rose-500 hover:bg-gray-200 dark:hover:bg-gray-700"
                     aria-label={`Quitar ${ev.nombre}`}
                   >
@@ -427,7 +459,14 @@ export default function EventoItemsPanel({
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
+                            <p
+                              className="text-xs font-medium text-gray-800 dark:text-gray-200 overflow-hidden"
+                              style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                              }}
+                            >
                               {it.itemNombre}
                             </p>
                             <p className="text-[0.65rem] text-gray-500 dark:text-gray-400">
@@ -510,6 +549,35 @@ export default function EventoItemsPanel({
                   })}
                 </ul>
               )}
+
+              <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[0.7rem] dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-gray-500 dark:text-gray-400">Total original</span>
+                  <span className="font-semibold tabular-nums text-gray-700 dark:text-gray-200">
+                    {formatCurrency(totalOriginal)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {isOrigen ? "Total recortado" : "Total agregado"}
+                  </span>
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      isOrigen
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {formatCurrency(totalAjuste)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3 border-t border-gray-100 pt-1 dark:border-gray-700">
+                  <span className="text-gray-500 dark:text-gray-400">Total actual</span>
+                  <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                    {formatCurrency(totalActual)}
+                  </span>
+                </div>
+              </div>
 
               {adding ? (
                 <div className="rounded-lg border border-dashed border-indigo-300 bg-white p-2.5 space-y-2 dark:border-indigo-700 dark:bg-gray-800">

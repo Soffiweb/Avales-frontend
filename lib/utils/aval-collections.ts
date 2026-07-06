@@ -202,6 +202,23 @@ export function getAvalPresupuestoItems(aval: Aval): PresupuestoItem[] {
   return forma?.items ?? aval.evento.presupuesto ?? [];
 }
 
+export type NotaDraft = { texto: string };
+
+export function parseNotasFromBd(
+  notasJson: string | null | undefined,
+): NotaDraft[] | null {
+  if (!notasJson) return null;
+  try {
+    const parsed: unknown = JSON.parse(notasJson);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return (parsed as Array<Record<string, unknown>>).map((n) => ({
+      texto: typeof n.texto === "string" ? n.texto : "",
+    }));
+  } catch {
+    return null;
+  }
+}
+
 export function getAvalDelegationSummary(
   aval: Aval,
   options?: {

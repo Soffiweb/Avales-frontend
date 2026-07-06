@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, ClipboardEdit } from "lucide-react";
+import { ArrowLeft, Calendar, ClipboardEdit, Download } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -12,6 +12,7 @@ import AlertBanner from "@/components/ui/alert-banner";
 import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import {
   getReformaMulti,
+  downloadReformaMultiExcel,
   aprobarReformaMulti,
   rechazarReformaMulti,
   ESTADO_REFORMA_MULTI_LABELS,
@@ -277,6 +278,7 @@ export default function ReformaMultiDetailPage() {
   const [observacionError, setObservacionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [excelLoading, setExcelLoading] = useState(false);
 
   const canReview = canReviewReforms(user);
 
@@ -353,6 +355,20 @@ export default function ReformaMultiDetailPage() {
       return;
     }
     rechazarMutation.mutate(trimmed);
+  };
+
+  const handleDownloadExcel = async () => {
+    setActionError(null);
+    setActionSuccess(null);
+    setExcelLoading(true);
+
+    try {
+      await downloadReformaMultiExcel(id);
+    } catch (err) {
+      setActionError(getErrorMessage(err, "No se pudo descargar el Excel."));
+    } finally {
+      setExcelLoading(false);
+    }
   };
 
   const actionsLoading = aprobarMutation.isPending || rechazarMutation.isPending;
@@ -443,15 +459,31 @@ export default function ReformaMultiDetailPage() {
                 {reform.motivo}
               </p>
             </div>
-            <div className="flex flex-col items-start gap-2 sm:items-end">
-              <span
-                className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${getStatusClasses(reform.estado)}`}
-              >
-                {ESTADO_REFORMA_MULTI_LABELS[reform.estado] ?? reform.estado}
-              </span>
-              <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                {FUENTE_REFORMA_LABELS[reform.fuente] ?? reform.fuente}
-              </span>
+            <div className="w-full max-w-md space-y-3 sm:w-auto">
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <span
+                  className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${getStatusClasses(reform.estado)}`}
+                >
+                  {ESTADO_REFORMA_MULTI_LABELS[reform.estado] ?? reform.estado}
+                </span>
+                <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                  {FUENTE_REFORMA_LABELS[reform.fuente] ?? reform.fuente}
+                </span>
+              </div>
+
+              <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <button
+                  type="button"
+                  onClick={handleDownloadExcel}
+                  disabled={excelLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {excelLoading
+                    ? "Descargando Reforma Multi (Excel)..."
+                    : "Descargar Reforma Multi (Excel)"}
+                </button>
+              </section>
             </div>
           </div>
         </div>
@@ -473,6 +505,14 @@ export default function ReformaMultiDetailPage() {
                 <Calendar className="h-4 w-4 text-gray-400" />
                 {MES_NOMBRES[reform.mesEjecucion] ?? `Mes ${reform.mesEjecucion}`}
               </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">De</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.de || "-"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Para</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.para || "-"}</dd>
             </div>
             <div>
               <dt className="text-gray-500 dark:text-gray-400">Solicitante</dt>
@@ -502,6 +542,33 @@ export default function ReformaMultiDetailPage() {
                 </div>
               </>
             ) : null}
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Firma solicitante</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.firmaCreadorNombre || "-"}
+              </dd>
+              <dd className="text-xs text-gray-500 dark:text-gray-400">
+                {reform.firmaCreadorCargo || "-"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Firma revisor</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.firmaRevisorNombre || "-"}
+              </dd>
+              <dd className="text-xs text-gray-500 dark:text-gray-400">
+                {reform.firmaRevisorCargo || "-"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Firma aprobador</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.firmaAprobadorNombre || "-"}
+              </dd>
+              <dd className="text-xs text-gray-500 dark:text-gray-400">
+                {reform.firmaAprobadorCargo || "-"}
+              </dd>
+            </div>
             {reform.observacion ? (
               <div className="sm:col-span-2">
                 <dt className="text-gray-500 dark:text-gray-400">Observación</dt>

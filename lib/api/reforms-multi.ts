@@ -1,10 +1,68 @@
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ensureFreshAccessToken } from "@/lib/api/client";
 import type {
   ReformaMultiSummary,
   ReformaMultiDetail,
   ListReformasMultiQuery,
   CreateReformaMultiPayload,
+  EventoDisponibleReformaMulti,
+  ListEventosDisponiblesReformaMultiQuery,
 } from "@/types/reforma-multi";
+
+function getFilenameFromContentDisposition(
+  contentDisposition: string | null,
+): string | null {
+  if (!contentDisposition) return null;
+
+  const utf8Match = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].replace(/(^"|"$)/g, ""));
+    } catch {
+      return utf8Match[1].replace(/(^"|"$)/g, "");
+    }
+  }
+
+  const filenameMatch = contentDisposition.match(/filename\s*=\s*([^;]+)/i);
+  if (!filenameMatch?.[1]) return null;
+
+  return filenameMatch[1].trim().replace(/^"|"$/g, "");
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function extractBlobErrorMessage(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const payload = await response.json().catch(() => null);
+    if (payload && typeof payload === "object") {
+      const message =
+        "message" in payload && typeof payload.message === "string"
+          ? payload.message
+          : "detail" in payload && typeof payload.detail === "string"
+            ? payload.detail
+            : null;
+      if (message) return message;
+    }
+  }
+
+  if (contentType.startsWith("text/")) {
+    const text = await response.text().catch(() => "");
+    if (text.trim()) return text.trim();
+  }
+
+  return `Error (${response.status})`;
+}
 
 export async function listReformasMulti(query: ListReformasMultiQuery = {}) {
   const params = new URLSearchParams();
@@ -22,6 +80,49 @@ export async function listReformasMulti(query: ListReformasMultiQuery = {}) {
 
 export async function getReformaMulti(id: number) {
   return apiFetch<ReformaMultiDetail>(`/reforms-multi/${id}`, { method: "GET" });
+}
+
+export async function downloadReformaMultiExcel(id: number) {
+  const accessToken = await ensureFreshAccessToken();
+  const headers = new Headers();
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(`/api/v1/reforms-multi/${id}/excel`, {
+    method: "GET",
+    credentials: "include",
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(await extractBlobErrorMessage(response));
+  }
+
+  const blob = await response.blob();
+  const filename =
+    getFilenameFromContentDisposition(
+      response.headers.get("content-disposition"),
+    ) ?? `reforma-multi-${id}.xlsx`;
+
+  triggerBrowserDownload(blob, filename);
+}
+
+export async function getEventosDisponiblesReformaMulti(
+  query: ListEventosDisponiblesReformaMultiQuery,
+) {
+  const params = new URLSearchParams();
+  params.set("fuente", query.fuente);
+  if (query.search) params.set("search", query.search);
+  if (query.disciplinaId !== undefined) {
+    params.set("disciplinaId", String(query.disciplinaId));
+  }
+
+  return apiFetch<EventoDisponibleReformaMulti[]>(
+    `/reforms-multi/eventos-disponibles?${params.toString()}`,
+    { method: "GET" },
+  );
 }
 
 export async function createReformaMulti(payload: CreateReformaMultiPayload) {

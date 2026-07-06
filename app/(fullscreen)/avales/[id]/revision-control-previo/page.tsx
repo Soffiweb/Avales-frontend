@@ -43,6 +43,7 @@ import {
   normalizeReviewItems,
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
+import { parseNotasFromBd } from "@/lib/utils/aval-collections";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -101,9 +102,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         ]
           .filter(Boolean)
           .join(" ")
-          .trim() || `Entrenador ${item.entrenadorId}`
+          .trim() || item.entrenadorNombre || `Entrenador ${item.id}`
       ).toUpperCase();
-      return { id: item.entrenadorId, nombre };
+      return { id: item.entrenadorId ?? item.entrenador?.id ?? item.id, nombre };
     });
 
   return {
@@ -274,7 +275,7 @@ export default function RevisionControlPrevioPage() {
   );
   const presupuestoSalidaDraft = useMemo(
     () => ({
-      notas: [],
+      notas: (parseNotasFromBd(aval?.pda?.notas) ?? []).map((n) => n.texto),
       codigoActividad: aval?.pda?.codigoActividad ?? "004",
       numeroAval:
         aval?.pda?.numeroAval ??

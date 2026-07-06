@@ -76,7 +76,7 @@ export default function AvalTecnicoCompetitivoPreview({
         ]
           .filter(Boolean)
           .join(" ")
-          .trim() || `Entrenador ${item.entrenadorId}`;
+          .trim() || item.entrenadorNombre || `Entrenador ${item.id}`;
       const cedula =
         withUser.entrenador?.cedula ??
         withUser.usuario?.cedula ??

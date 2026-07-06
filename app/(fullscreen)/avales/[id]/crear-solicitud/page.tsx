@@ -178,8 +178,8 @@ function buildInitialFormData(aval: Aval): FormData {
   const entrenadores = [...(aval.entrenadores ?? [])]
     .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
     .map((item, index) => {
-      // `entrenadorId` can be null at runtime for text-libre entrenadores despite the type
-      const entrenadorUserId = (item.entrenadorId as number | null | undefined);
+      // API returns user ID nested as `entrenador.id`, not flat `entrenadorId`
+      const entrenadorUserId = (item.entrenadorId ?? item.entrenador?.id) as number | null | undefined;
       const isTextoLibre = entrenadorUserId == null;
       return {
         id: isTextoLibre ? -(index + 1) : entrenadorUserId!,

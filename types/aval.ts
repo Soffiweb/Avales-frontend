@@ -185,7 +185,7 @@ export type AvalResumenCupos = {
 
 export type EntrenadorAval = {
   id: number;
-  entrenadorId: number;
+  entrenadorId?: number;
   entrenadorNombre?: string;
   rol: string;
   esPrincipal?: boolean;
@@ -196,12 +196,14 @@ export type EntrenadorAval = {
   usarRuc?: boolean;
   genero?: string;
   entrenador?: {
+    id?: number;
     nombre?: string;
     apellido?: string;
     cedula?: string;
     ruc?: string | null;
     usarRuc?: boolean;
     genero?: string;
+    email?: string;
   };
   usuario?: {
     nombre?: string;

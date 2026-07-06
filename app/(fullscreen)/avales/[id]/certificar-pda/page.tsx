@@ -133,9 +133,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         ]
           .filter(Boolean)
           .join(" ")
-          .trim() || `Entrenador ${item.entrenadorId}`
+          .trim() || item.entrenadorNombre || `Entrenador ${item.id}`
       ).toUpperCase();
-      return { id: item.entrenadorId, nombre };
+      return { id: item.entrenadorId ?? item.entrenador?.id ?? item.id, nombre };
     });
 
   return {

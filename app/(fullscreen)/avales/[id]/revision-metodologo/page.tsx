@@ -113,9 +113,9 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
         ]
           .filter(Boolean)
           .join(" ")
-          .trim() || `Entrenador ${item.entrenadorId}`
+          .trim() || item.entrenadorNombre || `Entrenador ${item.id}`
       ).toUpperCase();
-      return { id: item.entrenadorId, nombre };
+      return { id: item.entrenadorId ?? item.entrenador?.id ?? item.id, nombre };
     });
 
   return {
@@ -146,7 +146,7 @@ function buildDefaultDescripcion(aval: Aval) {
     aval,
     "[NOMBRE ENTRENADOR RESPONSABLE]",
   );
-  return `En base a la presentación del Aval Técnico de Participación Competitiva de ${disciplina}, "${eventoNombre}", con fechas ${fecha}, suscrito por ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los ítems revisados.`;
+  return `En base a la presentación del Aval Técnico de Participación Competitiva de ${disciplina}, "${eventoNombre}", con fechas ${fecha}, suscrito por el/la entrenador/a ${entrenadorResponsable}, se detalla la tabla de cumplimiento y no cumplimiento de los ítems revisados.`;
 }
 
 type ReviewSection = ReviewItem["section"];

@@ -128,9 +128,17 @@ export default function Paso04Presupuesto({
     const items = getAvalPresupuestoItems(aval);
     const result: Record<number, string> = {};
     items.forEach((pi) => {
-      const detalle = reqs.find((r) => r.formaParticipacionItemId === pi.id)?.detalle;
-      if (detalle) result[pi.item.id] = detalle;
+      const match = reqs.find(
+        (r) => Number(r.formaParticipacionItemId) === Number(pi.id),
+      );
+      if (match?.detalle) result[pi.item.id] = match.detalle;
     });
+    if (Object.keys(result).length === 0 && reqs.some((r) => r.detalle)) {
+      reqs.forEach((r, i) => {
+        if (!r.detalle || !items[i]) return;
+        result[items[i].item.id] = r.detalle;
+      });
+    }
     return result;
   });
   const [error, setError] = useState<string | null>(null);

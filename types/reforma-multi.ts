@@ -20,6 +20,25 @@ export type EventoResumen = {
   disciplina?: DisciplinaResumen;
 };
 
+export type EventoDisponibleReformaMulti = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  disciplina?: DisciplinaResumen | null;
+  formaParticipacionId: number;
+  presupuestoTotal: string;
+  items?: Array<{
+    itemId: number;
+    nombre: string;
+    numero: number;
+    mes: number;
+    presupuesto: string;
+    montoComprometido: string;
+    montoEjecutado: string;
+    saldoDisponible: string;
+  }>;
+};
+
 export type ReformaMultiEventoDetalleItem = {
   id: number;
   nombre: string;
@@ -80,6 +99,14 @@ export type CambiosSnapshot = {
 export type ReformaMultiSummary = {
   id: number;
   motivo: string;
+  de?: string | null;
+  para?: string | null;
+  firmaCreadorNombre?: string | null;
+  firmaCreadorCargo?: string | null;
+  firmaRevisorNombre?: string | null;
+  firmaRevisorCargo?: string | null;
+  firmaAprobadorNombre?: string | null;
+  firmaAprobadorCargo?: string | null;
   mesEjecucion: number;
   estado: EstadoReformaMulti;
   fuente: FuentePresupuestoReforma;
@@ -105,6 +132,12 @@ export type ListReformasMultiQuery = {
   search?: string;
 };
 
+export type ListEventosDisponiblesReformaMultiQuery = {
+  fuente: FuentePresupuestoReforma;
+  search?: string;
+  disciplinaId?: number;
+};
+
 export type ReformaLineItemPayload = {
   itemId: number;
   mes: number;
@@ -113,6 +146,14 @@ export type ReformaLineItemPayload = {
 
 export type CreateReformaMultiPayload = {
   motivo: string;
+  de?: string;
+  para?: string;
+  firmaCreadorNombre?: string;
+  firmaCreadorCargo?: string;
+  firmaRevisorNombre?: string;
+  firmaRevisorCargo?: string;
+  firmaAprobadorNombre?: string;
+  firmaAprobadorCargo?: string;
   mesEjecucion: number;
   fuente: FuentePresupuestoReforma;
   eventosOrigen: Array<{ eventoId: number; items: ReformaLineItemPayload[] }>;

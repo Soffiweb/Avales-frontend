@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ensureFreshAccessToken } from "@/lib/api/client";
 import type { CatalogItem } from "@/types/catalog";
 import type { EventoEstado } from "@/types/evento";
 import type { TipoAval } from "@/types/aval";
@@ -44,6 +44,14 @@ export type CreateReformPayload = {
   eventoId: number;
   versionBaseId?: number;
   motivo: string;
+  de?: string;
+  para?: string;
+  firmaCreadorNombre?: string;
+  firmaCreadorCargo?: string;
+  firmaRevisorNombre?: string;
+  firmaRevisorCargo?: string;
+  firmaAprobadorNombre?: string;
+  firmaAprobadorCargo?: string;
   observacion?: string;
   mesEjecucion: number;
   cambiosPropuestos: ReformChangesDto;
@@ -107,6 +115,16 @@ export type ReformComparison = {
   formasParticipacion?: ReformFormaParticipacionComparison[];
 };
 
+export type ReformAdjunto = {
+  id: number;
+  nombreOriginal: string;
+  nombreArchivo: string;
+  mimeType: string;
+  tamanoBytes: number;
+  url: string;
+  createdAt: string;
+};
+
 export type ReformResponse = {
   id: number;
   estado: string;
@@ -114,6 +132,14 @@ export type ReformResponse = {
   versionBaseId?: number | null;
   versionAprobadaId?: number | null;
   motivo: string;
+  de?: string | null;
+  para?: string | null;
+  firmaCreadorNombre?: string | null;
+  firmaCreadorCargo?: string | null;
+  firmaRevisorNombre?: string | null;
+  firmaRevisorCargo?: string | null;
+  firmaAprobadorNombre?: string | null;
+  firmaAprobadorCargo?: string | null;
   observacion?: string | null;
   mesEjecucion: number;
   tipo: TipoReforma;
@@ -133,6 +159,7 @@ export type ReformResponse = {
     apellido?: string | null;
     email?: string | null;
   } | null;
+  adjuntos?: ReformAdjunto[];
   createdAt?: string;
   reviewedAt?: string | null;
 };
@@ -141,19 +168,112 @@ export type ListReformsOptions = {
   tipo?: TipoReforma;
 };
 
+function getFilenameFromContentDisposition(
+  contentDisposition: string | null,
+): string | null {
+  if (!contentDisposition) return null;
+
+  const utf8Match = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].replace(/(^"|"$)/g, ""));
+    } catch {
+      return utf8Match[1].replace(/(^"|"$)/g, "");
+    }
+  }
+
+  const filenameMatch = contentDisposition.match(/filename\s*=\s*([^;]+)/i);
+  if (!filenameMatch?.[1]) return null;
+
+  return filenameMatch[1].trim().replace(/^"|"$/g, "");
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function extractBlobErrorMessage(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const payload = await response.json().catch(() => null);
+    if (payload && typeof payload === "object") {
+      const message =
+        "message" in payload && typeof payload.message === "string"
+          ? payload.message
+          : "detail" in payload && typeof payload.detail === "string"
+            ? payload.detail
+            : null;
+      if (message) return message;
+    }
+  }
+
+  if (contentType.startsWith("text/")) {
+    const text = await response.text().catch(() => "");
+    if (text.trim()) return text.trim();
+  }
+
+  return `Error (${response.status})`;
+}
+
 export async function createReform(payload: CreateReformPayload) {
-  console.log("[API createReform] payload:", JSON.stringify(payload, null, 2));
   return apiFetch<ReformResponse>("/reforms", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
+export async function uploadReformAdjuntos(id: number, archivos: File[]) {
+  const formData = new FormData();
+  archivos.forEach((archivo) => {
+    formData.append("archivos", archivo);
+  });
+
+  return apiFetch<ReformResponse>(`/reforms/${id}/adjuntos`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
+export async function downloadReformExcel(id: number) {
+  const accessToken = await ensureFreshAccessToken();
+  const headers = new Headers();
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(`/api/v1/reforms/${id}/excel`, {
+    method: "GET",
+    credentials: "include",
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(await extractBlobErrorMessage(response));
+  }
+
+  const blob = await response.blob();
+  const filename =
+    getFilenameFromContentDisposition(
+      response.headers.get("content-disposition"),
+    ) ?? `reforma-${id}.xlsx`;
+
+  triggerBrowserDownload(blob, filename);
+}
+
 export async function aprobarReform(
   id: number,
   payload?: { usuarioId?: number },
 ) {
-  console.log("[API aprobarReform] id:", id, "payload:", JSON.stringify(payload));
   return apiFetch<ReformResponse>(`/reforms/${id}/aprobar`, {
     method: "PATCH",
     body: payload ? JSON.stringify(payload) : undefined,

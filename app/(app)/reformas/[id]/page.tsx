@@ -8,6 +8,7 @@ import {
   Calendar,
   ClipboardEdit,
   Coins,
+  Download,
   FileText,
   Layers3,
   Tag,
@@ -18,6 +19,7 @@ import AlertBanner from "@/components/ui/alert-banner";
 import { getEvento } from "@/lib/api/eventos";
 import {
   aprobarReform,
+  downloadReformExcel,
   getReform,
   rechazarReform,
   type ReformFormaParticipacionComparison,
@@ -28,7 +30,11 @@ import {
   type TipoReforma,
 } from "@/lib/api/reforms";
 import { canReviewReforms } from "@/lib/auth/access";
-import { formatCurrency, formatDateDMY, formatDateTime } from "@/lib/utils/formatters";
+import {
+  formatCurrency,
+  formatDateDMY,
+  formatDateTime,
+} from "@/lib/utils/formatters";
 import { getTipoAvalLabel } from "@/lib/constants";
 import type { Evento, EventoItem } from "@/types/evento";
 import type { TipoAval } from "@/types/aval";
@@ -39,8 +45,7 @@ const STATUS_STYLES: Record<string, string> = {
     "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
   APROBADA:
     "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
-  RECHAZADA:
-    "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
+  RECHAZADA: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
 };
 
 function getStatusClasses(status?: string | null) {
@@ -125,7 +130,8 @@ function isChangedField(field: ReformFieldComparison) {
 }
 
 function isChangedItem(item: ReformItemComparison) {
-  if (item.tipoCambio === "AGREGADO" || item.tipoCambio === "ELIMINADO") return true;
+  if (item.tipoCambio === "AGREGADO" || item.tipoCambio === "ELIMINADO")
+    return true;
   if (item.mesAntes != null && item.mesAntes !== item.mes) return true;
   if (typeof item.diferencia === "number") return item.diferencia !== 0;
   if (
@@ -134,7 +140,10 @@ function isChangedItem(item: ReformItemComparison) {
   ) {
     return item.antesPresupuesto !== item.despuesPresupuesto;
   }
-  return hasMeaningfulDifference(item.antesPresupuesto, item.despuesPresupuesto);
+  return hasMeaningfulDifference(
+    item.antesPresupuesto,
+    item.despuesPresupuesto,
+  );
 }
 
 function isChangedFormaParticipacion(item: ReformFormaParticipacionComparison) {
@@ -183,6 +192,13 @@ function getBaseItemsForTipoAval(
   return [];
 }
 
+function formatBytes(value?: number | null) {
+  if (!value || value <= 0) return "-";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function ReformaDetailPage() {
   const params = useParams();
   const id = Number(params.id);
@@ -195,6 +211,7 @@ export default function ReformaDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [excelLoading, setExcelLoading] = useState(false);
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) {
@@ -253,7 +270,9 @@ export default function ReformaDetailPage() {
       setActionSuccess("Reforma aprobada correctamente.");
       await reloadReform();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "No se pudo aprobar la reforma.");
+      setActionError(
+        err instanceof Error ? err.message : "No se pudo aprobar la reforma.",
+      );
     } finally {
       setActionLoading(false);
     }
@@ -273,9 +292,29 @@ export default function ReformaDetailPage() {
       setActionSuccess("Reforma rechazada correctamente.");
       await reloadReform();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "No se pudo rechazar la reforma.");
+      setActionError(
+        err instanceof Error ? err.message : "No se pudo rechazar la reforma.",
+      );
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    if (!reform) return;
+
+    setActionError(null);
+    setExcelLoading(true);
+    try {
+      await downloadReformExcel(reform.id);
+    } catch (err: unknown) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo descargar el archivo Excel.",
+      );
+    } finally {
+      setExcelLoading(false);
     }
   };
 
@@ -314,20 +353,25 @@ export default function ReformaDetailPage() {
       }));
   }, [reform]);
 
-  const budgetReformFormas =
-    (reform?.cambiosPropuestos as Record<string, unknown>)?.formasParticipacion as
-      | Array<{ tipoAval?: string }>
-      | undefined;
+  const budgetReformFormas = (
+    reform?.cambiosPropuestos as Record<string, unknown>
+  )?.formasParticipacion as Array<{ tipoAval?: string }> | undefined;
   const budgetReformTipoAval = budgetReformFormas?.[0]?.tipoAval ?? null;
 
   // Mapa de nombre/número por itemId desde todos los items del evento base,
   // sin importar el mes. Sirve como fallback cuando el backend no resuelve
   // itemNombre (sucede cuando el item propuesto cambia de mes respecto a la base).
   const catalogNameMap = useMemo(() => {
-    const map = new Map<number, { nombre: string; numero: number | undefined }>();
+    const map = new Map<
+      number,
+      { nombre: string; numero: number | undefined }
+    >();
     (baseEvento?.eventoItems ?? []).forEach((ei) => {
       if (!map.has(ei.item.id)) {
-        map.set(ei.item.id, { nombre: ei.item.nombre, numero: ei.item.numero ?? undefined });
+        map.set(ei.item.id, {
+          nombre: ei.item.nombre,
+          numero: ei.item.numero ?? undefined,
+        });
       }
     });
     return map;
@@ -345,14 +389,18 @@ export default function ReformaDetailPage() {
 
   const itemComparisons = useMemo(() => {
     if (reform?.comparacion?.eventoItems?.length) {
-      return reform.comparacion.eventoItems.filter(isChangedItem).map((item) => ({
-        ...item,
-        itemNombre: resolveItemName(item.itemId, item.itemNombre),
-        itemNumero: resolveItemNumero(item.itemId, item.itemNumero),
-      }));
+      return reform.comparacion.eventoItems
+        .filter(isChangedItem)
+        .map((item) => ({
+          ...item,
+          itemNombre: resolveItemName(item.itemId, item.itemNombre),
+          itemNumero: resolveItemNumero(item.itemId, item.itemNumero),
+        }));
     }
 
-    const comparisonFormaItems = (reform?.comparacion?.formasParticipacion ?? [])
+    const comparisonFormaItems = (
+      reform?.comparacion?.formasParticipacion ?? []
+    )
       .filter((forma) =>
         budgetReformTipoAval ? forma.tipoAval === budgetReformTipoAval : true,
       )
@@ -384,9 +432,11 @@ export default function ReformaDetailPage() {
       }));
     }
 
-    const rawFormas = (reform?.cambiosPropuestos as Record<string, unknown> | undefined)
-      ?.formasParticipacion;
-    if (!Array.isArray(rawFormas) || !baseEvento?.formasParticipacion?.length) return [];
+    const rawFormas = (
+      reform?.cambiosPropuestos as Record<string, unknown> | undefined
+    )?.formasParticipacion;
+    if (!Array.isArray(rawFormas) || !baseEvento?.formasParticipacion?.length)
+      return [];
 
     const proposedFormas = rawFormas as ProposedFormaParticipacion[];
 
@@ -398,13 +448,15 @@ export default function ReformaDetailPage() {
       const comparisons: ReformItemComparison[] = [];
 
       proposedItems.forEach((item) => {
-        if (typeof item.itemId !== "number" || typeof item.mes !== "number") return;
+        if (typeof item.itemId !== "number" || typeof item.mes !== "number")
+          return;
         const key = `${item.itemId}-${item.mes}`;
         const beforeItem = baseItemsMap.get(key);
         const beforeBudget = beforeItem
           ? Number.parseFloat(beforeItem.presupuesto) || 0
           : null;
-        const afterBudget = typeof item.presupuesto === "number" ? item.presupuesto : 0;
+        const afterBudget =
+          typeof item.presupuesto === "number" ? item.presupuesto : 0;
 
         if (beforeItem) {
           baseItemsMap.delete(key);
@@ -420,7 +472,8 @@ export default function ReformaDetailPage() {
           mesNombre: MES_NOMBRES[item.mes] ?? `Mes ${item.mes}`,
           antesPresupuesto: beforeBudget,
           despuesPresupuesto: afterBudget,
-          diferencia: beforeBudget === null ? afterBudget : afterBudget - beforeBudget,
+          diferencia:
+            beforeBudget === null ? afterBudget : afterBudget - beforeBudget,
           tipoCambio: beforeItem ? "ACTUALIZADO" : "AGREGADO",
         });
       });
@@ -444,8 +497,9 @@ export default function ReformaDetailPage() {
   }, [baseEvento, budgetReformTipoAval, reform]);
 
   const formaComparisons = useMemo(() => {
-    const rawFormas = (reform?.cambiosPropuestos as Record<string, unknown> | undefined)
-      ?.formasParticipacion;
+    const rawFormas = (
+      reform?.cambiosPropuestos as Record<string, unknown> | undefined
+    )?.formasParticipacion;
 
     if (!Array.isArray(rawFormas)) return [];
 
@@ -462,9 +516,11 @@ export default function ReformaDetailPage() {
           despuesNumAtletasHombres: forma.numAtletasHombres ?? 0,
           antesNumAtletasMujeres: baseForma?.numAtletasMujeres ?? null,
           despuesNumAtletasMujeres: forma.numAtletasMujeres ?? 0,
-          antesNumEntrenadoresHombres: baseForma?.numEntrenadoresHombres ?? null,
+          antesNumEntrenadoresHombres:
+            baseForma?.numEntrenadoresHombres ?? null,
           despuesNumEntrenadoresHombres: forma.numEntrenadoresHombres ?? 0,
-          antesNumEntrenadoresMujeres: baseForma?.numEntrenadoresMujeres ?? null,
+          antesNumEntrenadoresMujeres:
+            baseForma?.numEntrenadoresMujeres ?? null,
           despuesNumEntrenadoresMujeres: forma.numEntrenadoresMujeres ?? 0,
         };
       })
@@ -472,8 +528,10 @@ export default function ReformaDetailPage() {
         [
           forma.antesNumAtletasHombres !== forma.despuesNumAtletasHombres,
           forma.antesNumAtletasMujeres !== forma.despuesNumAtletasMujeres,
-          forma.antesNumEntrenadoresHombres !== forma.despuesNumEntrenadoresHombres,
-          forma.antesNumEntrenadoresMujeres !== forma.despuesNumEntrenadoresMujeres,
+          forma.antesNumEntrenadoresHombres !==
+            forma.despuesNumEntrenadoresHombres,
+          forma.antesNumEntrenadoresMujeres !==
+            forma.despuesNumEntrenadoresMujeres,
         ].some(Boolean),
       );
 
@@ -508,7 +566,9 @@ export default function ReformaDetailPage() {
       itemComparisons.reduce(
         (total, item) =>
           total +
-          (typeof item.antesPresupuesto === "number" ? item.antesPresupuesto : 0),
+          (typeof item.antesPresupuesto === "number"
+            ? item.antesPresupuesto
+            : 0),
         0,
       ),
     [itemComparisons],
@@ -518,7 +578,9 @@ export default function ReformaDetailPage() {
       itemComparisons.reduce(
         (total, item) =>
           total +
-          (typeof item.despuesPresupuesto === "number" ? item.despuesPresupuesto : 0),
+          (typeof item.despuesPresupuesto === "number"
+            ? item.despuesPresupuesto
+            : 0),
         0,
       ),
     [itemComparisons],
@@ -604,25 +666,78 @@ export default function ReformaDetailPage() {
               ) : null}
             </div>
 
-            <div className="flex flex-col items-start gap-2 sm:items-end">
-              <span
-                className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium ${getStatusClasses(
-                  reform.estado,
-                )}`}
-              >
-                {reform.estado}
-              </span>
-              {reform.tipo ? (
+            <div className="w-full max-w-md space-y-3 sm:w-auto">
+              <div className="flex flex-col items-start gap-2 sm:items-end">
                 <span
-                  className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium ${
-                    TIPO_REFORMA_STYLES[reform.tipo] ??
-                    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  }`}
-                  title="Tipo derivado según los campos editados"
+                  className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-medium ${getStatusClasses(
+                    reform.estado,
+                  )}`}
                 >
-                  {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
+                  {reform.estado}
                 </span>
-              ) : null}
+                {reform.tipo ? (
+                  <span
+                    className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                      TIPO_REFORMA_STYLES[reform.tipo] ??
+                      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    }`}
+                    title="Tipo derivado según los campos editados"
+                  >
+                    {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
+                  </span>
+                ) : null}
+              </div>
+
+              <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <button
+                  type="button"
+                  onClick={handleDownloadExcel}
+                  disabled={excelLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {excelLoading
+                    ? "Descargando Reforma (Excel)..."
+                    : "Descargar Reforma (Excel)"}
+                </button>
+
+                {reform.adjuntos && reform.adjuntos.length > 0 ? (
+                  <>
+                    <div className="mb-3 mt-4 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        Adjuntos
+                      </h2>
+                    </div>
+                    <ul className="space-y-2">
+                      {reform.adjuntos.map((adjunto) => (
+                        <li key={adjunto.id}>
+                          <a
+                            href={adjunto.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            download
+                            title={`Descargar ${adjunto.nombreOriginal}`}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm transition hover:border-gray-300 hover:bg-white dark:border-gray-700 dark:bg-gray-900/40 dark:hover:border-gray-600 dark:hover:bg-gray-900/60"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-gray-900 dark:text-gray-100">
+                                {adjunto.nombreOriginal}
+                              </span>
+                              <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                {formatBytes(adjunto.tamanoBytes)}
+                              </span>
+                            </span>
+                            <span className="inline-flex shrink-0 items-center gap-2 rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-600">
+                              <Download className="h-3.5 w-3.5" />
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+              </section>
             </div>
           </div>
         </div>
@@ -637,13 +752,27 @@ export default function ReformaDetailPage() {
             </div>
             <dl className="space-y-4 text-sm">
               <div>
+                <dt className="text-gray-500 dark:text-gray-400">De</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {reform.de || "-"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-500 dark:text-gray-400">Para</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                  {reform.para || "-"}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-gray-500 dark:text-gray-400">Motivo</dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">
                   {reform.motivo || "-"}
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500 dark:text-gray-400">Observación</dt>
+                <dt className="text-gray-500 dark:text-gray-400">
+                  Observación
+                </dt>
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">
                   {reform.observacion || "-"}
                 </dd>
@@ -655,7 +784,8 @@ export default function ReformaDetailPage() {
                 <dd className="mt-1 inline-flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   {reform.mesEjecucion
-                    ? MES_NOMBRES[reform.mesEjecucion] ?? `Mes ${reform.mesEjecucion}`
+                    ? (MES_NOMBRES[reform.mesEjecucion] ??
+                      `Mes ${reform.mesEjecucion}`)
                     : "-"}
                 </dd>
               </div>
@@ -699,7 +829,6 @@ export default function ReformaDetailPage() {
               </div>
             </dl>
           </section>
-
         </div>
 
         <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -711,8 +840,8 @@ export default function ReformaDetailPage() {
           </div>
           {!hasComparisonData ? (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-900/20 dark:text-amber-200">
-              Esta reforma no tiene comparacion historica completa. Se muestra el
-              resumen registrado en la solicitud.
+              Esta reforma no tiene comparacion historica completa. Se muestra
+              el resumen registrado en la solicitud.
             </div>
           ) : null}
 
@@ -766,7 +895,8 @@ export default function ReformaDetailPage() {
 
           {formaComparisons.length === 0 ? (
             <div className="rounded-lg bg-gray-50 p-6 text-sm text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
-              Esta reforma no reporta cambios de atletas por forma de participación.
+              Esta reforma no reporta cambios de atletas por forma de
+              participación.
             </div>
           ) : (
             <div className="space-y-3">
@@ -854,7 +984,8 @@ export default function ReformaDetailPage() {
                 </p>
                 {budgetReformTipoAval ? (
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Forma de participación: {getTipoAvalLabel(budgetReformTipoAval)}
+                    Forma de participación:{" "}
+                    {getTipoAvalLabel(budgetReformTipoAval)}
                   </p>
                 ) : null}
               </div>
@@ -869,7 +1000,9 @@ export default function ReformaDetailPage() {
                     Total antes
                   </p>
                   <p className="mt-1 text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
-                    {hasComparisonData ? formatCurrency(totalItemsBefore) : "No disponible"}
+                    {hasComparisonData
+                      ? formatCurrency(totalItemsBefore)
+                      : "No disponible"}
                   </p>
                 </div>
                 <div>

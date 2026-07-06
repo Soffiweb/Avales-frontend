@@ -2,33 +2,36 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import {
   ArrowLeft,
-  CalendarRange,
   CheckCircle2,
   ChevronDown,
   ClipboardEdit,
   DollarSign,
   FileText,
   Loader2,
-  MapPin,
+  Paperclip,
   Plus,
   Save,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import { useAuth } from "@/app/providers/auth-provider";
 import { canCreateReforma } from "@/lib/auth/access";
+import { canonicalizeRoleCode, getRoleCode, normalizeRoleCode } from "@/lib/auth/roles";
 import { ApiError } from "@/lib/api/client";
 import { getItemsPresupuestarios } from "@/lib/api/catalog";
 import { getEvento } from "@/lib/api/eventos";
-import { createReform } from "@/lib/api/reforms";
+import { createReform, uploadReformAdjuntos } from "@/lib/api/reforms";
+import { getDirigido, listUsers, type DirigidoRole } from "@/lib/api/user";
+import type { User } from "@/types/user";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento, EventoItem, FormaParticipacionCupos } from "@/types/evento";
-import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
+import { formatCurrency, formatDateInput, formatGenero, formatRole } from "@/lib/utils/formatters";
 import {
   EVENTO_ALCANCE_OPTIONS,
   EVENTO_TAREA_OPTIONS,
@@ -84,6 +87,31 @@ const MONTH_OPTIONS = [
   { value: 12, label: "Diciembre" },
 ] as const;
 
+const MAX_ADJUNTOS_REFORMA = 2;
+const MAX_ADJUNTO_REFORMA_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ADJUNTO_REFORMA_EXTENSIONS = new Set([
+  "pdf",
+  "png",
+  "jpg",
+  "jpeg",
+  "xlsx",
+  "xls",
+  "csv",
+]);
+const DEFAULT_REQUEST_DE = "Lic. Miguel Vallejos Lara / Director del DTM";
+const DEFAULT_REQUEST_PARA = "Lcda. Dayana Granda Armijos / Responsable del PDA";
+const DEFAULT_FIRMA_CREADOR_CARGO_PREFIX = "ENTRENADOR DE";
+const DEFAULT_FIRMA_CREADOR_CARGO_SUFFIX = "DE FDPL";
+const DEFAULT_FIRMA_REVISOR_NOMBRE = "LIC. CARLOS JERVES";
+const DEFAULT_FIRMA_REVISOR_CARGO = "METODOLOGO";
+const DEFAULT_FIRMA_APROBADOR_NOMBRE = "LCDA. DAYANA GRANDA ARMIJOS";
+const DEFAULT_FIRMA_APROBADOR_CARGO = "RESPONSABLE DEL PDA";
+
+type SignatureFields = {
+  nombre: string;
+  cargo: string;
+};
+
 function getInitialBudgetRows(items: EventoItem[] = []): BudgetRow[] {
   return items.map((item) => ({
     localId: `existing-${item.id}`,
@@ -134,6 +162,95 @@ function getFormaBudgetItems(
   }
 
   return [];
+}
+
+function buildSolicitudDirigidaLabel(
+  nombre?: string | null,
+  apellido?: string | null,
+  cargo?: string | null,
+) {
+  const fullName = [nombre, apellido].filter(Boolean).join(" ").trim();
+  const roleLabel = cargo?.trim() ?? "";
+
+  if (fullName && roleLabel) return `${fullName} / ${roleLabel}`;
+  return fullName || roleLabel;
+}
+
+function parseSignatureLabel(value: string): SignatureFields {
+  const [nombre = "", ...cargoParts] = value.split("/");
+  return {
+    nombre: nombre.trim().toUpperCase(),
+    cargo: cargoParts.join("/").trim().toUpperCase(),
+  };
+}
+
+function buildUserFullName(user?: User | null) {
+  return [user?.nombre, user?.apellido].filter(Boolean).join(" ").trim();
+}
+
+function buildCreatorSignatureCargo(evento?: Evento | null) {
+  const disciplina = evento?.disciplina?.nombre?.trim();
+  return disciplina
+    ? `${DEFAULT_FIRMA_CREADOR_CARGO_PREFIX} ${disciplina.toUpperCase()} ${DEFAULT_FIRMA_CREADOR_CARGO_SUFFIX}`
+    : "";
+}
+
+function optionalText(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function resolveUserRoleLabel(user: User, targetRole: DirigidoRole) {
+  const normalizedTarget = canonicalizeRoleCode(targetRole);
+
+  const roleDetail = user.rolesDetalle?.find(
+    (role) => normalizeRoleCode(role.codigo) === normalizedTarget,
+  );
+  if (roleDetail?.nombre?.trim()) return roleDetail.nombre.trim();
+
+  const matchingRole = user.roles?.find((role) => {
+    const code = normalizeRoleCode(getRoleCode(role));
+    return canonicalizeRoleCode(code) === normalizedTarget;
+  });
+  if (matchingRole) {
+    return formatRole(getRoleCode(matchingRole));
+  }
+
+  return formatRole(targetRole);
+}
+
+async function resolveSolicitudDirigidaLabel(role: DirigidoRole) {
+  const dirigidoResponse = await getDirigido(role).catch(() => null);
+  if (dirigidoResponse) {
+    const label = buildSolicitudDirigidaLabel(
+      dirigidoResponse.data?.nombre,
+      dirigidoResponse.data?.apellido,
+      dirigidoResponse.data?.cargo || formatRole(role),
+    );
+    if (label) return label;
+  }
+
+  try {
+    const response = await listUsers({ role, page: 1, limit: 1 });
+    const first = response.data?.[0];
+    if (!first) return "";
+
+    return buildSolicitudDirigidaLabel(
+      first.nombre,
+      first.apellido,
+      resolveUserRoleLabel(first, role),
+    );
+  } catch {
+    return "";
+  }
+}
+
+function shouldAutofillSolicitudValue(
+  currentValue: string,
+  fallbackValue: string,
+) {
+  const normalized = currentValue.trim();
+  return normalized === "" || normalized === fallbackValue;
 }
 
 function getReformFormas(evento: Evento): FormaParticipacionCupos[] {
@@ -196,6 +313,28 @@ function hasSummaryChange(previous: string | number | null | undefined, next: st
   return normalizeTextValue(String(previous ?? "")) !== normalizeTextValue(String(next ?? ""));
 }
 
+function getRequiredStepOneFields(input: {
+  requestReason: string;
+  firmaCreadorNombre: string;
+  firmaCreadorCargo: string;
+  firmaRevisorNombre: string;
+  firmaRevisorCargo: string;
+  firmaAprobadorNombre: string;
+  firmaAprobadorCargo: string;
+  mesEjecucion: number | "";
+}) {
+  const missing: string[] = [];
+
+  if (typeof input.mesEjecucion !== "number") missing.push("Mes de ejecución");
+  if (!input.requestReason.trim()) missing.push("Motivo");
+  if (!input.firmaCreadorNombre.trim()) missing.push("Firma solicitante - nombre");
+  if (!input.firmaCreadorCargo.trim()) missing.push("Firma solicitante - cargo");
+  if (!input.firmaAprobadorNombre.trim()) missing.push("Firma aprobador - nombre");
+  if (!input.firmaAprobadorCargo.trim()) missing.push("Firma aprobador - cargo");
+
+  return missing;
+}
+
 function StepBadge({
   step,
   label,
@@ -233,110 +372,149 @@ function StepBadge({
   );
 }
 
-function SummaryRow({
-  label,
-  previous,
-  next,
-}: {
+type ReformaPreviewInfoRow = {
   label: string;
-  previous: string | number;
-  next: string | number;
-}) {
-  const changed = String(previous) !== String(next);
+  value: string;
+  changed?: boolean;
+};
 
+type ReformaPreviewBudgetRow = {
+  codigo: string;
+  item: string;
+  valor: string;
+  changed?: boolean;
+};
+
+function getMonthLabel(value?: number | "" | null) {
+  if (typeof value !== "number") return "-";
+  return MONTH_OPTIONS.find((option) => option.value === value)?.label.toUpperCase() ?? "-";
+}
+
+function formatPreviewValue(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized.toUpperCase() : "-";
+}
+
+function ReformaPreviewInfoTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: ReformaPreviewInfoRow[];
+}) {
   return (
-    <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="font-medium text-slate-700 dark:text-slate-200">{label}</div>
-      <div className="text-slate-500 dark:text-slate-400">{previous || "-"}</div>
-      <div className={changed ? "font-medium text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-slate-400"}>
-        {next || "-"}
+    <div className="border border-slate-400">
+      <div className="border-b border-slate-400 bg-slate-100 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-900">
+        {title}
       </div>
+      <div className="border-b border-slate-400 px-2 py-1 text-center text-[10px] font-bold uppercase text-slate-900">
+        Datos informativos
+      </div>
+      <table className="w-full border-collapse text-[10px] text-slate-900">
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td className="w-[34%] border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">
+                {row.label}
+              </td>
+              <td
+                className={`border-t border-slate-400 px-2 py-1 uppercase ${
+                  row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
+                }`}
+              >
+                {row.value}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function BudgetComparisonRow({
-  beforeLabel,
-  beforeMonth,
-  beforeBudget,
-  afterLabel,
-  afterMonth,
-  afterBudget,
-  labelChanged,
-  monthChanged,
-  budgetChanged,
-  removed = false,
-  added = false,
+function ReformaPreviewBudgetTable({
+  rows,
+  total,
 }: {
-  beforeLabel: string;
-  beforeMonth: string;
-  beforeBudget: string;
-  afterLabel: string;
-  afterMonth: string;
-  afterBudget: string;
-  labelChanged: boolean;
-  monthChanged: boolean;
-  budgetChanged: boolean;
-  removed?: boolean;
-  added?: boolean;
+  rows: ReformaPreviewBudgetRow[];
+  total: string;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
-      <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-900">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Antes
-        </p>
-        <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-          {beforeLabel}
-        </p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {beforeMonth}
-        </p>
-        <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-          {beforeBudget}
-        </p>
+    <div className="border border-slate-400 border-t-0">
+      <div className="border-b border-slate-400 px-2 py-1 text-center text-[10px] font-bold uppercase text-slate-900">
+        Presupuesto
       </div>
+      <table className="w-full border-collapse text-[10px] text-slate-900">
+        <thead>
+          <tr className="bg-slate-100">
+            <th className="w-[22%] border-r border-slate-400 px-1 py-1 text-left font-bold uppercase">
+              Codigo
+            </th>
+            <th className="border-r border-slate-400 px-1 py-1 text-left font-bold uppercase">
+              Item
+            </th>
+            <th className="w-[24%] px-1 py-1 text-right font-bold uppercase">
+              Valor
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length > 0 ? (
+            rows.map((row, index) => (
+              <tr key={`${row.codigo}-${index}`}>
+                <td className="border-r border-t border-slate-400 px-1 py-1 align-top">
+                  {row.codigo}
+                </td>
+                <td
+                  className={`border-r border-t border-slate-400 px-1 py-1 align-top ${
+                    row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
+                  }`}
+                >
+                  {row.item}
+                </td>
+                <td
+                  className={`border-t border-slate-400 px-1 py-1 text-right align-top ${
+                    row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
+                  }`}
+                >
+                  {row.valor}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={3} className="border-t border-slate-400 px-2 py-3 text-center text-slate-500">
+                Sin items presupuestarios
+              </td>
+            </tr>
+          )}
+          <tr className="bg-slate-50 font-bold">
+            <td colSpan={2} className="border-r border-t border-slate-400 px-1 py-1 text-right uppercase">
+              Valor total del evento
+            </td>
+            <td className="border-t border-slate-400 px-1 py-1 text-right">
+              {total}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-      <div
-        className={`rounded-lg p-3 ${
-          removed
-            ? "bg-rose-50 dark:bg-rose-950/30"
-            : added
-            ? "bg-emerald-50 dark:bg-emerald-950/30"
-            : "bg-amber-50 dark:bg-amber-950/30"
-        }`}
-      >
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Despues
-        </p>
-        <p
-          className={`mt-2 text-sm font-medium ${
-            labelChanged
-              ? "text-rose-700 dark:text-rose-300"
-              : "text-slate-900 dark:text-slate-100"
-          }`}
-        >
-          {afterLabel}
-        </p>
-        <p
-          className={`mt-1 text-xs ${
-            monthChanged
-              ? "text-rose-700 dark:text-rose-300"
-              : "text-slate-500 dark:text-slate-400"
-          }`}
-        >
-          {afterMonth}
-        </p>
-        <p
-          className={`mt-2 text-sm ${
-            budgetChanged
-              ? "text-rose-700 dark:text-rose-300"
-              : "text-slate-700 dark:text-slate-300"
-          }`}
-        >
-          {afterBudget}
-        </p>
+function ReformaPreviewSignature({
+  nombre,
+  cargo,
+}: {
+  nombre: string;
+  cargo: string;
+}) {
+  return (
+    <div className="pt-8 text-center text-[10px] uppercase text-slate-900">
+      <div className="border-t border-slate-500 pt-1 font-semibold">
+        {formatPreviewValue(nombre)}
       </div>
+      <div className="font-bold">{formatPreviewValue(cargo)}</div>
     </div>
   );
 }
@@ -361,8 +539,18 @@ export default function EventoReformaPage() {
   const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([]);
   const [expandedBudgetRows, setExpandedBudgetRows] = useState<string[]>([]);
   const [requestReason, setRequestReason] = useState("");
+  const [requestDe, setRequestDe] = useState(DEFAULT_REQUEST_DE);
+  const [requestPara, setRequestPara] = useState(DEFAULT_REQUEST_PARA);
+  const [firmaCreadorNombre, setFirmaCreadorNombre] = useState("");
+  const [firmaCreadorCargo, setFirmaCreadorCargo] = useState("");
+  const [firmaRevisorNombre, setFirmaRevisorNombre] = useState("");
+  const [firmaRevisorCargo, setFirmaRevisorCargo] = useState("");
+  const [firmaAprobadorNombre, setFirmaAprobadorNombre] = useState("");
+  const [firmaAprobadorCargo, setFirmaAprobadorCargo] = useState("");
   const [requestObservation, setRequestObservation] = useState("");
   const [mesEjecucion, setMesEjecucion] = useState<number | "">("");
+  const [adjuntosReforma, setAdjuntosReforma] = useState<File[]>([]);
+  const [adjuntosWarning, setAdjuntosWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [itemsCatalogo, setItemsCatalogo] = useState<CatalogItemPresupuestario[]>([]);
@@ -410,6 +598,66 @@ export default function EventoReformaPage() {
 
     void loadEvento();
   }, [id]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSolicitudDefaults() {
+      const [dtmValue, metodologoValue, pdaValue] = await Promise.all([
+        resolveSolicitudDirigidaLabel("DTM"),
+        resolveSolicitudDirigidaLabel("METODOLOGO"),
+        resolveSolicitudDirigidaLabel("PDA"),
+      ]);
+
+      if (!active) return;
+
+      if (dtmValue) {
+        setRequestDe((prev) =>
+          shouldAutofillSolicitudValue(prev, DEFAULT_REQUEST_DE) ? dtmValue : prev,
+        );
+      }
+      if (pdaValue) {
+        setRequestPara((prev) =>
+          shouldAutofillSolicitudValue(prev, DEFAULT_REQUEST_PARA)
+            ? pdaValue
+            : prev,
+        );
+      }
+      const revisor = parseSignatureLabel(metodologoValue || dtmValue);
+      setFirmaRevisorNombre(
+        (prev) => prev || revisor.nombre || DEFAULT_FIRMA_REVISOR_NOMBRE,
+      );
+      setFirmaRevisorCargo(
+        (prev) => prev || revisor.cargo || DEFAULT_FIRMA_REVISOR_CARGO,
+      );
+
+      const aprobador = parseSignatureLabel(pdaValue);
+      setFirmaAprobadorNombre(
+        (prev) => prev || aprobador.nombre || DEFAULT_FIRMA_APROBADOR_NOMBRE,
+      );
+      setFirmaAprobadorCargo(
+        (prev) => prev || aprobador.cargo || DEFAULT_FIRMA_APROBADOR_CARGO,
+      );
+    }
+
+    void loadSolicitudDefaults();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const creatorName = buildUserFullName(user).toUpperCase();
+    const creatorCargo = buildCreatorSignatureCargo(evento);
+
+    if (creatorName) {
+      setFirmaCreadorNombre((prev) => prev || creatorName);
+    }
+    if (creatorCargo) {
+      setFirmaCreadorCargo((prev) => prev || creatorCargo);
+    }
+  }, [evento, user]);
 
   const reformFormas = useMemo(
     () => (evento ? getReformFormas(evento) : []),
@@ -692,6 +940,34 @@ export default function EventoReformaPage() {
     });
   }, [budgetRows, selectedBudgetForma]);
 
+  const stepOneMissingFields = useMemo(
+    () =>
+      getRequiredStepOneFields({
+        requestReason,
+        firmaCreadorNombre,
+        firmaCreadorCargo,
+        firmaRevisorNombre,
+        firmaRevisorCargo,
+        firmaAprobadorNombre,
+        firmaAprobadorCargo,
+        mesEjecucion,
+      }),
+    [
+      firmaAprobadorCargo,
+      firmaAprobadorNombre,
+      firmaCreadorCargo,
+      firmaCreadorNombre,
+      firmaRevisorCargo,
+      firmaRevisorNombre,
+      mesEjecucion,
+      requestReason,
+    ],
+  );
+  const stepOneValidationError =
+    stepOneMissingFields.length > 0
+      ? `Completá los datos obligatorios del paso 1: ${stepOneMissingFields.join(", ")}.`
+      : null;
+
   const handleSubmit = async () => {
     if (!evento || !requestReason.trim()) return;
     if (typeof mesEjecucion !== "number") {
@@ -724,16 +1000,36 @@ export default function EventoReformaPage() {
       setSubmitError(null);
       setSubmitSuccess(null);
 
-      console.log("[Evento completo]", evento);
       const payload = {
         eventoId: evento.id,
         motivo: requestReason.trim(),
+        de: requestDe.trim() || undefined,
+        para: requestPara.trim() || undefined,
+        firmaCreadorNombre: optionalText(firmaCreadorNombre),
+        firmaCreadorCargo: optionalText(firmaCreadorCargo),
+        firmaRevisorNombre: optionalText(firmaRevisorNombre),
+        firmaRevisorCargo: optionalText(firmaRevisorCargo),
+        firmaAprobadorNombre: optionalText(firmaAprobadorNombre),
+        firmaAprobadorCargo: optionalText(firmaAprobadorCargo),
         observacion: requestObservation.trim() || undefined,
         mesEjecucion,
         cambiosPropuestos: proposedChanges,
       };
-      console.log("[Create Reforma] payload:", JSON.stringify(payload, null, 2));
       const response = await createReform(payload);
+
+      if (adjuntosReforma.length > 0) {
+        try {
+          await uploadReformAdjuntos(response.data.id, adjuntosReforma);
+        } catch (uploadErr: unknown) {
+          setSubmitted(true);
+          setSubmitError(
+            uploadErr instanceof Error
+              ? `La reforma ${response.data.id} se creó, pero falló la carga de adjuntos: ${uploadErr.message}`
+              : `La reforma ${response.data.id} se creó, pero falló la carga de adjuntos.`,
+          );
+          return;
+        }
+      }
 
       setSubmitted(true);
       setSubmitSuccess("La solicitud de reforma fue registrada correctamente.");
@@ -812,6 +1108,196 @@ export default function EventoReformaPage() {
     });
   }, [budgetRows, evento, itemsCatalogo, selectedBudgetForma]);
 
+  const previewYear = useMemo(() => {
+    const source = generalForm?.fechaInicio || evento?.fechaInicio;
+    if (typeof source === "string" && source.length >= 4) {
+      return source.slice(0, 4);
+    }
+    return String(new Date().getFullYear());
+  }, [evento?.fechaInicio, generalForm?.fechaInicio]);
+
+  const currentPreviewInfoRows = useMemo<ReformaPreviewInfoRow[]>(() => {
+    const entrenadores =
+      (selectedForma?.numEntrenadoresHombres ?? evento?.numEntrenadoresHombres ?? 0) +
+      (selectedForma?.numEntrenadoresMujeres ?? evento?.numEntrenadoresMujeres ?? 0);
+    const deportistas =
+      (selectedForma?.numAtletasHombres ?? evento?.numAtletasHombres ?? 0) +
+      (selectedForma?.numAtletasMujeres ?? evento?.numAtletasMujeres ?? 0);
+
+    return [
+      {
+        label: "Nombre",
+        value: formatPreviewValue(evento?.nombre),
+        changed: normalizeTextValue(evento?.nombre) !== normalizeTextValue(generalForm?.nombre),
+      },
+      {
+        label: "Provincia",
+        value: formatPreviewValue(
+          [evento?.ciudad, evento?.provincia].filter(Boolean).join(" - "),
+        ),
+        changed:
+          normalizeTextValue(evento?.ciudad) !== normalizeTextValue(generalForm?.ciudad) ||
+          normalizeTextValue(evento?.provincia) !== normalizeTextValue(generalForm?.provincia),
+      },
+      {
+        label: "Mes planificado",
+        value: getMonthLabel(evento?.mesProgramado),
+        changed: evento?.mesProgramado !== generalForm?.mesProgramado,
+      },
+      {
+        label: "Genero",
+        value: formatPreviewValue(formatGenero(evento?.genero)),
+      },
+      {
+        label: "N° de entrenadores",
+        value: String(entrenadores),
+        changed:
+          entrenadores !==
+          ((participantsForm?.numEntrenadoresHombres ?? 0) +
+            (participantsForm?.numEntrenadoresMujeres ?? 0)),
+      },
+      {
+        label: "N° de deportistas",
+        value: String(deportistas),
+        changed:
+          deportistas !==
+          ((participantsForm?.numAtletasHombres ?? 0) +
+            (participantsForm?.numAtletasMujeres ?? 0)),
+      },
+      {
+        label: "Damas",
+        value: String(selectedForma?.numAtletasMujeres ?? evento?.numAtletasMujeres ?? 0),
+        changed:
+          (selectedForma?.numAtletasMujeres ?? evento?.numAtletasMujeres ?? 0) !==
+          (participantsForm?.numAtletasMujeres ?? 0),
+      },
+      {
+        label: "Varones",
+        value: String(selectedForma?.numAtletasHombres ?? evento?.numAtletasHombres ?? 0),
+        changed:
+          (selectedForma?.numAtletasHombres ?? evento?.numAtletasHombres ?? 0) !==
+          (participantsForm?.numAtletasHombres ?? 0),
+      },
+    ];
+  }, [evento, generalForm, participantsForm, selectedForma]);
+
+  const proposedPreviewInfoRows = useMemo<ReformaPreviewInfoRow[]>(() => {
+    const entrenadores =
+      (participantsForm?.numEntrenadoresHombres ?? 0) +
+      (participantsForm?.numEntrenadoresMujeres ?? 0);
+    const deportistas =
+      (participantsForm?.numAtletasHombres ?? 0) +
+      (participantsForm?.numAtletasMujeres ?? 0);
+
+    return [
+      {
+        label: "Nombre",
+        value: formatPreviewValue(generalForm?.nombre || evento?.nombre),
+        changed: normalizeTextValue(evento?.nombre) !== normalizeTextValue(generalForm?.nombre),
+      },
+      {
+        label: "Provincia",
+        value: formatPreviewValue(
+          [generalForm?.ciudad || evento?.ciudad, generalForm?.provincia || evento?.provincia]
+            .filter(Boolean)
+            .join(" - "),
+        ),
+        changed:
+          normalizeTextValue(evento?.ciudad) !== normalizeTextValue(generalForm?.ciudad) ||
+          normalizeTextValue(evento?.provincia) !== normalizeTextValue(generalForm?.provincia),
+      },
+      {
+        label: "Mes de ejecución",
+        value: getMonthLabel(mesEjecucion),
+        changed: typeof mesEjecucion === "number",
+      },
+      {
+        label: "Genero",
+        value: formatPreviewValue(formatGenero(evento?.genero)),
+      },
+      {
+        label: "N° de entrenadores",
+        value: String(entrenadores),
+        changed:
+          ((selectedForma?.numEntrenadoresHombres ?? evento?.numEntrenadoresHombres ?? 0) +
+            (selectedForma?.numEntrenadoresMujeres ?? evento?.numEntrenadoresMujeres ?? 0)) !==
+          entrenadores,
+      },
+      {
+        label: "N° de deportistas",
+        value: String(deportistas),
+        changed:
+          ((selectedForma?.numAtletasHombres ?? evento?.numAtletasHombres ?? 0) +
+            (selectedForma?.numAtletasMujeres ?? evento?.numAtletasMujeres ?? 0)) !==
+          deportistas,
+      },
+      {
+        label: "Damas",
+        value: String(participantsForm?.numAtletasMujeres ?? 0),
+        changed:
+          (selectedForma?.numAtletasMujeres ?? evento?.numAtletasMujeres ?? 0) !==
+          (participantsForm?.numAtletasMujeres ?? 0),
+      },
+      {
+        label: "Varones",
+        value: String(participantsForm?.numAtletasHombres ?? 0),
+        changed:
+          (selectedForma?.numAtletasHombres ?? evento?.numAtletasHombres ?? 0) !==
+          (participantsForm?.numAtletasHombres ?? 0),
+      },
+    ];
+  }, [evento, generalForm, mesEjecucion, participantsForm, selectedForma]);
+
+  const currentPreviewBudgetRows = useMemo<ReformaPreviewBudgetRow[]>(() => {
+    const items = evento && selectedBudgetForma ? getFormaBudgetItems(evento, selectedBudgetForma) : [];
+
+    return items.map((item) => ({
+      codigo: String(item.item.numero ?? "-"),
+      item: formatPreviewValue(item.item.nombre),
+      valor: formatCurrency(Number.parseFloat(item.presupuesto) || 0),
+      changed: budgetRows.some(
+        (row) =>
+          row.sourceId === item.id &&
+          (row.status === "removed" ||
+            row.itemId !== item.item.id ||
+            row.mes !== item.mes ||
+            (Number.parseFloat(row.presupuesto) || 0) !==
+              (Number.parseFloat(item.presupuesto) || 0)),
+      ),
+    }));
+  }, [budgetRows, evento, selectedBudgetForma]);
+
+  const proposedPreviewBudgetRows = useMemo<ReformaPreviewBudgetRow[]>(() => {
+    return budgetRows
+      .filter((row) => row.status !== "removed")
+      .map((row) => {
+        const originalItem =
+          evento && selectedBudgetForma
+            ? getFormaBudgetItems(evento, selectedBudgetForma).find(
+                (item) => item.id === row.sourceId,
+              )
+            : undefined;
+        const catalogItem = itemsCatalogo.find((item) => item.id === row.itemId);
+        return {
+          codigo: String(catalogItem?.numero ?? row.itemNumero ?? "-"),
+          item: formatPreviewValue(catalogItem?.nombre ?? "Item sin seleccionar"),
+          valor: formatCurrency(Number.parseFloat(row.presupuesto) || 0),
+          changed:
+            row.status === "new" ||
+            !originalItem ||
+            originalItem.item.id !== row.itemId ||
+            originalItem.mes !== row.mes ||
+            (Number.parseFloat(originalItem.presupuesto) || 0) !==
+              (Number.parseFloat(row.presupuesto) || 0),
+        };
+      });
+  }, [budgetRows, evento, itemsCatalogo, selectedBudgetForma]);
+
+  const hasInformativeChanges =
+    generalSummaryRows.length > 0 ||
+    delegationSummaryRows.some((row) => row.label !== "Presupuesto");
+  const hasBudgetChanges = budgetComparisonRows.length > 0;
+
   const handleSelectForma = (value: string) => {
     const formaId = value ? Number(value) : "";
     const forma =
@@ -873,6 +1359,69 @@ export default function EventoReformaPage() {
     );
   };
 
+  const formatBytes = (value: number) => {
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleAdjuntosChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(e.target.files ?? []);
+    if (incoming.length === 0) return;
+
+    setAdjuntosWarning(null);
+    setAdjuntosReforma((prev) => {
+      const existingKeys = new Set(prev.map((f) => `${f.name}_${f.size}`));
+      const fresh = incoming.filter((f) => !existingKeys.has(`${f.name}_${f.size}`));
+      const validFiles: File[] = [];
+      const rejectedType: string[] = [];
+      const rejectedSize: string[] = [];
+
+      fresh.forEach((file) => {
+        const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+        if (!ALLOWED_ADJUNTO_REFORMA_EXTENSIONS.has(extension)) {
+          rejectedType.push(file.name);
+          return;
+        }
+        if (file.size > MAX_ADJUNTO_REFORMA_BYTES) {
+          rejectedSize.push(file.name);
+          return;
+        }
+        validFiles.push(file);
+      });
+
+      if (rejectedType.length > 0) {
+        setAdjuntosWarning(
+          `Archivos no permitidos: ${rejectedType.join(", ")}. Solo se aceptan PDF, PNG, JPG, JPEG, XLSX, XLS y CSV.`,
+        );
+      } else if (rejectedSize.length > 0) {
+        setAdjuntosWarning(
+          `Estos archivos superan 5MB: ${rejectedSize.join(", ")}.`,
+        );
+      }
+
+      const combined = [...prev, ...validFiles];
+
+      if (combined.length > MAX_ADJUNTOS_REFORMA) {
+        setAdjuntosWarning(
+          `Solo podes adjuntar hasta ${MAX_ADJUNTOS_REFORMA} archivos. Se descartaron ${
+            combined.length - MAX_ADJUNTOS_REFORMA
+          } archivo(s).`,
+        );
+        return combined.slice(0, MAX_ADJUNTOS_REFORMA);
+      }
+
+      return combined;
+    });
+
+    e.target.value = "";
+  };
+
+  const handleRemoveAdjunto = (index: number) => {
+    setAdjuntosWarning(null);
+    setAdjuntosReforma((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+  };
+
   const handleRemoveBudgetRow = (localId: string) => {
     setBudgetRows((prev) =>
       prev.flatMap((row) => {
@@ -893,15 +1442,29 @@ export default function EventoReformaPage() {
   };
 
   const goNext = () => {
-    if (currentStep < 2) {
-      setCurrentStep((prev) => (prev + 1) as WizardStep);
+    if (currentStep !== 1) return;
+    if (stepOneValidationError) {
+      setSubmitError(stepOneValidationError);
+      return;
     }
+    setSubmitError(null);
+    setCurrentStep(2);
   };
 
   const goBack = () => {
     if (currentStep > 1) {
       setCurrentStep((prev) => (prev - 1) as WizardStep);
     }
+  };
+
+  const handleStepChange = (step: WizardStep) => {
+    if (step === currentStep) return;
+    if (step === 2 && currentStep === 1 && stepOneValidationError) {
+      setSubmitError(stepOneValidationError);
+      return;
+    }
+    setSubmitError(null);
+    setCurrentStep(step);
   };
 
   if (loading) {
@@ -1032,17 +1595,17 @@ export default function EventoReformaPage() {
           <div className="mb-8 flex items-center gap-4">
             <StepBadge
               step={1}
-              label="Cambios"
+              label="Solicitud"
               active={currentStep === 1}
               completed={currentStep > 1}
-              onClick={() => setCurrentStep(1)}
+              onClick={() => handleStepChange(1)}
             />
             <StepBadge
               step={2}
-              label="Motivo"
+              label="Cambios"
               active={currentStep === 2}
               completed={false}
-              onClick={() => setCurrentStep(2)}
+              onClick={() => handleStepChange(2)}
             />
           </div>
 
@@ -1062,7 +1625,7 @@ export default function EventoReformaPage() {
             </div>
           ) : null}
 
-          {currentStep === 1 ? (
+          {currentStep === 2 ? (
             <div className="space-y-8">
               <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                   <div className="mb-5 flex items-center gap-3">
@@ -1587,7 +2150,7 @@ export default function EventoReformaPage() {
             </div>
           ) : null}
 
-          {currentStep === 2 ? (
+          {currentStep === 1 ? (
             <div className="space-y-6">
               <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -1596,25 +2159,35 @@ export default function EventoReformaPage() {
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Redacta el motivo general que se enviará junto con los cambios propuestos.
                 </p>
-                <textarea
-                  rows={5}
-                  value={requestReason}
-                  onChange={(e) => setRequestReason(e.target.value)}
-                  placeholder="Ejemplo: se ajusta presupuesto y nombre del evento por planificación actualizada."
-                  className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                />
-                <label className="mt-4 block space-y-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Observación adicional
-                  </span>
-                  <textarea
-                    rows={4}
-                    value={requestObservation}
-                    onChange={(e) => setRequestObservation(e.target.value)}
-                    placeholder="Comentario opcional para complementar la solicitud."
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                  />
-                </label>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      De
+                    </span>
+                    <input
+                      type="text"
+                      value={requestDe}
+                      onChange={(e) => setRequestDe(e.target.value)}
+                      placeholder="Ej: Lic. Miguel Vallejos Lara / Director del DTM"
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                      maxLength={255}
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Para
+                    </span>
+                    <input
+                      type="text"
+                      value={requestPara}
+                      onChange={(e) => setRequestPara(e.target.value)}
+                      placeholder="Ej: Lcda. Dayana Granda Armijos / Responsable del PDA"
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                      maxLength={255}
+                    />
+                  </label>
+                </div>
+
                 <label className="mt-4 block space-y-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Mes de ejecución <span className="text-rose-500">*</span>
@@ -1638,6 +2211,182 @@ export default function EventoReformaPage() {
                     Mes en el que se ejecutará el pago o la ejecución del evento.
                   </span>
                 </label>
+
+                <label className="mt-4 block space-y-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Motivo <span className="text-rose-500">*</span>
+                  </span>
+                  <textarea
+                    rows={5}
+                    value={requestReason}
+                    onChange={(e) => setRequestReason(e.target.value)}
+                    placeholder="Ejemplo: se ajusta presupuesto y nombre del evento por planificación actualizada."
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  />
+                </label>
+                <label className="mt-4 block space-y-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Observación adicional
+                  </span>
+                  <textarea
+                    rows={4}
+                    value={requestObservation}
+                    onChange={(e) => setRequestObservation(e.target.value)}
+                    placeholder="Comentario opcional para complementar la solicitud."
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  />
+                </label>
+                <section className="mt-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-gray-800 dark:bg-gray-950/50">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Firmas del documento
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Estos datos se usarán para las tres firmas del Excel de la reforma.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Firma solicitante - nombre
+                      </span>
+                      <input
+                        type="text"
+                        value={firmaCreadorNombre}
+                        onChange={(e) => setFirmaCreadorNombre(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        maxLength={255}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Firma solicitante - cargo
+                      </span>
+                      <input
+                        type="text"
+                        value={firmaCreadorCargo}
+                        onChange={(e) => setFirmaCreadorCargo(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        maxLength={255}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Firma solicitante - nombre
+                      </span>
+                      <input
+                        type="text"
+                        value={firmaRevisorNombre}
+                        onChange={(e) => setFirmaRevisorNombre(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        maxLength={255}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Firma solicitante - cargo
+                      </span>
+                      <input
+                        type="text"
+                        value={firmaRevisorCargo}
+                        onChange={(e) => setFirmaRevisorCargo(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        maxLength={255}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Firma aprobador - nombre
+                      </span>
+                      <input
+                        type="text"
+                        value={firmaAprobadorNombre}
+                        onChange={(e) => setFirmaAprobadorNombre(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        maxLength={255}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Firma aprobador - cargo
+                      </span>
+                      <input
+                        type="text"
+                        value={firmaAprobadorCargo}
+                        onChange={(e) => setFirmaAprobadorCargo(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        maxLength={255}
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="mt-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-gray-800 dark:bg-gray-950/50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <Paperclip className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          Documentos adjuntos
+                        </h3>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          Adjuntá respaldos opcionales solo para esta reforma.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                      {adjuntosReforma.length}/{MAX_ADJUNTOS_REFORMA}
+                    </span>
+                  </div>
+
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleAdjuntosChange}
+                    disabled={adjuntosReforma.length >= MAX_ADJUNTOS_REFORMA}
+                    className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:file:bg-gray-800 dark:file:text-gray-200"
+                  />
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Podés adjuntar hasta {MAX_ADJUNTOS_REFORMA} archivos de máximo 5MB. Formatos: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV.
+                  </p>
+
+                  {adjuntosWarning ? (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                      {adjuntosWarning}
+                    </p>
+                  ) : null}
+
+                  {adjuntosReforma.length > 0 ? (
+                    <ul className="mt-3 space-y-2">
+                      {adjuntosReforma.map((archivo, index) => (
+                        <li
+                          key={`${archivo.name}_${archivo.size}_${index}`}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-gray-900 dark:text-gray-100">
+                              {archivo.name}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatBytes(archivo.size)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAdjunto(index)}
+                            className="shrink-0 text-gray-400 transition hover:text-rose-600 dark:hover:text-rose-400"
+                            aria-label={`Quitar ${archivo.name}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
               </section>
 
               {hasUnresolvableBudgetItems ? (
@@ -1669,6 +2418,7 @@ export default function EventoReformaPage() {
               <button
                 type="button"
                 onClick={goNext}
+                disabled={Boolean(stepOneValidationError)}
                 className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
               >
                 Continuar
@@ -1697,164 +2447,96 @@ export default function EventoReformaPage() {
       <aside className="hidden lg:block lg:w-1/2 overflow-y-auto bg-slate-100 dark:bg-slate-900">
         <div className="p-8">
           <div className="mx-auto max-w-3xl space-y-6">
-            {/* Temporalmente oculto: resumen superior con secciones y totales.
-            <div className="rounded-3xl bg-slate-950 p-6 text-white dark:bg-slate-800">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-300">
-                Resumen de la reforma
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold">{evento.nombre}</h2>
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">
-                    Secciones
-                  </p>
-                  <p className="mt-2 text-3xl font-bold">3</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">
-                    Total actual
-                  </p>
-                  <p className="mt-2 text-2xl font-bold">
-                    {formatCurrency(originalBudgetTotal)}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">
-                    Total propuesto
-                  </p>
-                  <p className="mt-2 text-2xl font-bold">
-                    {formatCurrency(proposedBudgetTotal)}
-                  </p>
-                </div>
-              </div>
-            </div>
-            */}
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
-              <div className="mb-4 flex items-center gap-3">
-                <MapPin className="h-5 w-5 text-slate-500" />
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                  Datos generales reformados
-                </h3>
-              </div>
-
-              <div className="space-y-3">
-                <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-3 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  <div>Campo</div>
-                  <div>Antes</div>
-                  <div>Después</div>
-                </div>
-                {generalSummaryRows.length > 0 ? (
-                  generalSummaryRows.map((row) => (
-                    <SummaryRow
-                      key={row.label}
-                      label={row.label}
-                      previous={row.previous}
-                      next={row.next}
-                    />
-                  ))
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    No hay cambios en datos generales.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
-              <div className="mb-4 flex items-center gap-3">
-                <Users className="h-5 w-5 text-slate-500" />
+            <div className="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                    Forma de participación reformada
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {selectedForma
-                      ? getTipoAvalLabel(selectedForma.tipoAval)
-                      : "Sin tipo de participación seleccionado"}
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Preview referencial
                   </p>
+                  <h3 className="mt-1 text-lg font-bold uppercase text-slate-900">
+                    Solicitud Reforma Eventos {previewYear}
+                  </h3>
+                </div>
+                <div className="text-right text-[10px] uppercase text-slate-500">
+                  <div>{selectedForma ? getTipoAvalLabel(selectedForma.tipoAval) : "Sin forma"}</div>
+                  <div>{hasInformativeChanges ? "Datos informativos: X" : "Datos informativos: -"}</div>
+                  <div>{hasBudgetChanges ? "Presupuesto: X" : "Presupuesto: -"}</div>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-3 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  <div>Delegación / presupuesto</div>
-                  <div>Antes</div>
-                  <div>Después</div>
+              <div className="border border-slate-400">
+                <div className="grid grid-cols-[88px_1fr] border-b border-slate-400 text-[10px] uppercase text-slate-900">
+                  <div className="border-r border-slate-400 px-2 py-1 font-bold">De:</div>
+                  <div className="px-2 py-1">{formatPreviewValue(requestDe)}</div>
                 </div>
-                {delegationSummaryRows.length > 0 ? (
-                  delegationSummaryRows.map((row) => (
-                    <SummaryRow
-                      key={row.label}
-                      label={row.label}
-                      previous={row.previous}
-                      next={row.next}
-                    />
-                  ))
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    No hay cambios en la forma de participación seleccionada.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
-              <div className="mb-4 flex items-center gap-3">
-                <CalendarRange className="h-5 w-5 text-slate-500" />
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                  Comparacion de presupuesto
-                </h3>
+                <div className="grid grid-cols-[88px_1fr] text-[10px] uppercase text-slate-900">
+                  <div className="border-r border-slate-400 px-2 py-1 font-bold">Para:</div>
+                  <div className="px-2 py-1">{formatPreviewValue(requestPara)}</div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                {budgetComparisonRows.length > 0 ? (
-                  <>
-                    {budgetComparisonRows.map((row) => (
-                      <BudgetComparisonRow
-                        key={row.id}
-                        beforeLabel={row.beforeLabel}
-                        beforeMonth={row.beforeMonth}
-                        beforeBudget={row.beforeBudget}
-                        afterLabel={row.afterLabel}
-                        afterMonth={row.afterMonth}
-                        afterBudget={row.afterBudget}
-                        labelChanged={row.labelChanged}
-                        monthChanged={row.monthChanged}
-                        budgetChanged={row.budgetChanged}
-                        removed={row.removed}
-                        added={row.added}
-                      />
-                    ))}
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Total antes
-                          </p>
-                          <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">
-                            {formatCurrency(originalBudgetTotal)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Total despues
-                          </p>
-                          <p className="mt-2 font-medium text-slate-900 dark:text-slate-100">
-                            {formatCurrency(proposedBudgetTotal)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                    {selectedBudgetForma
-                      ? "No hay items presupuestarios para comparar."
-                      : "Selecciona un tipo de participación para comparar presupuesto."}
+              <div className="mt-3 border border-slate-400 text-[10px] uppercase text-slate-900">
+                <div className="grid grid-cols-[1.8fr_56px_1fr_56px]">
+                  <div className="border-r border-slate-400 px-2 py-1 font-bold">
+                    Motivo de la reforma: (marcar con una x)
                   </div>
-                )}
+                  <div className="border-r border-slate-400 px-2 py-1 text-center">
+                    {hasInformativeChanges ? "X" : ""}
+                  </div>
+                  <div className="border-r border-slate-400 px-2 py-1 font-bold">
+                    Presupuesto
+                  </div>
+                  <div className="px-2 py-1 text-center">{hasBudgetChanges ? "X" : ""}</div>
+                </div>
               </div>
+
+              <div className="mt-3 grid grid-cols-[1fr_52px_1fr] gap-0">
+                <div>
+                  <ReformaPreviewInfoTable title="PDA aprobado" rows={currentPreviewInfoRows} />
+                  <ReformaPreviewBudgetTable
+                    rows={currentPreviewBudgetRows}
+                    total={formatCurrency(originalBudgetTotal)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-center border-y border-slate-400 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wide text-slate-900">
+                  Por
+                </div>
+
+                <div>
+                  <ReformaPreviewInfoTable
+                    title="Evento a aprobar en el PDA"
+                    rows={proposedPreviewInfoRows}
+                  />
+                  <ReformaPreviewBudgetTable
+                    rows={proposedPreviewBudgetRows}
+                    total={formatCurrency(proposedBudgetTotal)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-6">
+                <ReformaPreviewSignature
+                  nombre={firmaCreadorNombre}
+                  cargo={firmaCreadorCargo}
+                />
+                <ReformaPreviewSignature
+                  nombre={firmaRevisorNombre}
+                  cargo={firmaRevisorCargo}
+                />
+                <ReformaPreviewSignature
+                  nombre={firmaAprobadorNombre}
+                  cargo={firmaAprobadorCargo}
+                />
+              </div>
+
+              <div className="mt-6 text-[10px] font-bold uppercase text-slate-900">
+                Loja, fecha de emisión
+              </div>
+
+              <p className="mt-4 text-[11px] text-slate-500">
+                Vista referencial. El Excel final puede ajustar anchos, saltos y formato exacto.
+              </p>
             </div>
           </div>
         </div>

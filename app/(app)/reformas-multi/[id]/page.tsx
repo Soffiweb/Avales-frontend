@@ -630,7 +630,7 @@ export default function ReformaMultiDetailPage() {
                 <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.observacion}</dd>
               </div>
             ) : null}
-          </dl>
+          </div>
         </section>
 
 

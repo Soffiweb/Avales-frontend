@@ -373,6 +373,7 @@ export type Aval = {
     }> | null;
     codigoNecesidad?: string | null;
     objetoContratacion?: string | null;
+    descripcion?: string | null;
     nombreFirmante?: string | null;
     cargoFirmante?: string | null;
     fechaEmision?: string | null;

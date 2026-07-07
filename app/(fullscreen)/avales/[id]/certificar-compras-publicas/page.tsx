@@ -47,6 +47,7 @@ const INITIAL_DRAFT: ComprasPublicasDraft = {
   numeroCertificado: "",
   realizoProceso: null,
   codigos: [],
+  descripcion: "",
   nombreFirmante: "",
   cargoFirmante: "",
   fechaEmision: getTodayInputDate(),
@@ -146,6 +147,7 @@ function normalizeComprasDraft(
           descripcion: item?.descripcion ?? "",
         }))
       : [],
+    descripcion: value?.descripcion ?? INITIAL_DRAFT.descripcion,
     nombreFirmante: value?.nombreFirmante ?? INITIAL_DRAFT.nombreFirmante,
     cargoFirmante: value?.cargoFirmante ?? INITIAL_DRAFT.cargoFirmante,
     fechaEmision: value?.fechaEmision ?? INITIAL_DRAFT.fechaEmision,
@@ -249,6 +251,7 @@ export default function CertificarComprasPublicasPage() {
                 }))
                 .filter((item) => item.codigo && item.descripcion)
             : undefined,
+          descripcion: draft.descripcion?.trim() || undefined,
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
         };
@@ -340,6 +343,7 @@ export default function CertificarComprasPublicasPage() {
               descripcion: item.descripcion ?? "",
             }))
           : prev.codigos,
+      descripcion: compras?.descripcion ?? prev.descripcion,
       nombreFirmante:
         compras?.nombreFirmante ||
         prev.nombreFirmante ||
@@ -376,6 +380,7 @@ export default function CertificarComprasPublicasPage() {
             .map((item) => ({ codigo: item.codigo.trim(), descripcion: item.descripcion.trim() }))
             .filter((item) => item.codigo && item.descripcion)
         : undefined,
+      descripcion: draft.descripcion?.trim() || undefined,
       nombreFirmante: draft.nombreFirmante?.trim() || undefined,
       cargoFirmante: draft.cargoFirmante?.trim() || undefined,
     };
@@ -642,6 +647,23 @@ export default function CertificarComprasPublicasPage() {
                     ))}
                   </div>
                 </div>
+
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Descripción
+                  </span>
+                  <textarea
+                    className="form-textarea w-full mt-1 min-h-[100px] resize-y"
+                    rows={4}
+                    value={draft.descripcion}
+                    readOnly={!effectiveEditable}
+                    disabled={!effectiveEditable}
+                    onChange={(e) =>
+                      setDraft((prev) => ({ ...prev, descripcion: e.target.value }))
+                    }
+                    placeholder="Ej: Dispone que en caso de que no existan oferentes, una vez que se ha subido el proceso al portal de compras públicas hasta por 2 o 3 ocasiones..."
+                  />
+                </label>
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

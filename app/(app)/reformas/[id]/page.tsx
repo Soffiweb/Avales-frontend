@@ -5,13 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
-  Calendar,
-  ClipboardEdit,
-  Coins,
   Download,
   FileText,
-  Layers3,
-  Tag,
 } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -167,6 +162,221 @@ type ProposedFormaParticipacion = {
     presupuesto?: number;
   }>;
 };
+
+type EventComparisonRow = {
+  key: string;
+  label: string;
+  before: string;
+  after: string;
+  changed: boolean;
+};
+
+type ParticipantComparisonRow = {
+  key: string;
+  forma: string;
+  label: string;
+  before: string;
+  after: string;
+  changed: boolean;
+};
+
+type BudgetComparisonRow = {
+  key: string;
+  code: string;
+  item: string;
+  month: string;
+  before: string;
+  after: string;
+  beforeAmount: number;
+  afterAmount: number;
+  changed: boolean;
+};
+
+function DetailValue({
+  label,
+  value,
+  changed,
+}: {
+  label: string;
+  value: string;
+  changed: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 ${
+        changed
+          ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+          : "border-gray-200 bg-gray-50/70 dark:border-gray-700 dark:bg-gray-900/30"
+      }`}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function EventSidePanel({
+  title,
+  subtitle,
+  tone,
+  rows,
+  participants,
+  budgetRows,
+  totalBudget,
+}: {
+  title: string;
+  subtitle: string;
+  tone: "before" | "after";
+  rows: EventComparisonRow[];
+  participants: ParticipantComparisonRow[];
+  budgetRows: BudgetComparisonRow[];
+  totalBudget: string;
+}) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+        <p
+          className={`text-xs font-semibold uppercase tracking-[0.18em] ${
+            tone === "after"
+              ? "text-emerald-700 dark:text-emerald-300"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+        >
+          {subtitle}
+        </p>
+        <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {title}
+        </h2>
+      </div>
+
+      <div className="space-y-5 p-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {rows.map((row) => (
+            <DetailValue
+              key={row.key}
+              label={row.label}
+              value={tone === "before" ? row.before : row.after}
+              changed={row.changed}
+            />
+          ))}
+        </div>
+
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Participación
+            </h3>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {participants.filter((row) => row.changed).length} cambio(s)
+            </span>
+          </div>
+          {participants.length === 0 ? (
+            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-gray-900/30 dark:text-gray-400">
+              Sin datos de participación.
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {participants.map((row) => (
+                <DetailValue
+                  key={row.key}
+                  label={`${row.forma} · ${row.label}`}
+                  value={tone === "before" ? row.before : row.after}
+                  changed={row.changed}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Presupuesto
+            </h3>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {totalBudget}
+            </span>
+          </div>
+          {budgetRows.length === 0 ? (
+            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-gray-900/30 dark:text-gray-400">
+              Sin ítems presupuestarios.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-900/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                      Ítem
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                      Mes
+                    </th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                      Valor
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {budgetRows.map((row) => (
+                    <tr
+                      key={row.key}
+                      className={
+                        row.changed
+                          ? "bg-amber-50/70 dark:bg-amber-900/10"
+                          : undefined
+                      }
+                    >
+                      <td className="border-t border-gray-100 px-3 py-2 text-gray-900 dark:border-gray-700 dark:text-gray-100">
+                        <span className="font-semibold">{row.code}</span>{" "}
+                        {row.item}
+                      </td>
+                      <td className="border-t border-gray-100 px-3 py-2 text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                        {row.month}
+                      </td>
+                      <td className="border-t border-gray-100 px-3 py-2 text-right font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100">
+                        {tone === "before" ? row.before : row.after}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SignatureCard({
+  label,
+  name,
+  role,
+}: {
+  label: string;
+  name?: string | null;
+  role?: string | null;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-4 text-center dark:border-gray-700 dark:bg-gray-900/30">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+        {label}
+      </p>
+      <div className="mx-auto my-4 h-px w-32 bg-gray-300 dark:bg-gray-600" />
+      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {name || "-"}
+      </p>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {role || "-"}
+      </p>
+    </div>
+  );
+}
 
 function getFormaBaseItemsMap(items: EventoItem[] = []) {
   return new Map(items.map((item) => [`${item.item.id}-${item.mes}`, item]));
@@ -561,29 +771,302 @@ export default function ReformaDetailPage() {
     (reform?.comparacion?.eventoItems?.length ?? 0) > 0 ||
     (reform?.comparacion?.formasParticipacion?.length ?? 0) > 0 ||
     Boolean(baseEvento);
-  const totalItemsBefore = useMemo(
-    () =>
-      itemComparisons.reduce(
-        (total, item) =>
-          total +
-          (typeof item.antesPresupuesto === "number"
-            ? item.antesPresupuesto
-            : 0),
-        0,
-      ),
-    [itemComparisons],
+  const fieldComparisonMap = useMemo(
+    () => new Map(fieldComparisons.map((field) => [field.campo, field])),
+    [fieldComparisons],
   );
-  const totalItemsAfter = useMemo(
-    () =>
-      itemComparisons.reduce(
-        (total, item) =>
-          total +
-          (typeof item.despuesPresupuesto === "number"
-            ? item.despuesPresupuesto
-            : 0),
-        0,
-      ),
-    [itemComparisons],
+
+  const eventRows = useMemo<EventComparisonRow[]>(() => {
+    const evento = baseEvento;
+    const fallbackEvento = reform?.evento;
+    const getMes = (value?: number | null) =>
+      value ? (MES_NOMBRES[value] ?? `Mes ${value}`) : "-";
+    const getComparedBefore = (field: string, fallback: unknown) =>
+      formatFallbackValue(fieldComparisonMap.get(field)?.antes ?? fallback);
+    const getComparedAfter = (field: string, fallback: unknown) =>
+      formatFallbackValue(fieldComparisonMap.get(field)?.despues ?? fallback);
+    const isFieldChanged = (field: string) => fieldComparisonMap.has(field);
+
+    return [
+      {
+        key: "codigo",
+        label: "Código",
+        before: getComparedBefore("codigo", evento?.codigo ?? fallbackEvento?.codigo),
+        after: getComparedAfter("codigo", evento?.codigo ?? fallbackEvento?.codigo),
+        changed: isFieldChanged("codigo"),
+      },
+      {
+        key: "nombre",
+        label: "Nombre",
+        before: getComparedBefore("nombre", evento?.nombre ?? fallbackEvento?.nombre),
+        after: getComparedAfter("nombre", evento?.nombre ?? fallbackEvento?.nombre),
+        changed: isFieldChanged("nombre"),
+      },
+      {
+        key: "disciplinaId",
+        label: "Disciplina",
+        before: getComparedBefore("disciplinaId", evento?.disciplina?.nombre),
+        after: getComparedAfter("disciplinaId", evento?.disciplina?.nombre),
+        changed: isFieldChanged("disciplinaId"),
+      },
+      {
+        key: "categoriaId",
+        label: "Categoría",
+        before: getComparedBefore("categoriaId", evento?.categoria?.nombre),
+        after: getComparedAfter("categoriaId", evento?.categoria?.nombre),
+        changed: isFieldChanged("categoriaId"),
+      },
+      {
+        key: "tipoParticipacion",
+        label: "Tipo participación",
+        before: getComparedBefore("tipoParticipacion", evento?.tipoParticipacion),
+        after: getComparedAfter("tipoParticipacion", evento?.tipoParticipacion),
+        changed: isFieldChanged("tipoParticipacion"),
+      },
+      {
+        key: "tipoEvento",
+        label: "Tipo evento",
+        before: getComparedBefore("tipoEvento", evento?.tipoEvento),
+        after: getComparedAfter("tipoEvento", evento?.tipoEvento),
+        changed: isFieldChanged("tipoEvento"),
+      },
+      {
+        key: "lugar",
+        label: "Lugar",
+        before: getComparedBefore("lugar", evento?.lugar),
+        after: getComparedAfter("lugar", evento?.lugar),
+        changed: isFieldChanged("lugar"),
+      },
+      {
+        key: "provincia",
+        label: "Provincia",
+        before: getComparedBefore("provincia", evento?.provincia),
+        after: getComparedAfter("provincia", evento?.provincia),
+        changed: isFieldChanged("provincia"),
+      },
+      {
+        key: "ciudad",
+        label: "Ciudad",
+        before: getComparedBefore("ciudad", evento?.ciudad),
+        after: getComparedAfter("ciudad", evento?.ciudad),
+        changed: isFieldChanged("ciudad"),
+      },
+      {
+        key: "pais",
+        label: "País",
+        before: getComparedBefore("pais", evento?.pais),
+        after: getComparedAfter("pais", evento?.pais),
+        changed: isFieldChanged("pais"),
+      },
+      {
+        key: "alcance",
+        label: "Alcance",
+        before: getComparedBefore("alcance", evento?.alcance),
+        after: getComparedAfter("alcance", evento?.alcance),
+        changed: isFieldChanged("alcance"),
+      },
+      {
+        key: "genero",
+        label: "Género",
+        before: getComparedBefore("genero", evento?.genero),
+        after: getComparedAfter("genero", evento?.genero),
+        changed: isFieldChanged("genero"),
+      },
+      {
+        key: "mesProgramado",
+        label: "Mes planificado",
+        before: getComparedBefore("mesProgramado", getMes(evento?.mesProgramado)),
+        after: getComparedAfter("mesProgramado", getMes(evento?.mesProgramado)),
+        changed: isFieldChanged("mesProgramado"),
+      },
+      {
+        key: "fechaInicio",
+        label: "Fecha inicio",
+        before: getComparedBefore("fechaInicio", evento?.fechaInicio),
+        after: getComparedAfter("fechaInicio", evento?.fechaInicio),
+        changed: isFieldChanged("fechaInicio"),
+      },
+      {
+        key: "fechaFin",
+        label: "Fecha fin",
+        before: getComparedBefore("fechaFin", evento?.fechaFin),
+        after: getComparedAfter("fechaFin", evento?.fechaFin),
+        changed: isFieldChanged("fechaFin"),
+      },
+    ];
+  }, [baseEvento, fieldComparisonMap, reform?.evento]);
+
+  const participantRows = useMemo<ParticipantComparisonRow[]>(() => {
+    const baseFormas = baseEvento?.formasParticipacion ?? [];
+    if (baseFormas.length > 0) {
+      return baseFormas.flatMap((forma) => {
+        const comparison = formaComparisons.find(
+          (item) => item.tipoAval === forma.tipoAval,
+        );
+        const formaLabel = getTipoAvalLabel(forma.tipoAval);
+        return [
+          {
+            key: `${forma.id}-atletas-hombres`,
+            forma: formaLabel,
+            label: "Deportistas varones",
+            before: formatFallbackValue(
+              comparison?.antesNumAtletasHombres ?? forma.numAtletasHombres,
+            ),
+            after: formatFallbackValue(
+              comparison?.despuesNumAtletasHombres ?? forma.numAtletasHombres,
+            ),
+            changed:
+              comparison?.antesNumAtletasHombres !==
+              comparison?.despuesNumAtletasHombres,
+          },
+          {
+            key: `${forma.id}-atletas-mujeres`,
+            forma: formaLabel,
+            label: "Deportistas damas",
+            before: formatFallbackValue(
+              comparison?.antesNumAtletasMujeres ?? forma.numAtletasMujeres,
+            ),
+            after: formatFallbackValue(
+              comparison?.despuesNumAtletasMujeres ?? forma.numAtletasMujeres,
+            ),
+            changed:
+              comparison?.antesNumAtletasMujeres !==
+              comparison?.despuesNumAtletasMujeres,
+          },
+          {
+            key: `${forma.id}-entrenadores-hombres`,
+            forma: formaLabel,
+            label: "Entrenadores varones",
+            before: formatFallbackValue(
+              comparison?.antesNumEntrenadoresHombres ??
+                forma.numEntrenadoresHombres,
+            ),
+            after: formatFallbackValue(
+              comparison?.despuesNumEntrenadoresHombres ??
+                forma.numEntrenadoresHombres,
+            ),
+            changed:
+              comparison?.antesNumEntrenadoresHombres !==
+              comparison?.despuesNumEntrenadoresHombres,
+          },
+          {
+            key: `${forma.id}-entrenadores-mujeres`,
+            forma: formaLabel,
+            label: "Entrenadores damas",
+            before: formatFallbackValue(
+              comparison?.antesNumEntrenadoresMujeres ??
+                forma.numEntrenadoresMujeres,
+            ),
+            after: formatFallbackValue(
+              comparison?.despuesNumEntrenadoresMujeres ??
+                forma.numEntrenadoresMujeres,
+            ),
+            changed:
+              comparison?.antesNumEntrenadoresMujeres !==
+              comparison?.despuesNumEntrenadoresMujeres,
+          },
+        ];
+      });
+    }
+
+    return [
+      {
+        key: "root-atletas-hombres",
+        forma: "General",
+        label: "Deportistas varones",
+        before: formatFallbackValue(baseEvento?.numAtletasHombres),
+        after: formatFallbackValue(baseEvento?.numAtletasHombres),
+        changed: false,
+      },
+      {
+        key: "root-atletas-mujeres",
+        forma: "General",
+        label: "Deportistas damas",
+        before: formatFallbackValue(baseEvento?.numAtletasMujeres),
+        after: formatFallbackValue(baseEvento?.numAtletasMujeres),
+        changed: false,
+      },
+      {
+        key: "root-entrenadores-hombres",
+        forma: "General",
+        label: "Entrenadores varones",
+        before: formatFallbackValue(baseEvento?.numEntrenadoresHombres),
+        after: formatFallbackValue(baseEvento?.numEntrenadoresHombres),
+        changed: false,
+      },
+      {
+        key: "root-entrenadores-mujeres",
+        forma: "General",
+        label: "Entrenadores damas",
+        before: formatFallbackValue(baseEvento?.numEntrenadoresMujeres),
+        after: formatFallbackValue(baseEvento?.numEntrenadoresMujeres),
+        changed: false,
+      },
+    ];
+  }, [baseEvento, formaComparisons]);
+
+  const budgetRows = useMemo<BudgetComparisonRow[]>(() => {
+    const comparisonMap = new Map(
+      itemComparisons.map((item) => [`${item.itemId}-${item.mes}`, item]),
+    );
+    const usedKeys = new Set<string>();
+    const baseItems =
+      baseEvento?.formasParticipacion?.flatMap((forma) => forma.items ?? []) ??
+      baseEvento?.eventoItems ??
+      [];
+
+    const rows = baseItems.map((item) => {
+      const key = `${item.item.id}-${item.mes}`;
+      const comparison = comparisonMap.get(key);
+      const baseBudget = Number.parseFloat(item.presupuesto) || 0;
+      if (comparison) usedKeys.add(key);
+      return {
+        key,
+        code: String(item.item.numero ?? item.item.id),
+        item: item.item.nombre,
+        month: comparison?.mesNombre ?? MES_NOMBRES[item.mes] ?? `Mes ${item.mes}`,
+        before: formatCurrency(comparison?.antesPresupuesto ?? baseBudget),
+        after: formatCurrency(comparison?.despuesPresupuesto ?? baseBudget),
+        beforeAmount: comparison?.antesPresupuesto ?? baseBudget,
+        afterAmount: comparison?.despuesPresupuesto ?? baseBudget,
+        changed: Boolean(comparison),
+      };
+    });
+
+    itemComparisons.forEach((item) => {
+      const key = `${item.itemId}-${item.mes}`;
+      if (usedKeys.has(key)) return;
+      rows.push({
+        key,
+        code: String(item.itemNumero ?? item.itemId),
+        item: item.itemNombre || `Item #${item.itemId}`,
+        month:
+          item.mesAntes != null && item.mesAntes !== item.mes
+            ? `${item.mesNombreAntes ?? MES_NOMBRES[item.mesAntes] ?? `Mes ${item.mesAntes}`} → ${item.mesNombre}`
+            : item.mesNombre,
+        before:
+          hasComparisonData && typeof item.antesPresupuesto === "number"
+            ? formatCurrency(item.antesPresupuesto)
+            : "No disponible",
+        after: formatCurrency(item.despuesPresupuesto ?? 0),
+        beforeAmount:
+          hasComparisonData && typeof item.antesPresupuesto === "number"
+            ? item.antesPresupuesto
+            : 0,
+        afterAmount: item.despuesPresupuesto ?? 0,
+        changed: true,
+      });
+    });
+
+    return rows;
+  }, [baseEvento, hasComparisonData, itemComparisons]);
+  const totalBudgetBefore = useMemo(
+    () => budgetRows.reduce((total, item) => total + item.beforeAmount, 0),
+    [budgetRows],
+  );
+  const totalBudgetAfter = useMemo(
+    () => budgetRows.reduce((total, item) => total + item.afterAmount, 0),
+    [budgetRows],
   );
 
   if (loading) {
@@ -742,360 +1225,111 @@ export default function ReformaDetailPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-4 flex items-center gap-2">
-              <ClipboardEdit className="h-5 w-5 text-gray-400" />
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
                 Solicitud
-              </h2>
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/30">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                    De
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {reform.de || "-"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/30">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                    Para
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {reform.para || "-"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
+                {reform.motivo || "-"}
+              </p>
             </div>
-            <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">De</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.de || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Para</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.para || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Motivo</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.motivo || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">
-                  Observación
-                </dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.observacion || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">
-                  Mes de ejecución
-                </dt>
-                <dd className="mt-1 inline-flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                  <Calendar className="h-4 w-4 text-gray-400" />
-                  {reform.mesEjecucion
-                    ? (MES_NOMBRES[reform.mesEjecucion] ??
-                      `Mes ${reform.mesEjecucion}`)
-                    : "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Fecha</dt>
-                <dd className="mt-1 inline-flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                  <Calendar className="h-4 w-4 text-gray-400" />
-                  {formatDateTime(reform.createdAt)}
-                </dd>
-              </div>
-            </dl>
-          </section>
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <span
+                className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                  TIPO_REFORMA_STYLES[reform.tipo] ??
+                  "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                }`}
+              >
+                {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
+              </span>
+              <span className="inline-flex w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                {reform.mesEjecucion
+                  ? (MES_NOMBRES[reform.mesEjecucion] ??
+                    `Mes ${reform.mesEjecucion}`)
+                  : "Sin mes"}
+              </span>
+            </div>
+          </div>
+        </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-4 flex items-center gap-2">
-              <Tag className="h-5 w-5 text-gray-400" />
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-                Evento asociado
-              </h2>
-            </div>
-            <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Nombre</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.evento?.nombre || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Código</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.evento?.codigo || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">
-                  Estado del evento
-                </dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                  {reform.evento?.estado || "-"}
-                </dd>
-              </div>
-            </dl>
-          </section>
+        {!hasComparisonData ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-900/20 dark:text-amber-200">
+            Esta reforma no tiene comparación histórica completa. Se muestra el
+            resumen registrado en la solicitud.
+          </div>
+        ) : null}
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <EventSidePanel
+            title="Evento actual"
+            subtitle="Antes de la reforma"
+            tone="before"
+            rows={eventRows}
+            participants={participantRows}
+            budgetRows={budgetRows}
+            totalBudget={
+              hasComparisonData
+                ? formatCurrency(totalBudgetBefore)
+                : "No disponible"
+            }
+          />
+          <EventSidePanel
+            title="Reforma solicitada"
+            subtitle="Datos a aprobar"
+            tone="after"
+            rows={eventRows}
+            participants={participantRows}
+            budgetRows={budgetRows}
+            totalBudget={formatCurrency(totalBudgetAfter)}
+          />
         </div>
 
         <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-gray-400" />
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-              Campos reformados
-            </h2>
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Firmas de la reforma
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Personas registradas como firmantes de esta solicitud.
+            </p>
           </div>
-          {!hasComparisonData ? (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-900/20 dark:text-amber-200">
-              Esta reforma no tiene comparacion historica completa. Se muestra
-              el resumen registrado en la solicitud.
-            </div>
-          ) : null}
-
-          {fieldComparisons.length === 0 ? (
-            <div className="rounded-lg bg-gray-50 p-6 text-sm text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
-              Esta reforma no reporta cambios de campos simples.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {fieldComparisons.map((field) => (
-                <article
-                  key={field.campo}
-                  className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {field.etiqueta}
-                  </p>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-950/40">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                        Antes
-                      </p>
-                      <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                        {hasComparisonData
-                          ? formatFallbackValue(field.antes)
-                          : "No disponible"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-900/10">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-                        Después
-                      </p>
-                      <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                        {formatFallbackValue(field.despues)}
-                      </p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center gap-2">
-            <Layers3 className="h-5 w-5 text-gray-400" />
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-              Formas de participación reformadas
-            </h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            <SignatureCard
+              label="Solicitante"
+              name={reform.firmaCreadorNombre}
+              role={reform.firmaCreadorCargo}
+            />
+            <SignatureCard
+              label="Revisor"
+              name={reform.firmaRevisorNombre}
+              role={reform.firmaRevisorCargo}
+            />
+            <SignatureCard
+              label="Aprobador"
+              name={reform.firmaAprobadorNombre}
+              role={reform.firmaAprobadorCargo}
+            />
           </div>
-
-          {formaComparisons.length === 0 ? (
-            <div className="rounded-lg bg-gray-50 p-6 text-sm text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
-              Esta reforma no reporta cambios de atletas por forma de
-              participación.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {formaComparisons.map((forma, index) => (
-                <article
-                  key={`${forma.tipoAval ?? "sin-tipo"}-${index}`}
-                  className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {getTipoAvalLabel(forma.tipoAval)}
-                  </p>
-                  <div className="mt-3 space-y-3">
-                    {[
-                      {
-                        label: "Atletas hombres",
-                        before: forma.antesNumAtletasHombres,
-                        after: forma.despuesNumAtletasHombres,
-                      },
-                      {
-                        label: "Atletas mujeres",
-                        before: forma.antesNumAtletasMujeres,
-                        after: forma.despuesNumAtletasMujeres,
-                      },
-                      {
-                        label: "Entrenadores/otros hombres",
-                        before: forma.antesNumEntrenadoresHombres,
-                        after: forma.despuesNumEntrenadoresHombres,
-                      },
-                      {
-                        label: "Entrenadores/otros mujeres",
-                        before: forma.antesNumEntrenadoresMujeres,
-                        after: forma.despuesNumEntrenadoresMujeres,
-                      },
-                    ]
-                      .filter(({ before, after }) => before !== after)
-                      .map(({ label, before, after }) => (
-                        <div key={label}>
-                          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                            {label}
-                          </p>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div className="rounded-lg border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-950/40">
-                              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                                Antes
-                              </p>
-                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                                {hasComparisonData
-                                  ? formatFallbackValue(before)
-                                  : "No disponible"}
-                              </p>
-                            </div>
-                            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-900/10">
-                              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-                                Después
-                              </p>
-                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                                {formatFallbackValue(after)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                <Coins className="h-5 w-5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 sm:text-base">
-                  Items presupuestarios reformados
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
-                  {itemComparisons.length > 0
-                    ? `${itemComparisons.length} item${itemComparisons.length === 1 ? "" : "s"} ${hasComparisonData ? "con comparación antes y después" : "registrado" + (itemComparisons.length === 1 ? "" : "s") + " en la solicitud"}`
-                    : "Esta reforma no incluye cambios en items presupuestarios."}
-                </p>
-                {budgetReformTipoAval ? (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Forma de participación:{" "}
-                    {getTipoAvalLabel(budgetReformTipoAval)}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          {itemComparisons.length > 0 ? (
-            <>
-              <div className="grid gap-3 border-b border-gray-200 px-5 py-4 sm:grid-cols-3 dark:border-gray-700">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
-                    Total antes
-                  </p>
-                  <p className="mt-1 text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
-                    {hasComparisonData
-                      ? formatCurrency(totalItemsBefore)
-                      : "No disponible"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
-                    Total después
-                  </p>
-                  <p className="mt-1 text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
-                    {formatCurrency(totalItemsAfter)}
-                  </p>
-                </div>
-                <div className="sm:text-right">
-                  <p className="text-xs uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
-                    Items comparados
-                  </p>
-                  <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
-                    {itemComparisons.length}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3 p-5">
-                {itemComparisons.map((item) => (
-                  <article
-                    key={`${item.itemId}-${item.mes}-${item.itemNumero ?? "na"}`}
-                    className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 transition hover:border-emerald-200 hover:bg-white dark:border-gray-700 dark:bg-gray-900/30 dark:hover:border-emerald-800 dark:hover:bg-gray-900/50"
-                  >
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                            {item.itemNombre || `Item #${item.itemId}`}
-                          </h3>
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                              ITEM_CHANGE_STYLES[item.tipoCambio] ??
-                              "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                            }`}
-                          >
-                            {item.tipoCambio}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300 sm:text-sm">
-                          <span className="inline-flex items-center gap-2">
-                            <Tag className="h-3.5 w-3.5 text-gray-400" />
-                            Item #{item.itemNumero ?? item.itemId}
-                          </span>
-                          <span className="inline-flex items-center gap-2">
-                            <Layers3 className="h-3.5 w-3.5 text-gray-400" />
-                            Eventos de Preparación y Competencia
-                          </span>
-                          <span className="inline-flex items-center gap-2">
-                            <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                            {item.mesAntes != null && item.mesAntes !== item.mes
-                              ? `${item.mesNombreAntes ?? MES_NOMBRES[item.mesAntes] ?? `Mes ${item.mesAntes}`} → ${item.mesNombre}`
-                              : item.mesNombre}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2 sm:grid-cols-2 md:min-w-[250px]">
-                        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-950/40">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                            Antes
-                          </p>
-                          <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {hasComparisonData
-                              ? formatCurrency(item.antesPresupuesto ?? 0)
-                              : "No disponible"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-900/10">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-                            Después
-                          </p>
-                          <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {formatCurrency(item.despuesPresupuesto ?? 0)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="p-5">
-              <div className="rounded-xl bg-gray-50 p-6 text-sm text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">
-                No hay items reformados para comparar.
-              </div>
-            </div>
-          )}
         </section>
 
         <ReformReviewCard

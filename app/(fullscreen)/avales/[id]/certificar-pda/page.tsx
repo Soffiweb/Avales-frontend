@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import { aprobarAval, adminSavePda, createPda } from "@/lib/api/avales";
@@ -28,7 +28,11 @@ import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
-import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
+import {
+  getAvalPresupuestoItems,
+  parseNotasFromBd,
+  type NotaDraft,
+} from "@/lib/utils/aval-collections";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 import { useAutosaveDraft } from "@/lib/hooks/use-autosave-draft";
@@ -179,6 +183,40 @@ function buildDefaultDescripcion(aval: Aval) {
   return `De acuerdo al aval Técnico de Participación Competitiva ${numeroAval}, de la disciplina de ${disciplina} con fecha ${fecha}, suscrito por ${entrenadorResponsable} Entrenador de la disciplina me permito certificar que el evento ${eventoNombre.toUpperCase()}${
     categoria ? ` (${categoria.toUpperCase()})` : ""
   } consta en el PDA 2026 aprobado por el Ministerio del Deporte.`;
+}
+
+function joinWithCommaAndY(items: string[]) {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} y ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function buildDefaultNotas(aval: Aval): NotaDraft[] {
+  const requerimientosRaw = getAvalPresupuestoItems(aval)
+    .map((item) => item.item?.nombre?.trim().toLowerCase())
+    .filter((item): item is string => Boolean(item));
+  const requerimientos = Array.from(new Set(requerimientosRaw));
+  const requerimientosTexto = joinWithCommaAndY(requerimientos);
+
+  return [
+    {
+      texto: requerimientosTexto
+        ? `El requerimiento es ${requerimientosTexto}`
+        : "El requerimiento es pasajes ida y vuelta, hospedaje, transporte de personal y deportistas, afiliacion y alimentacion",
+    },
+    {
+      texto: `Las facturas de gastos deben solicitarse con los siguientes datos:
+Razon Social: FEDERACION DEPORTIVA PROVINCIAL DE LOJA
+RUC: 1191708241001
+Direccion: EL TEJAR, CALLE MACARA SN ENTRE MERCADILLO Y AZUAY
+Email: federacionloja@yahoo.es
+Telefono: 0999819109`,
+    },
+    {
+      texto: "El informe de gastos, se entregara como maximo 72 horas culminada la competencia",
+    },
+  ];
 }
 
 function validatePdaDraft(_draft: PdaDraft): string | null {
@@ -461,6 +499,9 @@ export default function CertificarAvalPage() {
 
   const [draft, setDraft] = useState<PdaDraft>(INITIAL_PDA_DRAFT);
   const [budgetDraftItems, setBudgetDraftItems] = useState<BudgetDraftItem[]>([]);
+  const [notas, setNotas] = useState<NotaDraft[]>([]);
+  const [editableNotas, setEditableNotas] = useState<boolean[]>([]);
+  const [notesInitialized, setNotesInitialized] = useState(false);
   // Autosave desactivado — refs y state conservados comentados por si se reactiva
   // const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
   // const [draftToastVisible, setDraftToastVisible] = useState(false);
@@ -564,6 +605,13 @@ export default function CertificarAvalPage() {
             (item) => Number.isFinite(item.presupuesto) && item.itemId > 0,
           );
 
+        const notasPayload = notas
+          .map((nota, index) => ({
+            titulo: `NOTA ${index + 1}`,
+            texto: nota.texto.trim(),
+          }))
+          .filter((nota) => nota.texto.length > 0);
+
         const pdaPayload = {
           descripcion: draft.descripcion.trim(),
           numeroPda: draft.numeroPda?.trim() || undefined,
@@ -572,6 +620,7 @@ export default function CertificarAvalPage() {
           nombreFirmante: draft.nombreFirmante?.trim() || undefined,
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
           items: items.length > 0 ? items : undefined,
+          notas: notasPayload.length > 0 ? notasPayload : undefined,
         };
 
         avalFlowDebugLog("pda", "payload de aprobacion listo", {
@@ -582,8 +631,6 @@ export default function CertificarAvalPage() {
           items,
         });
 
-        console.log("[PDA] payload enviado:", JSON.stringify(pdaPayload, null, 2));
-        console.log("[PDA] params:", { avalId: a.id, userId, approvalEtapa, adminSaveOnly });
         if (adminSaveOnly) {
           await adminSavePda(a.id, userId, pdaPayload, approvalEtapa);
         } else {
@@ -592,7 +639,7 @@ export default function CertificarAvalPage() {
         }
         autosaveRef.current.clear();
       },
-      [draft, budgetDraftItems, autosaveRef],
+      [draft, budgetDraftItems, notas, autosaveRef],
     ),
     onRejectSuccess: useCallback(() => { autosaveRef.current.clear(); }, [autosaveRef]),
     approveSuccessMessage: "PDA aprobado correctamente.",
@@ -603,8 +650,51 @@ export default function CertificarAvalPage() {
   useEffect(() => {
     setDraft(INITIAL_PDA_DRAFT);
     setBudgetDraftItems([]);
+    setNotas([]);
+    setEditableNotas([]);
+    setNotesInitialized(false);
     autosaveRestoredRef.current = false;
   }, [avalId]);
+
+  // Initialize notes once aval loads — prefer BD data, fall back to computed defaults
+  useEffect(() => {
+    if (notesInitialized) return;
+    if (!aval) return;
+    const savedNotas = parseNotasFromBd(aval.pda?.notas);
+    const initialNotas = savedNotas ?? buildDefaultNotas(aval);
+    const fromBd = savedNotas !== null;
+    setNotas(initialNotas);
+    setEditableNotas(initialNotas.map(() => fromBd));
+    setNotesInitialized(true);
+  }, [notesInitialized, aval]);
+
+  const handleNotaChange = useCallback((index: number, value: string) => {
+    setNotas((prev) =>
+      prev.map((nota, i) => (i === index ? { ...nota, texto: value } : nota)),
+    );
+  }, []);
+
+  const handleAddNota = useCallback(() => {
+    setNotas((prev) => [...prev, { texto: "" }]);
+    setEditableNotas((prev) => [...prev, true]);
+  }, []);
+
+  const handleRemoveNota = useCallback((index: number) => {
+    setNotas((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+    setEditableNotas((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  const handleEnableNotaEdit = useCallback((index: number) => {
+    setEditableNotas((prev) =>
+      prev.map((editable, i) => (i === index ? true : editable)),
+    );
+  }, []);
 
   // Populate draft description, numbers and firmante from the loaded aval.
   // Si el PDA ya fue aprobado, preservamos el firmante original (no queremos
@@ -1369,6 +1459,61 @@ export default function CertificarAvalPage() {
                 )}
               </div>
 
+              <div className="space-y-3 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Notas del presupuesto de salida
+                  </h2>
+                  {isEditable && (
+                    <button
+                      type="button"
+                      onClick={handleAddNota}
+                      className="btn bg-gray-900 text-white hover:bg-gray-800 text-xs"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Agregar nota
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {notas.map((nota, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <textarea
+                        className="form-textarea w-full text-sm"
+                        rows={4}
+                        value={nota.texto}
+                        readOnly={!isEditable || !editableNotas[index]}
+                        disabled={!isEditable || !editableNotas[index]}
+                        onChange={(e) => handleNotaChange(index, e.target.value)}
+                        placeholder={`Nota ${index + 1}`}
+                      />
+                      {isEditable && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleEnableNotaEdit(index)}
+                            className="btn bg-cyan-600 text-white hover:bg-cyan-700 text-xs"
+                            title="Editar nota"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNota(index)}
+                            disabled={notas.length <= 1}
+                            className="btn bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                            title="Eliminar nota"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {isEditable && (
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
@@ -1472,7 +1617,7 @@ export default function CertificarAvalPage() {
                 aval={aval}
                 items={budgetPreviewItems}
                 draft={{
-                  notas: [],
+                  notas: notas.map((n) => n.texto),
                   codigoActividad: draft.codigoActividad,
                   numeroAval: draft.numeroAval,
                   pdaFirmanteNombre: draft.nombreFirmante,

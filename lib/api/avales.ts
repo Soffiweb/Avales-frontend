@@ -274,6 +274,12 @@ export type CreatePdaItemPayload = {
   dias: CreatePdaItemDiaPayload[];
 };
 
+export type PdaNotaPayload = {
+  titulo: string;
+  texto: string;
+  mostrarDatosFacturacion?: boolean;
+};
+
 export type CreatePdaPayload = {
   descripcion: string;
   numeroPda?: string;
@@ -283,6 +289,7 @@ export type CreatePdaPayload = {
   cargoFirmante?: string;
   montoAsignado?: number;
   items?: CreatePdaItemPayload[];
+  notas?: PdaNotaPayload[];
 };
 
 export async function createPda(id: number, payload: CreatePdaPayload) {
@@ -362,11 +369,7 @@ export type ApproveRevisionDtmPayload = {
 };
 
 export type ApproveFinancieroNotasPayload = {
-  notas: Array<{
-    titulo: string;
-    texto: string;
-    mostrarDatosFacturacion?: boolean;
-  }>;
+  notas: PdaNotaPayload[];
   nombreFirmante?: string;
   cargoFirmante?: string;
 };

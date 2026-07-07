@@ -352,6 +352,7 @@ export type Aval = {
     codigoActividad?: string | null;
     nombreFirmante?: string | null;
     cargoFirmante?: string | null;
+    notas?: string | null;
     items?: Array<{
       id?: number;
       itemId: number;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import { aprobarAval, adminSaveFinanciero } from "@/lib/api/avales";
@@ -30,7 +30,7 @@ import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { listUsers } from "@/lib/api/user";
-import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
+import { parseNotasFromBd } from "@/lib/utils/aval-collections";
 import {
   formatEventScheduleSentence,
   formatRole,
@@ -42,10 +42,6 @@ import {
 } from "@/app/(app)/avales/_components/revision-metodologo-config";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
-type FinancieroNotaDraft = {
-  texto: string;
-};
-
 type FinancieroDraft = {
   descripcionCertificacion: string;
   periodoComision: string;
@@ -53,7 +49,6 @@ type FinancieroDraft = {
   firmanteNombre: string;
   firmanteCargo: string;
   fechaEmision: string;
-  notas: FinancieroNotaDraft[];
 };
 
 const INITIAL_DRAFT: FinancieroDraft = {
@@ -63,7 +58,6 @@ const INITIAL_DRAFT: FinancieroDraft = {
   firmanteNombre: "",
   firmanteCargo: "",
   fechaEmision: "",
-  notas: [],
 };
 
 const EMPTY_PDA_DRAFT: PdaDraft = {
@@ -164,13 +158,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 
 const APPROVAL_ETAPA: EtapaFlujo = "FINANCIERO";
 
-function joinWithCommaAndY(items: string[]) {
-  if (items.length === 0) return "";
-  if (items.length === 1) return items[0];
-  if (items.length === 2) return `${items[0]} y ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
-}
-
 function toInputDate(value?: string | null) {
   if (!value) return "";
   const isoMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -208,12 +195,6 @@ export default function CertificacionFinancieraPage() {
     nombre: "",
     cargo: "",
   });
-  const [editableNotas, setEditableNotas] = useState<boolean[]>([
-    false,
-    false,
-    false,
-  ]);
-  const [notesInitialized, setNotesInitialized] = useState(false);
   const periodoComisionError = getPeriodoComisionError(
     draft.periodoComision,
     draft.periodoComisionFin,
@@ -252,26 +233,18 @@ export default function CertificacionFinancieraPage() {
     ),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
-        const notasPayload = draft.notas
-          .map((nota, index) => ({
-            titulo: `NOTA ${index + 1}`,
-            texto: nota.texto.trim(),
-          }))
-          .filter((nota) => nota.texto.length > 0);
-
         avalFlowDebugLog("financiero", "payload final de aprobacion listo", {
           aval: summarizeAval(a),
           userId,
           approvalEtapa,
           draft,
-          notasPayload,
           adminSaveOnly,
         });
 
         if (adminSaveOnly) {
           await adminSaveFinanciero(a.id, userId, {
             financieroNotas: {
-              notas: notasPayload,
+              notas: [],
               nombreFirmante: draft.firmanteNombre.trim() || undefined,
               cargoFirmante: draft.firmanteCargo.trim() || undefined,
             },
@@ -281,7 +254,7 @@ export default function CertificacionFinancieraPage() {
         } else {
           await aprobarAval(a.id, userId, approvalEtapa, {
             financieroNotas: {
-              notas: notasPayload,
+              notas: [],
               nombreFirmante: draft.firmanteNombre.trim() || undefined,
               cargoFirmante: draft.firmanteCargo.trim() || undefined,
             },
@@ -291,7 +264,6 @@ export default function CertificacionFinancieraPage() {
         }
       },
       [
-        draft.notas,
         draft.periodoComision,
         draft.periodoComisionFin,
         draft.firmanteNombre,
@@ -368,8 +340,6 @@ export default function CertificacionFinancieraPage() {
   useEffect(() => {
     setDraft(INITIAL_DRAFT);
     setFixedSigner({ nombre: "", cargo: "" });
-    setEditableNotas([]);
-    setNotesInitialized(false);
   }, [avalId]);
 
   useEffect(() => {
@@ -485,48 +455,12 @@ export default function CertificacionFinancieraPage() {
     fixedSigner.nombre,
   ]);
 
-  // Initialize notes once aval loads — prefer BD data, fall back to computed defaults
-  useEffect(() => {
-    if (notesInitialized) return;
-    if (!aval) return;
-    const savedNotas = parseNotasFromBd(financieroRecord?.notas);
-    const initialNotas = savedNotas ?? buildDefaultNotas(aval);
-    const fromBd = savedNotas !== null;
-    setDraft((prev) => ({ ...prev, notas: initialNotas }));
-    setEditableNotas(initialNotas.map(() => fromBd));
-    setNotesInitialized(true);
-  }, [notesInitialized, aval, financieroRecord]);
-
-  const handleNotaChange = useCallback((index: number, value: string) => {
-    setDraft((prev) => ({
-      ...prev,
-      notas: prev.notas.map((nota, i) =>
-        i === index ? { ...nota, texto: value } : nota,
-      ),
-    }));
-  }, []);
-
-  const handleAddNota = useCallback(() => {
-    setDraft((prev) => ({ ...prev, notas: [...prev.notas, { texto: "" }] }));
-    setEditableNotas((prev) => [...prev, true]);
-  }, []);
-
-  const handleRemoveNota = useCallback((index: number) => {
-    setDraft((prev) => {
-      if (prev.notas.length <= 1) return prev;
-      return { ...prev, notas: prev.notas.filter((_, i) => i !== index) };
-    });
-    setEditableNotas((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((_, i) => i !== index);
-    });
-  }, []);
-
-  const handleEnableNotaEdit = useCallback((index: number) => {
-    setEditableNotas((prev) =>
-      prev.map((editable, i) => (i === index ? true : editable)),
-    );
-  }, []);
+  // Las notas ahora se capturan en la etapa PDA (previa a Financiero);
+  // aquí solo se muestran de forma informativa en el documento final.
+  const notasDelPda = useMemo(
+    () => (parseNotasFromBd(aval?.pda?.notas) ?? []).map((n) => n.texto),
+    [aval],
+  );
 
   if (authLoading) {
     return (
@@ -608,7 +542,7 @@ export default function CertificacionFinancieraPage() {
 
             <div className="space-y-3 rounded-2xl border border-gray-200 dark:border-gray-800 p-3">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                1) Certificación presupuestaria
+                Certificación presupuestaria
               </h2>
 
               <label className="block">
@@ -713,55 +647,6 @@ export default function CertificacionFinancieraPage() {
               </div>
             </div>
 
-            <div className="space-y-3 rounded-2xl border border-gray-200 dark:border-gray-800 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  2) Presupuesto de salida (notas)
-                </h2>
-                <button
-                  type="button"
-                  onClick={handleAddNota}
-                  className="btn bg-gray-900 text-white hover:bg-gray-800 text-xs"
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Agregar nota
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {draft.notas.map((nota, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    <textarea
-                      className="form-textarea w-full text-sm"
-                      rows={4}
-                      value={nota.texto}
-                      readOnly={!editableNotas[index]}
-                      disabled={!editableNotas[index]}
-                      onChange={(e) => handleNotaChange(index, e.target.value)}
-                      placeholder={`Nota ${index + 1}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleEnableNotaEdit(index)}
-                      className="btn bg-cyan-600 text-white hover:bg-cyan-700 text-xs"
-                      title="Editar nota"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveNota(index)}
-                      disabled={draft.notas.length <= 1}
-                      className="btn bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                      title="Eliminar nota"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {isEditable && (financieroSection?.visible ?? true) ? (
               <ApprovalFlowCard
                 title="Aprobación financiera"
@@ -834,7 +719,7 @@ export default function CertificacionFinancieraPage() {
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
                 draft={{
-                  notas: draft.notas.map((n) => n.texto),
+                  notas: notasDelPda,
                   codigoActividad: pdaDraft.codigoActividad,
                   numeroAval: pdaDraft.numeroAval,
                   fechaSalida: draft.fechaEmision,
@@ -854,42 +739,3 @@ export default function CertificacionFinancieraPage() {
   );
 }
 
-function buildDefaultNotas(aval: Aval): FinancieroNotaDraft[] {
-  const requerimientosRaw = getAvalPresupuestoItems(aval)
-    .map((item) => item.item?.nombre?.trim().toLowerCase())
-    .filter((item): item is string => Boolean(item));
-  const requerimientos = Array.from(new Set(requerimientosRaw));
-  const requerimientosTexto = joinWithCommaAndY(requerimientos);
-
-  return [
-    {
-      texto: requerimientosTexto
-        ? `El requerimiento es ${requerimientosTexto}`
-        : "El requerimiento es pasajes ida y vuelta, hospedaje, transporte de personal y deportistas, afiliacion y alimentacion",
-    },
-    {
-      texto: `Las facturas de gastos deben solicitarse con los siguientes datos:
-Razon Social: FEDERACION DEPORTIVA PROVINCIAL DE LOJA
-RUC: 1191708241001
-Direccion: EL TEJAR, CALLE MACARA SN ENTRE MERCADILLO Y AZUAY
-Email: federacionloja@yahoo.es
-Telefono: 0999819109`,
-    },
-    {
-      texto: "El informe de gastos, se entregara como maximo 72 horas culminada la competencia",
-    },
-  ];
-}
-
-function parseNotasFromBd(notasJson: string | null | undefined): FinancieroNotaDraft[] | null {
-  if (!notasJson) return null;
-  try {
-    const parsed: unknown = JSON.parse(notasJson);
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    return (parsed as Array<Record<string, unknown>>).map((n) => ({
-      texto: typeof n.texto === "string" ? n.texto : "",
-    }));
-  } catch {
-    return null;
-  }
-}

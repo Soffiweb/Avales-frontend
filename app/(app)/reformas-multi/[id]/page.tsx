@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Calendar, ClipboardEdit, Download } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -559,16 +559,19 @@ export default function ReformaMultiDetailPage() {
                 {MES_NOMBRES[reform.mesEjecucion] ?? `Mes ${reform.mesEjecucion}`}
               </span>
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-rose-100 bg-rose-50/70 px-4 py-3 dark:border-rose-900/30 dark:bg-rose-900/10">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
-                Total cortado
-              </p>
-              <p className="mt-1 text-lg font-semibold text-rose-800 dark:text-rose-200">
-                -{formatCurrencyFromString(String(totalCortado))}
-              </p>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">De</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.de || "-"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Para</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.para || "-"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Solicitante</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.solicitante.nombre} {reform.solicitante.apellido}
+              </dd>
             </div>
             <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-4 py-3 dark:border-emerald-900/30 dark:bg-emerald-900/10">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
@@ -578,15 +581,56 @@ export default function ReformaMultiDetailPage() {
                 +{formatCurrencyFromString(String(totalAsignado))}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/30">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
-                Balance
-              </p>
-              <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {formatCurrencyFromString(String(balance))}
-              </p>
+            {reform.aprobador ? (
+              <>
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Revisado por</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {reform.aprobador.nombre} {reform.aprobador.apellido}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Fecha de revisión</dt>
+                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                    {reform.reviewedAt ? formatDateTime(reform.reviewedAt) : "-"}
+                  </dd>
+                </div>
+              </>
+            ) : null}
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Firma solicitante</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.firmaCreadorNombre || "-"}
+              </dd>
+              <dd className="text-xs text-gray-500 dark:text-gray-400">
+                {reform.firmaCreadorCargo || "-"}
+              </dd>
             </div>
-          </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Firma revisor</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.firmaRevisorNombre || "-"}
+              </dd>
+              <dd className="text-xs text-gray-500 dark:text-gray-400">
+                {reform.firmaRevisorCargo || "-"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">Firma aprobador</dt>
+              <dd className="mt-1 text-gray-900 dark:text-gray-100">
+                {reform.firmaAprobadorNombre || "-"}
+              </dd>
+              <dd className="text-xs text-gray-500 dark:text-gray-400">
+                {reform.firmaAprobadorCargo || "-"}
+              </dd>
+            </div>
+            {reform.observacion ? (
+              <div className="sm:col-span-2">
+                <dt className="text-gray-500 dark:text-gray-400">Observación</dt>
+                <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.observacion}</dd>
+              </div>
+            ) : null}
+          </dl>
         </section>
 
 

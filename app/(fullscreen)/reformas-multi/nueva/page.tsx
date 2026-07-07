@@ -595,7 +595,10 @@ export default function NuevaReformaMultiPage() {
     setOrigenes(updated);
     setDestinos((current) =>
       current.filter(
-        (destino) => !updated.some((origen) => origen.eventoId === destino.eventoId),
+        (destino) =>
+          !updated.some(
+            (origen) => origen.formaParticipacionId === destino.formaParticipacionId,
+          ),
       ),
     );
   }
@@ -604,7 +607,10 @@ export default function NuevaReformaMultiPage() {
     setDestinos(updated);
     setOrigenes((current) =>
       current.filter(
-        (origen) => !updated.some((destino) => destino.eventoId === origen.eventoId),
+        (origen) =>
+          !updated.some(
+            (destino) => destino.formaParticipacionId === origen.formaParticipacionId,
+          ),
       ),
     );
   }
@@ -653,7 +659,11 @@ export default function NuevaReformaMultiPage() {
 
     return {
       eventoId: evento.eventoId,
-      title: formatPreviewValue(evento.nombre),
+      title: formatPreviewValue(
+        evento.referencia?.trim()
+          ? `${evento.nombre} — ${evento.referencia.trim()}`
+          : evento.nombre,
+      ),
       provincia: formatPreviewValue(
         [evento.ciudad, evento.provincia].filter(Boolean).join(" - "),
       ),
@@ -709,6 +719,7 @@ export default function NuevaReformaMultiPage() {
         eventosOrigen: origenes
           .map((e) => ({
             eventoId: e.eventoId,
+            formaParticipacionId: e.formaParticipacionId,
             items: e.items
               .filter((it) => it.presupuesto - it.monto > 0)
               .map((it) => ({ itemId: it.itemId, mes: it.mes, monto: it.presupuesto - it.monto })),
@@ -717,6 +728,7 @@ export default function NuevaReformaMultiPage() {
         eventosDestino: destinos
           .map((e) => ({
             eventoId: e.eventoId,
+            formaParticipacionId: e.formaParticipacionId,
             items: e.items
               .filter((it) => it.monto - it.presupuesto > 0)
               .map((it) => ({ itemId: it.itemId, mes: it.mes, monto: it.monto - it.presupuesto })),
@@ -788,7 +800,8 @@ export default function NuevaReformaMultiPage() {
   }
 
   const origenEventoIds = origenes.map((e) => e.eventoId);
-  const destinoEventoIds = destinos.map((e) => e.eventoId);
+  const origenFormaParticipacionIds = origenes.map((e) => e.formaParticipacionId);
+  const destinoFormaParticipacionIds = destinos.map((e) => e.formaParticipacionId);
 
   return (
     <div className="relative h-screen flex bg-white dark:bg-gray-950">
@@ -1015,7 +1028,7 @@ export default function NuevaReformaMultiPage() {
               onChange={handleOrigenesChange}
               mode="origen"
               defaultMes={mesEjecucion}
-              excludeEventoIds={destinoEventoIds}
+              excludeFormaParticipacionIds={destinoFormaParticipacionIds}
             />
           </div>
 
@@ -1028,7 +1041,7 @@ export default function NuevaReformaMultiPage() {
               mode="destino"
               defaultMes={mesEjecucion}
               highlightEventoIds={origenEventoIds}
-              excludeEventoIds={origenEventoIds}
+              excludeFormaParticipacionIds={origenFormaParticipacionIds}
             />
           </div>
         </div>

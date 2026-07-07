@@ -663,6 +663,9 @@ export default function ReformaMultiDetailPage() {
                         {origen.evento.disciplina
                           ? ` · ${origen.evento.disciplina.nombre}`
                           : ""}
+                        {origen.evento.referencia?.trim()
+                          ? ` · ${origen.evento.referencia.trim()}`
+                          : ""}
                       </p>
                       <dl className="mt-2 grid grid-cols-2 gap-1 text-xs">
                         <div>
@@ -746,6 +749,9 @@ export default function ReformaMultiDetailPage() {
                         {destino.evento.codigo}
                         {destino.evento.disciplina
                           ? ` · ${destino.evento.disciplina.nombre}`
+                          : ""}
+                        {destino.evento.referencia?.trim()
+                          ? ` · ${destino.evento.referencia.trim()}`
                           : ""}
                       </p>
                       <dl className="mt-2 grid grid-cols-2 gap-1 text-xs">

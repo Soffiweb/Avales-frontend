@@ -32,6 +32,7 @@ export type EventoLineItem = {
 export type SelectedEvento = {
   eventoId: number;
   formaParticipacionId: number;
+  referencia?: string | null;
   nombre: string;
   codigo: string;
   provincia?: string;
@@ -58,7 +59,7 @@ type Props = {
   mode: "origen" | "destino";
   defaultMes?: number | "";
   highlightEventoIds?: number[];
-  excludeEventoIds?: number[];
+  excludeFormaParticipacionIds?: number[];
 };
 
 function getFuenteLabel(fuente: FuentePresupuestoReforma) {
@@ -97,7 +98,7 @@ export default function EventoItemsPanel({
   mode,
   defaultMes,
   highlightEventoIds = [],
-  excludeEventoIds = [],
+  excludeFormaParticipacionIds = [],
 }: Props) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -136,11 +137,9 @@ export default function EventoItemsPanel({
             (res.data ?? []).filter(
               (e) =>
                 !selectedRef.current.some(
-                  (s) =>
-                    s.eventoId === e.id &&
-                    s.formaParticipacionId === e.formaParticipacionId,
+                  (s) => s.formaParticipacionId === e.formaParticipacionId,
                 ) &&
-                !excludeEventoIds.includes(e.id),
+                !excludeFormaParticipacionIds.includes(e.formaParticipacionId),
             ),
           );
         }
@@ -153,8 +152,7 @@ export default function EventoItemsPanel({
 
     void fetchEvents();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, excludeEventoIds, fuente]);
+  }, [debouncedSearch, excludeFormaParticipacionIds, fuente]);
 
   useEffect(() => {
     getItemsPresupuestarios()
@@ -187,6 +185,7 @@ export default function EventoItemsPanel({
         {
           eventoId: detailedEvento.id,
           formaParticipacionId: evento.formaParticipacionId,
+          referencia: formaParticipacion?.referencia ?? evento.referencia ?? null,
           nombre: detailedEvento.nombre,
           codigo: detailedEvento.codigo,
           provincia: detailedEvento.provincia,
@@ -219,25 +218,17 @@ export default function EventoItemsPanel({
     }
   }
 
-  function handleRemoveEvento(eventoId: number, formaParticipacionId: number) {
-    onChange(
-      selected.filter(
-        (s) =>
-          !(
-            s.eventoId === eventoId &&
-            s.formaParticipacionId === formaParticipacionId
-          ),
-      ),
-    );
+  function handleRemoveEvento(formaParticipacionId: number) {
+    onChange(selected.filter((s) => s.formaParticipacionId !== formaParticipacionId));
     setAddingItem((prev) => {
       const next = { ...prev };
-      delete next[eventoId];
+      delete next[formaParticipacionId];
       return next;
     });
   }
 
   function handleMontoChange(
-    eventoId: number,
+    formaParticipacionId: number,
     itemId: number,
     mes: number,
     fuenteItem: FuentePresupuestoReforma,
@@ -247,7 +238,7 @@ export default function EventoItemsPanel({
     const monto = Number.isNaN(parsed) ? 0 : parsed;
     onChange(
       selected.map((s) =>
-        s.eventoId !== eventoId
+        s.formaParticipacionId !== formaParticipacionId
           ? s
           : {
               ...s,
@@ -262,14 +253,14 @@ export default function EventoItemsPanel({
   }
 
   function handleRemoveItem(
-    eventoId: number,
+    formaParticipacionId: number,
     itemId: number,
     mes: number,
     fuenteItem: FuentePresupuestoReforma,
   ) {
     onChange(
       selected.map((s) =>
-        s.eventoId !== eventoId
+        s.formaParticipacionId !== formaParticipacionId
           ? s
           : {
               ...s,
@@ -282,25 +273,25 @@ export default function EventoItemsPanel({
     );
   }
 
-  function handleOpenAdd(eventoId: number) {
+  function handleOpenAdd(formaParticipacionId: number) {
     setAddingItem((prev) => ({
       ...prev,
-      [eventoId]: { itemId: "", mes: typeof defaultMes === "number" ? defaultMes : "" },
+      [formaParticipacionId]: { itemId: "", mes: typeof defaultMes === "number" ? defaultMes : "" },
     }));
   }
 
-  function handleConfirmAdd(eventoId: number) {
-    const state = addingItem[eventoId];
+  function handleConfirmAdd(formaParticipacionId: number) {
+    const state = addingItem[formaParticipacionId];
     if (!state?.itemId || !state.mes || !fuente) return;
 
-    const ev = selected.find((s) => s.eventoId === eventoId);
+    const ev = selected.find((s) => s.formaParticipacionId === formaParticipacionId);
     if (!ev) return;
 
     const itemId = Number(state.itemId);
     const mes = Number(state.mes);
 
     if (ev.items.some((it) => it.itemId === itemId && it.mes === mes && it.fuente === fuente)) {
-      setAddingItem((prev) => { const next = { ...prev }; delete next[eventoId]; return next; });
+      setAddingItem((prev) => { const next = { ...prev }; delete next[formaParticipacionId]; return next; });
       return;
     }
 
@@ -319,14 +310,16 @@ export default function EventoItemsPanel({
 
     onChange(
       selected.map((s) =>
-        s.eventoId === eventoId ? { ...s, items: [...s.items, newItem] } : s,
+        s.formaParticipacionId === formaParticipacionId
+          ? { ...s, items: [...s.items, newItem] }
+          : s,
       ),
     );
-    setAddingItem((prev) => { const next = { ...prev }; delete next[eventoId]; return next; });
+    setAddingItem((prev) => { const next = { ...prev }; delete next[formaParticipacionId]; return next; });
   }
 
-  function handleCancelAdd(eventoId: number) {
-    setAddingItem((prev) => { const next = { ...prev }; delete next[eventoId]; return next; });
+  function handleCancelAdd(formaParticipacionId: number) {
+    setAddingItem((prev) => { const next = { ...prev }; delete next[formaParticipacionId]; return next; });
   }
 
   const sorted = [...selected].sort((a, b) => {
@@ -378,7 +371,9 @@ export default function EventoItemsPanel({
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {evento.codigo}
                         {evento.disciplina ? ` · ${evento.disciplina.nombre}` : ""}
-                        {` · FP #${evento.formaParticipacionId}`}
+                        {evento.referencia?.trim()
+                          ? ` · ${evento.referencia.trim()}`
+                          : ` · FP #${evento.formaParticipacionId}`}
                       </p>
                     </button>
                   </li>
@@ -392,7 +387,7 @@ export default function EventoItemsPanel({
       <div className="space-y-3">
         {sorted.map((ev) => {
           const isHighlighted = highlightEventoIds.includes(ev.eventoId);
-          const adding = addingItem[ev.eventoId];
+          const adding = addingItem[ev.formaParticipacionId];
           const totalOriginal = ev.items.reduce((s, it) => s + it.presupuesto, 0);
           const totalActual = ev.items.reduce((s, it) => s + it.monto, 0);
           const totalAjuste = isOrigen
@@ -425,12 +420,15 @@ export default function EventoItemsPanel({
                   >
                     {ev.nombre}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{ev.codigo}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {ev.codigo}
+                    {ev.referencia?.trim() ? ` · ${ev.referencia.trim()}` : ""}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 mt-0.5">
                   <button
                     type="button"
-                    onClick={() => handleRemoveEvento(ev.eventoId, ev.formaParticipacionId)}
+                    onClick={() => handleRemoveEvento(ev.formaParticipacionId)}
                     className="p-1 rounded-full text-gray-400 hover:text-rose-500 hover:bg-gray-200 dark:hover:bg-gray-700"
                     aria-label={`Quitar ${ev.nombre}`}
                   >
@@ -480,7 +478,7 @@ export default function EventoItemsPanel({
                           <button
                             type="button"
                             onClick={() =>
-                              handleRemoveItem(ev.eventoId, it.itemId, it.mes, it.fuente)
+                              handleRemoveItem(ev.formaParticipacionId, it.itemId, it.mes, it.fuente)
                             }
                             className="p-0.5 text-gray-400 hover:text-rose-500 shrink-0"
                             aria-label="Quitar ítem"
@@ -500,7 +498,7 @@ export default function EventoItemsPanel({
                             value={it.monto === 0 && !hasPresupuesto ? "" : it.monto}
                             onChange={(e) =>
                               handleMontoChange(
-                                ev.eventoId,
+                                ev.formaParticipacionId,
                                 it.itemId,
                                 it.mes,
                                 it.fuente,
@@ -591,7 +589,10 @@ export default function EventoItemsPanel({
                     onChange={(e) =>
                       setAddingItem((prev) => ({
                         ...prev,
-                        [ev.eventoId]: { ...prev[ev.eventoId], itemId: e.target.value ? Number(e.target.value) : "" },
+                        [ev.formaParticipacionId]: {
+                          ...prev[ev.formaParticipacionId],
+                          itemId: e.target.value ? Number(e.target.value) : "",
+                        },
                       }))
                     }
                   >
@@ -608,7 +609,10 @@ export default function EventoItemsPanel({
                     onChange={(e) =>
                       setAddingItem((prev) => ({
                         ...prev,
-                        [ev.eventoId]: { ...prev[ev.eventoId], mes: e.target.value ? Number(e.target.value) : "" },
+                        [ev.formaParticipacionId]: {
+                          ...prev[ev.formaParticipacionId],
+                          mes: e.target.value ? Number(e.target.value) : "",
+                        },
                       }))
                     }
                   >
@@ -622,7 +626,7 @@ export default function EventoItemsPanel({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => handleConfirmAdd(ev.eventoId)}
+                      onClick={() => handleConfirmAdd(ev.formaParticipacionId)}
                       disabled={!adding.itemId || !adding.mes}
                       className="flex-1 btn bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 text-xs py-1.5"
                     >
@@ -630,7 +634,7 @@ export default function EventoItemsPanel({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleCancelAdd(ev.eventoId)}
+                      onClick={() => handleCancelAdd(ev.formaParticipacionId)}
                       className="btn border border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300 text-xs py-1.5"
                     >
                       Cancelar
@@ -640,7 +644,7 @@ export default function EventoItemsPanel({
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleOpenAdd(ev.eventoId)}
+                  onClick={() => handleOpenAdd(ev.formaParticipacionId)}
                   className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
                 >
                   <Plus className="h-3.5 w-3.5" />

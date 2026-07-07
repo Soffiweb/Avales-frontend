@@ -18,6 +18,7 @@ export type EventoResumen = {
   codigo: string;
   nombre: string;
   disciplina?: DisciplinaResumen;
+  referencia?: string | null;
 };
 
 export type EventoDisponibleReformaMulti = {
@@ -26,6 +27,7 @@ export type EventoDisponibleReformaMulti = {
   nombre: string;
   disciplina?: DisciplinaResumen | null;
   formaParticipacionId: number;
+  referencia?: string | null;
   presupuestoTotal: string;
   items?: Array<{
     itemId: number;
@@ -156,6 +158,14 @@ export type CreateReformaMultiPayload = {
   firmaAprobadorCargo?: string;
   mesEjecucion: number;
   fuente: FuentePresupuestoReforma;
-  eventosOrigen: Array<{ eventoId: number; items: ReformaLineItemPayload[] }>;
-  eventosDestino: Array<{ eventoId: number; items: ReformaLineItemPayload[] }>;
+  eventosOrigen: Array<{
+    eventoId: number;
+    formaParticipacionId: number;
+    items: ReformaLineItemPayload[];
+  }>;
+  eventosDestino: Array<{
+    eventoId: number;
+    formaParticipacionId: number;
+    items: ReformaLineItemPayload[];
+  }>;
 };

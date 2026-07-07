@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, ClipboardEdit, Download } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 
 import { useAuth } from "@/app/providers/auth-provider";
@@ -57,6 +57,29 @@ type BudgetChangeRow = {
   after: number;
   diff: number;
 };
+
+type SignatureCardProps = {
+  label: string;
+  name?: string | null;
+  role?: string | null;
+};
+
+function SignatureCard({ label, name, role }: SignatureCardProps) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-4 text-center dark:border-gray-700 dark:bg-gray-900/30">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+        {label}
+      </p>
+      <div className="mx-auto my-4 h-px w-32 bg-gray-300 dark:bg-gray-600" />
+      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {name || "-"}
+      </p>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {role || "-"}
+      </p>
+    </div>
+  );
+}
 
 function parseBudget(value?: string | null) {
   return Number.parseFloat(value ?? "0") || 0;
@@ -418,6 +441,15 @@ export default function ReformaMultiDetailPage() {
   }
 
   const cambios = reform.cambios as CambiosSnapshot | null | undefined;
+  const totalCortado = reform.origenes.reduce(
+    (total, origen) => total + parseBudget(origen.montoCortado),
+    0,
+  );
+  const totalAsignado = reform.destinos.reduce(
+    (total, destino) => total + parseBudget(destino.montoAsignado),
+    0,
+  );
+  const balance = totalAsignado - totalCortado;
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
@@ -488,95 +520,75 @@ export default function ReformaMultiDetailPage() {
           </div>
         </div>
 
-        {/* Metadata */}
         <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center gap-2">
-            <ClipboardEdit className="h-5 w-5 text-gray-400" />
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Solicitud</h2>
-          </div>
-          <dl className="grid gap-4 sm:grid-cols-2 text-sm">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
             <div>
-              <dt className="text-gray-500 dark:text-gray-400">Motivo</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.motivo}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Mes de ejecución</dt>
-              <dd className="mt-1 inline-flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                {MES_NOMBRES[reform.mesEjecucion] ?? `Mes ${reform.mesEjecucion}`}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">De</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.de || "-"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Para</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.para || "-"}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Solicitante</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                {reform.solicitante.nombre} {reform.solicitante.apellido}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Fecha de solicitud</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                {formatDateTime(reform.createdAt)}
-              </dd>
-            </div>
-            {reform.aprobador ? (
-              <>
-                <div>
-                  <dt className="text-gray-500 dark:text-gray-400">Revisado por</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                    {reform.aprobador.nombre} {reform.aprobador.apellido}
-                  </dd>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
+                Solicitud
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/30">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                    De
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {reform.de || "-"}
+                  </p>
                 </div>
-                <div>
-                  <dt className="text-gray-500 dark:text-gray-400">Fecha de revisión</dt>
-                  <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                    {reform.reviewedAt ? formatDateTime(reform.reviewedAt) : "-"}
-                  </dd>
+                <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/30">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                    Para
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {reform.para || "-"}
+                  </p>
                 </div>
-              </>
-            ) : null}
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Firma solicitante</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                {reform.firmaCreadorNombre || "-"}
-              </dd>
-              <dd className="text-xs text-gray-500 dark:text-gray-400">
-                {reform.firmaCreadorCargo || "-"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Firma revisor</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                {reform.firmaRevisorNombre || "-"}
-              </dd>
-              <dd className="text-xs text-gray-500 dark:text-gray-400">
-                {reform.firmaRevisorCargo || "-"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Firma aprobador</dt>
-              <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                {reform.firmaAprobadorNombre || "-"}
-              </dd>
-              <dd className="text-xs text-gray-500 dark:text-gray-400">
-                {reform.firmaAprobadorCargo || "-"}
-              </dd>
-            </div>
-            {reform.observacion ? (
-              <div className="sm:col-span-2">
-                <dt className="text-gray-500 dark:text-gray-400">Observación</dt>
-                <dd className="mt-1 text-gray-900 dark:text-gray-100">{reform.observacion}</dd>
               </div>
-            ) : null}
-          </dl>
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
+                {reform.motivo || "-"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <span className="inline-flex w-fit rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-800 dark:bg-violet-900/40 dark:text-violet-200">
+                Presupuesto
+              </span>
+              <span className="inline-flex w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                {FUENTE_REFORMA_LABELS[reform.fuente] ?? reform.fuente}
+              </span>
+              <span className="inline-flex w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                {MES_NOMBRES[reform.mesEjecucion] ?? `Mes ${reform.mesEjecucion}`}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-rose-100 bg-rose-50/70 px-4 py-3 dark:border-rose-900/30 dark:bg-rose-900/10">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
+                Total cortado
+              </p>
+              <p className="mt-1 text-lg font-semibold text-rose-800 dark:text-rose-200">
+                -{formatCurrencyFromString(String(totalCortado))}
+              </p>
+            </div>
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-4 py-3 dark:border-emerald-900/30 dark:bg-emerald-900/10">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                Total asignado
+              </p>
+              <p className="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+                +{formatCurrencyFromString(String(totalAsignado))}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/30">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+                Balance
+              </p>
+              <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {formatCurrencyFromString(String(balance))}
+              </p>
+            </div>
+          </div>
         </section>
+
 
         {/* Origenes / Destinos side-by-side */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -748,6 +760,34 @@ export default function ReformaMultiDetailPage() {
             )}
           </section>
         </div>
+
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Firmas de la reforma
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Personas registradas como firmantes de esta solicitud.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <SignatureCard
+              label="Solicitante"
+              name={reform.firmaCreadorNombre}
+              role={reform.firmaCreadorCargo}
+            />
+            <SignatureCard
+              label="Revisor"
+              name={reform.firmaRevisorNombre}
+              role={reform.firmaRevisorCargo}
+            />
+            <SignatureCard
+              label="Aprobador"
+              name={reform.firmaAprobadorNombre}
+              role={reform.firmaAprobadorCargo}
+            />
+          </div>
+        </section>
 
         {/* Approve / Reject actions */}
         {canReview && reform.estado === "PENDIENTE" ? (

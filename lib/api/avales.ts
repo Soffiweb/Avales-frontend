@@ -306,6 +306,7 @@ export type CreateComprasPublicasPayload = {
     codigo: string;
     descripcion: string;
   }>;
+  descripcion?: string;
   nombreFirmante?: string;
   cargoFirmante?: string;
   fechaEmision?: string;

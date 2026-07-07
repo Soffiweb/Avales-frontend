@@ -8,6 +8,7 @@ export type ComprasPublicasDraft = {
     codigo: string;
     descripcion: string;
   }>;
+  descripcion: string;
   nombreFirmante: string;
   cargoFirmante: string;
   fechaEmision: string;
@@ -65,6 +66,8 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
   const fechaEmision = formatDate(
     draft.fechaEmision || aval.comprasPublicas?.fechaEmision
   );
+  const descripcion =
+    draft.descripcion?.trim() || aval.comprasPublicas?.descripcion?.trim() || "";
   const eventoNombre = aval.evento?.nombre ?? "el evento";
   const legacyCodigos = (aval.comprasPublicas?.codigoNecesidad ?? "")
     .split("\n")
@@ -121,6 +124,10 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-800">
           No hay codigos de necesidad visibles en la respuesta del aval para este certificado.
         </div>
+      )}
+
+      {descripcion && (
+        <p className="text-[12px] leading-5 whitespace-pre-line">{descripcion}</p>
       )}
 
       <p className="text-[12px] leading-5">

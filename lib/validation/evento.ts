@@ -14,6 +14,7 @@ export const eventoItemSchema = z.object({
   fuente: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION"], {
     error: () => ({ message: "Selecciona una fuente" }),
   }),
+  referencia: z.string().optional(),
   montoComprometido: z.number().min(0).optional(),
   montoEjecutado: z.number().min(0).optional(),
 });
@@ -98,10 +99,7 @@ export const eventoSchema = z.object({
   numAtletasHombres: z.number().int().min(0, "Numero de atletas hombres invalido"),
   numAtletasMujeres: z.number().int().min(0, "Numero de atletas mujeres invalido"),
   eventoItems: z.array(eventoItemSchema).optional(),
-  formasParticipacion: z
-    .array(formaParticipacionSchema)
-    .max(3, "Máximo 3 tipos de participación")
-    .optional(),
+  formasParticipacion: z.array(formaParticipacionSchema).optional(),
 }).superRefine((values, ctx) => {
   const hasInicio = Boolean(values.fechaInicio && values.fechaInicio.trim());
   const hasFin = Boolean(values.fechaFin && values.fechaFin.trim());
@@ -121,15 +119,17 @@ export const eventoSchema = z.object({
     });
   }
 
-  const tipos = (values.formasParticipacion ?? []).map((f) => f.tipoAval);
-  if (new Set(tipos).size !== tipos.length) {
+  const claves = (values.formasParticipacion ?? []).map(
+    (f) => `${f.tipoAval}::${f.referencia.trim().toUpperCase()}`,
+  );
+  if (new Set(claves).size !== claves.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["formasParticipacion"],
-      message: "No puede repetirse el mismo tipo de aval.",
+      message:
+        "No puede repetirse la misma combinación de tipo de aval y referencia.",
     });
   }
-
 });
 
 export const reformFormaParticipacionChangesSchema = z.object({

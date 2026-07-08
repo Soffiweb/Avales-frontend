@@ -99,14 +99,8 @@ export default function EventoForm({
     onUpdated,
   });
 
-  const usedTiposAval = new Set(
-    formasParticipacionValues.map((forma) => forma?.tipoAval),
-  );
-  const availableTipoAvalOptions = TIPO_AVAL_OPTIONS.filter(
-    (option) => !usedTiposAval.has(option.value),
-  );
-  const canAddFormaParticipacion =
-    formasParticipacionFields.length < 3 && availableTipoAvalOptions.length > 0;
+  const availableTipoAvalOptions = TIPO_AVAL_OPTIONS;
+  const canAddFormaParticipacion = availableTipoAvalOptions.length > 0;
 
   return (
     <form
@@ -578,8 +572,16 @@ export default function EventoForm({
                   index,
                   itemFuente:
                     eventoItemsValues[index]?.fuente ?? "FONDOS_PUBLICOS",
+                  itemReferencia:
+                    eventoItemsValues[index]?.referencia?.trim() || "",
                 }))
-                .filter((item) => item.itemFuente === fuente)
+                .filter(
+                  (item) =>
+                    item.itemFuente === fuente &&
+                    item.itemReferencia ===
+                      (formasParticipacionValues[formaIndex]?.referencia?.trim() ||
+                        ""),
+                )
             : [];
 
           return (
@@ -793,6 +795,13 @@ export default function EventoForm({
                         {...register(`eventoItems.${index}.fuente`)}
                         value={fuente}
                       />
+                      <input
+                        type="hidden"
+                        {...register(`eventoItems.${index}.referencia`)}
+                        value={
+                          formasParticipacionValues[formaIndex]?.referencia ?? ""
+                        }
+                      />
 
                       <div className="grid grid-cols-12 gap-3 items-start">
                         <div className="col-span-11">
@@ -940,7 +949,13 @@ export default function EventoForm({
 
                   <button
                     type="button"
-                    onClick={() => appendBudgetItem(fuente)}
+                    onClick={() =>
+                      appendBudgetItem(
+                        fuente,
+                        formasParticipacionValues[formaIndex]?.referencia?.trim() ||
+                          "",
+                      )
+                    }
                     className="flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
                   >
                     <Plus className="h-4 w-4" />

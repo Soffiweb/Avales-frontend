@@ -77,6 +77,7 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
         mes: item.mes,
         presupuesto: Number.parseFloat(item.presupuesto) || 0,
         fuente,
+        referencia: forma.referencia ?? "",
         montoComprometido:
           Number.parseFloat(item.montoComprometido ?? "0") || 0,
         montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
@@ -153,28 +154,38 @@ function buildFormasParticipacionInput(
   existingFormas?: Evento["formasParticipacion"],
 ): FormaParticipacionInputDto[] {
   const eventoItems = values.eventoItems ?? [];
-  const existingFormaByTipoAval = new Map(
-    (existingFormas ?? []).map((forma) => [forma.tipoAval, forma]),
+  const existingFormaByKey = new Map(
+    (existingFormas ?? []).map((forma) => [
+      `${forma.tipoAval}::${forma.referencia?.trim() || ""}`,
+      forma,
+    ]),
   );
 
   return (values.formasParticipacion ?? []).map((forma) => {
     const fuente = tipoAvalToFuente(forma.tipoAval);
+    const referencia = forma.referencia?.trim() || "";
     const items = fuente
       ? eventoItems
-          .filter((item) => item.fuente === fuente)
+          .filter(
+            (item) =>
+              item.fuente === fuente &&
+              (item.referencia?.trim() || "") === referencia,
+          )
           .map((item) => ({
             itemId: item.itemId,
             mes: item.mes,
             presupuesto: item.presupuesto,
           }))
       : [];
-    const existingForma = existingFormaByTipoAval.get(forma.tipoAval);
+    const existingForma = existingFormaByKey.get(
+      `${forma.tipoAval}::${referencia}`,
+    );
     const resolvedId = forma.id ?? existingForma?.id;
 
     return {
       ...(resolvedId ? { id: resolvedId } : {}),
       tipoAval: forma.tipoAval,
-      referencia: forma.referencia?.trim() || undefined,
+      referencia: referencia || undefined,
       observacion: forma.observacion?.trim() || undefined,
       numEntrenadoresHombres: forma.numEntrenadoresHombres,
       numEntrenadoresMujeres: forma.numEntrenadoresMujeres,

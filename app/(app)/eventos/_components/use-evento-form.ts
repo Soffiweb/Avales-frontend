@@ -156,7 +156,7 @@ export function useEventoForm({
   const {
     fields: formasParticipacionFields,
     append: appendFormaParticipacion,
-    remove: removeFormaParticipacion,
+    remove: removeFormaParticipacionField,
   } = useFieldArray({
     control,
     name: "formasParticipacion",
@@ -167,22 +167,52 @@ export function useEventoForm({
 
   const addFormaParticipacion = useCallback(
     (tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO") => {
-      const existingForma = evento?.formasParticipacion?.find(
-        (forma) => forma.tipoAval === tipoAval,
-      );
-
       appendFormaParticipacion({
-        ...(existingForma?.id ? { id: existingForma.id } : {}),
         tipoAval,
-        referencia: existingForma?.referencia ?? "",
-        observacion: existingForma?.observacion ?? "",
-        numEntrenadoresHombres: existingForma?.numEntrenadoresHombres ?? 0,
-        numEntrenadoresMujeres: existingForma?.numEntrenadoresMujeres ?? 0,
-        numAtletasHombres: existingForma?.numAtletasHombres ?? 0,
-        numAtletasMujeres: existingForma?.numAtletasMujeres ?? 0,
+        referencia: "",
+        observacion: "",
+        numEntrenadoresHombres: 0,
+        numEntrenadoresMujeres: 0,
+        numAtletasHombres: 0,
+        numAtletasMujeres: 0,
       });
     },
-    [appendFormaParticipacion, evento?.formasParticipacion],
+    [appendFormaParticipacion],
+  );
+
+  const removeFormaParticipacion = useCallback(
+    (formaIndex: number) => {
+      const forma = formasParticipacionValues[formaIndex];
+      const fuente =
+        forma?.tipoAval === "FONDOS_PUBLICOS" || forma?.tipoAval === "AUTOGESTION"
+          ? forma.tipoAval
+          : null;
+      const referencia = forma?.referencia?.trim() || "";
+
+      if (fuente) {
+        const itemIndexes = eventoItemsValues
+          .map((item, index) => ({
+            index,
+            sameFuente: item?.fuente === fuente,
+            sameReferencia: (item?.referencia?.trim() || "") === referencia,
+          }))
+          .filter((item) => item.sameFuente && item.sameReferencia)
+          .map((item) => item.index)
+          .sort((a, b) => b - a);
+
+        if (itemIndexes.length > 0) {
+          remove(itemIndexes);
+        }
+      }
+
+      removeFormaParticipacionField(formaIndex);
+    },
+    [
+      eventoItemsValues,
+      formasParticipacionValues,
+      remove,
+      removeFormaParticipacionField,
+    ],
   );
 
   useEffect(() => {
@@ -411,12 +441,16 @@ export function useEventoForm({
       : "Guardar evento";
 
   const appendBudgetItem = useCallback(
-    (fuente: "FONDOS_PUBLICOS" | "AUTOGESTION") => {
+    (
+      fuente: "FONDOS_PUBLICOS" | "AUTOGESTION",
+      referencia: string,
+    ) => {
       append({
         itemId: 0,
         mes: getValues("mesProgramado") || 1,
         presupuesto: 0,
         fuente,
+        referencia,
         montoComprometido: 0,
         montoEjecutado: 0,
       });

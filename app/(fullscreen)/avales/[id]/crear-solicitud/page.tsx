@@ -8,6 +8,7 @@ import { getAval } from "@/lib/api/avales";
 import type {
   Aval,
   DeportistaAval,
+  DeportistaPronosticoDto,
   EntrenadorAval,
   ModalidadParticipacion,
   OtroParticipanteAval,
@@ -29,7 +30,7 @@ import Paso01Deportistas from "@/app/(app)/avales/_components/paso-01-deportista
 import Paso02Logistica from "@/app/(app)/avales/_components/paso-02-logistica";
 import Paso03Objetivos from "@/app/(app)/avales/_components/paso-03-objetivos";
 import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuesto";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { inferEventoGenero } from "@/types/evento";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
@@ -47,8 +48,15 @@ type FormData = {
     cedula?: string;
     fechaNacimiento?: string;
     genero?: string;
+    categoriaId?: number;
+    categoriaNombre?: string;
+    afiliacion?: string;
+    canton?: string;
     club?: string;
-    afiliacion?: boolean;
+    entrenadorNombre?: string;
+    ordenPronostico?: number;
+    pronostico?: DeportistaPronosticoDto;
+    afiliado?: boolean;
     payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
@@ -152,28 +160,103 @@ function getOtroParticipanteDisplayName(otro: OtroParticipanteAval) {
   );
 }
 
+function toRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function toStringValue(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function toNumberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function toBooleanValue(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function resolvePronostico(
+  item: DeportistaAval,
+  payload: Record<string, unknown> | undefined,
+): DeportistaPronosticoDto | undefined {
+  const source = toRecord(item.pronostico) ?? toRecord(payload?.pronostico);
+  if (!source) return undefined;
+
+  return {
+    ubicacionActual: toStringValue(source.ubicacionActual),
+    ubicacionPronosticada: toStringValue(source.ubicacionPronosticada),
+    divisionPeso: toStringValue(source.divisionPeso),
+    prueba: toStringValue(source.prueba),
+    marcaActual: toStringValue(source.marcaActual),
+    unidadMarcaActual: toStringValue(source.unidadMarcaActual),
+    marcaPronosticada: toStringValue(source.marcaPronosticada),
+    unidadMarcaPronostico: toStringValue(source.unidadMarcaPronostico),
+  };
+}
+
 function buildInitialFormData(aval: Aval): FormData {
-  const deportistas = (aval.avalTecnico?.deportistasAval ?? []).map((item, index) => ({
-    id: getDeportistaFormId(item, index),
-    deportistaExternoId: item.deportistaExternoId,
-    nombre:
-      item.deportista?.nombre ??
-      item.deportista?.nombres ??
-      "",
-    apellido:
-      item.deportista?.apellido ??
-      item.deportista?.apellidos ??
-      "",
-    nombres: item.deportista?.nombres,
-    apellidos: item.deportista?.apellidos,
-    cedula: item.deportista?.cedula,
-    genero: item.deportista?.genero,
-    payload:
-      (item.deportista?.payload as Record<string, unknown> | undefined) ??
-      undefined,
-    rol: item.rol,
-    modalidadParticipacion: item.modalidadParticipacion ?? undefined,
-  }));
+  const deportistas = (aval.avalTecnico?.deportistasAval ?? []).map((item, index) => {
+    const payload = toRecord(item.deportista?.payload);
+    const afiliado =
+      toBooleanValue(payload?.afiliado) ??
+      toBooleanValue(payload?.afiliacion) ??
+      false;
+
+    return {
+      id: getDeportistaFormId(item, index),
+      deportistaExternoId: item.deportistaExternoId,
+      nombre:
+        item.deportista?.nombre ??
+        item.deportista?.nombres ??
+        "",
+      apellido:
+        item.deportista?.apellido ??
+        item.deportista?.apellidos ??
+        "",
+      nombres: item.deportista?.nombres,
+      apellidos: item.deportista?.apellidos,
+      cedula: item.deportista?.cedula,
+      fechaNacimiento: toStringValue(payload?.fechaNacimiento),
+      genero: item.deportista?.genero,
+      categoriaId:
+        item.categoriaId ??
+        item.deportista?.categoriaId ??
+        toNumberValue(payload?.categoriaId),
+      categoriaNombre:
+        item.categoriaNombre ??
+        item.deportista?.categoriaNombre ??
+        toStringValue(payload?.categoriaNombre),
+      afiliacion:
+        item.afiliacion ??
+        item.deportista?.afiliacion ??
+        toStringValue(payload?.afiliacion),
+      canton:
+        item.canton ??
+        item.deportista?.canton ??
+        toStringValue(payload?.canton),
+      club:
+        item.club ??
+        item.deportista?.club ??
+        toStringValue(payload?.club),
+      entrenadorNombre:
+        item.entrenadorNombre ??
+        item.deportista?.entrenadorNombre ??
+        toStringValue(payload?.entrenadorNombre),
+      ordenPronostico:
+        item.ordenPronostico ??
+        item.deportista?.ordenPronostico ??
+        toNumberValue(payload?.ordenPronostico),
+      pronostico: resolvePronostico(item, payload),
+      afiliado,
+      payload,
+      observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
+      rol: item.rol,
+      modalidadParticipacion: item.modalidadParticipacion ?? undefined,
+    };
+  });
 
   const entrenadores = [...(aval.entrenadores ?? [])]
     .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
@@ -235,6 +318,7 @@ export default function CrearSolicitudPage() {
   const [error, setError] = useState<string | null>(null);
   const [secretariaDtm, setSecretariaDtm] = useState<User | null>(null);
   const [secretariaError, setSecretariaError] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(true);
   const { config: formConfig } = useAvalFormConfig(aval);
 
   const loadAval = useCallback(async () => {
@@ -373,11 +457,19 @@ export default function CrearSolicitudPage() {
   ];
 
   return (
-    <div className="h-screen flex">
+    <div className="relative h-screen flex">
       {/* Left Panel - Form */}
-      <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900 flex flex-col">
+      <div
+        className={`w-full bg-white dark:bg-gray-900 flex flex-col ${
+          previewVisible ? "lg:w-1/2" : ""
+        }`}
+      >
         <div className="h-full overflow-y-auto">
-          <div className="max-w-xl mx-auto px-6 sm:px-8 py-8">
+          <div
+            className={`mx-auto px-6 sm:px-8 py-8 ${
+              previewVisible ? "max-w-xl" : "max-w-3xl"
+            }`}
+          >
             {/* Header */}
             <div className="mb-8">
               <button
@@ -471,7 +563,11 @@ export default function CrearSolicitudPage() {
       </div>
 
       {/* Right Panel - Documento */}
-      <div className="hidden lg:block lg:w-1/2 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
+      <div
+        className={`${
+          previewVisible ? "hidden lg:block lg:w-1/2" : "hidden"
+        } bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto`}
+      >
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
             <PreviewCollapsible title="Certificado de afiliación" defaultOpen>
@@ -495,6 +591,21 @@ export default function CrearSolicitudPage() {
             </PreviewCollapsible>
           </div>
         </div>
+      </div>
+
+      <div
+        className={`hidden lg:block absolute top-8 z-20 transition-all duration-200 ${
+          previewVisible ? "left-1/2 -translate-x-1/2" : "right-6"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setPreviewVisible((current) => !current)}
+          className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100"
+        >
+          {previewVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {previewVisible ? "Ocultar preview" : "Mostrar preview"}
+        </button>
       </div>
     </div>
   );

@@ -86,7 +86,7 @@ export async function uploadConvocatoria(
   eventoId: number,
   convocatoria: File,
   certificadoMedico: File,
-  pronosticoDeportistas: File | File[],
+  pronosticoDeportistas?: File | File[],
   options?: {
     tipoAval?: CreateColeccionAvalPayload["tipoAval"];
     formaParticipacionId?: CreateColeccionAvalPayload["formaParticipacionId"];
@@ -97,9 +97,11 @@ export async function uploadConvocatoria(
   formData.append("eventoId", String(eventoId));
   formData.append("convocatoria", convocatoria);
   formData.append("certificadoMedico", certificadoMedico);
-  const pronosticoFiles = Array.isArray(pronosticoDeportistas)
-    ? pronosticoDeportistas
-    : [pronosticoDeportistas];
+  const pronosticoFiles = pronosticoDeportistas
+    ? Array.isArray(pronosticoDeportistas)
+      ? pronosticoDeportistas
+      : [pronosticoDeportistas]
+    : [];
   for (const file of pronosticoFiles) {
     formData.append("pronosticoDeportistas", file);
   }

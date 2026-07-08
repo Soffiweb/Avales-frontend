@@ -114,14 +114,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
   },
   {
     type: "link",
-    label: "Reformas Multi",
-    href: "/reformas-multi",
-    segment: "reformas-multi",
-    icon: "reformas",
-    roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE", "CONTROL_PREVIO"],
-  },
-  {
-    type: "link",
     label: "Carga Masiva",
     href: "/carga-masiva",
     segment: "carga-masiva",

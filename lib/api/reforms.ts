@@ -40,9 +40,25 @@ export type ReformChangesDto = {
   formasParticipacion?: ReformFormaParticipacionChanges[];
 };
 
-export type CreateReformPayload = {
+export type ReformLineItemPayload = {
+  itemId: number;
+  mes: number;
+  monto: number;
+};
+
+export type CreateReformEventoPayload = {
   eventoId: number;
   versionBaseId?: number;
+  cambiosPropuestos: ReformChangesDto;
+};
+
+export type CreateReformMovimientoPayload = {
+  eventoId: number;
+  formaParticipacionId: number;
+  items: ReformLineItemPayload[];
+};
+
+export type CreateReformPayload = {
   motivo: string;
   de?: string;
   para?: string;
@@ -54,7 +70,13 @@ export type CreateReformPayload = {
   firmaAprobadorCargo?: string;
   observacion?: string;
   mesEjecucion: number;
-  cambiosPropuestos: ReformChangesDto;
+  eventos?: CreateReformEventoPayload[];
+  eventosOrigen?: CreateReformMovimientoPayload[];
+  eventosDestino?: CreateReformMovimientoPayload[];
+};
+
+export type AprobarReformPayload = {
+  eventos?: Array<{ eventoId: number; cambios: ReformChangesDto }>;
 };
 
 export type ReformReadableField = {
@@ -125,12 +147,57 @@ export type ReformAdjunto = {
   createdAt: string;
 };
 
+export type ReformEventoResumen = {
+  id: number;
+  codigo?: string | null;
+  nombre: string;
+  estado?: EventoEstado | null;
+  disciplina?: CatalogItem | null;
+};
+
+export type ReformEventoEntry = {
+  id: number;
+  eventoId: number;
+  tipo: TipoReforma;
+  versionBaseId?: number | null;
+  versionAprobadaId?: number | null;
+  cambiosPropuestos: Record<string, unknown>;
+  cambiosPropuestosLegibles?: ReformReadableChanges;
+  comparacion?: ReformComparison;
+  evento?: ReformEventoResumen;
+};
+
+export type ReformMovimientoLinea = {
+  itemId: number;
+  mes: number;
+  item?: { id: number; nombre: string; numero?: number | null } | null;
+};
+
+export type ReformOrigenEntry = {
+  id: number;
+  eventoId: number;
+  formaParticipacionId: number;
+  montoCortado: string;
+  totalEventoAntes: string;
+  totalEventoDespues?: string | null;
+  evento?: ReformEventoResumen;
+  items: Array<ReformMovimientoLinea & { montoCortado: string }>;
+};
+
+export type ReformDestinoEntry = {
+  id: number;
+  eventoId: number;
+  formaParticipacionId: number;
+  montoAsignado: string;
+  totalEventoAntes: string;
+  totalEventoDespues?: string | null;
+  evento?: ReformEventoResumen;
+  items: Array<ReformMovimientoLinea & { montoAsignado: string }>;
+};
+
 export type ReformResponse = {
   id: number;
   estado: string;
-  eventoId: number;
-  versionBaseId?: number | null;
-  versionAprobadaId?: number | null;
   motivo: string;
   de?: string | null;
   para?: string | null;
@@ -142,17 +209,9 @@ export type ReformResponse = {
   firmaAprobadorCargo?: string | null;
   observacion?: string | null;
   mesEjecucion: number;
-  tipo: TipoReforma;
-  cambiosPropuestos: Record<string, unknown>;
-  cambiosPropuestosLegibles?: ReformReadableChanges;
-  comparacion?: ReformComparison;
-  evento?: {
-    id: number;
-    codigo?: string | null;
-    nombre: string;
-    estado?: EventoEstado | null;
-    disciplina?: CatalogItem | null;
-  };
+  eventos: ReformEventoEntry[];
+  origenes: ReformOrigenEntry[];
+  destinos: ReformDestinoEntry[];
   solicitante?: {
     id: number;
     nombre?: string | null;
@@ -272,12 +331,20 @@ export async function downloadReformExcel(id: number) {
 
 export async function aprobarReform(
   id: number,
-  payload?: { usuarioId?: number },
+  payload?: AprobarReformPayload,
 ) {
   return apiFetch<ReformResponse>(`/reforms/${id}/aprobar`, {
     method: "PATCH",
     body: payload ? JSON.stringify(payload) : undefined,
   });
+}
+
+export function canDownloadReformExcel(reform: ReformResponse) {
+  return (
+    reform.eventos.length === 1 &&
+    reform.origenes.length === 0 &&
+    reform.destinos.length === 0
+  );
 }
 
 export async function rechazarReform(
@@ -328,4 +395,32 @@ export async function getReform(id: number) {
   return apiFetch<ReformResponse>(`/reforms/${id}`, {
     method: "GET",
   });
+}
+
+export const REFORM_ERROR_CODE_MESSAGES: Record<string, string> = {
+  REFORMA_SUM_MISMATCH:
+    "La suma de montos de origen no coincide con la de destino.",
+  REFORMA_MIXED_TIPO_AVAL:
+    "Todos los movimientos de presupuesto deben usar el mismo tipo de aval.",
+  REFORMA_ORIGEN_DESTINO_DUPLICADO:
+    "Una misma forma de participación no puede ser origen y destino a la vez.",
+  REFORMA_EVENTO_BLOQUEADO:
+    "Uno o más eventos ya tienen otra reforma pendiente.",
+  REFORMA_SIN_CAMBIOS:
+    "Debes incluir al menos un evento a editar, un origen o un destino.",
+};
+
+export function getReformErrorMessage(
+  err: unknown,
+  fallback = "Ocurrió un error inesperado.",
+): string {
+  if (err instanceof Error) {
+    const code = (err as Error & { problem?: { errorCode?: string } }).problem
+      ?.errorCode;
+    if (code && REFORM_ERROR_CODE_MESSAGES[code]) {
+      return REFORM_ERROR_CODE_MESSAGES[code];
+    }
+    return err.message || fallback;
+  }
+  return fallback;
 }

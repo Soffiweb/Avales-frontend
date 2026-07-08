@@ -27,6 +27,7 @@ import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import type {
   Aval,
   AdjuntoSolicitud,
+  DeportistaPronosticoDto,
   EditAvalPayload,
   Genero,
   ModalidadParticipacion,
@@ -55,6 +56,14 @@ type FormData = {
     nombres?: string;
     apellidos?: string;
     cedula?: string;
+    categoriaId?: number;
+    categoriaNombre?: string;
+    afiliacion?: string;
+    canton?: string;
+    club?: string;
+    entrenadorNombre?: string;
+    ordenPronostico?: number;
+    pronostico?: DeportistaPronosticoDto;
     payload?: Record<string, unknown>;
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
@@ -429,7 +438,8 @@ export default function Paso04Presupuesto({
           orden: index + 1,
           descripcion: crit,
         })),
-        deportistas: formData.deportistas.map((d) => ({
+        deportistas: formData.deportistas.map((d, index) => ({
+          ordenPronostico: index + 1,
           deportistaExternoId: d.deportistaExternoId ?? String(d.id),
           rol: d.rol ?? "ATLETA",
           nombre: d.nombre?.trim() || undefined,
@@ -437,6 +447,13 @@ export default function Paso04Presupuesto({
           nombres: d.nombres?.trim() || undefined,
           apellidos: d.apellidos?.trim() || undefined,
           cedula: d.cedula?.trim() || undefined,
+          categoriaId: d.categoriaId,
+          categoriaNombre: d.categoriaNombre?.trim() || undefined,
+          afiliacion: d.afiliacion?.trim() || undefined,
+          canton: d.canton?.trim() || undefined,
+          club: d.club?.trim() || undefined,
+          entrenadorNombre: d.entrenadorNombre?.trim() || undefined,
+          pronostico: d.pronostico,
           payload: d.payload,
           modalidadParticipacion: d.modalidadParticipacion,
         })),

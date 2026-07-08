@@ -233,7 +233,7 @@ export default function EventoDetailPage() {
   }: {
     convocatoria: File;
     certificadoMedico: File;
-    pronosticoDeportistas: File[];
+    pronosticoDeportistas?: File[];
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
     if (isEventoIncompleto(evento)) {
@@ -363,6 +363,7 @@ export default function EventoDetailPage() {
         onUpload={handleUploadConvocatoria}
         title="Subir documentos obligatorios"
         description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
+        requirePronosticoDeportistas={false}
         submitDisabled={submitDisabled}
         submitDisabledReason="Selecciona una forma de participación para continuar."
       >

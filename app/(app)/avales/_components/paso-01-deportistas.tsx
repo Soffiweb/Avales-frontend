@@ -9,7 +9,13 @@ import {
 import { listEntrenadores, type ListEntrenadoresOptions } from "@/lib/api/user";
 import type { Deportista } from "@/types/deportista";
 import type { Genero, User } from "@/types/user";
-import type { Aval } from "@/types/aval";
+import PronosticoDeportistaFields from "./pronostico-deportista-fields";
+import type {
+  Aval,
+  DeportistaPronosticoDto,
+  ModalidadParticipacion,
+  TipoAval,
+} from "@/types/aval";
 import { formatGenero } from "@/lib/utils/formatters";
 import { getTodayDateInputValue } from "@/lib/utils/formatters/dates";
 import { matchesSearchTerm } from "@/lib/utils/normalize-text";
@@ -17,10 +23,13 @@ import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
-  getAllowedModalidadesByTipoAval,
-  getModalidadParticipacionLabel,
-} from "@/lib/constants";
-import type { ModalidadParticipacion, TipoAval } from "@/types/aval";
+  getPronosticoProfile,
+  type DeportistaPronosticoFieldPath,
+} from "@/lib/utils/aval-pronostico";
+import {
+  validatePronosticoDeportista,
+  type PronosticoFieldErrors,
+} from "@/lib/validation/aval-pronostico";
 
 const DEPORTISTA_SEARCH_MIN_LENGTH = 3;
 const DEPORTISTA_SEARCH_LIMIT = 10;
@@ -37,8 +46,15 @@ type FormData = {
     cedula?: string;
     fechaNacimiento?: string;
     genero?: string;
+    categoriaId?: number;
+    categoriaNombre?: string;
+    afiliacion?: string;
+    canton?: string;
     club?: string;
-    afiliacion?: boolean;
+    entrenadorNombre?: string;
+    ordenPronostico?: number;
+    pronostico?: DeportistaPronosticoDto;
+    afiliado?: boolean;
     payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
@@ -77,9 +93,17 @@ type Paso01DeportistasProps = {
   onBack: () => void;
 };
 
-type SelectedDeportista = Deportista & {
+type SelectedDeportista = Omit<Deportista, "afiliacion"> & {
   rol?: string;
   modalidadParticipacion?: ModalidadParticipacion;
+  categoriaNombre?: string;
+  afiliacion?: string;
+  canton?: string;
+  entrenadorNombre?: string;
+  ordenPronostico?: number;
+  pronostico?: DeportistaPronosticoDto;
+  afiliado?: boolean;
+  payload?: Record<string, unknown>;
 };
 type SelectedEntrenador =
   | User
@@ -132,6 +156,50 @@ function getDefaultModalidad(tipoAval?: TipoAval | null): ModalidadParticipacion
   return "CUBIERTO_FONDOS_PUBLICOS";
 }
 
+function toRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function toStringValue(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function toNumberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function toBooleanValue(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function buildPronosticoPayload(
+  pronostico: unknown,
+  payload?: Record<string, unknown>,
+): DeportistaPronosticoDto | undefined {
+  const source = toRecord(pronostico) ?? toRecord(payload?.pronostico);
+  if (!source) return undefined;
+
+  return {
+    ubicacionActual: toStringValue(source.ubicacionActual),
+    ubicacionPronosticada: toStringValue(source.ubicacionPronosticada),
+    divisionPeso: toStringValue(source.divisionPeso),
+    prueba: toStringValue(source.prueba),
+    marcaActual: toStringValue(source.marcaActual),
+    unidadMarcaActual: toStringValue(source.unidadMarcaActual),
+    marcaPronosticada: toStringValue(source.marcaPronosticada),
+    unidadMarcaPronostico: toStringValue(source.unidadMarcaPronostico),
+  };
+}
+
+function getEntrenadorDisplayName(entrenador: SelectedEntrenador | undefined) {
+  if (!entrenador) return "";
+  return "esTextoLibre" in entrenador && entrenador.esTextoLibre
+    ? entrenador.nombre
+    : `${entrenador.nombre} ${entrenador.apellido ?? ""}`.trim();
+}
+
 export default function Paso01Deportistas({
   formData,
   aval,
@@ -140,6 +208,9 @@ export default function Paso01Deportistas({
   onBack,
 }: Paso01DeportistasProps) {
   const { user } = useAuth();
+  const pronosticoProfile = getPronosticoProfile(aval.evento);
+  const categoriaEventoDefault =
+    aval.evento?.categoria?.nombre?.trim() || undefined;
   const [fechaEmision, setFechaEmision] = useState(
     formData.fechaEmision || getTodayDateInputValue(),
   );
@@ -152,21 +223,45 @@ export default function Paso01Deportistas({
     SelectedDeportista[]
   >(() =>
     sortDeportistasByApellido(
-      (formData.deportistas ?? []).map((d) => ({
-        id: d.id,
-        nombres: d.nombres ?? d.nombre ?? "",
-        apellidos: d.apellidos ?? d.apellido ?? "",
-        cedula: d.cedula ?? "",
-        fechaNacimiento: d.fechaNacimiento ?? "",
-        genero: (d.genero as Deportista["genero"]) ?? undefined,
-        afiliacion: d.afiliacion ?? false,
-        rol: d.rol ?? "ATLETA",
-        modalidadParticipacion:
-          d.modalidadParticipacion ??
-          getDefaultModalidad(formData.tipoAval ?? aval.tipoAval ?? undefined),
-        // Campos extras que el form principal no guarda — usan defaults.
-        ...(d.payload as Partial<Deportista> | undefined),
-      })) as SelectedDeportista[],
+      (formData.deportistas ?? []).map((d) => {
+        const payload = toRecord(d.payload);
+        const afiliado =
+          d.afiliado ??
+          toBooleanValue(payload?.afiliado) ??
+          toBooleanValue(payload?.afiliacion) ??
+          false;
+
+        return {
+          id: d.id,
+          externoId: d.deportistaExternoId ?? String(d.id),
+          nombres: d.nombres ?? d.nombre ?? "",
+          apellidos: d.apellidos ?? d.apellido ?? "",
+          cedula: d.cedula ?? "",
+          fechaNacimiento: d.fechaNacimiento ?? "",
+          genero: (d.genero as Deportista["genero"]) ?? undefined,
+          categoriaId: d.categoriaId ?? toNumberValue(payload?.categoriaId),
+          categoriaNombre:
+            d.categoriaNombre ??
+            toStringValue(payload?.categoriaNombre) ??
+            categoriaEventoDefault ??
+            "",
+          afiliacion:
+            d.afiliacion ??
+            toStringValue(payload?.afiliacion) ??
+            (afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION"),
+          canton: d.canton ?? toStringValue(payload?.canton) ?? "",
+          club: d.club ?? toStringValue(payload?.club) ?? "",
+          entrenadorNombre:
+            d.entrenadorNombre ?? toStringValue(payload?.entrenadorNombre) ?? "",
+          ordenPronostico: d.ordenPronostico ?? toNumberValue(payload?.ordenPronostico),
+          pronostico: d.pronostico ?? buildPronosticoPayload(d.pronostico, payload),
+          afiliado,
+          rol: d.rol ?? "ATLETA",
+          modalidadParticipacion:
+            d.modalidadParticipacion ??
+            getDefaultModalidad(formData.tipoAval ?? aval.tipoAval ?? undefined),
+        };
+      }) as SelectedDeportista[],
     ),
   );
 
@@ -228,6 +323,9 @@ export default function Paso01Deportistas({
     number | null
   >(() => formData.entrenadores?.[0]?.id ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [pronosticoErrors, setPronosticoErrors] = useState<
+    Record<number, PronosticoFieldErrors>
+  >({});
   const autoSelectEntrenadorRef = useRef(false);
 
   const cupos = getAvalCupos(aval);
@@ -243,11 +341,6 @@ export default function Paso01Deportistas({
   const trimmedSearchDeportistas = searchDeportistas.trim();
   const canSearchDeportistas =
     trimmedSearchDeportistas.length >= DEPORTISTA_SEARCH_MIN_LENGTH;
-  const modalidadesPermitidas =
-    aval.modalidadesPermitidas?.length
-      ? aval.modalidadesPermitidas
-      : getAllowedModalidadesByTipoAval(tipoAval);
-
   const buildSelectedData = useCallback(() => {
     const principal =
       principalEntrenadorId != null
@@ -259,31 +352,54 @@ export default function Paso01Deportistas({
           ...selectedEntrenadores.filter((e) => e.id !== principal.id),
         ]
       : selectedEntrenadores;
+    const entrenadorPrincipalNombre = getEntrenadorDisplayName(principal);
 
     return {
-      deportistas: sortDeportistasByApellido(selectedDeportistas).map((d) => ({
-        id: d.id,
-        deportistaExternoId: d.externoId ?? String(d.id),
-        nombre: formatDeportistaNombre(d),
-        apellido: d.apellidos ?? undefined,
-        nombres: d.nombres ?? undefined,
-        apellidos: d.apellidos ?? undefined,
-        cedula: d.cedula,
-        fechaNacimiento: d.fechaNacimiento,
-        genero: d.genero,
-        club: d.club,
-        afiliacion: d.afiliacion,
-        payload: {
-          genero: d.genero ?? null,
-          fechaNacimiento: d.fechaNacimiento ?? null,
-          afiliado: Boolean(d.afiliacion),
-          club: d.club ?? null,
-        },
-        observacion: d.afiliacion ? "AFILIADO/A 2026" : "SIN AFILIACION",
-        rol: d.rol ?? "ATLETA",
-        modalidadParticipacion:
-          d.modalidadParticipacion ?? getDefaultModalidad(tipoAval),
-      })),
+      deportistas: sortDeportistasByApellido(selectedDeportistas).map((d, index) => {
+        const payload = toRecord(d.payload);
+        const afiliado = d.afiliado ?? false;
+
+        return {
+          id: d.id,
+          deportistaExternoId: d.externoId ?? String(d.id),
+          nombre: formatDeportistaNombre(d),
+          apellido: d.apellidos ?? undefined,
+          nombres: d.nombres ?? undefined,
+          apellidos: d.apellidos ?? undefined,
+          cedula: d.cedula,
+          fechaNacimiento: d.fechaNacimiento,
+          genero: d.genero,
+          categoriaId: d.categoriaId,
+          categoriaNombre: d.categoriaNombre?.trim() || undefined,
+          afiliacion: d.afiliacion?.trim() || undefined,
+          canton: d.canton?.trim() || undefined,
+          club: d.club?.trim() || undefined,
+          entrenadorNombre:
+            d.entrenadorNombre?.trim() || entrenadorPrincipalNombre || undefined,
+          ordenPronostico: index + 1,
+          pronostico: d.pronostico,
+          payload: {
+            ...payload,
+            genero: d.genero ?? null,
+            fechaNacimiento: d.fechaNacimiento ?? null,
+            afiliado,
+            categoriaId: d.categoriaId ?? null,
+            categoriaNombre: d.categoriaNombre?.trim() || null,
+            afiliacion: d.afiliacion?.trim() || null,
+            canton: d.canton?.trim() || null,
+            club: d.club?.trim() || null,
+            entrenadorNombre:
+              d.entrenadorNombre?.trim() || entrenadorPrincipalNombre || null,
+            ordenPronostico: index + 1,
+            pronostico: d.pronostico ?? null,
+          },
+          observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
+          rol: d.rol ?? "ATLETA",
+          modalidadParticipacion:
+            d.modalidadParticipacion ?? getDefaultModalidad(tipoAval),
+          afiliado,
+        };
+      }),
       entrenadores:
         totalEntrenadoresRequeridos === 0
           ? []
@@ -347,6 +463,20 @@ export default function Paso01Deportistas({
     setPrincipalEntrenadorId(user.id);
     autoSelectEntrenadorRef.current = true;
   }, [selectedEntrenadores, totalEntrenadoresRequeridos, user]);
+
+  useEffect(() => {
+    const principal = selectedEntrenadores.find((e) => e.id === principalEntrenadorId);
+    const principalNombre = getEntrenadorDisplayName(principal);
+    if (!principalNombre) return;
+
+    setSelectedDeportistas((prev) =>
+      prev.map((deportista) =>
+        deportista.entrenadorNombre?.trim()
+          ? deportista
+          : { ...deportista, entrenadorNombre: principalNombre },
+      ),
+    );
+  }, [principalEntrenadorId, selectedEntrenadores]);
 
   const fetchDeportistas = useCallback(async () => {
     const trimmed = searchDeportistas.trim();
@@ -421,34 +551,146 @@ export default function Paso01Deportistas({
       return;
     }
 
+    const principal = selectedEntrenadores.find((e) => e.id === principalEntrenadorId);
+    const entrenadorPrincipalNombre = getEntrenadorDisplayName(principal);
+    const afiliado = Boolean(deportista.afiliacion);
+
     setSelectedDeportistas((prev) =>
       sortDeportistasByApellido([
         ...prev,
         {
           ...deportista,
+          categoriaId: deportista.categoriaId ?? aval.evento?.categoria?.id ?? undefined,
+          categoriaNombre:
+            deportista.categoria?.nombre ?? categoriaEventoDefault ?? "",
+          afiliacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
+          canton: "",
+          entrenadorNombre: entrenadorPrincipalNombre,
+          pronostico: {},
+          afiliado,
           rol: "ATLETA",
           modalidadParticipacion: getDefaultModalidad(tipoAval),
         },
       ])
     );
+    setPronosticoErrors((prev) => {
+      const next = { ...prev };
+      delete next[deportista.id];
+      return next;
+    });
     setSearchDeportistas("");
   };
 
   const handleRemoveDeportista = (deportistaId: number) => {
     setSelectedDeportistas((prev) => prev.filter((d) => d.id !== deportistaId));
+    setPronosticoErrors((prev) => {
+      const next = { ...prev };
+      delete next[deportistaId];
+      return next;
+    });
   };
 
-  const handleModalidadChange = (
+  const handlePronosticoFieldChange = (
     deportistaId: number,
-    modalidadParticipacion: ModalidadParticipacion,
+    path: DeportistaPronosticoFieldPath,
+    value: string,
   ) => {
     setSelectedDeportistas((prev) =>
-      prev.map((deportista) =>
-        deportista.id === deportistaId
-          ? { ...deportista, modalidadParticipacion }
-          : deportista,
-      ),
+      prev.map((deportista) => {
+        if (deportista.id !== deportistaId) return deportista;
+        switch (path) {
+          case "categoriaNombre":
+            return { ...deportista, categoriaNombre: value };
+          case "afiliacion":
+            return { ...deportista, afiliacion: value };
+          case "canton":
+            return { ...deportista, canton: value };
+          case "club":
+            return { ...deportista, club: value };
+          case "entrenadorNombre":
+            return { ...deportista, entrenadorNombre: value };
+          case "pronostico.ubicacionActual":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                ubicacionActual: value,
+              },
+            };
+          case "pronostico.ubicacionPronosticada":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                ubicacionPronosticada: value,
+              },
+            };
+          case "pronostico.divisionPeso":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                divisionPeso: value,
+              },
+            };
+          case "pronostico.prueba":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                prueba: value,
+              },
+            };
+          case "pronostico.marcaActual":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                marcaActual: value,
+              },
+            };
+          case "pronostico.unidadMarcaActual":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                unidadMarcaActual: value,
+              },
+            };
+          case "pronostico.marcaPronosticada":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                marcaPronosticada: value,
+              },
+            };
+          case "pronostico.unidadMarcaPronostico":
+            return {
+              ...deportista,
+              pronostico: {
+                ...(deportista.pronostico ?? {}),
+                unidadMarcaPronostico: value,
+              },
+            };
+          default:
+            return deportista;
+        }
+      }),
     );
+    setPronosticoErrors((prev) => {
+      const current = prev[deportistaId];
+      if (!current?.[path]) return prev;
+      const next = { ...prev };
+      const nextErrors = { ...(next[deportistaId] ?? {}) };
+      delete nextErrors[path];
+      if (Object.keys(nextErrors).length === 0) {
+        delete next[deportistaId];
+      } else {
+        next[deportistaId] = nextErrors;
+      }
+      return next;
+    });
   };
 
   const handleAddEntrenador = (entrenador: User) => {
@@ -565,6 +807,28 @@ export default function Paso01Deportistas({
       return;
     }
 
+    if (pronosticoProfile) {
+      const nextErrors = selectedDeportistas.reduce<Record<number, PronosticoFieldErrors>>(
+        (acc, deportista) => {
+          const fieldErrors = validatePronosticoDeportista(deportista, pronosticoProfile);
+          if (Object.keys(fieldErrors).length > 0) {
+            acc[deportista.id] = fieldErrors;
+          }
+          return acc;
+        },
+        {},
+      );
+
+      setPronosticoErrors(nextErrors);
+
+      if (Object.keys(nextErrors).length > 0) {
+        setError(
+          "Completa los datos de pronóstico requeridos para todos los deportistas.",
+        );
+        return;
+      }
+    }
+
     onComplete(buildSelectedData());
   };
 
@@ -605,6 +869,13 @@ export default function Paso01Deportistas({
           Escribe al menos {DEPORTISTA_SEARCH_MIN_LENGTH} letras. Se muestran hasta{" "}
           {DEPORTISTA_SEARCH_LIMIT} resultados.
         </p>
+        {pronosticoProfile ? (
+          <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
+            Pronóstico activo: <strong>{pronosticoProfile.template.replace("_", " ")}</strong> para{" "}
+            <strong>{pronosticoProfile.disciplinaLabel}</strong>. Al agregar un deportista se habilitan
+            los campos requeridos para generar el Excel automáticamente.
+          </div>
+        ) : null}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -703,7 +974,7 @@ export default function Paso01Deportistas({
 
         {selectedDeportistas.length > 0 && (
           <div className="mt-3 space-y-2">
-            {selectedDeportistas.map((deportista) => (
+            {selectedDeportistas.map((deportista, index) => (
               <div
                 key={deportista.id}
                 className="flex items-start gap-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 p-2 rounded-md border border-gray-200 dark:border-gray-600"
@@ -721,36 +992,18 @@ export default function Paso01Deportistas({
                       <span>{deportista.disciplina.nombre}</span>
                     )}
                   </div>
-                  <div className="mt-2">
-                    {modalidadesPermitidas.length > 1 ? (
-                      <select
-                        value={
-                          deportista.modalidadParticipacion ??
-                          getDefaultModalidad(tipoAval)
-                        }
-                        onChange={(e) =>
-                          handleModalidadChange(
-                            deportista.id,
-                            e.target.value as ModalidadParticipacion,
-                          )
-                        }
-                        className="form-select w-full text-xs sm:max-w-[240px]"
-                      >
-                        {modalidadesPermitidas.map((modalidad) => (
-                          <option key={modalidad} value={modalidad}>
-                            {getModalidadParticipacionLabel(modalidad)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="inline-flex rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
-                        {getModalidadParticipacionLabel(
-                          deportista.modalidadParticipacion ??
-                            modalidadesPermitidas[0],
-                        )}
-                      </span>
-                    )}
-                  </div>
+                  {pronosticoProfile ? (
+                    <PronosticoDeportistaFields
+                      deportista={deportista}
+                      index={index}
+                      profile={pronosticoProfile}
+                      defaultCategoriaNombre={categoriaEventoDefault}
+                      errors={pronosticoErrors[deportista.id]}
+                      onChange={(path, value) =>
+                        handlePronosticoFieldChange(deportista.id, path, value)
+                      }
+                    />
+                  ) : null}
                 </div>
 
                 <button

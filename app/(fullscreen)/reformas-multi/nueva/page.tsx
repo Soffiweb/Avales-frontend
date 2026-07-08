@@ -490,7 +490,7 @@ export default function NuevaReformaMultiPage() {
   const [origenes, setOrigenes] = useState<SelectedEvento[]>([]);
   const [destinos, setDestinos] = useState<SelectedEvento[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
-  const [previewVisible, setPreviewVisible] = useState(true);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   useEffect(() => {
     function resolveUserRoleLabel(targetUser: NonNullable<typeof user>, targetRole: DirigidoRole) {

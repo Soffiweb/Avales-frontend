@@ -21,7 +21,6 @@ const REVIEW_ITEM_ORDER = [
   "DATOS_DEPORTISTAS",
   "AFILIACION",
   "CERTIFICACION_MEDICA",
-  "CERT_MET_PDA",
   "AVAL_TECNICO",
   "CERT_COMPRAS_PUBLICAS",
   "FECHA_INGRESO_DTM",
@@ -87,11 +86,6 @@ const REVIEW_ITEM_CONFIG: Record<
   },
   CERTIFICACION_MEDICA: {
     label: "Certificacion Medica",
-    section: "HOJA_EXCEL_ANEXOS",
-    type: "boolean",
-  },
-  CERT_MET_PDA: {
-    label: "Certificacion PDA",
     section: "HOJA_EXCEL_ANEXOS",
     type: "boolean",
   },

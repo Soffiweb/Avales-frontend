@@ -187,6 +187,8 @@ export default function UsuarioForm({
       email: initialValues?.email ?? "",
       password: "",
       cedula: initialValues?.cedula ?? "",
+      ruc: initialValues?.ruc ?? "",
+      usarRuc: initialValues?.usarRuc ?? false,
       genero: initialValues?.genero ?? "",
       categoriaId: initialValues?.categoriaId,
       disciplinaIds: initialValues?.disciplinaIds ?? [],
@@ -296,6 +298,8 @@ export default function UsuarioForm({
           email: "",
           password: "",
           cedula: "",
+          ruc: "",
+          usarRuc: false,
           genero: "",
           categoriaId: undefined,
           disciplinaIds: [],
@@ -431,6 +435,40 @@ export default function UsuarioForm({
           {errors.cedula && (
             <p className="mt-1 text-xs text-red-600">{errors.cedula.message}</p>
           )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1" htmlFor="ruc">
+            RUC
+          </label>
+          <input
+            id="ruc"
+            className="form-input w-full"
+            type="text"
+            inputMode="numeric"
+            placeholder="13 dígitos"
+            {...register("ruc")}
+          />
+          {errors.ruc && (
+            <p className="mt-1 text-xs text-red-600">{errors.ruc.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1" htmlFor="usarRuc">
+            Usar RUC en documentos
+          </label>
+          <label className="inline-flex items-center gap-2 mt-2">
+            <input
+              id="usarRuc"
+              type="checkbox"
+              className="form-checkbox"
+              {...register("usarRuc")}
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Sí, usar RUC
+            </span>
+          </label>
         </div>
 
         <div>

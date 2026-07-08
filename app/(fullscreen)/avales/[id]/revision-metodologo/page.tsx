@@ -169,7 +169,6 @@ function resolveReviewItemCumple(
   if (item.key === "AVAL_TECNICO") return aval.tipoAval === "FONDOS_PUBLICOS";
   if (item.key === "CERT_COMPRAS_PUBLICAS")
     return aval.tipoAval === "AUTOGESTION";
-  if (item.key === "CERT_MET_PDA") return Boolean(aval.pda);
   return item.defaultCumple;
 }
 

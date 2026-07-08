@@ -64,6 +64,8 @@ export default function EditarUsuario() {
           email: u.email ?? "",
           password: "",
           cedula: u.cedula ?? "",
+          ruc: u.ruc ?? "",
+          usarRuc: u.usarRuc ?? false,
           genero: u.genero ?? "",
           categoriaId,
           disciplinaIds: disciplinaIds.length

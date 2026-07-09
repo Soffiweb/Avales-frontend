@@ -114,56 +114,36 @@ export function useEventoForm({
     }
   }, [getValues, setValue]);
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "eventoItems",
-  });
-
-  // Totales: useWatch (no watch()) para reflejar de forma fiable los valores del
-  // field array tras el reset() en edición. Con watch() el total quedaba en 0
-  // aunque los inputs de cada item sí mostraran su presupuesto (desync RHF).
-  const eventoItemsValues = useWatch({ control, name: "eventoItems" }) ?? [];
-
-  const totalPresupuesto = useMemo(
-    () =>
-      eventoItemsValues.reduce(
-        (sum, item) => sum + (item?.presupuesto || 0),
-        0,
-      ),
-    [eventoItemsValues],
-  );
-
-  const totalPresupuestoFondosPublicos = useMemo(
-    () =>
-      eventoItemsValues.reduce(
-        (sum, item) =>
-          sum + (item?.fuente === "FONDOS_PUBLICOS" ? item?.presupuesto || 0 : 0),
-        0,
-      ),
-    [eventoItemsValues],
-  );
-
-  const totalPresupuestoAutogestion = useMemo(
-    () =>
-      eventoItemsValues.reduce(
-        (sum, item) =>
-          sum + (item?.fuente === "AUTOGESTION" ? item?.presupuesto || 0 : 0),
-        0,
-      ),
-    [eventoItemsValues],
-  );
-
   const {
     fields: formasParticipacionFields,
     append: appendFormaParticipacion,
-    remove: removeFormaParticipacionField,
+    remove: removeFormaParticipacion,
   } = useFieldArray({
     control,
     name: "formasParticipacion",
   });
 
-  const formasParticipacionValues =
-    useWatch({ control, name: "formasParticipacion" }) ?? [];
+  // Totales: useWatch (no watch()) para reflejar de forma fiable los valores del
+  // field array tras el reset() en edición. Con watch() el total quedaba en 0
+  // aunque los inputs de cada item sí mostraran su presupuesto (desync RHF).
+  const formasParticipacionValues = useWatch({
+    control,
+    name: "formasParticipacion",
+  });
+
+  const totalPresupuesto = useMemo(
+    () =>
+      (formasParticipacionValues ?? []).reduce(
+        (sum, forma) =>
+          sum +
+          (forma?.items ?? []).reduce(
+            (acc, item) => acc + (item?.presupuesto || 0),
+            0,
+          ),
+        0,
+      ),
+    [formasParticipacionValues],
+  );
 
   const addFormaParticipacion = useCallback(
     (tipoAval: "FONDOS_PUBLICOS" | "AUTOGESTION" | "SOLO_RESULTADO") => {
@@ -175,44 +155,10 @@ export function useEventoForm({
         numEntrenadoresMujeres: 0,
         numAtletasHombres: 0,
         numAtletasMujeres: 0,
+        items: [],
       });
     },
     [appendFormaParticipacion],
-  );
-
-  const removeFormaParticipacion = useCallback(
-    (formaIndex: number) => {
-      const forma = formasParticipacionValues[formaIndex];
-      const fuente =
-        forma?.tipoAval === "FONDOS_PUBLICOS" || forma?.tipoAval === "AUTOGESTION"
-          ? forma.tipoAval
-          : null;
-      const referencia = forma?.referencia?.trim() || "";
-
-      if (fuente) {
-        const itemIndexes = eventoItemsValues
-          .map((item, index) => ({
-            index,
-            sameFuente: item?.fuente === fuente,
-            sameReferencia: (item?.referencia?.trim() || "") === referencia,
-          }))
-          .filter((item) => item.sameFuente && item.sameReferencia)
-          .map((item) => item.index)
-          .sort((a, b) => b - a);
-
-        if (itemIndexes.length > 0) {
-          remove(itemIndexes);
-        }
-      }
-
-      removeFormaParticipacionField(formaIndex);
-    },
-    [
-      eventoItemsValues,
-      formasParticipacionValues,
-      remove,
-      removeFormaParticipacionField,
-    ],
   );
 
   useEffect(() => {
@@ -351,7 +297,6 @@ export function useEventoForm({
             values,
             disciplina?.id,
             categoria?.id,
-            evento,
           );
           if (!updatePayload) {
             setSubmitError("Completa los campos obligatorios del evento.");
@@ -440,30 +385,10 @@ export function useEventoForm({
       ? "Guardar cambios"
       : "Guardar evento";
 
-  const appendBudgetItem = useCallback(
-    (
-      fuente: "FONDOS_PUBLICOS" | "AUTOGESTION",
-      referencia: string,
-    ) => {
-      append({
-        itemId: 0,
-        mes: getValues("mesProgramado") || 1,
-        presupuesto: 0,
-        fuente,
-        referencia,
-        montoComprometido: 0,
-        montoEjecutado: 0,
-      });
-    },
-    [append, getValues],
-  );
-
   return {
     archivo,
     archivoPreview,
     addFormaParticipacion,
-    append,
-    appendBudgetItem,
     buttonLabel,
     catalogError,
     catalogLoading,
@@ -472,9 +397,7 @@ export function useEventoForm({
     disciplinas,
     draggingArchivo,
     errors,
-    fields,
     formasParticipacionFields,
-    formasParticipacionValues,
     generateCodigoError,
     generatingCodigo,
     handleArchivoDragLeave,
@@ -487,14 +410,11 @@ export function useEventoForm({
     itemsByActividad,
     mode,
     onSubmit,
-    eventoItemsValues,
     register,
-    remove,
     removeFormaParticipacion,
     removeFile,
     submitError,
-    totalPresupuestoAutogestion,
-    totalPresupuestoFondosPublicos,
+    getValues,
     totalPresupuesto,
   };
 }

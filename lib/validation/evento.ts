@@ -14,7 +14,6 @@ export const eventoItemSchema = z.object({
   fuente: z.enum(["FONDOS_PUBLICOS", "AUTOGESTION"], {
     error: () => ({ message: "Selecciona una fuente" }),
   }),
-  referencia: z.string().optional(),
   montoComprometido: z.number().min(0).optional(),
   montoEjecutado: z.number().min(0).optional(),
 });
@@ -31,6 +30,7 @@ export const formaParticipacionSchema = z.object({
   numEntrenadoresMujeres: z.number().int().min(0),
   numAtletasHombres: z.number().int().min(0),
   numAtletasMujeres: z.number().int().min(0),
+  items: z.array(eventoItemSchema).optional(),
 });
 
 const optionalDateSchema = z.string().optional().or(z.literal(""));
@@ -98,8 +98,10 @@ export const eventoSchema = z.object({
     .min(0, "Numero de entrenadores mujeres invalido"),
   numAtletasHombres: z.number().int().min(0, "Numero de atletas hombres invalido"),
   numAtletasMujeres: z.number().int().min(0, "Numero de atletas mujeres invalido"),
-  eventoItems: z.array(eventoItemSchema).optional(),
-  formasParticipacion: z.array(formaParticipacionSchema).optional(),
+  formasParticipacion: z
+    .array(formaParticipacionSchema)
+    .max(3, "Máximo 3 tipos de participación")
+    .optional(),
 }).superRefine((values, ctx) => {
   const hasInicio = Boolean(values.fechaInicio && values.fechaInicio.trim());
   const hasFin = Boolean(values.fechaFin && values.fechaFin.trim());
@@ -116,18 +118,6 @@ export const eventoSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["fechaFin"],
       message,
-    });
-  }
-
-  const claves = (values.formasParticipacion ?? []).map(
-    (f) => `${f.tipoAval}::${f.referencia.trim().toUpperCase()}`,
-  );
-  if (new Set(claves).size !== claves.length) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["formasParticipacion"],
-      message:
-        "No puede repetirse la misma combinación de tipo de aval y referencia.",
     });
   }
 });

@@ -23,31 +23,38 @@ import { canCreateReforma } from "@/lib/auth/access";
 import { canonicalizeRoleCode, getRoleCode, normalizeRoleCode } from "@/lib/auth/roles";
 import { ApiError } from "@/lib/api/client";
 import { getItemsPresupuestarios } from "@/lib/api/catalog";
-import { getEvento, listEventos } from "@/lib/api/eventos";
+import { getEvento } from "@/lib/api/eventos";
 import {
   createReform,
   getReformErrorMessage,
   uploadReformAdjuntos,
   type CreateReformEventoPayload,
-  type CreateReformMovimientoPayload,
   type CreateReformPayload,
 } from "@/lib/api/reforms";
 import { getDirigido, listUsers, type DirigidoRole } from "@/lib/api/user";
-import { MES_NOMBRES, MES_OPCIONES } from "@/lib/api/reforms-multi";
+import {
+  MES_OPCIONES,
+  getEventosDisponiblesReformaMulti,
+  groupEventosDisponiblesPorEvento,
+} from "@/lib/api/reforms-multi";
 import type { User } from "@/types/user";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
-import { formatCurrency, formatGenero, formatRole } from "@/lib/utils/formatters";
-import EventoItemsPanel, {
-  type SelectedEvento,
-} from "@/app/(app)/reformas-multi/_components/multi-event-selector";
-import BalanceBar, { isBalanced } from "@/app/(app)/reformas-multi/_components/balance-bar";
-import type { FuentePresupuestoReforma } from "@/types/reforma-multi";
-import EventoCambiosCard, {
-  getFormaBudgetItems,
-  type EventoCambiosResult,
-  type EventoMovimientoLinea,
-} from "./_components/evento-cambios-card";
+import { formatCurrency, formatRole } from "@/lib/utils/formatters";
+import { isBalanced } from "@/app/(app)/reformas-multi/_components/balance-bar";
+import BalanceAdvisory from "./_components/balance-advisory";
+import type { EventoDisponibleAgrupado, FuentePresupuestoReforma } from "@/types/reforma-multi";
+import EventoReformaCard from "./_components/evento-reforma-card";
+import type { EventoCambiosResult, EventoMovimientoLinea } from "./_components/evento-cambios-card";
+import {
+  buildEditedEventoPreviewBlock,
+  formatPreviewValue,
+  type EditedEventoPreviewBlock,
+} from "./_lib/reform-preview";
+import {
+  ReformaPreviewBudgetTable,
+  ReformaPreviewInfoTable,
+} from "./_components/reforma-preview-tables";
 
 const MAX_ADJUNTOS_REFORMA = 2;
 const MAX_ADJUNTO_REFORMA_BYTES = 5 * 1024 * 1024;
@@ -72,13 +79,8 @@ type SignatureFields = {
   cargo: string;
 };
 
-type EventoADraft = {
-  evento: Evento;
-  result: EventoCambiosResult;
-};
-
-/** Movimiento de un evento de origen, con su evento/forma de referencia. */
-type OrigenMovimientoLinea = EventoMovimientoLinea & {
+/** Movimiento de presupuesto de un ítem, con su evento/forma de referencia. */
+type MovimientoLinea = EventoMovimientoLinea & {
   eventoId: number;
   formaParticipacionId: number;
 };
@@ -162,138 +164,6 @@ function formatBytes(value: number) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getMonthLabel(value?: number | null) {
-  if (typeof value !== "number") return "-";
-  return (MES_NOMBRES[value] ?? "-").toUpperCase();
-}
-
-function formatPreviewValue(value?: string | null) {
-  const normalized = value?.trim();
-  return normalized ? normalized.toUpperCase() : "-";
-}
-
-type ReformaPreviewInfoRow = {
-  label: string;
-  value: string;
-  changed?: boolean;
-};
-
-type ReformaPreviewBudgetRow = {
-  codigo: string;
-  item: string;
-  valor: string;
-  changed?: boolean;
-};
-
-type MultiPreviewEventBlock = {
-  eventoId: number;
-  title: string;
-  provincia: string;
-  mesLabel: string;
-  genero: string;
-  entrenadores: number;
-  deportistas: number;
-  damas: number;
-  varones: number;
-  budgetRows: ReformaPreviewBudgetRow[];
-  total: number;
-};
-
-type EditedEventoPreviewBlock = {
-  eventoId: number;
-  title: string;
-  currentInfoRows: ReformaPreviewInfoRow[];
-  proposedInfoRows: ReformaPreviewInfoRow[];
-  currentBudgetRows: ReformaPreviewBudgetRow[];
-  proposedBudgetRows: ReformaPreviewBudgetRow[];
-  currentTotal: number;
-  proposedTotal: number;
-};
-
-function ReformaPreviewInfoTable({ title, rows }: { title: string; rows: ReformaPreviewInfoRow[] }) {
-  return (
-    <div className="border border-slate-400">
-      <div className="border-b border-slate-400 bg-slate-100 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-900">
-        {title}
-      </div>
-      <table className="w-full border-collapse text-[10px] text-slate-900">
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <td className="w-[34%] border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">
-                {row.label}
-              </td>
-              <td
-                className={`border-t border-slate-400 px-2 py-1 uppercase ${
-                  row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
-                }`}
-              >
-                {row.value}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ReformaPreviewBudgetTable({ rows, total }: { rows: ReformaPreviewBudgetRow[]; total: string }) {
-  return (
-    <div className="border border-slate-400 border-t-0">
-      <div className="border-b border-slate-400 px-2 py-1 text-center text-[10px] font-bold uppercase text-slate-900">
-        Presupuesto
-      </div>
-      <table className="w-full border-collapse text-[10px] text-slate-900">
-        <thead>
-          <tr className="bg-slate-100">
-            <th className="w-[22%] border-r border-slate-400 px-1 py-1 text-left font-bold uppercase">
-              Codigo
-            </th>
-            <th className="border-r border-slate-400 px-1 py-1 text-left font-bold uppercase">Item</th>
-            <th className="w-[24%] px-1 py-1 text-right font-bold uppercase">Valor</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length > 0 ? (
-            rows.map((row, index) => (
-              <tr key={`${row.codigo}-${index}`}>
-                <td className="border-r border-t border-slate-400 px-1 py-1 align-top">{row.codigo}</td>
-                <td
-                  className={`border-r border-t border-slate-400 px-1 py-1 align-top ${
-                    row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
-                  }`}
-                >
-                  {row.item}
-                </td>
-                <td
-                  className={`border-t border-slate-400 px-1 py-1 text-right align-top ${
-                    row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
-                  }`}
-                >
-                  {row.valor}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={3} className="border-t border-slate-400 px-2 py-3 text-center text-slate-500">
-                Sin items presupuestarios
-              </td>
-            </tr>
-          )}
-          <tr className="bg-slate-50 font-bold">
-            <td colSpan={2} className="border-r border-t border-slate-400 px-1 py-1 text-right uppercase">
-              Valor total del evento
-            </td>
-            <td className="border-t border-slate-400 px-1 py-1 text-right">{total}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function ReformaPreviewSignature({ nombre, cargo }: { nombre: string; cargo: string }) {
   return (
     <div className="pt-8 text-center text-[10px] uppercase text-slate-900">
@@ -303,114 +173,11 @@ function ReformaPreviewSignature({ nombre, cargo }: { nombre: string; cargo: str
   );
 }
 
-function MultiEventoPreviewBlock({
-  block,
-  eventLabel,
-  monthLabel,
-}: {
-  block: MultiPreviewEventBlock;
-  eventLabel: string;
-  monthLabel: string;
-}) {
-  return (
-    <div className="border-b border-slate-400 last:border-b-0">
-      <div className="border-b border-slate-400 px-2 py-1 text-center text-[10px] font-bold uppercase text-slate-900">
-        Datos informativos
-      </div>
-      <table className="w-full border-collapse text-[10px] text-slate-900">
-        <tbody>
-          <tr>
-            <td className="w-[34%] border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">
-              {eventLabel}
-            </td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.title}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">Provincia</td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.provincia}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">{monthLabel}</td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.mesLabel}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">Género</td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.genero}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">
-              N° de entrenadores
-            </td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.entrenadores}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">
-              N° de deportistas
-            </td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.deportistas}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">Damas</td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.damas}</td>
-          </tr>
-          <tr>
-            <td className="border-r border-t border-slate-400 px-2 py-1 font-bold uppercase">Varones</td>
-            <td className="border-t border-slate-400 px-2 py-1 uppercase">{block.varones}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="border-t border-slate-400">
-        <ReformaPreviewBudgetTable rows={block.budgetRows} total={formatCurrency(block.total)} />
-      </div>
-    </div>
-  );
-}
-
-function MultiEventoPreviewColumn({
-  title,
-  blocks,
-  monthLabel,
-  totalLabel,
-  emptyLabel,
-}: {
-  title: string;
-  blocks: MultiPreviewEventBlock[];
-  monthLabel: string;
-  totalLabel: string;
-  emptyLabel: string;
-}) {
-  return (
-    <div className="border border-slate-400">
-      <div className="border-b border-slate-400 bg-slate-100 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-900">
-        {title}
-      </div>
-      {blocks.length > 0 ? (
-        <>
-          {blocks.map((block, index) => (
-            <MultiEventoPreviewBlock
-              key={block.eventoId}
-              block={block}
-              eventLabel={`Nombre evento ${index + 1}`}
-              monthLabel={monthLabel}
-            />
-          ))}
-          <div className="bg-slate-50 px-2 py-1 text-right text-[10px] font-bold uppercase text-slate-900">
-            {totalLabel}: {formatCurrency(blocks.reduce((sum, block) => sum + block.total, 0))}
-          </div>
-        </>
-      ) : (
-        <div className="px-2 py-6 text-center text-[10px] text-slate-500">{emptyLabel}</div>
-      )}
-    </div>
-  );
-}
-
 function EditedEventosPreviewColumn({ blocks }: { blocks: EditedEventoPreviewBlock[] }) {
   return (
     <div className="border border-slate-400">
       <div className="border-b border-slate-400 bg-slate-100 px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-slate-900">
-        Eventos de origen
+        Eventos
       </div>
       {blocks.length > 0 ? (
         blocks.map((block) => (
@@ -434,332 +201,17 @@ function EditedEventosPreviewColumn({ blocks }: { blocks: EditedEventoPreviewBlo
                 />
               </div>
             </div>
+            <div className="border-t border-slate-400 bg-slate-50 px-2 py-1 text-right text-[10px] font-bold uppercase text-slate-900">
+              Neto de este evento:{" "}
+              <span className={block.proposedTotal - block.currentTotal < 0 ? "text-rose-600" : "text-emerald-700"}>
+                {block.proposedTotal - block.currentTotal >= 0 ? "+" : ""}
+                {formatCurrency(block.proposedTotal - block.currentTotal)}
+              </span>
+            </div>
           </div>
         ))
       ) : (
-        <div className="px-2 py-6 text-center text-[10px] text-slate-500">Sin eventos de origen</div>
-      )}
-    </div>
-  );
-}
-
-function buildEditedEventoPreviewBlock(
-  draft: EventoADraft,
-  itemsCatalogo: CatalogItemPresupuestario[],
-): EditedEventoPreviewBlock {
-  const { evento, result } = draft;
-  const cambios = result.cambiosPropuestos;
-  const formaEntry = cambios.formasParticipacion?.[0];
-  const matchingForma = evento.formasParticipacion?.find(
-    (forma) => forma.id === result.formaParticipacionId,
-  );
-
-  const currentEntrenadores =
-    (matchingForma?.numEntrenadoresHombres ?? evento.numEntrenadoresHombres ?? 0) +
-    (matchingForma?.numEntrenadoresMujeres ?? evento.numEntrenadoresMujeres ?? 0);
-  const currentDeportistas =
-    (matchingForma?.numAtletasHombres ?? evento.numAtletasHombres ?? 0) +
-    (matchingForma?.numAtletasMujeres ?? evento.numAtletasMujeres ?? 0);
-  const proposedEntrenadores = formaEntry
-    ? formaEntry.numEntrenadoresHombres + formaEntry.numEntrenadoresMujeres
-    : currentEntrenadores;
-  const proposedDeportistas = formaEntry
-    ? formaEntry.numAtletasHombres + formaEntry.numAtletasMujeres
-    : currentDeportistas;
-  const currentDamas = matchingForma?.numAtletasMujeres ?? evento.numAtletasMujeres ?? 0;
-  const currentVarones = matchingForma?.numAtletasHombres ?? evento.numAtletasHombres ?? 0;
-  const proposedDamas = formaEntry?.numAtletasMujeres ?? currentDamas;
-  const proposedVarones = formaEntry?.numAtletasHombres ?? currentVarones;
-
-  const currentInfoRows: ReformaPreviewInfoRow[] = [
-    { label: "Nombre", value: formatPreviewValue(evento.nombre) },
-    {
-      label: "Provincia",
-      value: formatPreviewValue([evento.ciudad, evento.provincia].filter(Boolean).join(" - ")),
-    },
-    { label: "Mes programado", value: getMonthLabel(evento.mesProgramado) },
-    { label: "Género", value: formatPreviewValue(formatGenero(evento.genero)) },
-    { label: "N° de entrenadores", value: String(currentEntrenadores) },
-    { label: "N° de deportistas", value: String(currentDeportistas) },
-    { label: "Damas", value: String(currentDamas) },
-    { label: "Varones", value: String(currentVarones) },
-  ];
-
-  const proposedInfoRows: ReformaPreviewInfoRow[] = [
-    {
-      label: "Nombre",
-      value: formatPreviewValue(cambios.nombre ?? evento.nombre),
-      changed: cambios.nombre !== undefined,
-    },
-    {
-      label: "Provincia",
-      value: formatPreviewValue(
-        [cambios.ciudad ?? evento.ciudad, cambios.provincia ?? evento.provincia]
-          .filter(Boolean)
-          .join(" - "),
-      ),
-      changed: cambios.ciudad !== undefined || cambios.provincia !== undefined,
-    },
-    {
-      label: "Mes programado",
-      value: getMonthLabel(cambios.mesProgramado ?? evento.mesProgramado),
-      changed: cambios.mesProgramado !== undefined,
-    },
-    { label: "Género", value: formatPreviewValue(formatGenero(evento.genero)) },
-    {
-      label: "N° de entrenadores",
-      value: String(proposedEntrenadores),
-      changed: proposedEntrenadores !== currentEntrenadores,
-    },
-    {
-      label: "N° de deportistas",
-      value: String(proposedDeportistas),
-      changed: proposedDeportistas !== currentDeportistas,
-    },
-    { label: "Damas", value: String(proposedDamas), changed: proposedDamas !== currentDamas },
-    { label: "Varones", value: String(proposedVarones), changed: proposedVarones !== currentVarones },
-  ];
-
-  const originalItems = getFormaBudgetItems(evento, matchingForma);
-  const currentBudgetRows: ReformaPreviewBudgetRow[] = originalItems.map((item) => ({
-    codigo: String(item.item.numero ?? "-"),
-    item: formatPreviewValue(item.item.nombre),
-    valor: formatCurrency(Number.parseFloat(item.presupuesto) || 0),
-  }));
-  const currentTotal = originalItems.reduce(
-    (sum, item) => sum + (Number.parseFloat(item.presupuesto) || 0),
-    0,
-  );
-
-  const movimientosByKey = new Map(
-    result.movimientos.map((m) => [`${m.itemId}-${m.mes}`, m]),
-  );
-  const matchedRows: ReformaPreviewBudgetRow[] = originalItems.map((item) => {
-    const movimiento = movimientosByKey.get(`${item.item.id}-${item.mes}`);
-    return {
-      codigo: String(item.item.numero ?? "-"),
-      item: formatPreviewValue(item.item.nombre),
-      valor: formatCurrency(movimiento ? movimiento.montoNuevo : Number.parseFloat(item.presupuesto) || 0),
-      changed: Boolean(movimiento),
-    };
-  });
-  const newItemRows: ReformaPreviewBudgetRow[] = result.movimientos
-    .filter((m) => !originalItems.some((oi) => oi.item.id === m.itemId && oi.mes === m.mes))
-    .map((m) => {
-      const catalogItem = itemsCatalogo.find((option) => option.id === m.itemId);
-      return {
-        codigo: String(catalogItem?.numero ?? "-"),
-        item: formatPreviewValue(m.itemNombre),
-        valor: formatCurrency(m.montoNuevo),
-        changed: true,
-      };
-    });
-  const proposedBudgetRows = [...matchedRows, ...newItemRows];
-  const proposedTotal =
-    currentTotal + result.movimientos.reduce((sum, m) => sum + (m.montoNuevo - m.montoOriginal), 0);
-
-  return {
-    eventoId: evento.id,
-    title: formatPreviewValue(evento.nombre),
-    currentInfoRows,
-    proposedInfoRows,
-    currentBudgetRows,
-    proposedBudgetRows,
-    currentTotal,
-    proposedTotal,
-  };
-}
-
-function buildMovimientoPayload(
-  eventos: SelectedEvento[],
-  mode: "origen" | "destino",
-): CreateReformMovimientoPayload[] {
-  return eventos
-    .map((evento) => ({
-      eventoId: evento.eventoId,
-      formaParticipacionId: evento.formaParticipacionId,
-      items: evento.items
-        .filter((item) =>
-          mode === "origen" ? item.presupuesto - item.monto > 0 : item.monto - item.presupuesto > 0,
-        )
-        .map((item) => ({
-          itemId: item.itemId,
-          mes: item.mes,
-          monto: mode === "origen" ? item.presupuesto - item.monto : item.monto - item.presupuesto,
-        })),
-    }))
-    .filter((evento) => evento.items.length > 0);
-}
-
-/** Agrupa movimientos de eventos de origen por (eventoId, formaParticipacionId). */
-function groupOrigenMovimientos(lineas: OrigenMovimientoLinea[]): CreateReformMovimientoPayload[] {
-  const map = new Map<string, CreateReformMovimientoPayload>();
-  lineas.forEach((linea) => {
-    const key = `${linea.eventoId}-${linea.formaParticipacionId}`;
-    if (!map.has(key)) {
-      map.set(key, {
-        eventoId: linea.eventoId,
-        formaParticipacionId: linea.formaParticipacionId,
-        items: [],
-      });
-    }
-    map.get(key)!.items.push({
-      itemId: linea.itemId,
-      mes: linea.mes,
-      monto: Math.abs(linea.montoNuevo - linea.montoOriginal),
-    });
-  });
-  return Array.from(map.values());
-}
-
-function EventoEspejoCard({
-  evento,
-  result,
-  itemsCatalogo,
-}: {
-  evento: Evento;
-  result?: EventoCambiosResult;
-  itemsCatalogo: CatalogItemPresupuestario[];
-}) {
-  const cambios = result?.cambiosPropuestos ?? {};
-  const movimientos = result?.movimientos ?? [];
-  const hasInfoChanges = Object.keys(cambios).length > 0;
-  const netDelta = movimientos.reduce((sum, m) => sum + (m.montoNuevo - m.montoOriginal), 0);
-
-  const previewBlock = buildEditedEventoPreviewBlock(
-    {
-      evento,
-      result: result ?? {
-        cambiosPropuestos: {},
-        hasUnresolvableBudgetItems: false,
-        formaParticipacionId: null,
-        movimientos: [],
-      },
-    },
-    itemsCatalogo,
-  );
-
-  const changedInfoRows = previewBlock.proposedInfoRows.filter((row) => row.changed);
-  const hasBudgetChanges = previewBlock.proposedBudgetRows.some((row) => row.changed);
-
-  return (
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/10">
-      <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-        {formatPreviewValue(cambios.nombre ?? evento.nombre)}
-      </p>
-      <p className="text-xs text-gray-500 dark:text-gray-400">{evento.codigo}</p>
-
-      {!hasInfoChanges && movimientos.length === 0 ? (
-        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-          Sin cambios propuestos todavía para este evento.
-        </p>
-      ) : (
-        <div className="mt-3 space-y-3">
-          {changedInfoRows.length > 0 ? (
-            <div className="rounded-xl border border-amber-200 bg-white p-3 dark:border-amber-900/40 dark:bg-gray-900">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                Datos informativos editados
-              </p>
-              <div className="space-y-2">
-                {changedInfoRows.map((row) => {
-                  const currentRow = previewBlock.currentInfoRows.find((entry) => entry.label === row.label);
-                  return (
-                    <div key={row.label} className="rounded-lg border border-gray-200 p-2 dark:border-gray-700">
-                      <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{row.label}</p>
-                      <div className="mt-1 grid gap-1 text-[11px] sm:grid-cols-2">
-                        <div>
-                          <p className="text-gray-400 dark:text-gray-500">Antes</p>
-                          <p className="font-medium text-gray-700 dark:text-gray-300">
-                            {currentRow?.value ?? "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 dark:text-gray-500">Ahora</p>
-                          <p className="font-semibold text-amber-700 dark:text-amber-300">{row.value}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-
-          {hasBudgetChanges ? (
-            <div className="rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-900/40 dark:bg-gray-900">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                Presupuesto editado
-              </p>
-              <div className="space-y-2">
-                {previewBlock.proposedBudgetRows.map((row, index) => {
-                  if (!row.changed) return null;
-                  const currentRow = previewBlock.currentBudgetRows[index];
-                  return (
-                    <div
-                      key={`${row.codigo}-${row.item}-${index}`}
-                      className="rounded-lg border border-gray-200 p-2 dark:border-gray-700"
-                    >
-                      <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">
-                        {row.item} · Item {row.codigo}
-                      </p>
-                      <div className="mt-1 grid gap-1 text-[11px] sm:grid-cols-2">
-                        <div>
-                          <p className="text-gray-400 dark:text-gray-500">Antes</p>
-                          <p className="font-medium text-gray-700 dark:text-gray-300">
-                            {currentRow?.valor ?? formatCurrency(0)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 dark:text-gray-500">Ahora</p>
-                          <p
-                            className={`font-semibold ${
-                              currentRow && currentRow.valor !== row.valor
-                                ? "text-emerald-700 dark:text-emerald-300"
-                                : "text-gray-700 dark:text-gray-300"
-                            }`}
-                          >
-                            {row.valor}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
-                  <p className="text-gray-400 dark:text-gray-500">Total antes</p>
-                  <p className="font-semibold text-gray-700 dark:text-gray-300">
-                    {formatCurrency(previewBlock.currentTotal)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
-                  <p className="text-gray-400 dark:text-gray-500">Total ahora</p>
-                  <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                    {formatCurrency(previewBlock.proposedTotal)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {movimientos.length > 0 ? (
-            <div
-              className={`flex items-center justify-between border-t border-gray-200 pt-2 text-xs font-semibold dark:border-gray-700 ${
-                netDelta >= 0
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-rose-600 dark:text-rose-400"
-              }`}
-            >
-              <span className="text-gray-500 dark:text-gray-400">Neto de este evento</span>
-              <span>
-                {netDelta >= 0 ? "+" : ""}
-                {formatCurrency(netDelta)}
-              </span>
-            </div>
-          ) : null}
-        </div>
+        <div className="px-2 py-6 text-center text-[10px] text-slate-500">Sin eventos agregados</div>
       )}
     </div>
   );
@@ -779,11 +231,17 @@ export default function NuevaReformaPage() {
 
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [cambiosPorEvento, setCambiosPorEvento] = useState<Record<number, EventoCambiosResult>>({});
+  /** FormaParticipacion.id elegibles por evento (financiamiento correcto y sin aval), según el buscador. */
+  const [eligibleFormaIdsByEvento, setEligibleFormaIdsByEvento] = useState<Record<number, number[]>>({});
   const preloadedRef = useRef(false);
+  const eventosRef = useRef(eventos);
+  useEffect(() => {
+    eventosRef.current = eventos;
+  }, [eventos]);
 
   const [eventoSearchTerm, setEventoSearchTerm] = useState("");
   const [eventoSearchDebounced, setEventoSearchDebounced] = useState("");
-  const [eventoSearchResults, setEventoSearchResults] = useState<Evento[]>([]);
+  const [eventoSearchResults, setEventoSearchResults] = useState<EventoDisponibleAgrupado[]>([]);
   const [eventoSearchLoading, setEventoSearchLoading] = useState(false);
   const [eventoSearchOpen, setEventoSearchOpen] = useState(false);
   const eventoSearchRef = useRef<HTMLDivElement>(null);
@@ -803,7 +261,8 @@ export default function NuevaReformaPage() {
   const [adjuntosWarning, setAdjuntosWarning] = useState<string | null>(null);
 
   const [fuente, setFuente] = useState<FuentePresupuestoReforma | "">("");
-  const [destinosExtra, setDestinosExtra] = useState<SelectedEvento[]>([]);
+  /** Financiamiento pendiente de confirmar: cambiarlo con eventos agregados los borra a todos. */
+  const [pendingFuente, setPendingFuente] = useState<FuentePresupuestoReforma | "" | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -824,9 +283,43 @@ export default function NuevaReformaPage() {
           const id = Number(preloadEventoId);
           if (Number.isFinite(id)) {
             const response = await getEvento(id);
-            setEventos((prev) =>
-              prev.some((evento) => evento.id === response.data.id) ? prev : [response.data, ...prev],
+
+            // El evento puede ser elegible en Fondos Públicos, Autogestión o ninguna
+            // (avalado/bloqueado). Se busca por código en ambas fuentes para detectar
+            // en cuál; si es ambiguo (elegible en las dos, o en ninguna) no se
+            // precarga y el usuario elige el financiamiento y lo busca a mano.
+            const [publicosRes, autogestionRes] = await Promise.all([
+              getEventosDisponiblesReformaMulti({
+                fuente: "FONDOS_PUBLICOS",
+                search: response.data.codigo,
+              }).catch(() => ({ data: [] })),
+              getEventosDisponiblesReformaMulti({
+                fuente: "AUTOGESTION",
+                search: response.data.codigo,
+              }).catch(() => ({ data: [] })),
+            ]);
+            const publicosMatch = groupEventosDisponiblesPorEvento(publicosRes.data ?? []).find(
+              (evento) => evento.id === id,
             );
+            const autogestionMatch = groupEventosDisponiblesPorEvento(autogestionRes.data ?? []).find(
+              (evento) => evento.id === id,
+            );
+
+            const unicoMatch =
+              publicosMatch && !autogestionMatch
+                ? { fuente: "FONDOS_PUBLICOS" as const, agrupado: publicosMatch }
+                : autogestionMatch && !publicosMatch
+                  ? { fuente: "AUTOGESTION" as const, agrupado: autogestionMatch }
+                  : null;
+
+            if (unicoMatch) {
+              setFuente(unicoMatch.fuente);
+              setEventos((prev) => (prev.some((evento) => evento.id === id) ? prev : [response.data, ...prev]));
+              setEligibleFormaIdsByEvento((prev) => ({
+                ...prev,
+                [id]: unicoMatch.agrupado.formas.map((forma) => forma.formaParticipacionId),
+              }));
+            }
           }
         }
       } catch (err: unknown) {
@@ -892,7 +385,8 @@ export default function NuevaReformaPage() {
   }, [eventoSearchTerm]);
 
   useEffect(() => {
-    if (!eventoSearchDebounced.trim()) {
+    // Sin financiamiento elegido no hay búsqueda: evita cruzar Fondos Públicos con Autogestión.
+    if (!fuente) {
       setEventoSearchResults([]);
       return;
     }
@@ -902,9 +396,15 @@ export default function NuevaReformaPage() {
     async function fetchResults() {
       setEventoSearchLoading(true);
       try {
-        const response = await listEventos({ search: eventoSearchDebounced, limit: 10 });
+        const response = await getEventosDisponiblesReformaMulti({
+          fuente: fuente as FuentePresupuestoReforma,
+          search: eventoSearchDebounced || undefined,
+        });
         if (!cancelled) {
-          setEventoSearchResults(response.data ?? []);
+          const grouped = groupEventosDisponiblesPorEvento(response.data ?? []);
+          setEventoSearchResults(
+            grouped.filter((evento) => !eventosRef.current.some((added) => added.id === evento.id)),
+          );
         }
       } catch {
         if (!cancelled) setEventoSearchResults([]);
@@ -917,7 +417,7 @@ export default function NuevaReformaPage() {
     return () => {
       cancelled = true;
     };
-  }, [eventoSearchDebounced]);
+  }, [eventoSearchDebounced, fuente]);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
@@ -929,11 +429,19 @@ export default function NuevaReformaPage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function handleAddEvento(evento: Evento) {
-    setEventos((prev) => (prev.some((item) => item.id === evento.id) ? prev : [...prev, evento]));
-    setEventoSearchTerm("");
-    setEventoSearchResults([]);
-    setEventoSearchOpen(false);
+  async function handleAddEvento(agrupado: EventoDisponibleAgrupado) {
+    try {
+      const response = await getEvento(agrupado.id);
+      setEventos((prev) => (prev.some((item) => item.id === response.data.id) ? prev : [...prev, response.data]));
+      setEligibleFormaIdsByEvento((prev) => ({
+        ...prev,
+        [agrupado.id]: agrupado.formas.map((forma) => forma.formaParticipacionId),
+      }));
+    } finally {
+      setEventoSearchTerm("");
+      setEventoSearchResults([]);
+      setEventoSearchOpen(false);
+    }
   }
 
   function handleRemoveEvento(eventoId: number) {
@@ -943,6 +451,33 @@ export default function NuevaReformaPage() {
       delete next[eventoId];
       return next;
     });
+    setEligibleFormaIdsByEvento((prev) => {
+      const next = { ...prev };
+      delete next[eventoId];
+      return next;
+    });
+  }
+
+  /** Cambiar el financiamiento con eventos agregados los borraría a todos: pide confirmación. */
+  function requestFuenteChange(next: FuentePresupuestoReforma | "") {
+    if (eventos.length > 0 && next !== fuente) {
+      setPendingFuente(next);
+      return;
+    }
+    setFuente(next);
+  }
+
+  function confirmFuenteChange() {
+    if (pendingFuente === null) return;
+    setFuente(pendingFuente);
+    setEventos([]);
+    setCambiosPorEvento({});
+    setEligibleFormaIdsByEvento({});
+    setPendingFuente(null);
+  }
+
+  function cancelFuenteChange() {
+    setPendingFuente(null);
   }
 
   function handleEventoCambiosChange(eventoId: number, result: EventoCambiosResult) {
@@ -1004,23 +539,8 @@ export default function NuevaReformaPage() {
     setAdjuntosReforma((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   };
 
-  /** FormaParticipacionId ya usados por eventos de origen (con o sin movimiento de plata). */
-  const origenFormaParticipacionIds = useMemo(
-    () =>
-      Object.values(cambiosPorEvento)
-        .map((result) => result.formaParticipacionId)
-        .filter((id): id is number => typeof id === "number"),
-    [cambiosPorEvento],
-  );
-
-  function handleDestinosExtraChange(updated: SelectedEvento[]) {
-    setDestinosExtra(
-      updated.filter((destino) => !origenFormaParticipacionIds.includes(destino.formaParticipacionId)),
-    );
-  }
-
-  /** Todos los movimientos de presupuesto propuestos en las cards de origen, con su evento/forma. */
-  const origenMovimientos = useMemo<OrigenMovimientoLinea[]>(
+  /** Todos los movimientos de presupuesto propuestos en las tarjetas de evento, con su evento/forma. */
+  const movimientosPresupuesto = useMemo<MovimientoLinea[]>(
     () =>
       eventos.flatMap((evento) => {
         const result = cambiosPorEvento[evento.id];
@@ -1034,38 +554,28 @@ export default function NuevaReformaPage() {
     [eventos, cambiosPorEvento],
   );
 
-  const origenRecortes = useMemo(
-    () => origenMovimientos.filter((m) => m.montoNuevo < m.montoOriginal),
-    [origenMovimientos],
+  const recortes = useMemo(
+    () => movimientosPresupuesto.filter((m) => m.montoNuevo < m.montoOriginal),
+    [movimientosPresupuesto],
   );
-  const origenAdiciones = useMemo(
-    () => origenMovimientos.filter((m) => m.montoNuevo > m.montoOriginal),
-    [origenMovimientos],
+  const adiciones = useMemo(
+    () => movimientosPresupuesto.filter((m) => m.montoNuevo > m.montoOriginal),
+    [movimientosPresupuesto],
   );
 
   const totalCortado = useMemo(
-    () => origenRecortes.reduce((sum, m) => sum + (m.montoOriginal - m.montoNuevo), 0),
-    [origenRecortes],
+    () => recortes.reduce((sum, m) => sum + (m.montoOriginal - m.montoNuevo), 0),
+    [recortes],
   );
-  const totalAsignadoDeOrigenes = useMemo(
-    () => origenAdiciones.reduce((sum, m) => sum + (m.montoNuevo - m.montoOriginal), 0),
-    [origenAdiciones],
+  const totalAsignado = useMemo(
+    () => adiciones.reduce((sum, m) => sum + (m.montoNuevo - m.montoOriginal), 0),
+    [adiciones],
   );
-  const totalAsignadoExtra = useMemo(
-    () =>
-      destinosExtra
-        .flatMap((e) => e.items)
-        .reduce((sum, it) => sum + Math.max(0, it.monto - it.presupuesto), 0),
-    [destinosExtra],
-  );
-  const totalAsignado = totalAsignadoDeOrigenes + totalAsignadoExtra;
 
   const balanced = isBalanced(totalCortado, totalAsignado);
 
-  const hasMontoErrors = destinosExtra.some((e) => e.items.some((it) => it.monto < 0));
-
-  /** Tipos de aval usados por los eventos de origen que sí mueven plata. */
-  const origenTipoAvals = useMemo(() => {
+  /** Tipos de aval usados por los eventos que sí mueven plata (deben coincidir entre sí y con `fuente`). */
+  const tipoAvalsUsados = useMemo(() => {
     const set = new Set<string>();
     eventos.forEach((evento) => {
       const result = cambiosPorEvento[evento.id];
@@ -1088,24 +598,16 @@ export default function NuevaReformaPage() {
     [cambiosPorEvento, eventos],
   );
 
-  const eventosOrigenPayload = useMemo(() => groupOrigenMovimientos(origenRecortes), [origenRecortes]);
-  const eventosDestinoExtraPayload = useMemo(
-    () => buildMovimientoPayload(destinosExtra, "destino"),
-    [destinosExtra],
-  );
-  const eventosDestinoPayload = useMemo(
-    () => [...groupOrigenMovimientos(origenAdiciones), ...eventosDestinoExtraPayload],
-    [origenAdiciones, eventosDestinoExtraPayload],
-  );
-
   const hasUnresolvableBudgetItems = eventos.some(
     (evento) => cambiosPorEvento[evento.id]?.hasUnresolvableBudgetItems,
   );
 
-  const hasAnyContent =
-    eventosPayload.length > 0 || eventosOrigenPayload.length > 0 || eventosDestinoPayload.length > 0;
+  /** true si algún evento bajó un ítem por debajo de lo ya comprometido/ejecutado. */
+  const hasBelowMinimoItems = eventos.some(
+    (evento) => cambiosPorEvento[evento.id]?.hasBelowMinimoItems,
+  );
 
-  const eventosAEditarIds = eventos.map((e) => e.id);
+  const hasAnyContent = eventosPayload.length > 0;
 
   function validateStepOne(): string | null {
     if (typeof mesEjecucion !== "number") return "Selecciona el mes de ejecución.";
@@ -1121,27 +623,30 @@ export default function NuevaReformaPage() {
   function validateForm(): string | null {
     const stepOneError = validateStepOne();
     if (stepOneError) return stepOneError;
+    if (!fuente) return "Selecciona el tipo de financiamiento a reformar.";
     if (hasUnresolvableBudgetItems) {
-      return "Uno o más eventos de origen tienen items presupuestarios sin resolver.";
+      return "Uno o más eventos tienen ítems presupuestarios sin resolver.";
+    }
+    if (hasBelowMinimoItems) {
+      return "Uno o más ítems quedaron por debajo de lo ya comprometido o ejecutado.";
     }
     if (!hasAnyContent) {
-      return "Agrega al menos un evento de origen o un destino con cambios.";
+      return "Agrega al menos un evento con cambios.";
     }
-    if (origenTipoAvals.size > 1) {
-      return "Los eventos de origen con movimientos de presupuesto usan distintos tipos de aval; deben coincidir.";
+    if (tipoAvalsUsados.size > 1) {
+      return "Los eventos con movimientos de presupuesto usan distintos tipos de aval; deben coincidir.";
     }
-    if (destinosExtra.length > 0 && origenTipoAvals.size === 1) {
-      const [unicoTipoAval] = origenTipoAvals;
-      if (fuente && fuente !== unicoTipoAval) {
-        return "La fuente presupuestaria de los destinos agregados no coincide con el tipo de aval de los eventos de origen.";
+    if (tipoAvalsUsados.size === 1) {
+      const [unicoTipoAval] = tipoAvalsUsados;
+      if (unicoTipoAval !== fuente) {
+        return "El financiamiento elegido no coincide con el tipo de aval de los eventos agregados.";
       }
     }
     return null;
   }
 
   const validationError = validateForm();
-  const isUnbalanced =
-    (eventosOrigenPayload.length > 0 || eventosDestinoPayload.length > 0) && !balanced;
+  const isUnbalanced = movimientosPresupuesto.length > 0 && !balanced;
 
   function handleContinueToStepTwo() {
     const error = validateStepOne();
@@ -1187,9 +692,12 @@ export default function NuevaReformaPage() {
         firmaAprobadorCargo: optionalText(firmaAprobadorCargo),
         observacion: optionalText(observacion),
         mesEjecucion: mesEjecucion as number,
+        // Todo movimiento de presupuesto viaja como valor absoluto dentro de
+        // eventos[].cambiosPropuestos.formasParticipacion[].items (ver
+        // evento-cambios-card.tsx). No se usan eventosOrigen/eventosDestino:
+        // esa validación de balance no existe en el backend para /reforms y
+        // aquí el descuadre es intencional (permitido, con aviso).
         eventos: eventosPayload.length > 0 ? eventosPayload : undefined,
-        eventosOrigen: eventosOrigenPayload.length > 0 ? eventosOrigenPayload : undefined,
-        eventosDestino: eventosDestinoPayload.length > 0 ? eventosDestinoPayload : undefined,
       };
 
       const response = await createReform(payload);
@@ -1224,39 +732,6 @@ export default function NuevaReformaPage() {
     Boolean(de.trim()) || Boolean(para.trim()) || Boolean(motivo.trim()) || typeof mesEjecucion === "number";
   const hasBudgetChanges = totalCortado > 0 || totalAsignado > 0;
 
-  const buildDestinoExtraPreviewBlock = (evento: SelectedEvento): MultiPreviewEventBlock => {
-    const budgetRows = evento.items.map((item) => ({
-      codigo: String(item.itemId),
-      item: formatPreviewValue(item.itemNombre),
-      valor: formatCurrency(item.monto),
-      changed: item.presupuesto !== item.monto,
-    }));
-
-    const total = evento.items.reduce((sum, item) => sum + item.monto, 0);
-
-    return {
-      eventoId: evento.eventoId,
-      title: formatPreviewValue(
-        evento.referencia?.trim() ? `${evento.nombre} — ${evento.referencia.trim()}` : evento.nombre,
-      ),
-      provincia: formatPreviewValue([evento.ciudad, evento.provincia].filter(Boolean).join(" - ")),
-      mesLabel: formatPreviewValue(MES_NOMBRES[mesEjecucion || evento.mesProgramado || 0] ?? "-"),
-      genero: formatPreviewValue(formatGenero(evento.genero)),
-      entrenadores: (evento.numEntrenadoresHombres ?? 0) + (evento.numEntrenadoresMujeres ?? 0),
-      deportistas: (evento.numAtletasHombres ?? 0) + (evento.numAtletasMujeres ?? 0),
-      damas: evento.numAtletasMujeres ?? 0,
-      varones: evento.numAtletasHombres ?? 0,
-      budgetRows,
-      total,
-    };
-  };
-
-  const destinoExtraPreviewBlocks = useMemo(
-    () => destinosExtra.map((evento) => buildDestinoExtraPreviewBlock(evento)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [destinosExtra, mesEjecucion],
-  );
-
   const editedEventoPreviewBlocks = useMemo(
     () =>
       eventos.map((evento) =>
@@ -1266,6 +741,7 @@ export default function NuevaReformaPage() {
             result: cambiosPorEvento[evento.id] ?? {
               cambiosPropuestos: {},
               hasUnresolvableBudgetItems: false,
+              hasBelowMinimoItems: false,
               formaParticipacionId: null,
               movimientos: [],
             },
@@ -1631,153 +1107,110 @@ export default function NuevaReformaPage() {
             <section className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Eventos y movimiento de presupuesto
+                Eventos a reformar
               </h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                A la izquierda agregás y editás los eventos de origen (datos informativos y/o
-                presupuesto — subir o bajar cada ítem). A la derecha ves el resultado de esos
-                cambios y podés agregar eventos destino adicionales que solo reciben el saldo
-                sobrante.
+                Cada evento tiene su antes (izquierda) y su después, editable (derecha). Si bajás
+                presupuesto en un evento y lo subís en otro, estás moviendo plata entre ellos.
               </p>
             </div>
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Fuente presupuestaria (para destinos agregados)
+                Tipo de financiamiento a reformar <span className="text-rose-500">*</span>
               </label>
               <select
                 value={fuente}
-                onChange={(e) => {
-                  setFuente((e.target.value as FuentePresupuestoReforma) || "");
-                  setDestinosExtra([]);
-                }}
+                onChange={(e) => requestFuenteChange((e.target.value as FuentePresupuestoReforma) || "")}
                 className="form-select w-full border border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               >
-                <option value="">Selecciona una fuente</option>
+                <option value="">Selecciona un financiamiento</option>
                 <option value="FONDOS_PUBLICOS">Fondos Públicos</option>
                 <option value="AUTOGESTION">Autogestión</option>
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Debe coincidir con el tipo de aval de los eventos de origen que muevan presupuesto.
+                Todos los eventos de esta reforma deben ser de este mismo financiamiento; no se
+                puede mezclar Fondos Públicos con Autogestión en una misma solicitud.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)] xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.95fr)]">
-              {/* IZQUIERDA: eventos de origen */}
-              <div className="rounded-xl border border-rose-200 bg-white p-6 shadow-sm dark:border-rose-900/40 dark:bg-gray-800">
-                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Orígenes — eventos a editar
-                </p>
-
-                <div className="relative" ref={eventoSearchRef}>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      value={eventoSearchTerm}
-                      onChange={(e) => {
-                        setEventoSearchTerm(e.target.value);
-                        setEventoSearchOpen(true);
-                      }}
-                      onFocus={() => setEventoSearchOpen(true)}
-                      placeholder="Buscar evento por nombre o código..."
-                      className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-9 pr-4 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-                    />
-                  </div>
-
-                  {eventoSearchOpen && eventoSearchTerm.trim() ? (
-                    <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                      {eventoSearchLoading ? (
-                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Buscando...</div>
-                      ) : eventoSearchResults.filter((evento) => !eventosAEditarIds.includes(evento.id))
-                          .length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                          No se encontraron eventos disponibles.
-                        </div>
-                      ) : (
-                        <ul className="max-h-56 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-700">
-                          {eventoSearchResults
-                            .filter((evento) => !eventosAEditarIds.includes(evento.id))
-                            .map((evento) => (
-                              <li key={evento.id}>
-                                <button
-                                  type="button"
-                                  className="w-full px-4 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                  onClick={() => handleAddEvento(evento)}
-                                >
-                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {evento.nombre}
-                                  </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {evento.codigo}
-                                    {evento.disciplina ? ` · ${evento.disciplina.nombre}` : ""}
-                                  </p>
-                                </button>
-                              </li>
-                            ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-4 space-y-4">
-                  {eventos.map((evento) => (
-                    <EventoCambiosCard
-                      key={evento.id}
-                      evento={evento}
-                      itemsCatalogo={itemsCatalogo}
-                      onChange={(result) => handleEventoCambiosChange(evento.id, result)}
-                      onRemove={() => handleRemoveEvento(evento.id)}
-                    />
-                  ))}
-                  {eventos.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-400">
-                      Ningún evento agregado. Usa el buscador para agregar eventos de origen.
-                    </div>
-                  ) : null}
-                </div>
+            <div className="relative" ref={eventoSearchRef}>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={eventoSearchTerm}
+                  disabled={!fuente}
+                  onChange={(e) => {
+                    setEventoSearchTerm(e.target.value);
+                    setEventoSearchOpen(true);
+                  }}
+                  onFocus={() => setEventoSearchOpen(true)}
+                  placeholder={fuente ? "Buscar evento por nombre o código..." : "Elegí el financiamiento primero"}
+                  className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-9 pr-4 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                />
               </div>
 
-              {/* DERECHA: espejo de los orígenes + destinos extra */}
-              <div className="space-y-6 lg:min-w-[360px] xl:min-w-[420px]">
-                <div className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900/40 dark:bg-gray-800">
-                  <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Resultado de los eventos de origen
-                  </p>
-                  <div className="space-y-3">
-                    {eventos.map((evento) => (
-                      <EventoEspejoCard
-                        key={evento.id}
-                        evento={evento}
-                        result={cambiosPorEvento[evento.id]}
-                        itemsCatalogo={itemsCatalogo}
-                      />
-                    ))}
-                    {eventos.length === 0 ? (
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        Agrega eventos de origen a la izquierda para ver acá su resultado.
-                      </p>
-                    ) : null}
-                  </div>
+              {eventoSearchOpen && fuente ? (
+                <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  {eventoSearchLoading ? (
+                    <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Buscando...</div>
+                  ) : eventoSearchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      No se encontraron eventos disponibles para este financiamiento.
+                    </div>
+                  ) : (
+                    <ul className="max-h-56 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-700">
+                      {eventoSearchResults.map((evento) => (
+                        <li key={evento.id}>
+                          <button
+                            type="button"
+                            className="w-full px-4 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                            onClick={() => void handleAddEvento(evento)}
+                          >
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {evento.nombre}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {evento.codigo}
+                              {evento.disciplina ? ` · ${evento.disciplina.nombre}` : ""}
+                              {evento.formas.length > 1
+                                ? ` · ${evento.formas.length} tipos de participación`
+                                : evento.formas[0]?.referencia?.trim()
+                                  ? ` · ${evento.formas[0].referencia?.trim()}`
+                                  : ""}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-
-                <div className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900/40 dark:bg-gray-800">
-                  <EventoItemsPanel
-                    label="Destinos agregados — solo reciben el saldo sobrante"
-                    fuente={fuente}
-                    selected={destinosExtra}
-                    onChange={handleDestinosExtraChange}
-                    mode="destino"
-                    defaultMes={mesEjecucion}
-                    highlightEventoIds={eventosAEditarIds}
-                    excludeFormaParticipacionIds={origenFormaParticipacionIds}
-                  />
-                </div>
-              </div>
+              ) : null}
             </div>
 
-            <BalanceBar totalCortado={totalCortado} totalAsignado={totalAsignado} />
+            <div className="space-y-4">
+              {eventos.map((evento) => (
+                <EventoReformaCard
+                  key={evento.id}
+                  evento={evento}
+                  result={cambiosPorEvento[evento.id]}
+                  itemsCatalogo={itemsCatalogo}
+                  eligibleFormaIds={eligibleFormaIdsByEvento[evento.id] ?? []}
+                  onChange={(result) => handleEventoCambiosChange(evento.id, result)}
+                  onRemove={() => handleRemoveEvento(evento.id)}
+                />
+              ))}
+              {eventos.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-400">
+                  {fuente
+                    ? "Ningún evento agregado. Usa el buscador para agregar eventos."
+                    : "Elegí el financiamiento para poder buscar y agregar eventos."}
+                </div>
+              ) : null}
+            </div>
+
+            <BalanceAdvisory totalCortado={totalCortado} totalAsignado={totalAsignado} />
           </section>
           ) : null}
 
@@ -1808,7 +1241,7 @@ export default function NuevaReformaPage() {
                 <button
                   type="button"
                   onClick={handleSubmitClick}
-                  disabled={Boolean(validationError) || hasMontoErrors || submitting}
+                  disabled={Boolean(validationError) || submitting}
                   className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-gray-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
@@ -1863,18 +1296,17 @@ export default function NuevaReformaPage() {
                       </Dialog.Title>
                     </div>
                     <Dialog.Description className="text-sm text-gray-700 dark:text-gray-300">
-                      Lo que se les <strong>recorta</strong> a los eventos de origen (
-                      <strong>{formatCurrency(totalCortado)}</strong>) no es igual a lo que se les{" "}
-                      <strong>asigna</strong> a los destinos (
+                      Lo que <strong>bajaste</strong> en unos eventos (
+                      <strong>{formatCurrency(totalCortado)}</strong>) no es igual a lo que{" "}
+                      <strong>subiste</strong> en otros (
                       <strong>{formatCurrency(totalAsignado)}</strong>). Diferencia:{" "}
                       <strong>{formatCurrency(Math.abs(totalCortado - totalAsignado))}</strong>.
                     </Dialog.Description>
                     <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
                       Esto solo debería pasar cuando la plata sale de otro presupuesto ya existente
                       (no de otro evento de esta reforma). Si no es ese el caso, es casi seguro que
-                      te falta un evento de origen o de destino, o un monto está mal escrito.
-                      Confirmá solo si estás seguro — un descuadre real puede generar problemas de
-                      presupuesto más adelante.
+                      falta reflejar un evento, o un monto está mal escrito. Confirmá solo si estás
+                      seguro — un descuadre real puede generar problemas de presupuesto más adelante.
                     </p>
                   </div>
 
@@ -1897,6 +1329,71 @@ export default function NuevaReformaPage() {
                       disabled={submitting}
                     >
                       Entiendo, enviar igual
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      <Transition.Root show={pendingFuente !== null} as={Fragment}>
+        <Dialog as="div" className="relative z-50" role="dialog" onClose={cancelFuenteChange}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-200"
+                enterFrom="opacity-0 translate-y-2 scale-95"
+                enterTo="opacity-100 translate-y-0 scale-100"
+                leave="ease-in duration-150"
+                leaveFrom="opacity-100 translate-y-0 scale-100"
+                leaveTo="opacity-0 translate-y-2 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl border border-amber-200 bg-white text-left align-middle shadow-xl transition-all dark:border-amber-900/60 dark:bg-gray-800">
+                  <div className="space-y-3 px-6 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+                        <AlertTriangle className="h-5 w-5" />
+                      </div>
+                      <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Cambiar el financiamiento borra los eventos agregados
+                      </Dialog.Title>
+                    </div>
+                    <Dialog.Description className="text-sm text-gray-700 dark:text-gray-300">
+                      Tenés {eventos.length} evento{eventos.length === 1 ? "" : "s"} agregado
+                      {eventos.length === 1 ? "" : "s"}. Como no se puede mezclar Fondos Públicos con
+                      Autogestión en la misma reforma, cambiar el financiamiento los quita a todos.
+                    </Dialog.Description>
+                  </div>
+
+                  <div className="flex justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-6 py-4 dark:border-gray-700/60 dark:bg-gray-900/30">
+                    <button
+                      type="button"
+                      className="btn border-gray-200 text-gray-700 hover:border-gray-300 dark:border-gray-700/60 dark:text-gray-200 dark:hover:border-gray-600"
+                      onClick={cancelFuenteChange}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn bg-amber-500 text-gray-950 hover:bg-amber-400"
+                      onClick={confirmFuenteChange}
+                    >
+                      Quitar y cambiar
                     </button>
                   </div>
                 </Dialog.Panel>
@@ -1960,14 +1457,6 @@ export default function NuevaReformaPage() {
 
               <div className="mt-3 space-y-3">
                 <EditedEventosPreviewColumn blocks={editedEventoPreviewBlocks} />
-
-                <MultiEventoPreviewColumn
-                  title="Destinos agregados"
-                  blocks={destinoExtraPreviewBlocks}
-                  monthLabel="Mes de ejecución"
-                  totalLabel={`Valor total ${destinoExtraPreviewBlocks.length} eventos`}
-                  emptyLabel="Sin destinos agregados"
-                />
               </div>
 
               <div className="mt-6 grid grid-cols-3 gap-6">

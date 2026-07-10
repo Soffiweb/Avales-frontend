@@ -407,7 +407,7 @@ export const REFORM_ERROR_CODE_MESSAGES: Record<string, string> = {
   REFORMA_EVENTO_BLOQUEADO:
     "Uno o más eventos ya tienen otra reforma pendiente.",
   REFORMA_SIN_CAMBIOS:
-    "Debes incluir al menos un evento a editar, un origen o un destino.",
+    "Debes agregar al menos un evento con cambios.",
 };
 
 export function getReformErrorMessage(

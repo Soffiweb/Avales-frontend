@@ -5,6 +5,7 @@ import type {
   ListReformasMultiQuery,
   CreateReformaMultiPayload,
   EventoDisponibleReformaMulti,
+  EventoDisponibleAgrupado,
   ListEventosDisponiblesReformaMultiQuery,
 } from "@/types/reforma-multi";
 
@@ -123,6 +124,43 @@ export async function getEventosDisponiblesReformaMulti(
     `/reforms-multi/eventos-disponibles?${params.toString()}`,
     { method: "GET" },
   );
+}
+
+/**
+ * Dedupe de /reforms-multi/eventos-disponibles (una fila por evento+forma) a
+ * una fila por evento, con sus formas elegibles agrupadas. La fuente ya viene
+ * filtrada por tipoAval y excluye formas avaladas o bloqueadas por otra
+ * reforma-multi pendiente (ver reforms-multi.service.ts).
+ */
+export function groupEventosDisponiblesPorEvento(
+  eventos: EventoDisponibleReformaMulti[],
+): EventoDisponibleAgrupado[] {
+  const map = new Map<number, EventoDisponibleAgrupado>();
+
+  eventos.forEach((evento) => {
+    const forma = {
+      formaParticipacionId: evento.formaParticipacionId,
+      referencia: evento.referencia,
+      presupuestoTotal: evento.presupuestoTotal,
+      items: evento.items,
+    };
+
+    const existing = map.get(evento.id);
+    if (existing) {
+      existing.formas.push(forma);
+      return;
+    }
+
+    map.set(evento.id, {
+      id: evento.id,
+      codigo: evento.codigo,
+      nombre: evento.nombre,
+      disciplina: evento.disciplina,
+      formas: [forma],
+    });
+  });
+
+  return Array.from(map.values());
 }
 
 export async function createReformaMulti(payload: CreateReformaMultiPayload) {

@@ -14,7 +14,7 @@ import { MES_OPCIONES } from "@/lib/api/reforms-multi";
 import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento, EventoItem, FormaParticipacionCupos } from "@/types/evento";
-import type { ReformChangesDto } from "@/lib/api/reforms";
+import type { ReformChangesDto, ReformFormaParticipacionChanges } from "@/lib/api/reforms";
 
 export type EventoMovimientoLinea = {
   itemId: number;
@@ -27,6 +27,8 @@ export type EventoMovimientoLinea = {
 export type EventoCambiosResult = {
   cambiosPropuestos: ReformChangesDto;
   hasUnresolvableBudgetItems: boolean;
+  /** true si algún ítem quedó por debajo de lo ya comprometido/ejecutado (el backend no lo valida). */
+  hasBelowMinimoItems: boolean;
   /** FormaParticipacion elegida, dueña de los movimientos de presupuesto. */
   formaParticipacionId: number | null;
   /** Ítems cuyo valor cambió (baja = origen, sube = destino), para esta misma evento. */
@@ -61,6 +63,8 @@ type BudgetRow = {
   mes: number;
   presupuesto: string;
   status: "existing" | "new" | "removed";
+  /** comprometido + ejecutado de este ítem: no se puede bajar de acá (plata ya gastada). */
+  montoMinimo: number;
 };
 
 export function getInitialBudgetRows(items: EventoItem[] = []): BudgetRow[] {
@@ -72,6 +76,8 @@ export function getInitialBudgetRows(items: EventoItem[] = []): BudgetRow[] {
     mes: item.mes ?? 1,
     presupuesto: item.presupuesto ?? "0",
     status: "existing",
+    montoMinimo:
+      (Number.parseFloat(item.montoComprometido) || 0) + (Number.parseFloat(item.montoEjecutado) || 0),
   }));
 }
 
@@ -152,25 +158,29 @@ function normalizeTextValue(value?: string | null) {
 type Props = {
   evento: Evento;
   itemsCatalogo: CatalogItemPresupuestario[];
+  /** FormaParticipacion.id elegibles para esta reforma (financiamiento correcto y sin aval). */
+  eligibleFormaIds: number[];
   onChange: (result: EventoCambiosResult) => void;
-  onRemove: () => void;
-  defaultExpanded?: boolean;
 };
 
 export default function EventoCambiosCard({
   evento,
   itemsCatalogo,
+  eligibleFormaIds,
   onChange,
-  onRemove,
-  defaultExpanded = true,
 }: Props) {
-  const [cardExpanded, setCardExpanded] = useState(defaultExpanded);
   const [generalForm, setGeneralForm] = useState<GeneralForm>(() =>
     buildInitialGeneralForm(evento),
   );
 
-  const reformFormas = useMemo(() => getReformFormas(evento), [evento]);
-  const budgetFormas = useMemo(() => getBudgetReformFormas(evento), [evento]);
+  const reformFormas = useMemo(
+    () => getReformFormas(evento).filter((forma) => eligibleFormaIds.includes(forma.id)),
+    [evento, eligibleFormaIds],
+  );
+  const budgetFormas = useMemo(
+    () => getBudgetReformFormas(evento).filter((forma) => eligibleFormaIds.includes(forma.id)),
+    [evento, eligibleFormaIds],
+  );
 
   const initialForma = useMemo(() => {
     if (reformFormas.length === 1) return reformFormas[0];
@@ -202,6 +212,21 @@ export default function EventoCambiosCard({
         : null,
     [selectedForma],
   );
+
+  /** true si el usuario tocó algún item de la forma con presupuesto (agregó, quitó o cambió el monto). */
+  const hasBudgetChanges = useMemo(() => {
+    if (!selectedBudgetForma) return false;
+    if (budgetRows.some((row) => row.status === "new" || row.status === "removed")) return true;
+
+    const originalItems = getFormaBudgetItems(evento, selectedBudgetForma);
+    return budgetRows.some((row) => {
+      if (row.status !== "existing") return false;
+      const originalItem = originalItems.find((item) => item.id === row.sourceId);
+      const montoOriginal = originalItem ? Number.parseFloat(originalItem.presupuesto) || 0 : 0;
+      const montoNuevo = Number.parseFloat(row.presupuesto) || 0;
+      return montoOriginal !== montoNuevo;
+    });
+  }, [budgetRows, evento, selectedBudgetForma]);
 
   const proposedChanges = useMemo<ReformChangesDto>(() => {
     const payload: ReformChangesDto = {};
@@ -255,21 +280,35 @@ export default function EventoCambiosCard({
         participantsForm.numEntrenadoresMujeres !==
           selectedForma.numEntrenadoresMujeres;
 
-      if (hasParticipantChanges) {
-        payload.formasParticipacion = [
-          {
-            tipoAval: selectedForma.tipoAval,
-            numEntrenadoresHombres: participantsForm.numEntrenadoresHombres,
-            numEntrenadoresMujeres: participantsForm.numEntrenadoresMujeres,
-            numAtletasHombres: participantsForm.numAtletasHombres,
-            numAtletasMujeres: participantsForm.numAtletasMujeres,
-          },
-        ];
+      if (hasParticipantChanges || hasBudgetChanges) {
+        const forma: ReformFormaParticipacionChanges = {
+          tipoAval: selectedForma.tipoAval,
+          numEntrenadoresHombres: participantsForm.numEntrenadoresHombres,
+          numEntrenadoresMujeres: participantsForm.numEntrenadoresMujeres,
+          numAtletasHombres: participantsForm.numAtletasHombres,
+          numAtletasMujeres: participantsForm.numAtletasMujeres,
+        };
+
+        // El backend reemplaza TODOS los items de la forma por los que vengan
+        // acá (delete + recreate). Si se envía un subconjunto, el resto se
+        // pierde. Por eso, si se toca el presupuesto, van SIEMPRE todos los
+        // items vigentes (tocados o no), nunca un parcial.
+        if (selectedBudgetForma) {
+          forma.items = budgetRows
+            .filter((row) => row.status !== "removed" && typeof row.itemId === "number")
+            .map((row) => ({
+              itemId: row.itemId as number,
+              mes: row.mes,
+              presupuesto: Number.parseFloat(row.presupuesto) || 0,
+            }));
+        }
+
+        payload.formasParticipacion = [forma];
       }
     }
 
     return payload;
-  }, [evento, generalForm, participantsForm, selectedForma]);
+  }, [evento, generalForm, participantsForm, selectedForma, selectedBudgetForma, hasBudgetChanges, budgetRows]);
 
   /** Ítems cuyo nuevo valor difiere del original: baja → recorte (origen),
    * sube → adición (destino) para este mismo evento. */
@@ -321,6 +360,16 @@ export default function EventoCambiosCard({
     });
   }, [budgetRows, selectedBudgetForma]);
 
+  /** true si algún ítem quedó por debajo de lo ya comprometido/ejecutado (backend no lo valida). */
+  const hasBelowMinimoItems = useMemo(() => {
+    if (!selectedBudgetForma) return false;
+
+    return budgetRows.some((row) => {
+      const monto = row.status === "removed" ? 0 : Number.parseFloat(row.presupuesto) || 0;
+      return monto < row.montoMinimo;
+    });
+  }, [budgetRows, selectedBudgetForma]);
+
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -329,10 +378,11 @@ export default function EventoCambiosCard({
     onChangeRef.current({
       cambiosPropuestos: proposedChanges,
       hasUnresolvableBudgetItems,
+      hasBelowMinimoItems,
       formaParticipacionId: selectedBudgetForma?.id ?? null,
       movimientos,
     });
-  }, [proposedChanges, hasUnresolvableBudgetItems, selectedBudgetForma, movimientos]);
+  }, [proposedChanges, hasUnresolvableBudgetItems, hasBelowMinimoItems, selectedBudgetForma, movimientos]);
 
   const handleSelectForma = (value: string) => {
     const formaId = value ? Number(value) : "";
@@ -384,6 +434,7 @@ export default function EventoCambiosCard({
         mes: 1,
         presupuesto: "0",
         status: "new",
+        montoMinimo: 0,
       },
     ]);
     setExpandedBudgetRows((prev) => (prev.includes(localId) ? prev : [...prev, localId]));
@@ -406,45 +457,10 @@ export default function EventoCambiosCard({
     );
   };
 
-  const hasAnyChange = Object.keys(proposedChanges).length > 0 || movimientos.length > 0;
-
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-start justify-between gap-3 px-6 py-4">
-        <button
-          type="button"
-          onClick={() => setCardExpanded((prev) => !prev)}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
-        >
-          <ChevronDown
-            className={`h-5 w-5 shrink-0 text-gray-400 transition-transform ${
-              cardExpanded ? "rotate-180" : ""
-            }`}
-          />
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-gray-900 dark:text-gray-100">
-              {evento.nombre}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {evento.codigo}
-              {hasAnyChange ? " · Con cambios propuestos" : " · Sin cambios"}
-            </p>
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Quitar
-        </button>
-      </div>
-
-      {cardExpanded ? (
-        <div className="space-y-6 border-t border-gray-200 px-6 py-6 dark:border-gray-800">
-          <section>
-            <div className="mb-5 flex items-center gap-3">
+    <div className="space-y-4">
+      <section>
+            <div className="mb-3 flex items-center gap-2">
               <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -456,8 +472,8 @@ export default function EventoCambiosCard({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Nombre del evento
                 </span>
@@ -466,10 +482,10 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, nombre: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Tipo de evento
                 </span>
@@ -478,7 +494,7 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, tipoEvento: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 >
                   <option value="">Selecciona un tipo</option>
                   {EVENTO_TAREA_OPTIONS.map((option) => (
@@ -488,7 +504,7 @@ export default function EventoCambiosCard({
                   ))}
                 </select>
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Alcance
                 </span>
@@ -497,7 +513,7 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, alcance: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 >
                   <option value="">Selecciona un alcance</option>
                   {EVENTO_ALCANCE_OPTIONS.map((option) => (
@@ -507,7 +523,7 @@ export default function EventoCambiosCard({
                   ))}
                 </select>
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Lugar
                 </span>
@@ -516,10 +532,10 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, lugar: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Ciudad
                 </span>
@@ -528,10 +544,10 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, ciudad: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Provincia
                 </span>
@@ -540,10 +556,10 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, provincia: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   País
                 </span>
@@ -552,10 +568,10 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, pais: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Mes programación
                 </span>
@@ -567,7 +583,7 @@ export default function EventoCambiosCard({
                       mesProgramado: e.target.value === "" ? "" : Number(e.target.value),
                     }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 >
                   <option value="">Selecciona un mes</option>
                   {MES_OPCIONES.map((option) => (
@@ -577,7 +593,7 @@ export default function EventoCambiosCard({
                   ))}
                 </select>
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Fecha inicio
                 </span>
@@ -587,10 +603,10 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, fechaInicio: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
-              <label className="space-y-2">
+              <label className="space-y-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Fecha fin
                 </span>
@@ -600,14 +616,14 @@ export default function EventoCambiosCard({
                   onChange={(e) =>
                     setGeneralForm((prev) => ({ ...prev, fechaFin: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                 />
               </label>
             </div>
           </section>
 
           <section>
-            <div className="mb-6 flex items-center gap-3">
+            <div className="mb-3 flex items-center gap-2">
               <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -619,45 +635,55 @@ export default function EventoCambiosCard({
               </div>
             </div>
 
-            <label className="mb-6 block space-y-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Tipo de participación
-              </span>
-              <select
-                value={selectedFormaId === "" ? "" : String(selectedFormaId)}
-                onChange={(e) => handleSelectForma(e.target.value)}
-                disabled={reformFormas.length <= 1}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 disabled:opacity-70 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
-              >
-                <option value="">
-                  {reformFormas.length > 1
-                    ? "Selecciona un tipo de participación"
-                    : "Sin tipos de participación"}
-                </option>
-                {reformFormas.map((forma) => (
-                  <option key={forma.id} value={forma.id}>
-                    {getTipoAvalLabel(forma.tipoAval)}
-                    {forma.referencia?.trim() ? ` - ${forma.referencia.trim()}` : ""}
-                  </option>
-                ))}
-              </select>
-              <span className="block text-xs text-gray-500 dark:text-gray-400">
-                {reformFormas.length === 1
-                  ? "Se seleccionó automáticamente porque este evento solo tiene un tipo de participación."
-                  : "Cada opción muestra el tipo de participación junto con su referencia, si existe."}
-              </span>
-            </label>
+            {reformFormas.length > 1 ? (
+              <label className="mb-4 block space-y-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Tipo de participación
+                </span>
+                <select
+                  value={selectedFormaId === "" ? "" : String(selectedFormaId)}
+                  onChange={(e) => handleSelectForma(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                >
+                  <option value="">Selecciona un tipo de participación</option>
+                  {reformFormas.map((forma) => (
+                    <option key={forma.id} value={forma.id}>
+                      {getTipoAvalLabel(forma.tipoAval)}
+                      {forma.referencia?.trim() ? ` - ${forma.referencia.trim()}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <span className="block text-xs text-gray-500 dark:text-gray-400">
+                  Este evento tiene varios tipos de participación elegibles; cada uno se reforma por
+                  separado.
+                </span>
+              </label>
+            ) : null}
+
+            {selectedForma ? (
+              <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-950/40">
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Tipo de participación
+                </p>
+                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                  {getTipoAvalLabel(selectedForma.tipoAval)}
+                </p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Referencia: {selectedForma.referencia?.trim() || "Sin referencia"}
+                </p>
+              </div>
+            ) : null}
 
             {!selectedForma ? (
               <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-400">
                 {reformFormas.length === 0
-                  ? "Este evento no tiene tipos de participación registrados."
+                  ? "Este evento no tiene tipos de participación elegibles para esta reforma."
                   : "Selecciona un tipo de participación para desplegar la delegación y el presupuesto."}
               </div>
             ) : (
               <div className="grid gap-6">
-                <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <div className="mb-5 flex items-center gap-3">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                  <div className="mb-3 flex items-center gap-2">
                     <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -669,8 +695,8 @@ export default function EventoCambiosCard({
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="space-y-2">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="space-y-1">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Atletas hombres
                       </span>
@@ -685,10 +711,10 @@ export default function EventoCambiosCard({
                             numAtletasHombres: Number(value) || 0,
                           }));
                         }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
-                    <label className="space-y-2">
+                    <label className="space-y-1">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Atletas mujeres
                       </span>
@@ -703,10 +729,10 @@ export default function EventoCambiosCard({
                             numAtletasMujeres: Number(value) || 0,
                           }));
                         }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
-                    <label className="space-y-2">
+                    <label className="space-y-1">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Entrenadores y otro personal (hombres)
                       </span>
@@ -721,10 +747,10 @@ export default function EventoCambiosCard({
                             numEntrenadoresHombres: Number(value) || 0,
                           }));
                         }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
-                    <label className="space-y-2">
+                    <label className="space-y-1">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Entrenadores y otro personal (mujeres)
                       </span>
@@ -739,14 +765,14 @@ export default function EventoCambiosCard({
                             numEntrenadoresMujeres: Number(value) || 0,
                           }));
                         }}
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:focus:border-gray-300"
                       />
                     </label>
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-                  <div className="mb-5 flex items-center justify-between gap-4">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                  <div className="mb-3 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <DollarSign className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                       <div>
@@ -780,14 +806,21 @@ export default function EventoCambiosCard({
                           : "Selecciona un tipo de participación válido para editar su presupuesto."}
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {budgetRows.map((row) => (
+                    <div className="space-y-3">
+                      {budgetRows.map((row) => {
+                        const belowMinimo =
+                          row.status === "removed"
+                            ? row.montoMinimo > 0
+                            : (Number.parseFloat(row.presupuesto) || 0) < row.montoMinimo;
+                        return (
                         <div
                           key={row.localId}
-                          className={`rounded-2xl border p-4 ${
-                            row.status === "removed"
-                              ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20"
-                              : "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950/40"
+                          className={`rounded-2xl border p-3 ${
+                            belowMinimo
+                              ? "border-rose-400 bg-rose-50 dark:border-rose-600 dark:bg-rose-950/20"
+                              : row.status === "removed"
+                                ? "border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/20"
+                                : "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950/40"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -832,6 +865,13 @@ export default function EventoCambiosCard({
                                       </p>
                                     );
                                   })()}
+                                {belowMinimo ? (
+                                  <p className="mt-1 text-xs font-medium text-rose-700 dark:text-rose-400">
+                                    {row.status === "removed"
+                                      ? `No se puede retirar: ya hay ${formatCurrency(row.montoMinimo)} comprometido/ejecutado.`
+                                      : `No puede bajar de ${formatCurrency(row.montoMinimo)} (ya comprometido/ejecutado).`}
+                                  </p>
+                                ) : null}
                               </div>
                               <ChevronDown
                                 className={`mt-0.5 h-5 w-5 shrink-0 text-gray-400 transition-transform ${
@@ -855,7 +895,7 @@ export default function EventoCambiosCard({
 
                           {expandedBudgetRows.includes(row.localId) ? (
                             <div className="mt-4 grid gap-4 border-t border-gray-200 pt-4 md:grid-cols-2 dark:border-gray-800">
-                              <label className="space-y-2">
+                              <label className="space-y-1">
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Item presupuestario
                                 </span>
@@ -868,7 +908,7 @@ export default function EventoCambiosCard({
                                       e.target.value ? Number(e.target.value) : "",
                                     )
                                   }
-                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300"
+                                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300"
                                   disabled={row.status === "removed"}
                                 >
                                   <option value="">Selecciona un item</option>
@@ -879,7 +919,7 @@ export default function EventoCambiosCard({
                                   ))}
                                 </select>
                               </label>
-                              <label className="space-y-2">
+                              <label className="space-y-1">
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Mes
                                 </span>
@@ -888,7 +928,7 @@ export default function EventoCambiosCard({
                                   onChange={(e) =>
                                     handleBudgetChange(row.localId, "mes", Number(e.target.value) || 1)
                                   }
-                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300"
+                                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300"
                                   disabled={row.status === "removed"}
                                 >
                                   {MES_OPCIONES.map((option) => (
@@ -911,14 +951,24 @@ export default function EventoCambiosCard({
                                     const cleanValue = value.replace(/\.(?=.*\.)/g, "");
                                     handleBudgetChange(row.localId, "presupuesto", cleanValue);
                                   }}
-                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300"
+                                  className={`w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none transition focus:border-gray-900 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-gray-300 ${
+                                    belowMinimo
+                                      ? "border-rose-400 dark:border-rose-500"
+                                      : "border-gray-300 dark:border-gray-700"
+                                  }`}
                                   disabled={row.status === "removed"}
                                 />
+                                {row.montoMinimo > 0 ? (
+                                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                    Mínimo: {formatCurrency(row.montoMinimo)} (ya comprometido/ejecutado)
+                                  </span>
+                                ) : null}
                               </label>
                             </div>
                           ) : null}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </section>
@@ -932,8 +982,13 @@ export default function EventoCambiosCard({
               reforma con sus <code>itemId</code> reales.
             </div>
           ) : null}
-        </div>
-      ) : null}
-    </section>
+
+          {hasBelowMinimoItems ? (
+            <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-300">
+              Uno o más ítems quedaron por debajo de lo ya comprometido o ejecutado. Esa plata ya
+              está gastada: no se puede recortar. Subí el valor de vuelta al mínimo indicado.
+            </div>
+          ) : null}
+    </div>
   );
 }

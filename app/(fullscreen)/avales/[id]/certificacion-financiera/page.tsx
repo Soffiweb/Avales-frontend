@@ -709,6 +709,7 @@ export default function CertificacionFinancieraPage() {
                   aval.revisionDtm?.createdAt ??
                   aval.createdAt
                 }
+                descripcion={aval.revisionDtm?.descripcion ?? ""}
                 observacion={aval.revisionDtm?.observacion ?? ""}
                 firmanteNombre={aval.revisionDtm?.firmanteNombre ?? ""}
                 firmanteCargo={aval.revisionDtm?.firmanteCargo ?? ""}

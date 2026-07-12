@@ -651,6 +651,7 @@ export default function RevisionDtmPage() {
               <AvalTecnicoCompetitivoPreview
                 aval={aval}
                 fechaEmision={draft.fechaPresentacion}
+                descripcion={draft.descripcion}
                 observacion={draft.observacion}
                 firmanteNombre={draft.firmanteNombre || defaultSignerName}
                 firmanteCargo={draft.firmanteCargo || defaultSignerCargo}

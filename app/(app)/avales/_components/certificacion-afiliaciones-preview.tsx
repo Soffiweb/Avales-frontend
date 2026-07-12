@@ -1,10 +1,12 @@
 import type { Aval } from "@/types/aval";
+import { buildAfiliacionDescriptor } from "avales-shared";
+import type { AfiliacionInput } from "avales-shared";
 import {
-  formatDateDMY,
-  getCalendarDateParts,
+  formatDateWithOptions,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 
+// Exportados por compatibilidad con las páginas que importan estas constantes.
 export const SECRETARIA_DTM_NOMBRE_DEFAULT = "SECRETARIA DEL DTM";
 export const SECRETARIA_DTM_CARGO_DEFAULT = "SECRETARIA DEL DTM - FDPL";
 
@@ -20,156 +22,155 @@ type Props = {
   aval: Aval;
   secretariaNombre: string;
   secretariaCargo: string;
-  /** Sobrescribe los deportistas de aval.avalTecnico (útil cuando hay ediciones no guardadas). */
   deportistasOverride?: DeportistaRow[];
-  /** Sobrescribe el nombre del entrenador responsable cuando aval.entrenadores no está poblado. */
   entrenadorNombreOverride?: string;
-  /** Error de fetch de secretaria — muestra en el documento para debug. */
   secretariaErrorDebug?: string;
 };
 
-const PREVIEW_MONTHS_ABBR = [
-  "ENE", "FEB", "MAR", "ABR", "MAY", "JUN",
-  "JUL", "AGO", "SEP", "OCT", "NOV", "DIC",
-];
-
-function formatBirthDate(value?: string | null) {
-  const parts = getCalendarDateParts(value);
-  if (!parts) return "-";
-  const dia = String(parts.day).padStart(2, "0");
-  return `${dia}/${PREVIEW_MONTHS_ABBR[parts.month - 1]}/${parts.year}`;
+/** Nombre corto del entrenador: "Yasmir Laucerica ..." → "Yasmir L." */
+function shortTrainerName(fullName: string): string {
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
+  return fullName;
 }
 
 export default function CertificacionAfiliacionesPreview({
   aval,
-  secretariaNombre,
-  secretariaCargo,
-  deportistasOverride,
   entrenadorNombreOverride,
-  secretariaErrorDebug,
 }: Props) {
-  const tecnico = aval.avalTecnico;
   const evento = aval.evento;
-  const disciplina = evento?.disciplina?.nombre?.toUpperCase() ?? "SIN DISCIPLINA";
-  const entrenadorResponsable = (
-    entrenadorNombreOverride?.trim() ||
-    getResponsibleTrainerName(aval, "")
-  ).toUpperCase() || "ENTRENADOR RESPONSABLE";
-  const year = new Date().getFullYear();
+  const provincia = evento?.provincia ?? "";
+  const responsable = (
+    entrenadorNombreOverride?.trim() || getResponsibleTrainerName(aval, "")
+  ).trim();
+  const entrenadorCanton = [
+    responsable ? shortTrainerName(responsable) : "",
+    provincia,
+  ]
+    .filter(Boolean)
+    .join("-");
 
-  const deportistas: DeportistaRow[] = deportistasOverride ?? (tecnico?.deportistasAval ?? []).map((item) => {
-    const withExtras = item as typeof item & {
-      observacion?: string | null;
-      deportista: typeof item.deportista & { fechaNacimiento?: string | null };
-    };
+  const deportistas: AfiliacionInput["deportistas"] = (
+    aval.avalTecnico?.deportistasAval ?? []
+  ).map((item) => {
+    const payload = (item.deportista?.payload ??
+      (item as { payload?: unknown }).payload ??
+      {}) as Record<string, unknown>;
+    const apellidos =
+      item.deportista?.apellidos ??
+      (item as { apellidos?: string }).apellidos ??
+      "";
+    const nombres =
+      item.deportista?.nombres ??
+      item.deportista?.nombre ??
+      (item as { nombres?: string }).nombres ??
+      "";
+    const cedula =
+      item.deportista?.cedula ??
+      (item as { cedula?: string }).cedula ??
+      "";
     return {
-      id: item.deportista?.id ?? item.id,
-      nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
-      cedula: item.deportista?.cedula ?? "-",
-      fechaNacimiento: withExtras.deportista?.fechaNacimiento,
-      observacion: withExtras.observacion,
+      apellidosNombres: `${apellidos} ${nombres}`.trim() || item.deportista?.nombre || "-",
+      cedula,
+      fechaNacimiento: payload.fechaNacimiento as string | undefined,
+      afiliado: Boolean(payload.afiliado),
+      categoria: evento?.categoria?.nombre,
+      entrenadorCanton,
     };
   });
 
-  const fechaEmisionDisplay = formatDateDMY(aval.fechaEmision) || "-";
+  const fechaDoc = formatDateWithOptions(aval.fechaEmision, {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    fallback: "",
+  });
+
+  const doc = buildAfiliacionDescriptor({
+    deporte: evento?.disciplina?.nombre,
+    categoria: evento?.categoria?.nombre,
+    evento: evento?.nombre,
+    fechaDocumento: fechaDoc ? `Loja, ${fechaDoc}` : "",
+    entrenadorCanton,
+    deportistas,
+  });
+
+  const cell = "border border-slate-400 px-1.5 py-1 align-top";
 
   return (
-    <div className="bg-white p-5 xl:p-6 border border-slate-300 text-slate-900">
-      {/* Encabezado: destinatario */}
-      <div className="text-[13px] leading-5 space-y-0.5">
-        <p>Lic.</p>
-        <p className="font-semibold uppercase">{entrenadorResponsable}</p>
-        <p className="uppercase">ENTRENADOR DE {disciplina} DE FDPL</p>
-        <p>Ciudad.-</p>
-      </div>
-
-      <p className="mt-4 text-[13px] leading-5">De mis consideraciones:</p>
-
-      <p className="mt-3 text-[13px] leading-5">
-        Por medio de la presente me permito dirigirme a usted, para extender mi cordial saludo y
-        desearle lo mejor al frente de las actividades encomendadas para el desarrollo del deporte
-        de nuestra ciudad y provincia de Loja.
+    <div className="bg-white p-4 xl:p-6 border border-slate-300 text-slate-900">
+      <h2 className="text-center text-base font-bold">{doc.title}</h2>
+      <p className="mt-1 text-center text-[11px] text-slate-600">
+        <span className="font-semibold">Deporte:</span> {doc.deporte} &nbsp;
+        <span className="font-semibold">Evento:</span> {doc.evento} &nbsp;
+        <span className="font-semibold">Fecha:</span> {doc.fechaDocumento}
       </p>
 
-      <p className="mt-3 text-[13px] leading-5 font-semibold">
-        A lo solicitado por usted mediante el AVAL TÉCNICO DE PARTICIPACIÓN COMPETITIVA DEL DEPORTE
-        DEL &quot;{disciplina}&quot; Presentado en esta dependencia el {year}.
-      </p>
-
-      <p className="mt-3 text-[13px] leading-5">
-        Certifico que una vez revisados los archivos que se mantienen en la Secretaría de la FDPL
-        relacionados con la &quot;AFILIACIÓN {year} de los deportistas de FDPL&quot;. Me permito
-        informarle lo siguiente:
-      </p>
-
-      {/* Tabla de deportistas */}
-      <div className="mt-4 overflow-x-auto">
-        <table className="min-w-full border-collapse text-[11px]">
-          <thead>
-            <tr className="bg-cyan-200">
-              {["No.", "APELLIDOS Y NOMBRES", "CÉDULA", "FECHA DE NAC.", "OBSERVACIONES"].map(
-                (col) => (
-                  <th
-                    key={col}
-                    className="border border-slate-500 px-2 py-1.5 text-left font-semibold"
-                  >
-                    {col}
-                  </th>
-                ),
-              )}
+      <div className="mt-3 overflow-x-auto">
+        <table className="min-w-[900px] w-full border-collapse text-[10px]">
+          <thead className="bg-slate-100">
+            <tr>
+              {doc.headers.datosGenerales.map((h) => (
+                <th key={h} className={`${cell} font-semibold text-center`} rowSpan={2}>
+                  {h}
+                </th>
+              ))}
+              <th className={`${cell} font-semibold text-center`} colSpan={4}>
+                ESTADO DE PREPARACIÓN
+              </th>
+              <th className={`${cell} font-semibold text-center`} rowSpan={2}>
+                {doc.headers.pruebas}
+              </th>
+              <th className={`${cell} font-semibold text-center`} rowSpan={2}>
+                {doc.headers.marcas}
+              </th>
+              <th className={`${cell} font-semibold text-center`} colSpan={2}>
+                PROPÓSITOS
+              </th>
+            </tr>
+            <tr>
+              {doc.headers.estadoPreparacion.map((h) => (
+                <th key={h} className={`${cell} font-semibold text-center`}>
+                  {h}
+                </th>
+              ))}
+              {doc.headers.propositos.map((h) => (
+                <th key={h} className={`${cell} font-semibold text-center`}>
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {deportistas.length === 0 ? (
+            {doc.deportistas.length === 0 ? (
               <tr>
-                <td
-                  colSpan={5}
-                  className="border border-slate-400 px-2 py-3 text-center text-slate-500"
-                >
+                <td colSpan={15} className={`${cell} text-center text-slate-500`}>
                   Sin deportistas registrados.
                 </td>
               </tr>
             ) : (
-              deportistas.map((d, index) => (
-                <tr key={d.id}>
-                  <td className="border border-slate-400 px-2 py-1 text-center align-top">
-                    {index + 1}
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1 align-top">{d.nombre}</td>
-                  <td className="border border-slate-400 px-2 py-1 align-top">{d.cedula}</td>
-                  <td className="border border-slate-400 px-2 py-1 align-top">
-                    {formatBirthDate(d.fechaNacimiento)}
-                  </td>
-                  <td className="border border-slate-400 px-2 py-1 align-top font-semibold">
-                    {d.observacion?.trim() || `AFILIADO/A ${year}`}
-                  </td>
+              doc.deportistas.map((d) => (
+                <tr key={`${d.numero}-${d.cedula}`}>
+                  <td className={`${cell} text-center`}>{d.numero}</td>
+                  <td className={cell}>{d.apellidosNombres}</td>
+                  <td className={`${cell} text-center`}>{d.afiliacion}</td>
+                  <td className={`${cell} text-center`}>{d.categoria}</td>
+                  <td className={cell}>{d.entrenadorCanton}</td>
+                  <td className={`${cell} text-center`}>{d.cedula}</td>
+                  <td className={`${cell} text-center`}>{d.fechaNacimiento}</td>
+                  <td className={cell}>{d.estadoFisico}</td>
+                  <td className={cell}>{d.estadoTecTac}</td>
+                  <td className={cell}>{d.estadoTeorico}</td>
+                  <td className={cell}>{d.estadoPsic}</td>
+                  <td className={cell}>{d.pruebas}</td>
+                  <td className={cell}>{d.marcas}</td>
+                  <td className={cell}>{d.propositoMarcas}</td>
+                  <td className={cell}>{d.propositoUbicacion}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
-      </div>
-
-      {/* Firmante */}
-      <div className="pt-6 text-[12px]">
-        <p>Atentamente,</p>
-        <div className="mt-8">
-          <p className="text-slate-400">____________________________</p>
-          {secretariaErrorDebug && !secretariaNombre.trim() ? (
-            <p className="text-rose-500 text-[10px] font-mono break-all">
-              ⚠ {secretariaErrorDebug}
-            </p>
-          ) : (
-            <>
-              <p className="font-semibold uppercase">
-                {secretariaNombre.trim() || SECRETARIA_DTM_NOMBRE_DEFAULT}
-              </p>
-              <p className="uppercase">
-                {secretariaCargo.trim() || SECRETARIA_DTM_CARGO_DEFAULT}
-              </p>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

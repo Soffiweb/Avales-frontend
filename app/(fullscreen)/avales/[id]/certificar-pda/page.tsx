@@ -20,6 +20,13 @@ import {
 } from "@/app/(app)/avales/_components/aval-document-preview";
 import { type PdaDraft } from "@/app/(app)/avales/_components/pda-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
+import ResponsableAnticipoPicker, {
+  EMPTY_RESPONSABLE_ANTICIPO,
+  buildResponsableAnticipoPayload,
+  getResponsableAnticipoPreviewLabel,
+  validateResponsableAnticipoDraft,
+  type ResponsableAnticipoDraft,
+} from "@/app/(app)/avales/_components/responsable-anticipo-picker";
 import AlertBanner from "@/components/ui/alert-banner";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import { isPdaUser } from "@/lib/auth/access";
@@ -502,6 +509,10 @@ export default function CertificarAvalPage() {
   const [notas, setNotas] = useState<NotaDraft[]>([]);
   const [editableNotas, setEditableNotas] = useState<boolean[]>([]);
   const [notesInitialized, setNotesInitialized] = useState(false);
+  const [responsableAnticipo, setResponsableAnticipo] =
+    useState<ResponsableAnticipoDraft>(EMPTY_RESPONSABLE_ANTICIPO);
+  const [responsableAnticipoInitialized, setResponsableAnticipoInitialized] =
+    useState(false);
   // Autosave desactivado — refs y state conservados comentados por si se reactiva
   // const [draftRestoredAt, setDraftRestoredAt] = useState<Date | null>(null);
   // const [draftToastVisible, setDraftToastVisible] = useState(false);
@@ -568,8 +579,13 @@ export default function CertificarAvalPage() {
         return "Todos los ítems deben tener no. días y cantidad mayores a 0, y valor unitario mayor o igual a 0.";
       }
 
+      const responsableAnticipoError = validateResponsableAnticipoDraft(
+        responsableAnticipo,
+      );
+      if (responsableAnticipoError) return responsableAnticipoError;
+
       return null;
-    }, [draft, budgetDraftItems]),
+    }, [draft, budgetDraftItems, responsableAnticipo]),
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
         const items = budgetDraftItems
@@ -621,6 +637,7 @@ export default function CertificarAvalPage() {
           cargoFirmante: draft.cargoFirmante?.trim() || undefined,
           items: items.length > 0 ? items : undefined,
           notas: notasPayload.length > 0 ? notasPayload : undefined,
+          ...buildResponsableAnticipoPayload(responsableAnticipo),
         };
 
         avalFlowDebugLog("pda", "payload de aprobacion listo", {
@@ -639,7 +656,7 @@ export default function CertificarAvalPage() {
         }
         autosaveRef.current.clear();
       },
-      [draft, budgetDraftItems, notas, autosaveRef],
+      [draft, budgetDraftItems, notas, responsableAnticipo, autosaveRef],
     ),
     onRejectSuccess: useCallback(() => { autosaveRef.current.clear(); }, [autosaveRef]),
     approveSuccessMessage: "PDA aprobado correctamente.",
@@ -653,6 +670,8 @@ export default function CertificarAvalPage() {
     setNotas([]);
     setEditableNotas([]);
     setNotesInitialized(false);
+    setResponsableAnticipo(EMPTY_RESPONSABLE_ANTICIPO);
+    setResponsableAnticipoInitialized(false);
     autosaveRestoredRef.current = false;
   }, [avalId]);
 
@@ -667,6 +686,32 @@ export default function CertificarAvalPage() {
     setEditableNotas(initialNotas.map(() => fromBd));
     setNotesInitialized(true);
   }, [notesInitialized, aval]);
+
+  // Precarga el responsable del anticipo ya guardado en el aval (una sola vez).
+  useEffect(() => {
+    if (responsableAnticipoInitialized) return;
+    if (!aval) return;
+    const tecnico = aval.avalTecnico;
+    if (tecnico?.responsableAnticipoId != null) {
+      setResponsableAnticipo({
+        mode: "usuario",
+        usuarioId: tecnico.responsableAnticipoId,
+        usuarioNombre: tecnico.responsableAnticipoNombre ?? undefined,
+        usuarioDocumento: tecnico.responsableAnticipoNumeroDocumento ?? undefined,
+        nombre: "",
+        tipoDocumento: "",
+        numeroDocumento: "",
+      });
+    } else if (tecnico?.responsableAnticipoNombre?.trim()) {
+      setResponsableAnticipo({
+        mode: "manual",
+        nombre: tecnico.responsableAnticipoNombre,
+        tipoDocumento: tecnico.responsableAnticipoTipoDocumento ?? "",
+        numeroDocumento: tecnico.responsableAnticipoNumeroDocumento ?? "",
+      });
+    }
+    setResponsableAnticipoInitialized(true);
+  }, [responsableAnticipoInitialized, aval]);
 
   const handleNotaChange = useCallback((index: number, value: string) => {
     setNotas((prev) =>
@@ -799,6 +844,11 @@ export default function CertificarAvalPage() {
     [totalPresupuestoDraft, totalPresupuestoOriginal],
   );
   const totalMatches = Math.abs(totalDifference) < 0.01;
+
+  const responsableAnticipoPreviewLabel = useMemo(
+    () => getResponsableAnticipoPreviewLabel(responsableAnticipo),
+    [responsableAnticipo],
+  );
 
   const budgetPreviewItems = useMemo(
     () =>
@@ -1089,59 +1139,22 @@ export default function CertificarAvalPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {/* Descripcion comentada — se gestiona en Certificación Financiera
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Descripcion del certificado
-                  </span>
-                  <textarea
-                    className="form-textarea w-full mt-1"
-                    rows={4}
-                    value={draft.descripcion}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) => setDraft((prev) => ({ ...prev, descripcion: e.target.value }))}
-                    placeholder="Escribe la descripcion que va en la parte superior del certificado..."
-                  />
-                </label>
-                */}
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Nombre firmante
-                  </span>
-                  <input
-                    className="form-input w-full mt-1"
-                    value={draft.nombreFirmante}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        nombreFirmante: e.target.value,
-                      }))
-                    }
-                    placeholder="Ej: Lic. Juan Perez"
-                  />
-                </label>
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Cargo firmante
-                  </span>
-                  <input
-                    className="form-input w-full mt-1"
-                    value={draft.cargoFirmante}
-                    readOnly={!isEditable}
-                    disabled={!isEditable}
-                    onChange={(e) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        cargoFirmante: e.target.value,
-                      }))
-                    }
-                    placeholder="Ej: Metodologo Provincial"
-                  />
-                </label>
+              <div className="space-y-3 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Responsable del anticipo
+                  </h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Quien recibe el anticipo del presupuesto. Si no seleccionas
+                    a nadie, se mantiene el responsable ya guardado (o el
+                    creador del aval por defecto).
+                  </p>
+                </div>
+                <ResponsableAnticipoPicker
+                  value={responsableAnticipo}
+                  onChange={setResponsableAnticipo}
+                  disabled={!isEditable}
+                />
               </div>
 
               {/* Presupuesto por fuente */}
@@ -1514,6 +1527,52 @@ export default function CertificarAvalPage() {
                 </div>
               </div>
 
+              <div className="space-y-3 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Firmante
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="block md:col-span-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Nombre firmante
+                    </span>
+                    <input
+                      className="form-input w-full mt-1"
+                      value={draft.nombreFirmante}
+                      readOnly={!isEditable}
+                      disabled={!isEditable}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          nombreFirmante: e.target.value,
+                        }))
+                      }
+                      placeholder="Ej: Lic. Juan Perez"
+                    />
+                  </label>
+                  <label className="block md:col-span-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Cargo firmante
+                    </span>
+                    <input
+                      className="form-input w-full mt-1"
+                      value={draft.cargoFirmante}
+                      readOnly={!isEditable}
+                      disabled={!isEditable}
+                      onChange={(e) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          cargoFirmante: e.target.value,
+                        }))
+                      }
+                      placeholder="Ej: Metodologo Provincial"
+                    />
+                  </label>
+                </div>
+              </div>
+
               {isEditable && (
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-3">
                   <div>
@@ -1622,6 +1681,10 @@ export default function CertificarAvalPage() {
                   numeroAval: draft.numeroAval,
                   pdaFirmanteNombre: draft.nombreFirmante,
                   pdaFirmanteCargo: draft.cargoFirmante,
+                  responsableAnticipoNombre:
+                    responsableAnticipoPreviewLabel.nombre,
+                  responsableAnticipoDocumento:
+                    responsableAnticipoPreviewLabel.documento,
                 }}
               />
             </PreviewCollapsible>

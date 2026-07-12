@@ -1916,7 +1916,6 @@ export default function AvalDetailPage() {
             comprasPublicas: aval.comprasPublicasPdfUrl,
             revisionMetodologo: aval.revisionMetodologoUrl,
             revisionDtm: aval.revisionDtmUrl,
-            presupuestoSalida: aval.presupuestoSalidaUrl,
             certificacionPresupuestaria: aval.certificacionPresupuestariaUrl,
             escuelaIniciacion: aval.escuelaIniciacionPdfUrl,
             convocatoria: aval.convocatoriaUrl,

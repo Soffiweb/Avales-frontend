@@ -2,6 +2,7 @@ import type {
   EtapaFlujo,
   ModalidadParticipacion,
   TipoAval,
+  TipoDocumentoIdentidad,
 } from "@/types/aval";
 import {
   EVENTO_CATEGORIA_OPTIONS as EVENTO_CATEGORIA_OPTIONS_SOURCE,
@@ -312,6 +313,23 @@ export function getTipoAvalLabel(value?: string | null): string {
   if (!value) return "Sin tipo";
   return (
     TIPO_AVAL_OPTIONS.find((option) => option.value === value)?.label ?? value
+  );
+}
+
+export const TIPO_DOCUMENTO_OPTIONS: Array<{
+  value: TipoDocumentoIdentidad;
+  label: string;
+}> = [
+  { value: "CEDULA", label: "Cédula" },
+  { value: "RUC", label: "RUC" },
+  { value: "PASAPORTE", label: "Pasaporte" },
+];
+
+export function getTipoDocumentoLabel(value?: string | null): string {
+  if (!value) return "-";
+  return (
+    TIPO_DOCUMENTO_OPTIONS.find((option) => option.value === value)?.label ??
+    value
   );
 }
 

@@ -33,6 +33,8 @@ export type CatalogItemSimple = {
 
 export type OrigenAvalRequerimiento = "PDA" | "MANUAL";
 
+export type TipoDocumentoIdentidad = "CEDULA" | "RUC" | "PASAPORTE";
+
 export type TipoCoberturaAval = "DINERO" | "ESPECIE";
 
 export type ActividadSimple = {
@@ -241,6 +243,12 @@ export type AvalTecnico = {
     ruc?: string | null;
     usarRuc?: boolean;
   } | null;
+  // Responsable del anticipo/presupuesto (PDA, Financiero). Si no se define
+  // explícitamente, el backend usa al creador del aval.
+  responsableAnticipoId?: number | null;
+  responsableAnticipoNombre?: string | null;
+  responsableAnticipoTipoDocumento?: TipoDocumentoIdentidad | null;
+  responsableAnticipoNumeroDocumento?: string | null;
   descripcion?: string | null;
   archivo?: string | null;
   numeroAval?: string | null;

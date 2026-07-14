@@ -63,6 +63,7 @@ type RoleFlags = {
   isMetodologo: boolean;
   isDTM: boolean;
   isControlPrevio: boolean;
+  isAdmin: boolean;
   isFinanciero: boolean;
   isTrainer: boolean;
 };
@@ -79,10 +80,19 @@ function isAvalPendingForUser(
   const canAct = isProcessable && !wasRecentlyRejected;
 
   if (canAct) {
-    if (flags.isPda && etapa === "SOLICITUD") return true;
+    if (flags.isPda) {
+      const flow = getApprovalFlowStages(aval);
+      const pdaStage =
+        getPreviousApprovalStagesForAval(aval, "PDA").at(-1) ?? "SOLICITUD";
+      if (flow.includes("PDA") && etapa === pdaStage) return true;
+    }
     if (flags.isComprasPublicas) {
       const flow = getApprovalFlowStages(aval);
-      if (flow.includes("COMPRAS_PUBLICAS") && etapa === "PDA") return true;
+      const comprasStage =
+        getPreviousApprovalStagesForAval(aval, "COMPRAS_PUBLICAS").at(-1) ??
+        "COMPRAS_PUBLICAS";
+      if (flow.includes("COMPRAS_PUBLICAS") && etapa === comprasStage)
+        return true;
     }
     if (flags.isMetodologo) {
       const metStage =
@@ -90,17 +100,30 @@ function isAvalPendingForUser(
         "SOLICITUD";
       if (etapa === metStage) return true;
     }
-    if (flags.isDTM && etapa === "REVISION_METODOLOGO") return true;
+    if (flags.isDTM) {
+      const dtmStage =
+        getPreviousApprovalStagesForAval(aval, "REVISION_DTM").at(-1) ??
+        "REVISION_METODOLOGO";
+      if (etapa === dtmStage) return true;
+    }
     if (flags.isControlPrevio) {
       const flow = getApprovalFlowStages(aval);
-      if (flow.includes("CONTROL_PREVIO") && etapa === "REVISION_DTM")
-        return true;
+      const cpStage =
+        getPreviousApprovalStagesForAval(aval, "CONTROL_PREVIO").at(-1) ??
+        "REVISION_DTM";
+      if (flow.includes("CONTROL_PREVIO") && etapa === cpStage) return true;
+    }
+    if (flags.isAdmin) {
+      const flow = getApprovalFlowStages(aval);
+      const adminStage =
+        getPreviousApprovalStagesForAval(aval, "ADMINISTRADOR").at(-1) ??
+        "CONTROL_PREVIO";
+      if (flow.includes("ADMINISTRADOR") && etapa === adminStage) return true;
     }
     if (flags.isFinanciero) {
-      const flow = getApprovalFlowStages(aval);
-      const finStage = flow.includes("CONTROL_PREVIO")
-        ? "CONTROL_PREVIO"
-        : "REVISION_DTM";
+      const finStage =
+        getPreviousApprovalStagesForAval(aval, "FINANCIERO").at(-1) ??
+        "CONTROL_PREVIO";
       if (etapa === finStage) return true;
     }
   }
@@ -223,6 +246,7 @@ export default function AvalesPage() {
     isMetodologo,
     isDTM,
     isControlPrevio,
+    isAdmin,
     isFinanciero,
     isTrainer,
   };

@@ -22,6 +22,7 @@ export type EtapaFlujo =
   | "COMPRAS_PUBLICAS"
   | "CONTROL_PREVIO"
   | "SECRETARIA"
+  | "ADMINISTRADOR"
   | "FINANCIERO";
 
 export type Genero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
@@ -532,6 +533,7 @@ export type AvalFormSectionKey =
   | "REVISION_METODOLOGO"
   | "REVISION_DTM"
   | "CONTROL_PREVIO"
+  | "ADMINISTRADOR"
   | "FINANCIERO"
   | "PRESUPUESTO"
   | "PARTICIPANTES";

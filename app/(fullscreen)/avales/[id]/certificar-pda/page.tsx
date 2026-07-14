@@ -555,7 +555,8 @@ export default function CertificarAvalPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isPdaUser,
-    editableEtapa: "SOLICITUD",
+    editableEtapa: (currentAval) =>
+      getPreviousApprovalStagesForAval(currentAval, "PDA").at(-1) ?? "SOLICITUD",
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,

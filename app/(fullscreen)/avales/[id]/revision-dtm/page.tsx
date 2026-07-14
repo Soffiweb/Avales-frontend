@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
+import { getPreviousApprovalStagesForAval } from "@/lib/approval-flow";
 import {
   aprobarAval,
   adminSaveRevisionDtm,
@@ -195,7 +196,11 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 }
 
 const APPROVAL_ETAPA: EtapaFlujo = "REVISION_DTM";
-const EDITABLE_ETAPA: EtapaFlujo = "REVISION_METODOLOGO";
+// La etapa editable del DTM es la inmediatamente anterior en el flujo real,
+// no un valor fijo (el orden de etapas puede variar por tipo de aval).
+const EDITABLE_ETAPA = (currentAval: Aval | null): EtapaFlujo =>
+  getPreviousApprovalStagesForAval(currentAval, "REVISION_DTM").at(-1) ??
+  "REVISION_METODOLOGO";
 
 export default function RevisionDtmPage() {
   const params = useParams();

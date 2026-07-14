@@ -142,10 +142,35 @@ export default function AvalListCard({
       {avales.map((aval) => {
         const etapaParaMostrar = getAvalCurrentEtapa(aval) as EtapaFlujo;
         const flowStages = getApprovalFlowStages(aval);
-        const metodologoSourceStage =
-          getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(
-            -1,
-          ) ?? ("SOLICITUD" as EtapaFlujo);
+        const sourceStageOf = (stage: EtapaFlujo, fallback: EtapaFlujo) =>
+          (getPreviousApprovalStagesForAval(aval, stage).at(-1) as
+            | EtapaFlujo
+            | undefined) ?? fallback;
+        const metodologoSourceStage = sourceStageOf(
+          "REVISION_METODOLOGO",
+          "SOLICITUD" as EtapaFlujo,
+        );
+        const pdaSourceStage = sourceStageOf("PDA", "SOLICITUD" as EtapaFlujo);
+        const comprasSourceStage = sourceStageOf(
+          "COMPRAS_PUBLICAS",
+          "COMPRAS_PUBLICAS" as EtapaFlujo,
+        );
+        const dtmSourceStage = sourceStageOf(
+          "REVISION_DTM",
+          "REVISION_METODOLOGO" as EtapaFlujo,
+        );
+        const controlPrevioSourceStage = sourceStageOf(
+          "CONTROL_PREVIO",
+          "REVISION_DTM" as EtapaFlujo,
+        );
+        const administradorSourceStage = sourceStageOf(
+          "ADMINISTRADOR",
+          "CONTROL_PREVIO" as EtapaFlujo,
+        );
+        const financieroSourceStage = sourceStageOf(
+          "FINANCIERO",
+          "CONTROL_PREVIO" as EtapaFlujo,
+        );
 
         // Solo se puede actuar si el aval está SOLICITADO y la etapa actual
         // matchea con el rol del usuario. Además, si el último evento del
@@ -157,7 +182,10 @@ export default function AvalListCard({
         const wasRecentlyRejected = lastHistorial?.estado === "RECHAZADO";
         const stageMatchesRole = (role: EtapaFlujo) =>
           isProcessable && !wasRecentlyRejected && etapaParaMostrar === role;
-        const canPdaAct = isPda && stageMatchesRole("SOLICITUD" as EtapaFlujo);
+        const canPdaAct =
+          flowStages.includes("PDA") &&
+          isPda &&
+          stageMatchesRole(pdaSourceStage);
         const isAvalOwner =
           isTrainer &&
           userId !== undefined &&
@@ -172,22 +200,20 @@ export default function AvalListCard({
         const canComprasAct =
           flowStages.includes("COMPRAS_PUBLICAS") &&
           isComprasPublicas &&
-          stageMatchesRole("PDA" as EtapaFlujo);
+          stageMatchesRole(comprasSourceStage);
         const canMetodologoAct =
           isMetodologo && stageMatchesRole(metodologoSourceStage);
-        const canDtmAct =
-          isDtm && stageMatchesRole("REVISION_METODOLOGO" as EtapaFlujo);
+        const canDtmAct = isDtm && stageMatchesRole(dtmSourceStage);
         const canControlPrevioAct =
           flowStages.includes("CONTROL_PREVIO") &&
           isControlPrevio &&
-          stageMatchesRole("REVISION_DTM" as EtapaFlujo);
+          stageMatchesRole(controlPrevioSourceStage);
+        const canAdministradorAct =
+          flowStages.includes("ADMINISTRADOR") &&
+          isAdmin &&
+          stageMatchesRole(administradorSourceStage);
         const canFinancieroAct =
-          isFinanciero &&
-          stageMatchesRole(
-            flowStages.includes("CONTROL_PREVIO")
-              ? ("CONTROL_PREVIO" as EtapaFlujo)
-              : ("REVISION_DTM" as EtapaFlujo),
-          );
+          isFinanciero && stageMatchesRole(financieroSourceStage);
         const isFlowApproved = isAvalFlowApproved(aval);
         const displayStage = isFlowApproved
           ? getFinalApprovalStageForAval(aval)
@@ -384,6 +410,15 @@ export default function AvalListCard({
                       >
                         <Eye className="w-4 h-4" />
                         Revisar
+                      </Link>
+                    )}
+                    {canAdministradorAct && (
+                      <Link
+                        href={`/avales/${aval.id}/aprobar-administrador`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                      >
+                        <Stamp className="w-4 h-4" />
+                        Aprobar
                       </Link>
                     )}
                     {canFinancieroAct && (

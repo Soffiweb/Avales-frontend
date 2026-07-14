@@ -216,6 +216,7 @@ const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
   REVISION_METODOLOGO: "Metodólogo",
   REVISION_DTM: "DTM",
   CONTROL_PREVIO: "Control Previo",
+  ADMINISTRADOR: "Administrador",
   FINANCIERO: "Aprobado",
   SECRETARIA: "Secretaría",
 };

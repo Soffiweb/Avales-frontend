@@ -370,12 +370,12 @@ export function getAllowedModalidadesByTipoAval(
 
 export const APPROVAL_STAGE_FLOW: EtapaFlujo[] = [
   "SOLICITUD",
-  "PDA",
-  "COMPRAS_PUBLICAS",
   "REVISION_METODOLOGO",
   "REVISION_DTM",
+  "COMPRAS_PUBLICAS",
+  "PDA",
   "CONTROL_PREVIO",
-  "SECRETARIA",
+  "ADMINISTRADOR",
   "FINANCIERO",
 ];
 
@@ -387,6 +387,7 @@ export const APPROVAL_STAGE_LABELS: Record<EtapaFlujo, string> = {
   COMPRAS_PUBLICAS: "Certificación Compras Públicas",
   CONTROL_PREVIO: "Revisado por Control Previo",
   SECRETARIA: "Revisado por Secretaría",
+  ADMINISTRADOR: "Aprobado por el Administrador",
   FINANCIERO: "Ya está aprobado",
 };
 

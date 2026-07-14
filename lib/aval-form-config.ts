@@ -15,21 +15,25 @@ function buildSections(currentEtapa: EtapaFlujo, aval: Aval): AvalFormSectionCon
   const flow = getApprovalFlowStages(aval);
   const hasCompras = flow.includes("COMPRAS_PUBLICAS");
   const hasControlPrevio = flow.includes("CONTROL_PREVIO");
+  const hasAdministrador = flow.includes("ADMINISTRADOR");
   const hasFinanciero = flow.includes("FINANCIERO");
-  const metodologoSourceStage =
-    getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
-    "SOLICITUD";
+  // Una sección es editable cuando el aval está en la etapa inmediatamente
+  // anterior (i.e. es el turno de esa sección). Derivado del flujo real para
+  // que sea independiente del orden de etapas.
+  const prevStageOf = (stage: EtapaFlujo): EtapaFlujo =>
+    getPreviousApprovalStagesForAval(aval, stage).at(-1) ?? "SOLICITUD";
 
   return [
     { key: "PARTICIPANTES", visible: true, editable: currentEtapa === "SOLICITUD", required: true },
     { key: "DOCUMENTOS", visible: true, editable: currentEtapa === "SOLICITUD", required: true },
     { key: "PRESUPUESTO", visible: aval.tipoAval !== "SOLO_RESULTADO", editable: currentEtapa === "SOLICITUD", required: aval.tipoAval !== "SOLO_RESULTADO" },
-    { key: "PDA", visible: flow.includes("PDA"), editable: currentEtapa === "SOLICITUD", required: flow.includes("PDA") },
-    { key: "COMPRAS_PUBLICAS", visible: hasCompras, editable: currentEtapa === "PDA", required: hasCompras },
-    { key: "REVISION_METODOLOGO", visible: true, editable: currentEtapa === metodologoSourceStage, required: true },
-    { key: "REVISION_DTM", visible: true, editable: currentEtapa === "REVISION_METODOLOGO", required: true },
-    { key: "CONTROL_PREVIO", visible: hasControlPrevio, editable: currentEtapa === "REVISION_DTM", required: hasControlPrevio },
-    { key: "FINANCIERO", visible: hasFinanciero, editable: currentEtapa === (hasControlPrevio ? "CONTROL_PREVIO" : "REVISION_DTM"), required: hasFinanciero },
+    { key: "PDA", visible: flow.includes("PDA"), editable: currentEtapa === prevStageOf("PDA"), required: flow.includes("PDA") },
+    { key: "COMPRAS_PUBLICAS", visible: hasCompras, editable: currentEtapa === prevStageOf("COMPRAS_PUBLICAS"), required: hasCompras },
+    { key: "REVISION_METODOLOGO", visible: true, editable: currentEtapa === prevStageOf("REVISION_METODOLOGO"), required: true },
+    { key: "REVISION_DTM", visible: true, editable: currentEtapa === prevStageOf("REVISION_DTM"), required: true },
+    { key: "CONTROL_PREVIO", visible: hasControlPrevio, editable: currentEtapa === prevStageOf("CONTROL_PREVIO"), required: hasControlPrevio },
+    { key: "ADMINISTRADOR", visible: hasAdministrador, editable: currentEtapa === prevStageOf("ADMINISTRADOR"), required: hasAdministrador },
+    { key: "FINANCIERO", visible: hasFinanciero, editable: currentEtapa === prevStageOf("FINANCIERO"), required: hasFinanciero },
   ];
 }
 

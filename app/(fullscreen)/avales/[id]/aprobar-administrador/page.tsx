@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval, adminSaveControlPrevio, getRevisionMetodologoItems } from "@/lib/api/avales";
+import { aprobarAval, getRevisionMetodologoItems } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
@@ -25,7 +25,7 @@ import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsib
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
 import { getApprovalStageLabel } from "@/lib/constants";
-import { isControlPrevioUser } from "@/lib/auth/access";
+import { isAdminUser } from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
   getNextApprovalStageForAval,
@@ -33,11 +33,6 @@ import {
 } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
-import {
-  formatEventScheduleSentence,
-  formatLocationWithProvince,
-  getResponsibleTrainerName,
-} from "@/lib/utils/formatters";
 import {
   DEFAULT_REVIEW_ITEMS,
   mergeReviewStateFromApi,
@@ -128,36 +123,17 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   };
 }
 
-function buildDefaultControlPrevioDescripcion(aval: Aval) {
-  const evento = aval.evento;
-  const entrenador = getResponsibleTrainerName(aval, "[ENTRENADOR RESPONSABLE]");
-  const disciplina = evento?.disciplina?.nombre ?? "[DISCIPLINA]";
-  const eventoNombre = evento?.nombre ?? "[NOMBRE EVENTO]";
-  const numeroSolicitud =
-    aval.avalTecnico?.numeroAval ??
-    aval.aval ??
-    aval.numeroColeccion ??
-    `[SOLICITUD ${aval.id}]`;
-  const lugar =
-    formatLocationWithProvince(evento) ||
-    [evento?.provincia, evento?.ciudad].filter(Boolean).join(" - ") ||
-    "[LUGAR]";
-  const rangoFechas = formatEventScheduleSentence(evento);
-  return `Se llevó a cabo la revisión de control previo de la documentación correspondiente a la solicitud de aval ${numeroSolicitud}, presentada por ${entrenador}, para la participación en ${eventoNombre} de ${disciplina}, a desarrollarse en ${lugar}, ${rangoFechas}, verificando el cumplimiento de los requisitos administrativos para continuar con el trámite.`;
-}
-
-export default function RevisionControlPrevioPage() {
+export default function AprobarAdministradorPage() {
   const params = useParams();
   const router = useRouter();
   const avalId = Number(params.id);
 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
-  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>({});
-  const [descripcion, setDescripcion] = useState("");
+  const [comentario, setComentario] = useState("");
 
   const {
     authLoading,
-    hasRequiredRole: isControlPrevio,
+    hasRequiredRole: hasAccess,
     aval,
     loading,
     error,
@@ -174,35 +150,33 @@ export default function RevisionControlPrevioPage() {
     handleReject,
   } = useApprovalFlow({
     avalId,
-    requiredRole: isControlPrevioUser,
+    requiredRole: isAdminUser,
     editableEtapa: (currentAval) =>
-      getPreviousApprovalStagesForAval(currentAval, "CONTROL_PREVIO").at(-1) ??
-      "REVISION_DTM",
+      getPreviousApprovalStagesForAval(currentAval, "ADMINISTRADOR").at(-1) ??
+      "CONTROL_PREVIO",
     additionalEditableCheck: (currentAval) =>
-      getApprovalFlowStages(currentAval).includes("CONTROL_PREVIO"),
+      getApprovalFlowStages(currentAval).includes("ADMINISTRADOR"),
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     onApproveAction: useCallback(
-      async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {
-        const descripcionControlPrevio =
-          descripcion.trim() || buildDefaultControlPrevioDescripcion(a);
-        if (adminSaveOnly) {
-          await adminSaveControlPrevio(a.id, userId, descripcionControlPrevio, approvalEtapa);
-        } else {
-          await aprobarAval(a.id, userId, approvalEtapa, { descripcionControlPrevio });
-        }
+      async ({ aval: a, userId, approvalEtapa }) => {
+        await aprobarAval(a.id, userId, approvalEtapa, {
+          comentario: comentario.trim() || undefined,
+        });
       },
-      [descripcion],
+      [comentario],
     ),
-    approveSuccessMessage: "Aval aprobado correctamente.",
+    approveSuccessMessage: "Aval aprobado por el administrador.",
   });
   const { config: formConfig } = useAvalFormConfig(aval);
-  const controlPrevioSection = getSectionConfig(formConfig, "CONTROL_PREVIO");
+  const administradorSection = getSectionConfig(formConfig, "ADMINISTRADOR");
   const approveAction = getActionConfig(formConfig, "APROBAR");
   const rejectAction = getActionConfig(formConfig, "RECHAZAR");
 
   const showApprovalPanel =
-    isControlPrevio && (isEditable || adminSaveOnly) && (controlPrevioSection?.visible ?? true);
+    hasAccess &&
+    (isEditable || adminSaveOnly) &&
+    (administradorSection?.visible ?? true);
 
   useEffect(() => {
     let active = true;
@@ -220,23 +194,18 @@ export default function RevisionControlPrevioPage() {
       }
     }
     void loadReviewItems();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (!aval) return;
-    setReviewState(
-      mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? []),
-    );
-  }, [aval, reviewItems]);
-
-  useEffect(() => {
-    if (!aval) return;
-    setDescripcion(
-      aval.controlPrevio?.descripcion?.trim() ||
-        buildDefaultControlPrevioDescripcion(aval),
-    );
-  }, [aval]);
+  const reviewState = useMemo<Record<string, ReviewStateItem>>(
+    () =>
+      aval
+        ? mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? [])
+        : {},
+    [aval, reviewItems],
+  );
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
@@ -293,9 +262,7 @@ export default function RevisionControlPrevioPage() {
         aval?.avalTecnico?.fechaHoraSalida ??
         "",
       periodoComision:
-        aval?.financiero?.[0]?.periodoComision ??
-        aval?.periodoComision ??
-        "",
+        aval?.financiero?.[0]?.periodoComision ?? aval?.periodoComision ?? "",
       periodoComisionFin:
         aval?.financiero?.[0]?.periodoComisionFin ??
         aval?.periodoComisionFin ??
@@ -307,18 +274,19 @@ export default function RevisionControlPrevioPage() {
     }),
     [aval],
   );
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
           <p className="text-sm text-gray-600 dark:text-gray-400">Cargando sesión...</p>
         </div>
       </div>
     );
   }
 
-  if (!isControlPrevio) {
+  if (!hasAccess) {
     return (
       <div className="px-6 py-8">
         <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl p-6 text-center">
@@ -332,7 +300,7 @@ export default function RevisionControlPrevioPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Cargando información del aval...
           </p>
@@ -378,30 +346,30 @@ export default function RevisionControlPrevioPage() {
 
             <div>
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                Revisión Control Previo
+                Aprobación del Administrador
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Revisa los documentos y aprueba o rechaza el aval.
+                Revisa el expediente completo y aprueba o rechaza el aval.
               </p>
             </div>
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Descripción
+                Comentario (opcional)
               </span>
               <textarea
                 className="form-textarea w-full mt-1"
-                rows={5}
-                value={descripcion}
+                rows={4}
+                value={comentario}
                 disabled={!showApprovalPanel}
-                onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Escribe la descripción de control previo..."
+                onChange={(e) => setComentario(e.target.value)}
+                placeholder="Comentario para la aprobación..."
               />
             </label>
 
             {showApprovalPanel ? (
               <ApprovalFlowCard
-                title="Aprobación de Control Previo"
+                title="Aprobación del Administrador"
                 currentStageLabel={getApprovalStageLabel(currentEtapa)}
                 nextStageLabel={getApprovalStageLabel(approvalEtapa)}
                 reasonValue={rechazoMotivo}
@@ -417,7 +385,7 @@ export default function RevisionControlPrevioPage() {
               />
             ) : (
               <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-                Este aval no está disponible para revisión de Control Previo.
+                Este aval no está disponible para aprobación del Administrador.
               </div>
             )}
           </div>

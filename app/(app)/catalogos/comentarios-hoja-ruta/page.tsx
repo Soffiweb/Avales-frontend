@@ -16,11 +16,12 @@ import type { EtapaFlujo } from "@/types/aval";
 // del aval para que sea fácil de revisar de arriba a abajo.
 const ETAPA_ORDER: EtapaFlujo[] = [
   "SOLICITUD",
-  "PDA",
-  "COMPRAS_PUBLICAS",
   "REVISION_METODOLOGO",
   "REVISION_DTM",
+  "COMPRAS_PUBLICAS",
+  "PDA",
   "CONTROL_PREVIO",
+  "ADMINISTRADOR",
   "FINANCIERO",
 ];
 

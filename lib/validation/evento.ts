@@ -1,6 +1,5 @@
 import {
   EVENTO_ALCANCE_VALUES,
-  EVENTO_CATEGORIA_VALUES,
   EVENTO_TIPO_EVENTO_VALUES,
   EVENTO_TIPO_PARTICIPACION_VALUES,
   type EventoTipoParticipacion
@@ -68,11 +67,7 @@ export const eventoSchema = z.object({
     .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
     .or(z.literal("")),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
-  categoriaCodigo: z
-    .enum(
-      [...EVENTO_CATEGORIA_VALUES] as [string, ...string[]]
-    )
-    .or(z.literal("")),
+  categoriaCodigo: z.string().max(100).or(z.literal("")),
   mesProgramado: z
     .number()
     .int()

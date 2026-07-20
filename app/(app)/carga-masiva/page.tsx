@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import {
   Users,
@@ -20,9 +20,9 @@ import {
 } from "@/lib/api/user";
 import { uploadEventsExcel, type UploadExcelResponse } from "@/lib/api/eventos";
 import { getCatalog } from "@/lib/api/catalog";
-import { ROLES } from "@/lib/constants";
-import { APP_CATEGORIES } from "@/lib/utils/categories";
-import { formatRole } from "@/lib/utils/formatters/text";
+import { listRoles } from "@/lib/api/roles";
+import type { CatalogItem } from "@/types/catalog";
+import type { Role } from "@/types/role";
 import FileDropzone from "./_components/file-dropzone";
 import DataPreviewTable from "./_components/data-preview-table";
 import UploadResults from "./_components/upload-results";
@@ -55,9 +55,11 @@ export default function CargaMasivaPage() {
   const [checking, setChecking] = useState(false);
   const [existingCedulas, setExistingCedulas] =
     useState<CheckCedulasResponse | null>(null);
-  const [disciplinasCatalog, setDisciplinasCatalog] = useState<
-    { id: number; nombre: string; codigo?: string | null }[]
-  >([]);
+  const [disciplinasCatalog, setDisciplinasCatalog] = useState<CatalogItem[]>(
+    []
+  );
+  const [categoriasCatalog, setCategoriasCatalog] = useState<CatalogItem[]>([]);
+  const [rolesCatalog, setRolesCatalog] = useState<Role[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [response, setResponse] = useState<
     UploadUsersExcelResponse | UploadExcelResponse | null
@@ -74,18 +76,30 @@ export default function CargaMasivaPage() {
       : baseColumns;
 
   const ensureCatalogLoaded = useCallback(async () => {
-    if (disciplinasCatalog.length > 0) return disciplinasCatalog;
-    if (catalogLoading) return disciplinasCatalog;
+    if (disciplinasCatalog.length > 0 || catalogLoading) {
+      return {
+        disciplinas: disciplinasCatalog,
+        categorias: categoriasCatalog,
+        roles: rolesCatalog,
+      };
+    }
 
     setCatalogLoading(true);
     try {
-      const result = await getCatalog();
-      const disciplinas = result.data?.disciplinas ?? [];
+      const [catalogRes, rolesRes] = await Promise.all([
+        getCatalog(),
+        listRoles().catch(() => null),
+      ]);
+      const disciplinas = catalogRes.data?.disciplinas ?? [];
+      const categorias = catalogRes.data?.categorias ?? [];
+      const roles = rolesRes?.data ?? [];
       if (disciplinas.length === 0) {
         throw new Error("No se encontraron disciplinas en el catálogo.");
       }
       setDisciplinasCatalog(disciplinas);
-      return disciplinas;
+      setCategoriasCatalog(categorias);
+      setRolesCatalog(roles);
+      return { disciplinas, categorias, roles };
     } catch (error) {
       throw error instanceof Error
         ? error
@@ -93,7 +107,14 @@ export default function CargaMasivaPage() {
     } finally {
       setCatalogLoading(false);
     }
-  }, [catalogLoading, disciplinasCatalog]);
+  }, [catalogLoading, disciplinasCatalog, categoriasCatalog, rolesCatalog]);
+
+  // Precargar catálogos al entrar al flujo de usuarios para poblar los hints.
+  useEffect(() => {
+    if (uploadType === "usuarios") {
+      void ensureCatalogLoaded().catch(() => {});
+    }
+  }, [uploadType, ensureCatalogLoaded]);
 
   const findEventSheetName = useCallback((workbook: XLSX.WorkBook) => {
     const normalize = (value: string) => value.trim().toUpperCase();
@@ -320,12 +341,14 @@ export default function CargaMasivaPage() {
             rows.push(mapped);
           }
 
-          const disciplinas = await ensureCatalogLoaded();
+          const { disciplinas, categorias, roles } = await ensureCatalogLoaded();
           const issues = validatePreviewRows(
             uploadType!,
             rows,
             uploadType === "eventos" ? allColumns : currentBaseColumns,
-            disciplinas
+            disciplinas,
+            categorias,
+            roles
           );
 
           setParsedRows(rows);
@@ -617,20 +640,38 @@ export default function CargaMasivaPage() {
                     CATEGORIA es opcional. Si la dejas vacía, se usará TODAS.
                   </p>
                   <p>
-                    Categorías válidas: {APP_CATEGORIES.join(", ")}.
+                    Categorías válidas:{" "}
+                    {categoriasCatalog.length > 0
+                      ? categoriasCatalog
+                          .map((c) => c.nombre)
+                          .filter(Boolean)
+                          .join(", ")
+                      : "las registradas en el catálogo"}
+                    .
                   </p>
                   <p>
                     Campos opcionales: {USERS_OPTIONAL_COLUMNS.join(", ")}.
                   </p>
                   <p>
                     Roles aceptados:{" "}
-                    {ROLES.map((role) => `${role} (${formatRole(role)})`).join(", ")}.
+                    {rolesCatalog.length > 0
+                      ? rolesCatalog
+                          .map((role) => role.nombre)
+                          .filter(Boolean)
+                          .join(", ")
+                      : "los roles válidos del sistema"}
+                    .
                   </p>
                 </div>
               )}
 
               <div className="mt-4">
-                <UploadInstructions type={uploadType} />
+                <UploadInstructions
+                  type={uploadType}
+                  categorias={categoriasCatalog
+                    .map((c) => c.nombre)
+                    .filter(Boolean)}
+                />
               </div>
             </div>
           </div>

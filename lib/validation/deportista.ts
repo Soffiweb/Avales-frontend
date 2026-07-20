@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { APP_CATEGORIES } from "@/lib/utils/categories";
 
 export const deportistaSchema = z.object({
   nombres: z.string().min(2, "Nombres: minimo 2 caracteres").max(120),
@@ -11,12 +10,7 @@ export const deportistaSchema = z.object({
       message: "Selecciona genero",
     }),
   fechaNacimiento: z.string().min(1, "Fecha de nacimiento requerida"),
-  categoriaCodigo: z
-    .enum(APP_CATEGORIES)
-    .or(z.literal(""))
-    .refine((value) => value !== "", {
-      message: "Selecciona una categoria válida",
-    }),
+  categoriaCodigo: z.string().min(1, "Selecciona una categoria válida"),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
   afiliacion: z.boolean(),
   afiliacionInicio: z.string().optional().or(z.literal("")),

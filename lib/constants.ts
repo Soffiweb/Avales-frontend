@@ -30,25 +30,6 @@ export const TOAST_DURATION = 4000;
 /** Delay para limpiar item de confirmación después de cerrar modal */
 export const CONFIRM_CLEANUP_DELAY = 180;
 
-/** Roles disponibles en el sistema */
-export const ROLES = [
-  "admin",
-  "administrador",
-  "secretaria",
-  "dtm",
-  "metodologo",
-  "entrenador",
-  "usuario",
-  "deportista",
-  "pda",
-  "control_previo",
-  "compras_publicas",
-  "financiero",
-  "lector",
-] as const;
-
-export type Role = (typeof ROLES)[number];
-
 /** Opciones de género para formularios */
 export const GENERO_OPTIONS = [
   { value: "masculino", label: "Masculino" },

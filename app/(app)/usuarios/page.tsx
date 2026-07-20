@@ -12,30 +12,35 @@ import UsuarioTable from "./_components/usuario-table";
 import UploadUsersExcelModal from "@/components/users/upload-excel-users-modal";
 import { softDeleteUser, listUsers } from "@/lib/api/user";
 import type { User } from "@/types/user";
-import { CONFIRM_CLEANUP_DELAY, DEFAULT_PAGE_SIZE, ROLES } from "@/lib/constants";
+import { CONFIRM_CLEANUP_DELAY, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
 import { useUrlFilters } from "@/lib/hooks/use-url-filters";
 import { useStatusToast } from "@/lib/hooks/use-status-toast";
+import { useRoles } from "@/lib/hooks/use-catalog";
 import { canonicalizeRoleCode } from "@/lib/auth/roles";
-import { formatRole } from "@/lib/utils/formatters";
 
 const MIN_QUERY_LENGTH = 2;
-const ROLE_OPTIONS = ROLES.map((role) => {
-  const canonicalRole = canonicalizeRoleCode(role);
-  return {
-    value: canonicalRole,
-    label: formatRole(canonicalRole),
-  };
-}).filter(
-  (option, index, array) =>
-    array.findIndex((item) => item.value === option.value) === index
-);
 
 export default function Usuarios() {
   const { filters, page, setFilter, setPage } = useUrlFilters("/usuarios", {
     query: "",
     role: "",
   });
+
+  const { roles: rolesCatalog } = useRoles();
+  const roleOptions = useMemo(
+    () =>
+      rolesCatalog
+        .map((role) => ({
+          value: canonicalizeRoleCode(role.codigo),
+          label: role.nombre,
+        }))
+        .filter(
+          (option, index, array) =>
+            array.findIndex((item) => item.value === option.value) === index
+        ),
+    [rolesCatalog]
+  );
 
   const normalizedQuery = useMemo(() => filters.query.trim(), [filters.query]);
   const selectedRole = useMemo(
@@ -160,7 +165,7 @@ export default function Usuarios() {
                 aria-label="Filtrar por roles"
               >
                 <option value="">Todos los roles</option>
-                {ROLE_OPTIONS.map((option) => (
+                {roleOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

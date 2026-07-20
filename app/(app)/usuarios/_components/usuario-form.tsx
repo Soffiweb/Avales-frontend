@@ -21,9 +21,11 @@ import {
   type UserFormValues,
 } from "@/lib/validation/user";
 import { CatalogItem } from "@/types/catalog";
+import type { Role as RoleCatalog } from "@/types/role";
 import type { Role, User } from "@/types/user";
 import { formatRole } from "@/lib/utils/formatters";
 import { normalizeRoleCode } from "@/lib/auth/roles";
+import { useRoles } from "@/lib/hooks/use-catalog";
 import {
   getCatalogItemId,
   resolveCatalogItemIdFromList,
@@ -33,25 +35,15 @@ import {
   getCategoryIdOptions,
 } from "@/lib/utils/categories";
 
-const ROLE_OPTIONS: Role[] = [
-  "ADMIN",
-  "SECRETARIA",
-  "SECRETARIA_DTM",
-  "DTM",
-  "METODOLOGO",
-  "ENTRENADOR",
-  "USUARIO",
-  "DEPORTISTA",
-  "PDA",
-  "CONTROL_PREVIO",
-  "FINANCIERO",
-  "COMPRAS_PUBLICAS",
-  "LECTOR",
-];
-
 const defaultRoleSelection: Role[] = [];
 
-const formatRoleLabel = (role: Role) => formatRole(role);
+/** Nombre configurado del rol desde el catálogo; cae al código formateado. */
+function roleLabelFromCatalog(role: Role, roles: RoleCatalog[]) {
+  const match = roles.find(
+    (r) => normalizeRoleCode(r.codigo) === normalizeRoleCode(role),
+  );
+  return match?.nombre?.trim() || formatRole(role);
+}
 
 const MAX_SELECTED_DISCIPLINAS = 3;
 const MAX_SELECTED_ROLES = 3;
@@ -80,13 +72,18 @@ function buildDisciplinasLabel(
   }`;
 }
 
-function buildRolesLabel(selected: Role[], maxSelectedLabels = MAX_SELECTED_ROLES) {
+function buildRolesLabel(
+  selected: Role[],
+  roles: RoleCatalog[],
+  maxSelectedLabels = MAX_SELECTED_ROLES,
+) {
   if (!selected || selected.length === 0) return "Selecciona roles";
-  if (selected.length <= maxSelectedLabels) {
-    return selected.map((r) => formatRoleLabel(r)).join(", ");
+  const labels = selected.map((r) => roleLabelFromCatalog(r, roles));
+  if (labels.length <= maxSelectedLabels) {
+    return labels.join(", ");
   }
-  return `${selected.slice(0, maxSelectedLabels).map((r) => formatRoleLabel(r)).join(", ")} +${
-    selected.length - maxSelectedLabels
+  return `${labels.slice(0, maxSelectedLabels).join(", ")} +${
+    labels.length - maxSelectedLabels
   }`;
 }
 
@@ -164,6 +161,7 @@ export default function UsuarioForm({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [disciplinasOpen, setDisciplinasOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
+  const { roles: rolesCatalog, isLoading: rolesLoading } = useRoles();
 
   const schema = useMemo(
     () => (mode === "edit" ? updateUserSchema : createUserSchema),
@@ -506,7 +504,7 @@ export default function UsuarioForm({
                     className="form-select flex w-full items-center justify-between px-3 py-2 text-left"
                   >
                     <span className="truncate text-sm">
-                      {buildRolesLabel((field.value ?? []) as Role[])}
+                      {buildRolesLabel((field.value ?? []) as Role[], rolesCatalog)}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
                       <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -536,16 +534,28 @@ export default function UsuarioForm({
                   </div>
 
                   <div className="max-h-64 overflow-y-auto py-1">
-                    {ROLE_OPTIONS.map((role) => {
+                    {rolesLoading && rolesCatalog.length === 0 ? (
+                      <p className="px-3 py-2.5 text-sm text-gray-500 dark:text-gray-400">
+                        Cargando roles...
+                      </p>
+                    ) : null}
+                    {rolesCatalog.map((roleItem) => {
+                      const role = roleItem.codigo as Role;
                       const selected = (field.value ?? []) as Role[];
-                      const isChecked = selected.includes(role);
+                      const isChecked = selected.some(
+                        (r) => normalizeRoleCode(r) === normalizeRoleCode(role),
+                      );
                       return (
                         <button
-                          key={role}
+                          key={roleItem.id}
                           type="button"
                           onClick={() => {
                             const next = isChecked
-                              ? selected.filter((r) => r !== role)
+                              ? selected.filter(
+                                  (r) =>
+                                    normalizeRoleCode(r) !==
+                                    normalizeRoleCode(role),
+                                )
                               : [...selected, role];
                             field.onChange(next);
                           }}
@@ -567,7 +577,9 @@ export default function UsuarioForm({
                           >
                             <Check className="h-3.5 w-3.5" />
                           </span>
-                          <span className="truncate">{formatRoleLabel(role)}</span>
+                          <span className="truncate">
+                            {roleLabelFromCatalog(role, rolesCatalog)}
+                          </span>
                         </button>
                       );
                     })}

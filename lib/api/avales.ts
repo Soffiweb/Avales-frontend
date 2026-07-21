@@ -433,6 +433,41 @@ export async function aprobarAval(
   });
 }
 
+/**
+ * Firma electrónica + aprobación acopladas (multipart/form-data).
+ *
+ * El certificado `.p12`/`.pfx` y la contraseña viajan SOLO en este request
+ * (nunca a `localStorage`/estado persistente) — ver
+ * `src/modules/signature/dto/firmar-aprobar.dto.ts` en el backend.
+ * En v1 solo la etapa `COMPRAS_PUBLICAS` soporta este flujo.
+ */
+export type FirmarAprobarAvalPayload = {
+  usuarioId: number;
+  etapa: EtapaFlujo;
+  password: string;
+  certificate: File;
+  comentario?: string;
+};
+
+export async function firmarAprobarAval(
+  id: number,
+  payload: FirmarAprobarAvalPayload,
+) {
+  const formData = new FormData();
+  formData.append("usuarioId", String(payload.usuarioId));
+  formData.append("etapa", payload.etapa);
+  formData.append("password", payload.password);
+  formData.append("certificate", payload.certificate);
+  if (payload.comentario?.trim()) {
+    formData.append("comentario", payload.comentario.trim());
+  }
+
+  return apiFetch<Aval>(`/avales/${id}/firmar-aprobar`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
 // Endpoints "admin save" — permiten a SUPER_ADMIN/ADMIN guardar los datos
 // de la revision sin avanzar el flujo. Gateado en el backend por rol.
 export async function adminSaveRevisionMetodologo(

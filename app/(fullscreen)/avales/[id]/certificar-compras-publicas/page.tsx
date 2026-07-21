@@ -6,12 +6,11 @@ import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
-  aprobarAval,
   adminSaveComprasPublicas,
   createComprasPublicas,
   getAval,
 } from "@/lib/api/avales";
-import type { Aval } from "@/types/aval";
+import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
@@ -20,6 +19,7 @@ import {
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
+import FirmaModal from "@/app/(app)/avales/_components/firma-modal";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
@@ -191,6 +191,23 @@ export default function CertificarComprasPublicasPage() {
   const [forceEdit, setForceEdit] = useState(false);
   const [forceEditLoading, setForceEditLoading] = useState(false);
 
+  // Estado del modal de firma electronica (D7): "Aprobar" en Compras Publicas
+  // exige firmar el documento antes de transicionar la etapa (spec: Approve
+  // without signature blocked). El modal se abre desde onApproveAction y su
+  // promesa (firmaResolverRef) solo se resuelve cuando el usuario firma con
+  // exito, para que el resto del flujo de useApprovalFlow (toast + redirect)
+  // se comporte igual que en cualquier otra etapa de aprobacion.
+  const [firmaModalState, setFirmaModalState] = useState<{
+    avalId: number;
+    usuarioId: number;
+    etapa: EtapaFlujo;
+    comentario?: string;
+  } | null>(null);
+  const firmaResolverRef = useRef<{
+    resolve: () => void;
+    reject: (err: Error) => void;
+  } | null>(null);
+
   // Ref so onApproveAction/onRejectSuccess can call autosave.clear()
   // without creating a circular dependency (autosave needs isEditable from hook)
   const autosaveRef = useRef<{ clear: () => void }>({ clear: () => {} });
@@ -274,7 +291,21 @@ export default function CertificarComprasPublicasPage() {
             refreshedEtapa,
           );
           const resolvedEtapa = nextEtapa ?? refreshedEtapa;
-          await aprobarAval(a.id, userId, resolvedEtapa, { comentario: sumilla });
+
+          // Firma electronica obligatoria para aprobar Compras Publicas
+          // (spec "Approve without signature blocked"). Abrimos el modal y
+          // esperamos a que el usuario firme con exito; el resto del flujo
+          // de aprobacion (toast + redirect) sigue viviendo en
+          // useApprovalFlow.handleApprove, que espera esta promesa.
+          await new Promise<void>((resolve, reject) => {
+            firmaResolverRef.current = { resolve, reject };
+            setFirmaModalState({
+              avalId: a.id,
+              usuarioId: userId,
+              etapa: resolvedEtapa,
+              comentario: sumilla,
+            });
+          });
         }
         autosaveRef.current.clear();
       },
@@ -363,6 +394,21 @@ export default function CertificarComprasPublicasPage() {
   //   setDraft(INITIAL_DRAFT);
   //   setDraftToastVisible(false);
   // }, [autosave]);
+
+  // Recibe el aval actualizado del backend (no se usa aqui: el redirect que
+  // hace useApprovalFlow.handleApprove tras esta resolucion ya recarga el
+  // aval completo, incluido el PDF firmado).
+  const handleFirmaSuccess = useCallback(() => {
+    setFirmaModalState(null);
+    firmaResolverRef.current?.resolve();
+    firmaResolverRef.current = null;
+  }, []);
+
+  const handleFirmaCancel = useCallback(() => {
+    setFirmaModalState(null);
+    firmaResolverRef.current?.reject(new Error("Firma cancelada."));
+    firmaResolverRef.current = null;
+  }, []);
 
   const handleAdminSave = useCallback(async () => {
     if (!aval) return;
@@ -489,6 +535,17 @@ export default function CertificarComprasPublicasPage() {
             onClose={() => setToast(null)}
           />
         </div>
+      )}
+      {firmaModalState && (
+        <FirmaModal
+          open
+          avalId={firmaModalState.avalId}
+          usuarioId={firmaModalState.usuarioId}
+          etapa={firmaModalState.etapa}
+          comentario={firmaModalState.comentario}
+          onSuccess={handleFirmaSuccess}
+          onCancel={handleFirmaCancel}
+        />
       )}
       <div className="w-full lg:w-1/2 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="h-full w-full overflow-y-auto">

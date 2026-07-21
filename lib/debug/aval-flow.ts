@@ -57,12 +57,21 @@ function sanitizePrimitive(value: unknown) {
   return null;
 }
 
+// Claves de FormData que nunca deben aparecer en logs de depuracion, ni
+// siquiera detras del flag opt-in `debugAvalFlow` (ej. contraseña de
+// certificado .p12/.pfx en el flujo de firma electronica).
+const SENSITIVE_FORM_DATA_KEY_PATTERN = /password|contrasena|contraseña/i;
+
 function sanitizeFormData(formData: FormData) {
   const result: Record<string, unknown[]> = {};
 
   formData.forEach((value, key) => {
     if (!result[key]) result[key] = [];
-    result[key].push(sanitizeValue(value, 1));
+    result[key].push(
+      SENSITIVE_FORM_DATA_KEY_PATTERN.test(key)
+        ? "[REDACTED]"
+        : sanitizeValue(value, 1),
+    );
   });
 
   return result;

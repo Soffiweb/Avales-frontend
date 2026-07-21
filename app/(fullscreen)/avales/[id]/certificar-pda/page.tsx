@@ -275,6 +275,16 @@ function getDraftItemTotal(item: BudgetDraftItem) {
   );
 }
 
+// Item anulado a propósito: no. días, cantidad y valor unitario en blanco/0 en
+// todas las filas. Se distingue de una fila a medio llenar (error real) porque
+// ahí ninguno de los 3 campos tiene valor, no solo alguno.
+function isBudgetItemZeroedOut(item: BudgetDraftItem) {
+  return (
+    item.dias.length > 0 &&
+    item.dias.every((dia) => !dia.noDias && !dia.cantidad && !dia.valorUnitario)
+  );
+}
+
 function createDefaultBudgetDia(
   valorUnitario = 0,
   nombrePersonalizado = "",
@@ -563,18 +573,20 @@ export default function CertificarAvalPage() {
       const pdaError = validatePdaDraft(draft);
       if (pdaError) return pdaError;
 
-      const invalidItems = budgetDraftItems.filter(
-        (item) =>
+      const invalidItems = budgetDraftItems.filter((item) => {
+        if (isBudgetItemZeroedOut(item)) return false;
+        return (
           sanitizeBudgetDias(item.dias).length === 0 ||
-              sanitizeBudgetDias(item.dias).some(
-                (dia) =>
-                  !dia.noDias ||
-                  !dia.cantidad ||
-                  dia.noDias <= 0 ||
-                  dia.cantidad <= 0 ||
-                  dia.valorUnitario! < 0,
-              ),
-      );
+          sanitizeBudgetDias(item.dias).some(
+            (dia) =>
+              !dia.noDias ||
+              !dia.cantidad ||
+              dia.noDias <= 0 ||
+              dia.cantidad <= 0 ||
+              dia.valorUnitario! < 0,
+          )
+        );
+      });
       if (invalidItems.length > 0) {
         return "Todos los ítems deben tener no. días y cantidad mayores a 0, y valor unitario mayor o igual a 0.";
       }
@@ -598,13 +610,15 @@ export default function CertificarAvalPage() {
                 ? item.nombrePersonalizado.trim()
                 : undefined,
             presupuesto: getDraftItemTotal(item),
-            dias: (item.usaDetallePorDia
-              ? sanitizeBudgetDias(item.dias)
-              : collapseBudgetDias(
-                  item.dias,
-                  item.originalTotal,
-                  resolveBudgetItemNombre(item),
-                )
+            dias: (isBudgetItemZeroedOut(item)
+              ? [createDefaultBudgetDia(0, resolveBudgetItemNombre(item), 1, 1)]
+              : item.usaDetallePorDia
+                ? sanitizeBudgetDias(item.dias)
+                : collapseBudgetDias(
+                    item.dias,
+                    item.originalTotal,
+                    resolveBudgetItemNombre(item),
+                  )
             ).map((dia) => ({
               nombrePersonalizado:
                 dia.nombrePersonalizado?.trim() &&

@@ -11,7 +11,7 @@ import { X, Upload, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 type UploadFiles = {
   convocatoria: File;
   certificadoMedico: File;
-  pronosticoDeportistas: File[];
+  pronosticoDeportistas?: File[];
 };
 
 type DraggingTarget = "convocatoria" | "certificado" | "pronostico";
@@ -26,6 +26,7 @@ type UploadModalProps = {
   children?: ReactNode;
   submitDisabled?: boolean;
   submitDisabledReason?: string;
+  requirePronosticoDeportistas?: boolean;
 };
 
 const ALLOWED_EXTENSIONS = [
@@ -59,6 +60,7 @@ export default function UploadModal({
   children,
   submitDisabled = false,
   submitDisabledReason,
+  requirePronosticoDeportistas = true,
 }: UploadModalProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,10 +188,12 @@ export default function UploadModal({
     if (
       !convocatoriaFile ||
       !certificadoMedicoFile ||
-      pronosticoFiles.length === 0
+      (requirePronosticoDeportistas && pronosticoFiles.length === 0)
     ) {
       setError(
-        "Debes subir la convocatoria, el certificado médico y el pronóstico de deportistas para continuar.",
+        requirePronosticoDeportistas
+          ? "Debes subir la convocatoria, el certificado médico y el pronóstico de deportistas para continuar."
+          : "Debes subir la convocatoria y el certificado médico para continuar.",
       );
       return;
     }
@@ -205,7 +209,7 @@ export default function UploadModal({
       await onUpload({
         convocatoria: convocatoriaFile,
         certificadoMedico: certificadoMedicoFile,
-        pronosticoDeportistas: pronosticoFiles,
+        pronosticoDeportistas: requirePronosticoDeportistas ? pronosticoFiles : undefined,
       });
     } catch (err: unknown) {
       const message =
@@ -383,53 +387,54 @@ export default function UploadModal({
                 </div>
               </div>
 
-              {/* Pronóstico de deportistas — múltiples archivos */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Pronóstico de deportistas
-                </p>
-                {pronosticoFiles.length > 0 &&
-                  renderFileList(pronosticoFiles, (idx) =>
-                    removeFromList(setPronosticoFiles, idx),
-                  )}
-                <div
-                  onClick={() => pronosticoInputRef.current?.click()}
-                  onDragOver={(e) => handleDragOver(e, "pronostico")}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, "pronostico")}
-                  className={dropzoneClass("pronostico")}
-                >
-                  <input
-                    ref={pronosticoInputRef}
-                    type="file"
-                    className="hidden"
-                    accept={acceptedTypes}
-                    multiple
-                    onChange={handlePronosticoChange}
-                    disabled={uploading}
-                  />
-                  <div>
-                    {pronosticoFiles.length > 0 ? (
-                      <>
-                        <Plus className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Agregar más documentos
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                          Subir pronóstico de deportistas
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Arrastra archivos aquí o haz clic para seleccionar
-                        </p>
-                      </>
+              {requirePronosticoDeportistas ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pronóstico de deportistas
+                  </p>
+                  {pronosticoFiles.length > 0 &&
+                    renderFileList(pronosticoFiles, (idx) =>
+                      removeFromList(setPronosticoFiles, idx),
                     )}
+                  <div
+                    onClick={() => pronosticoInputRef.current?.click()}
+                    onDragOver={(e) => handleDragOver(e, "pronostico")}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, "pronostico")}
+                    className={dropzoneClass("pronostico")}
+                  >
+                    <input
+                      ref={pronosticoInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={acceptedTypes}
+                      multiple
+                      onChange={handlePronosticoChange}
+                      disabled={uploading}
+                    />
+                    <div>
+                      {pronosticoFiles.length > 0 ? (
+                        <>
+                          <Plus className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Agregar más documentos
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                            Subir pronóstico de deportistas
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Arrastra archivos aquí o haz clic para seleccionar
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Archivos soportados: PDF, PNG, JPG, JPEG, XLSX, XLS, CSV
@@ -464,7 +469,7 @@ export default function UploadModal({
               disabled={
                 !convocatoriaFile ||
                 !certificadoMedicoFile ||
-                pronosticoFiles.length === 0 ||
+                (requirePronosticoDeportistas && pronosticoFiles.length === 0) ||
                 uploading ||
                 submitDisabled
               }

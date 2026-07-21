@@ -41,6 +41,20 @@ export type EventoDisponibleReformaMulti = {
   }>;
 };
 
+/** Un evento con sus formas de participación elegibles agrupadas (dedupe de EventoDisponibleReformaMulti por eventoId). */
+export type EventoDisponibleAgrupado = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  disciplina?: DisciplinaResumen | null;
+  formas: Array<{
+    formaParticipacionId: number;
+    referencia?: string | null;
+    presupuestoTotal: string;
+    items?: EventoDisponibleReformaMulti["items"];
+  }>;
+};
+
 export type ReformaMultiEventoDetalleItem = {
   id: number;
   nombre: string;

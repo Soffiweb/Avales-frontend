@@ -153,7 +153,26 @@ export type DeportistaAvalDetail = {
   apellidos?: string;
   cedula?: string;
   genero?: string;
+  categoriaId?: number;
+  categoriaNombre?: string;
+  afiliacion?: string;
+  canton?: string;
+  club?: string;
+  entrenadorNombre?: string;
+  ordenPronostico?: number;
+  pronostico?: DeportistaPronosticoDto;
   payload?: unknown;
+};
+
+export type DeportistaPronosticoDto = {
+  ubicacionActual?: string;
+  ubicacionPronosticada?: string;
+  divisionPeso?: string;
+  prueba?: string;
+  marcaActual?: string;
+  unidadMarcaActual?: string;
+  marcaPronosticada?: string;
+  unidadMarcaPronostico?: string;
 };
 
 export type DeportistaAval = {
@@ -162,6 +181,14 @@ export type DeportistaAval = {
   deportistaExternoId?: string;
   rol: string;
   modalidadParticipacion?: ModalidadParticipacion | null;
+  categoriaId?: number;
+  categoriaNombre?: string;
+  afiliacion?: string;
+  canton?: string;
+  club?: string;
+  entrenadorNombre?: string;
+  ordenPronostico?: number;
+  pronostico?: DeportistaPronosticoDto;
   deportista: DeportistaAvalDetail;
 };
 
@@ -468,6 +495,14 @@ export type DeportistaAvalDto = {
   nombres?: string;
   apellidos?: string;
   cedula?: string;
+  categoriaId?: number;
+  categoriaNombre?: string;
+  afiliacion?: string;
+  canton?: string;
+  club?: string;
+  entrenadorNombre?: string;
+  ordenPronostico?: number;
+  pronostico?: DeportistaPronosticoDto;
   payload?: Record<string, unknown>;
 };
 

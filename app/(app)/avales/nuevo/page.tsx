@@ -214,7 +214,7 @@ export default function NuevoAvalPage() {
   }: {
     convocatoria: File;
     certificadoMedico: File;
-    pronosticoDeportistas: File[];
+    pronosticoDeportistas?: File[];
   }) => {
     if (!selectedEvento) {
       throw new Error("No se ha seleccionado un evento.");
@@ -283,6 +283,7 @@ export default function NuevoAvalPage() {
         description={`Sube la convocatoria y el certificado médico para crear el aval${
           selectedEvento?.nombre ? ` de "${selectedEvento.nombre}"` : ""
         }.`}
+        requirePronosticoDeportistas={false}
         submitDisabled={submitDisabled}
         submitDisabledReason="Selecciona una forma de participación para continuar."
       >

@@ -186,6 +186,7 @@ type BudgetComparisonRow = {
   key: string;
   code: string;
   item: string;
+  beforeMonth: string;
   month: string;
   before: string;
   after: string;
@@ -358,9 +359,10 @@ function buildEventoComparison(
       key: `${item.itemId}-${item.mes}`,
       code: String(resolveItemNumero(item.itemId, item.itemNumero, catalogNameMap)),
       item: resolveItemName(item.itemId, item.itemNombre, catalogNameMap),
-      month:
-        item.mesAntes != null && item.mesAntes !== item.mes
-          ? `${item.mesNombreAntes ?? MES_NOMBRES[item.mesAntes] ?? `Mes ${item.mesAntes}`} → ${item.mesNombre}`
+      month: item.mesNombre,
+      beforeMonth:
+        item.mesAntes != null
+          ? item.mesNombreAntes ?? MES_NOMBRES[item.mesAntes] ?? `Mes ${item.mesAntes}`
           : item.mesNombre,
       before:
         typeof item.antesPresupuesto === "number"
@@ -569,7 +571,7 @@ function EventSidePanel({
                         {row.item}
                       </td>
                       <td className="border-t border-gray-100 px-3 py-2 text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                        {row.month}
+                        {tone === "before" ? row.beforeMonth : row.month}
                       </td>
                       <td className="border-t border-gray-100 px-3 py-2 text-right font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100">
                         {tone === "before" ? row.before : row.after}

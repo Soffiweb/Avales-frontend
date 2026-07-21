@@ -56,6 +56,9 @@ export function ReformaPreviewBudgetTable({
               Codigo
             </th>
             <th className="border-r border-slate-400 px-1 py-1 text-left font-bold uppercase">Item</th>
+            <th className="w-[18%] border-r border-slate-400 px-1 py-1 text-left font-bold uppercase">
+              Mes
+            </th>
             <th className="w-[24%] px-1 py-1 text-right font-bold uppercase">Valor</th>
           </tr>
         </thead>
@@ -72,6 +75,13 @@ export function ReformaPreviewBudgetTable({
                   {row.item}
                 </td>
                 <td
+                  className={`border-r border-t border-slate-400 px-1 py-1 align-top ${
+                    row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
+                  }`}
+                >
+                  {row.mes}
+                </td>
+                <td
                   className={`border-t border-slate-400 px-1 py-1 text-right align-top ${
                     row.changed ? "bg-amber-50 font-semibold text-amber-900" : ""
                   }`}
@@ -82,13 +92,16 @@ export function ReformaPreviewBudgetTable({
             ))
           ) : (
             <tr>
-              <td colSpan={3} className="border-t border-slate-400 px-2 py-3 text-center text-slate-500">
+              <td colSpan={4} className="border-t border-slate-400 px-2 py-3 text-center text-slate-500">
                 Sin items presupuestarios
               </td>
             </tr>
           )}
           <tr className="bg-slate-50 font-bold">
-            <td colSpan={2} className="border-r border-t border-slate-400 px-1 py-1 text-right uppercase">
+            <td
+              colSpan={3}
+              className="border-r border-t border-slate-400 px-1 py-1 text-right uppercase"
+            >
               Valor total del evento
             </td>
             <td className="border-t border-slate-400 px-1 py-1 text-right">{total}</td>

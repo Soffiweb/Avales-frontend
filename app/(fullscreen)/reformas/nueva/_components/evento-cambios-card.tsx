@@ -97,6 +97,29 @@ export function buildInitialGeneralForm(evento: Evento): GeneralForm {
   };
 }
 
+function buildInitialGeneralState(
+  evento: Evento,
+  result?: EventoCambiosResult,
+): GeneralForm {
+  const fallback = buildInitialGeneralForm(evento);
+  const cambios = result?.cambiosPropuestos;
+
+  if (!cambios) return fallback;
+
+  return {
+    nombre: cambios.nombre ?? fallback.nombre,
+    tipoEvento: cambios.tipoEvento ?? fallback.tipoEvento,
+    alcance: cambios.alcance ?? fallback.alcance,
+    lugar: cambios.lugar ?? fallback.lugar,
+    ciudad: cambios.ciudad ?? fallback.ciudad,
+    provincia: cambios.provincia ?? fallback.provincia,
+    pais: cambios.pais ?? fallback.pais,
+    mesProgramado: cambios.mesProgramado ?? fallback.mesProgramado,
+    fechaInicio: cambios.fechaInicio ? formatDateInput(cambios.fechaInicio) : fallback.fechaInicio,
+    fechaFin: cambios.fechaFin ? formatDateInput(cambios.fechaFin) : fallback.fechaFin,
+  };
+}
+
 export function getReformFormas(evento: Evento): FormaParticipacionCupos[] {
   return evento.formasParticipacion ?? [];
 }
@@ -157,20 +180,112 @@ function normalizeTextValue(value?: string | null) {
 
 type Props = {
   evento: Evento;
+  result?: EventoCambiosResult;
   itemsCatalogo: CatalogItemPresupuestario[];
   /** FormaParticipacion.id elegibles para esta reforma (financiamiento correcto y sin aval). */
   eligibleFormaIds: number[];
   onChange: (result: EventoCambiosResult) => void;
 };
 
+function buildInitialParticipantsState(
+  evento: Evento,
+  forma: FormaParticipacionCupos | null,
+  result?: EventoCambiosResult,
+): ParticipantsForm {
+  const fallback = buildInitialParticipantsForm(evento, forma);
+  const formaChanges = result?.cambiosPropuestos.formasParticipacion?.[0];
+  if (!forma || !formaChanges || result?.formaParticipacionId !== forma.id) {
+    return fallback;
+  }
+
+  return {
+    numAtletasHombres: formaChanges.numAtletasHombres,
+    numAtletasMujeres: formaChanges.numAtletasMujeres,
+    numEntrenadoresHombres: formaChanges.numEntrenadoresHombres,
+    numEntrenadoresMujeres: formaChanges.numEntrenadoresMujeres,
+  };
+}
+
+function buildInitialBudgetRowsState(
+  evento: Evento,
+  forma: FormaParticipacionCupos | null,
+  itemsCatalogo: CatalogItemPresupuestario[],
+  result?: EventoCambiosResult,
+): BudgetRow[] {
+  const originalItems = getFormaBudgetItems(evento, forma);
+  const originalRows = getInitialBudgetRows(originalItems);
+  const formaChanges = result?.cambiosPropuestos.formasParticipacion?.[0];
+
+  if (!forma || !formaChanges?.items || result?.formaParticipacionId !== forma.id) {
+    return originalRows;
+  }
+
+  const changedItemsByKey = new Map(
+    formaChanges.items.map((item) => [`${item.itemId}-${item.mes}`, item] as const),
+  );
+  const changedItemsByItemId = new Map<number, (typeof formaChanges.items)[number][]>();
+  formaChanges.items.forEach((item) => {
+    const list = changedItemsByItemId.get(item.itemId) ?? [];
+    list.push(item);
+    changedItemsByItemId.set(item.itemId, list);
+  });
+
+  const restoredRows = originalRows.map((row) => {
+    const itemId = row.itemId;
+    const key = typeof itemId === "number" ? `${itemId}-${row.mes}` : null;
+    let changedItem = key ? changedItemsByKey.get(key) : undefined;
+
+    if (!changedItem && typeof itemId === "number") {
+      const queue = changedItemsByItemId.get(itemId);
+      changedItem = queue?.shift();
+      if (queue && queue.length === 0) changedItemsByItemId.delete(itemId);
+      if (changedItem) changedItemsByKey.delete(`${changedItem.itemId}-${changedItem.mes}`);
+    } else if (changedItem && typeof itemId === "number") {
+      const queue = changedItemsByItemId.get(itemId) ?? [];
+      const index = queue.findIndex((item) => item === changedItem);
+      if (index >= 0) queue.splice(index, 1);
+      if (queue.length === 0) changedItemsByItemId.delete(itemId);
+    }
+
+    if (!changedItem) {
+      return { ...row, status: "removed" as const };
+    }
+
+    return {
+      ...row,
+      mes: changedItem.mes,
+      presupuesto: String(changedItem.presupuesto),
+      status: "existing" as const,
+    };
+  });
+
+  const newRows = Array.from(changedItemsByItemId.values())
+    .flat()
+    .map((item) => {
+      const catalogItem = itemsCatalogo.find((option) => option.id === item.itemId);
+      return {
+        localId: `restored-new-${item.itemId}-${item.mes}`,
+        itemId: item.itemId,
+        itemNumero: catalogItem?.numero ?? "",
+      mes: item.mes,
+      presupuesto: String(item.presupuesto),
+      status: "new" as const,
+      montoMinimo: 0,
+    };
+  });
+
+  return [...restoredRows, ...newRows];
+}
+
 export default function EventoCambiosCard({
   evento,
+  result,
   itemsCatalogo,
   eligibleFormaIds,
   onChange,
 }: Props) {
   const [generalForm, setGeneralForm] = useState<GeneralForm>(() =>
-    buildInitialGeneralForm(evento),
+    buildInitialGeneralState(evento, result),
   );
 
   const reformFormas = useMemo(
@@ -188,14 +303,30 @@ export default function EventoCambiosCard({
     return null;
   }, [budgetFormas, reformFormas]);
 
+  const initialSelectedFormaId = useMemo<number | "">(() => {
+    if (
+      typeof result?.formaParticipacionId === "number" &&
+      reformFormas.some((forma) => forma.id === result.formaParticipacionId)
+    ) {
+      return result.formaParticipacionId;
+    }
+
+    return initialForma?.id ?? "";
+  }, [initialForma, reformFormas, result?.formaParticipacionId]);
+
+  const initialSelectedForma = useMemo(
+    () => reformFormas.find((forma) => forma.id === initialSelectedFormaId) ?? null,
+    [initialSelectedFormaId, reformFormas],
+  );
+
   const [selectedFormaId, setSelectedFormaId] = useState<number | "">(
-    initialForma?.id ?? "",
+    initialSelectedFormaId,
   );
   const [participantsForm, setParticipantsForm] = useState<ParticipantsForm>(() =>
-    buildInitialParticipantsForm(evento, initialForma),
+    buildInitialParticipantsState(evento, initialSelectedForma, result),
   );
   const [budgetRows, setBudgetRows] = useState<BudgetRow[]>(() =>
-    getInitialBudgetRows(getFormaBudgetItems(evento, initialForma)),
+    buildInitialBudgetRowsState(evento, initialSelectedForma, itemsCatalogo, result),
   );
   const [expandedBudgetRows, setExpandedBudgetRows] = useState<string[]>([]);
 

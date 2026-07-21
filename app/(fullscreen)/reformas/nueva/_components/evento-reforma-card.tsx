@@ -108,6 +108,7 @@ export default function EventoReformaCard({
         <EventoAntesPanel evento={evento} result={result} itemsCatalogo={itemsCatalogo} />
         <EventoCambiosCard
           evento={evento}
+          result={result}
           itemsCatalogo={itemsCatalogo}
           eligibleFormaIds={eligibleFormaIds}
           onChange={onChange}

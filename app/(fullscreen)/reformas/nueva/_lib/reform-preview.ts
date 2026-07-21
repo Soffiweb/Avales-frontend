@@ -21,6 +21,7 @@ export type ReformaPreviewInfoRow = {
 export type ReformaPreviewBudgetRow = {
   codigo: string;
   item: string;
+  mes: string;
   valor: string;
   changed?: boolean;
 };
@@ -44,6 +45,48 @@ export function getMonthLabel(value?: number | null) {
 export function formatPreviewValue(value?: string | null) {
   const normalized = value?.trim();
   return normalized ? normalized.toUpperCase() : "-";
+}
+
+function buildMovimientoQueues(movimientos: EventoCambiosResult["movimientos"]) {
+  const exact = new Map<string, EventoCambiosResult["movimientos"][number]>();
+  const byItemId = new Map<number, EventoCambiosResult["movimientos"][number][]>();
+
+  movimientos.forEach((movimiento) => {
+    exact.set(`${movimiento.itemId}-${movimiento.mes}`, movimiento);
+    const list = byItemId.get(movimiento.itemId) ?? [];
+    list.push(movimiento);
+    byItemId.set(movimiento.itemId, list);
+  });
+
+  return { exact, byItemId };
+}
+
+function takePairedMovimiento(
+  itemId: number,
+  mes: number | null | undefined,
+  exact: Map<string, EventoCambiosResult["movimientos"][number]>,
+  byItemId: Map<number, EventoCambiosResult["movimientos"][number][]>,
+) {
+  const exactKey = mes != null ? `${itemId}-${mes}` : null;
+  const exactMatch = exactKey ? exact.get(exactKey) : undefined;
+
+  if (exactMatch) {
+    exact.delete(exactKey!);
+    const queue = byItemId.get(itemId) ?? [];
+    const index = queue.findIndex((movimiento) => movimiento === exactMatch);
+    if (index >= 0) queue.splice(index, 1);
+    if (queue.length === 0) byItemId.delete(itemId);
+    return exactMatch;
+  }
+
+  const queue = byItemId.get(itemId);
+  if (!queue || queue.length === 0) return undefined;
+
+  const fallback = queue.shift();
+  if (!fallback) return undefined;
+  exact.delete(`${fallback.itemId}-${fallback.mes}`);
+  if (queue.length === 0) byItemId.delete(itemId);
+  return fallback;
 }
 
 export function buildEditedEventoPreviewBlock(
@@ -127,6 +170,7 @@ export function buildEditedEventoPreviewBlock(
   const currentBudgetRows: ReformaPreviewBudgetRow[] = originalItems.map((item) => ({
     codigo: String(item.item.numero ?? "-"),
     item: formatPreviewValue(item.item.nombre),
+    mes: getMonthLabel(item.mes),
     valor: formatCurrency(Number.parseFloat(item.presupuesto) || 0),
   }));
   const currentTotal = originalItems.reduce(
@@ -134,23 +178,25 @@ export function buildEditedEventoPreviewBlock(
     0,
   );
 
-  const movimientosByKey = new Map(result.movimientos.map((m) => [`${m.itemId}-${m.mes}`, m]));
+  const { exact, byItemId } = buildMovimientoQueues(result.movimientos);
   const matchedRows: ReformaPreviewBudgetRow[] = originalItems.map((item) => {
-    const movimiento = movimientosByKey.get(`${item.item.id}-${item.mes}`);
+    const movimiento = takePairedMovimiento(item.item.id, item.mes, exact, byItemId);
     return {
       codigo: String(item.item.numero ?? "-"),
       item: formatPreviewValue(item.item.nombre),
+      mes: getMonthLabel(movimiento?.mes ?? item.mes),
       valor: formatCurrency(movimiento ? movimiento.montoNuevo : Number.parseFloat(item.presupuesto) || 0),
       changed: Boolean(movimiento),
     };
   });
-  const newItemRows: ReformaPreviewBudgetRow[] = result.movimientos
-    .filter((m) => !originalItems.some((oi) => oi.item.id === m.itemId && oi.mes === m.mes))
+  const newItemRows: ReformaPreviewBudgetRow[] = Array.from(byItemId.values())
+    .flat()
     .map((m) => {
       const catalogItem = itemsCatalogo.find((option) => option.id === m.itemId);
       return {
         codigo: String(catalogItem?.numero ?? "-"),
         item: formatPreviewValue(m.itemNombre),
+        mes: getMonthLabel(m.mes),
         valor: formatCurrency(m.montoNuevo),
         changed: true,
       };

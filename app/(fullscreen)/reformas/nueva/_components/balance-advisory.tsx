@@ -104,3 +104,7 @@ export default function BalanceAdvisory({ totalCortado, totalAsignado }: Props) 
     </div>
   );
 }
+
+export function isBalanced(totalCortado: number, totalAsignado: number): boolean {
+  return getStatus(new Decimal(totalCortado || 0), new Decimal(totalAsignado || 0)) === "balanced";
+}

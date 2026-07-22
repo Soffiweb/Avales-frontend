@@ -28,22 +28,20 @@ import {
   createReform,
   getReformErrorMessage,
   uploadReformAdjuntos,
-  type CreateReformEventoPayload,
-  type CreateReformPayload,
-} from "@/lib/api/reforms";
-import { getDirigido, listUsers, type DirigidoRole } from "@/lib/api/user";
-import {
-  MES_OPCIONES,
   getEventosDisponiblesReformaMulti,
   groupEventosDisponiblesPorEvento,
-} from "@/lib/api/reforms-multi";
+  MES_OPCIONES,
+  type CreateReformEventoPayload,
+  type CreateReformPayload,
+  type EventoDisponibleAgrupado,
+  type FuentePresupuestoReforma,
+} from "@/lib/api/reforms";
+import { getDirigido, listUsers, type DirigidoRole } from "@/lib/api/user";
 import type { User } from "@/types/user";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";
 import { formatCurrency, formatRole } from "@/lib/utils/formatters";
-import { isBalanced } from "@/app/(app)/reformas-multi/_components/balance-bar";
-import BalanceAdvisory from "./_components/balance-advisory";
-import type { EventoDisponibleAgrupado, FuentePresupuestoReforma } from "@/types/reforma-multi";
+import BalanceAdvisory, { isBalanced } from "./_components/balance-advisory";
 import EventoReformaCard from "./_components/evento-reforma-card";
 import type { EventoCambiosResult, EventoMovimientoLinea } from "./_components/evento-cambios-card";
 import {

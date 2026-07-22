@@ -10,11 +10,14 @@ import {
   normalizeEventoAlcance,
   normalizeEventoTipoEvento,
 } from "@/lib/constants";
-import { MES_OPCIONES } from "@/lib/api/reforms-multi";
 import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento, EventoItem, FormaParticipacionCupos } from "@/types/evento";
-import type { ReformChangesDto, ReformFormaParticipacionChanges } from "@/lib/api/reforms";
+import {
+  MES_OPCIONES,
+  type ReformChangesDto,
+  type ReformFormaParticipacionChanges,
+} from "@/lib/api/reforms";
 
 export type EventoMovimientoLinea = {
   itemId: number;

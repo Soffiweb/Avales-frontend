@@ -20,6 +20,7 @@ import {
   getReform,
   rechazarReform,
   TIPO_REFORMA_LABELS,
+  MES_NOMBRES,
   type ReformDestinoEntry,
   type ReformEventoEntry,
   type ReformFieldComparison,
@@ -29,7 +30,6 @@ import {
   type ReformResponse,
   type TipoReforma,
 } from "@/lib/api/reforms";
-import { MES_NOMBRES } from "@/lib/api/reforms-multi";
 import { canReviewReforms } from "@/lib/auth/access";
 import {
   formatCurrency,

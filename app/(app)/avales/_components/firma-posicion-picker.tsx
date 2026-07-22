@@ -22,12 +22,15 @@ GlobalWorkerOptions.workerSrc = new URL(
 
 // Ancho al que renderizamos la página en pantalla (px CSS).
 const TARGET_WIDTH_PX = 520;
-// Tamaño mínimo del recuadro del sello, en px de pantalla.
-const MIN_BOX_PX = 24;
 
-// Posición por defecto del sello, en PUNTOS PDF (origen abajo-izquierda).
-// Coincide con el default histórico de firma-service (LLX/LLY/ancho/alto).
-const DEFAULT_PT = { x: 60, y: 150, width: 90, height: 70 };
+// El sello QR es CUADRADO y de tamaño FIJO: rubrica lo dibuja como un cuadrado
+// cuyo lado = la altura de la caja, así que dejar redimensionar libremente hace
+// que el QR se vuelva gigante. La caja es un cuadrado fijo (en PUNTOS PDF) y el
+// usuario SOLO la posiciona. WYSIWYG: el cuadrado que ves es el QR que sale.
+const QR_SIZE_PT = 90;
+// Posición por defecto del sello (esquina inferior-izquierda), en PUNTOS PDF
+// (origen abajo-izquierda). Coincide con el default de firma-service.
+const DEFAULT_POS_PT = { x: 60, y: 150 };
 
 type BoxPx = { left: number; top: number; width: number; height: number };
 
@@ -42,9 +45,8 @@ type PageMetrics = {
   canvasHeightPx: number;
 };
 
-type DragState =
-  | { mode: "move"; startX: number; startY: number; origin: BoxPx }
-  | { mode: "resize"; startX: number; startY: number; origin: BoxPx };
+// Solo arrastrar para mover: la caja es un cuadrado fijo (no se redimensiona).
+type DragState = { startX: number; startY: number; origin: BoxPx };
 
 type FirmaPosicionPickerProps = {
   avalId: number;
@@ -53,18 +55,13 @@ type FirmaPosicionPickerProps = {
   onChange: (posicion: FirmaPosicion) => void;
 };
 
+// La caja es un cuadrado de lado fijo; solo se clampa la POSICIÓN para que no
+// se salga de la página.
 function clampBox(box: BoxPx, metrics: PageMetrics): BoxPx {
-  const width = Math.min(
-    Math.max(box.width, MIN_BOX_PX),
-    metrics.canvasWidthPx,
-  );
-  const height = Math.min(
-    Math.max(box.height, MIN_BOX_PX),
-    metrics.canvasHeightPx,
-  );
-  const left = Math.min(Math.max(box.left, 0), metrics.canvasWidthPx - width);
-  const top = Math.min(Math.max(box.top, 0), metrics.canvasHeightPx - height);
-  return { left, top, width, height };
+  const size = box.width; // cuadrado: width === height
+  const left = Math.min(Math.max(box.left, 0), metrics.canvasWidthPx - size);
+  const top = Math.min(Math.max(box.top, 0), metrics.canvasHeightPx - size);
+  return { left, top, width: size, height: size };
 }
 
 /**
@@ -149,13 +146,14 @@ export default function FirmaPosicionPicker({
     };
     setMetrics(nextMetrics);
 
-    // Recuadro por defecto (zona inferior), derivado del default en puntos.
+    // Recuadro por defecto: cuadrado fijo en la zona inferior-izquierda.
+    const sizePx = QR_SIZE_PT * scale;
     const defaultBox = clampBox(
       {
-        left: DEFAULT_PT.x * scale,
-        top: (natural.height - DEFAULT_PT.y - DEFAULT_PT.height) * scale,
-        width: DEFAULT_PT.width * scale,
-        height: DEFAULT_PT.height * scale,
+        left: DEFAULT_POS_PT.x * scale,
+        top: (natural.height - DEFAULT_POS_PT.y - QR_SIZE_PT) * scale,
+        width: sizePx,
+        height: sizePx,
       },
       nextMetrics,
     );
@@ -234,18 +232,11 @@ export default function FirmaPosicionPicker({
       if (!drag || !metrics) return;
       const dx = event.clientX - drag.startX;
       const dy = event.clientY - drag.startY;
-      const nextRaw: BoxPx =
-        drag.mode === "move"
-          ? {
-              ...drag.origin,
-              left: drag.origin.left + dx,
-              top: drag.origin.top + dy,
-            }
-          : {
-              ...drag.origin,
-              width: drag.origin.width + dx,
-              height: drag.origin.height + dy,
-            };
+      const nextRaw: BoxPx = {
+        ...drag.origin,
+        left: drag.origin.left + dx,
+        top: drag.origin.top + dy,
+      };
       setBox(clampBox(nextRaw, metrics));
     },
     [metrics],
@@ -258,12 +249,11 @@ export default function FirmaPosicionPicker({
   }, [handlePointerMove]);
 
   const startDrag = useCallback(
-    (mode: DragState["mode"]) => (event: React.PointerEvent) => {
+    (event: React.PointerEvent) => {
       if (!box) return;
       event.preventDefault();
       event.stopPropagation();
       dragRef.current = {
-        mode,
         startX: event.clientX,
         startY: event.clientY,
         origin: box,
@@ -281,7 +271,7 @@ export default function FirmaPosicionPicker({
     <div className="space-y-2">
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Arrastrá el recuadro para elegir dónde irá el sello de firma (QR).
-        Usá la esquina para redimensionarlo.
+        El tamaño es fijo.
       </p>
 
       {error && (
@@ -303,7 +293,7 @@ export default function FirmaPosicionPicker({
 
           {box && metrics && (
             <div
-              onPointerDown={startDrag("move")}
+              onPointerDown={startDrag}
               className="absolute cursor-move rounded-sm border-2 border-emerald-500 bg-emerald-500/15 touch-none select-none"
               style={{
                 left: box.left,
@@ -319,11 +309,6 @@ export default function FirmaPosicionPicker({
                 </span>
               </div>
               <Move className="absolute -top-1.5 -left-1.5 w-3 h-3 text-emerald-600 bg-white dark:bg-gray-800 rounded-full pointer-events-none" />
-              <div
-                onPointerDown={startDrag("resize")}
-                className="absolute -bottom-1.5 -right-1.5 h-4 w-4 cursor-se-resize rounded-full border-2 border-white bg-emerald-600 touch-none"
-                aria-label="Redimensionar sello"
-              />
             </div>
           )}
         </div>

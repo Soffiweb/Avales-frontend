@@ -24,8 +24,8 @@ importers:
         specifier: ^5.100.14
         version: 5.100.14(react@19.2.4)
       avales-shared:
-        specifier: git+https://github.com/Soffiweb/avales-shared.git#v0.1.0
-        version: https://codeload.github.com/Soffiweb/avales-shared/tar.gz/0b163a19051f3d43f90232e3b56bdc724a886cfb
+        specifier: git+https://github.com/Soffiweb/avales-shared.git#v0.2.0
+        version: https://codeload.github.com/Soffiweb/avales-shared/tar.gz/d47d86665db883374003db9cb0771658e7965fbd
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1201,9 +1201,9 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  avales-shared@https://codeload.github.com/Soffiweb/avales-shared/tar.gz/0b163a19051f3d43f90232e3b56bdc724a886cfb:
-    resolution: {tarball: https://codeload.github.com/Soffiweb/avales-shared/tar.gz/0b163a19051f3d43f90232e3b56bdc724a886cfb}
-    version: 0.1.0
+  avales-shared@https://codeload.github.com/Soffiweb/avales-shared/tar.gz/d47d86665db883374003db9cb0771658e7965fbd:
+    resolution: {tarball: https://codeload.github.com/Soffiweb/avales-shared/tar.gz/d47d86665db883374003db9cb0771658e7965fbd}
+    version: 0.2.0
 
   axe-core@4.11.1:
     resolution: {integrity: sha512-BASOg+YwO2C+346x3LZOeoovTIoTrRqEsqMa6fmfAV0P+U9mFr9NsyOEpiYvFjbc64NMrSswhV50WdXzdb/Z5A==}
@@ -3667,7 +3667,7 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  avales-shared@https://codeload.github.com/Soffiweb/avales-shared/tar.gz/0b163a19051f3d43f90232e3b56bdc724a886cfb: {}
+  avales-shared@https://codeload.github.com/Soffiweb/avales-shared/tar.gz/d47d86665db883374003db9cb0771658e7965fbd: {}
 
   axe-core@4.11.1: {}
 

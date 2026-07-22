@@ -79,10 +79,9 @@ export default function ComprasPublicasPreview({ aval, draft }: Props) {
       <div className="pt-4 text-[12px] leading-5">
         <p>Atentamente:</p>
         <div className="mt-6 text-center">
-          <p className="font-semibold">____________________________</p>
           <p className="font-semibold">{doc.firma.nombre}</p>
           <p>{doc.firma.cargo}</p>
-          <p>{doc.firma.fecha}</p>
+          <p className="text-slate-500">{doc.firma.leyenda}</p>
         </div>
       </div>
     </div>

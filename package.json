@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "avales-shared": "git+https://github.com/Soffiweb/avales-shared.git#v0.1.0",
+    "avales-shared": "git+https://github.com/Soffiweb/avales-shared.git#v0.2.0",
     "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-popover": "^1.1.15",

@@ -179,9 +179,9 @@ export default function CertificacionFinancieraPreview({ aval, draft }: Props) {
       <p className="text-[11px]">{doc.closingText}</p>
 
       <div className="pt-6 text-[11px]">
-        <p className="text-slate-400">____________________________</p>
         <p className="font-semibold uppercase">{doc.firma.nombre || "-"}</p>
         <p className="uppercase">{doc.firma.cargo || "-"}</p>
+        <p className="text-slate-500">{doc.firma.leyenda}</p>
       </div>
     </div>
   );

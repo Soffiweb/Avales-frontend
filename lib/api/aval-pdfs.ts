@@ -100,6 +100,31 @@ export async function openAvalPdfPreview(
 }
 
 /**
+ * Descarga el PDF (sin firmar) de un paso composable como `ArrayBuffer`,
+ * listo para renderizar con pdf.js. No usa `apiFetch` porque ese cliente
+ * parsea la respuesta como JSON; aquí necesitamos los bytes crudos.
+ */
+export async function fetchAvalPdfBuffer(
+  avalId: number,
+  key: ComposableDocumentKey,
+): Promise<ArrayBuffer> {
+  const endpoint = PREVIEW_ENDPOINTS[key];
+  if (!endpoint) {
+    throw new Error(
+      `No hay endpoint de preview directo para "${DOCUMENT_LABELS[key]}".`,
+    );
+  }
+
+  const url = `${API_BASE}/avales/${avalId}${endpoint}`;
+  const headers = await buildAuthHeader();
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`No se pudo cargar el PDF (HTTP ${res.status})`);
+  }
+  return res.arrayBuffer();
+}
+
+/**
  * Pide al backend componer un PDF con los documentos seleccionados y
  * dispara la descarga al cliente.
  */

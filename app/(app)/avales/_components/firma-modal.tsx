@@ -2,12 +2,21 @@
 
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { FileKey2, Loader2, ShieldCheck } from "lucide-react";
+import { FileKey2, Loader2, MapPin, ShieldCheck } from "lucide-react";
 
-import { firmarAprobarAval } from "@/lib/api/avales";
+import dynamic from "next/dynamic";
+
+import { firmarAprobarAval, type FirmaPosicion } from "@/lib/api/avales";
 import { ApiError } from "@/lib/api/client";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import { getApprovalStageLabel } from "@/lib/constants";
+
+// pdf.js corre solo en el browser; lo cargamos sin SSR y bajo demanda para
+// que su bundle (y el worker) no entren en el render del servidor.
+const FirmaPosicionPicker = dynamic(
+  () => import("@/app/(app)/avales/_components/firma-posicion-picker"),
+  { ssr: false },
+);
 
 const CERTIFICATE_ACCEPT = ".p12,.pfx";
 const CERTIFICATE_MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB — ver SIGNATURE_CERTIFICATE_MAX_SIZE_BYTES en el backend
@@ -47,8 +56,13 @@ export default function FirmaModal({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [firmaPosicion, setFirmaPosicion] = useState<FirmaPosicion | null>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // El picker visual del sello QR solo aplica al flujo de Compras Públicas (v1).
+  const supportsPlacement = etapa === "COMPRAS_PUBLICAS";
 
   // Reinicia el formulario cada vez que se abre/cierra — nunca conservar
   // certificado/contraseña entre aperturas del modal.
@@ -59,6 +73,8 @@ export default function FirmaModal({
       setSubmitting(false);
       setFormError(null);
       setPasswordError(null);
+      setShowPicker(false);
+      setFirmaPosicion(null);
     }
   }, [open]);
 
@@ -111,6 +127,9 @@ export default function FirmaModal({
         password,
         certificate: certificateFile,
         comentario,
+        // Opcional: si el usuario no eligió posición, va `undefined` y el
+        // backend aplica su posición por defecto para el sello QR.
+        posicion: firmaPosicion ?? undefined,
       });
       onSuccess(response.data);
     } catch (err) {
@@ -162,7 +181,7 @@ export default function FirmaModal({
               leaveFrom="opacity-100 translate-y-0 scale-100"
               leaveTo="opacity-0 translate-y-2 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all border border-gray-200 dark:border-gray-700/60">
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all border border-gray-200 dark:border-gray-700/60">
                 <form onSubmit={handleSubmit}>
                   <div className="px-6 py-5 space-y-1">
                     <Dialog.Title className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -177,6 +196,38 @@ export default function FirmaModal({
                   </div>
 
                   <div className="px-6 pb-2 space-y-4">
+                    {supportsPlacement && (
+                      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            Posición del sello de firma (QR)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPicker((v) => !v)}
+                            disabled={submitting}
+                            className="btn border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600 disabled:opacity-50 text-xs px-3 py-1.5"
+                          >
+                            {showPicker ? "Ocultar" : "Elegir posición"}
+                          </button>
+                        </div>
+                        {!showPicker && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Opcional. Si no elegís una posición, el sello se
+                            colocará en la ubicación por defecto.
+                          </p>
+                        )}
+                        {showPicker && (
+                          <FirmaPosicionPicker
+                            avalId={avalId}
+                            active={showPicker}
+                            onChange={setFirmaPosicion}
+                          />
+                        )}
+                      </div>
+                    )}
+
                     <label className="block">
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Certificado (.p12/.pfx)

@@ -10,6 +10,7 @@ import type {
   Estado,
   EtapaFlujo,
   Historial,
+  TipoDocumentoIdentidad,
   UpsertAvalParticipantesPayload,
 } from "@/types/aval";
 
@@ -292,6 +293,12 @@ export type CreatePdaPayload = {
   montoAsignado?: number;
   items?: CreatePdaItemPayload[];
   notas?: PdaNotaPayload[];
+  /** Responsable del anticipo/presupuesto. Si se omiten los 4 campos, no se
+   *  modifica el responsable ya guardado en el aval. */
+  responsableAnticipoId?: number;
+  responsableAnticipoNombre?: string;
+  responsableAnticipoTipoDocumento?: TipoDocumentoIdentidad;
+  responsableAnticipoNumeroDocumento?: string;
 };
 
 export async function createPda(id: number, payload: CreatePdaPayload) {

@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { uploadUsersExcel, type UploadUsersExcelResponse } from "@/lib/api/user";
-import { ROLES } from "@/lib/constants";
-import { formatRole } from "@/lib/utils/formatters/text";
+import { useCatalog, useRoles } from "@/lib/hooks/use-catalog";
 import UploadInstructions from "@/components/ui/upload-instructions";
 
 type UploadUsersExcelModalProps = {
@@ -24,6 +23,8 @@ export default function UploadUsersExcelModal({
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { roles } = useRoles();
+  const { categorias } = useCatalog();
 
   useEffect(() => {
     if (isOpen) {
@@ -160,7 +161,10 @@ export default function UploadUsersExcelModal({
                     </p>
                     <p className="text-xs text-gray-500 mt-2 max-w-md">
                       Solo se aceptan disciplinas registradas en el catalogo; puedes enviar el codigo o el nombre exacto. Para CARGO se aceptan los roles validos del sistema:{" "}
-                      {ROLES.map((role) => `${role} (${formatRole(role)})`).join(", ")}.
+                      {roles.length > 0
+                        ? roles.map((role) => role.nombre).filter(Boolean).join(", ")
+                        : "los roles del sistema"}
+                      .
                     </p>
                   </div>
                 )}
@@ -168,7 +172,11 @@ export default function UploadUsersExcelModal({
             )}
 
             {!response && (
-              <UploadInstructions type="usuarios" compact />
+              <UploadInstructions
+                type="usuarios"
+                compact
+                categorias={categorias.map((c) => c.nombre).filter(Boolean)}
+              />
             )}
 
             {error && (

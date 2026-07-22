@@ -2,18 +2,12 @@ import type { CatalogItem } from "@/types/catalog";
 import {
   EVENTO_CATEGORIA_ALIASES,
   EVENTO_CATEGORIA_LABELS,
-  EVENTO_CATEGORIA_OPTIONS,
   EVENTO_CATEGORIA_VALUES,
 } from "@/lib/domain/evento-options";
 
 export const APP_CATEGORIES = EVENTO_CATEGORIA_VALUES;
 
 export type AppCategory = (typeof APP_CATEGORIES)[number];
-
-export type CategoryOption = {
-  value: AppCategory;
-  label: string;
-};
 
 export function normalizeCategoryValue(value?: string | null) {
   return (value ?? "")
@@ -53,17 +47,6 @@ export function formatCategoryLabel(value?: string | null, fallback = "-") {
   return categoryLabels.get(canonical) ?? canonical;
 }
 
-export function getCategoryOptions(): CategoryOption[] {
-  return EVENTO_CATEGORIA_OPTIONS.map((option) => ({
-    value: option.value,
-    label: option.label,
-  }));
-}
-
-export function getCategoryCodeValue(value?: string | null) {
-  return getCanonicalCategory(value) ?? "";
-}
-
 export function getCategoryByCatalogValue(
   items: CatalogItem[],
   value?: string | number | null
@@ -87,16 +70,14 @@ export function getCategoryByCatalogValue(
 }
 
 export function getCategoryIdOptions(items: CatalogItem[]): CatalogItem[] {
-  return APP_CATEGORIES.reduce<CatalogItem[]>((acc, category) => {
-    const item = getCategoryByCatalogValue(items, category);
-    if (!item) return acc;
-    acc.push({
-      id: item.id,
-      codigo: item.codigo,
-      nombre: formatCategoryLabel(category, category),
-    });
-    return acc;
-  }, []);
+  // Se incluyen TODAS las categorías del catálogo (no solo las conocidas), para
+  // que una categoría nueva creada en el backend aparezca en los selects sin
+  // tocar código. El `nombre` ya viene normalizado desde `getCatalog`.
+  return items.map((item) => ({
+    id: item.id,
+    codigo: item.codigo,
+    nombre: formatCategoryLabel(item.nombre, item.nombre),
+  }));
 }
 
 export function normalizeCategoryCatalogItems<T extends Pick<CatalogItem, "nombre">>(

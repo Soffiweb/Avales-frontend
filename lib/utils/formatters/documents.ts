@@ -53,6 +53,9 @@ export function getResponsibleTrainerName(
   aval: Aval,
   fallback = "-",
 ): string {
+  const responsableAnticipo = aval.avalTecnico?.responsableAnticipoNombre;
+  if (responsableAnticipo?.trim()) return responsableAnticipo.trim();
+
   const sorted = [...(aval.entrenadores ?? [])].sort(
     (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
   );
@@ -85,6 +88,18 @@ export function getResponsibleTrainerData(
   aval: Aval,
   fallbackName = "-",
 ) {
+  const responsableAnticipoNombre = aval.avalTecnico?.responsableAnticipoNombre;
+  if (responsableAnticipoNombre?.trim()) {
+    const identificador =
+      aval.avalTecnico?.responsableAnticipoNumeroDocumento?.trim() || "-";
+    return {
+      nombre: responsableAnticipoNombre.trim().toUpperCase(),
+      cedula: identificador,
+      identificador,
+      esRuc: aval.avalTecnico?.responsableAnticipoTipoDocumento === "RUC",
+    };
+  }
+
   const sorted = [...(aval.entrenadores ?? [])].sort(
     (a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)),
   );

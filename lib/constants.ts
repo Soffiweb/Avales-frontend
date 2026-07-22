@@ -2,6 +2,7 @@ import type {
   EtapaFlujo,
   ModalidadParticipacion,
   TipoAval,
+  TipoDocumentoIdentidad,
 } from "@/types/aval";
 import {
   EVENTO_CATEGORIA_OPTIONS as EVENTO_CATEGORIA_OPTIONS_SOURCE,
@@ -28,25 +29,6 @@ export const TOAST_DURATION = 4000;
 
 /** Delay para limpiar item de confirmación después de cerrar modal */
 export const CONFIRM_CLEANUP_DELAY = 180;
-
-/** Roles disponibles en el sistema */
-export const ROLES = [
-  "admin",
-  "administrador",
-  "secretaria",
-  "dtm",
-  "metodologo",
-  "entrenador",
-  "usuario",
-  "deportista",
-  "pda",
-  "control_previo",
-  "compras_publicas",
-  "financiero",
-  "lector",
-] as const;
-
-export type Role = (typeof ROLES)[number];
 
 /** Opciones de género para formularios */
 export const GENERO_OPTIONS = [
@@ -312,6 +294,23 @@ export function getTipoAvalLabel(value?: string | null): string {
   if (!value) return "Sin tipo";
   return (
     TIPO_AVAL_OPTIONS.find((option) => option.value === value)?.label ?? value
+  );
+}
+
+export const TIPO_DOCUMENTO_OPTIONS: Array<{
+  value: TipoDocumentoIdentidad;
+  label: string;
+}> = [
+  { value: "CEDULA", label: "Cédula" },
+  { value: "RUC", label: "RUC" },
+  { value: "PASAPORTE", label: "Pasaporte" },
+];
+
+export function getTipoDocumentoLabel(value?: string | null): string {
+  if (!value) return "-";
+  return (
+    TIPO_DOCUMENTO_OPTIONS.find((option) => option.value === value)?.label ??
+    value
   );
 }
 

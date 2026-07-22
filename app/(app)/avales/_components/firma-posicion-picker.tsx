@@ -314,19 +314,6 @@ export default function FirmaPosicionPicker({
         </div>
       </div>
 
-      {box && metrics && (
-        <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 break-all">
-          DEBUG scale={metrics.scale.toFixed(3)} pageW={metrics.pageWidthPts.toFixed(0)}pt pageH=
-          {metrics.pageHeightPts.toFixed(0)}pt canvas={metrics.canvasWidthPx.toFixed(0)}x
-          {metrics.canvasHeightPx.toFixed(0)}px boxPx=[{box.left.toFixed(0)},{box.top.toFixed(0)},
-          {box.width.toFixed(0)},{box.height.toFixed(0)}] →{" "}
-          {(() => {
-            const p = boxToFirmaPosicion(box, metrics, page);
-            return `envía x=${p.firmaPosX} y=${p.firmaPosY} w=${p.firmaAncho} h=${p.firmaAlto} pág=${p.firmaPagina}`;
-          })()}
-        </p>
-      )}
-
       {numPages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-gray-600 dark:text-gray-300">
           <button

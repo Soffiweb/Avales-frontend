@@ -23,11 +23,12 @@ GlobalWorkerOptions.workerSrc = new URL(
 // Ancho al que renderizamos la página en pantalla (px CSS).
 const TARGET_WIDTH_PX = 520;
 
-// El sello QR es CUADRADO y de tamaño FIJO: rubrica lo dibuja como un cuadrado
-// cuyo lado = la altura de la caja, así que dejar redimensionar libremente hace
-// que el QR se vuelva gigante. La caja es un cuadrado fijo (en PUNTOS PDF) y el
-// usuario SOLO la posiciona. WYSIWYG: el cuadrado que ves es el QR que sale.
-const QR_SIZE_PT = 90;
+// El sello de FirmaEC NO es solo el QR: es el QR (cuadrado, del ALTO de la caja)
+// a la izquierda + el texto del firmante al costado. Por eso la caja es un
+// RECTÁNGULO ANCHO fijo (en PUNTOS PDF): si fuera cuadrado, el texto se encima
+// sobre el QR. El usuario SOLO la posiciona (tamaño fijo).
+const STAMP_W_PT = 280;
+const STAMP_H_PT = 90;
 // Posición por defecto del sello (esquina inferior-izquierda), en PUNTOS PDF
 // (origen abajo-izquierda). Coincide con el default de firma-service.
 const DEFAULT_POS_PT = { x: 60, y: 150 };
@@ -55,13 +56,13 @@ type FirmaPosicionPickerProps = {
   onChange: (posicion: FirmaPosicion) => void;
 };
 
-// La caja es un cuadrado de lado fijo; solo se clampa la POSICIÓN para que no
-// se salga de la página.
+// La caja es un rectángulo de tamaño fijo; solo se clampa la POSICIÓN para que
+// no se salga de la página.
 function clampBox(box: BoxPx, metrics: PageMetrics): BoxPx {
-  const size = box.width; // cuadrado: width === height
-  const left = Math.min(Math.max(box.left, 0), metrics.canvasWidthPx - size);
-  const top = Math.min(Math.max(box.top, 0), metrics.canvasHeightPx - size);
-  return { left, top, width: size, height: size };
+  const { width, height } = box;
+  const left = Math.min(Math.max(box.left, 0), metrics.canvasWidthPx - width);
+  const top = Math.min(Math.max(box.top, 0), metrics.canvasHeightPx - height);
+  return { left, top, width, height };
 }
 
 /**
@@ -146,14 +147,13 @@ export default function FirmaPosicionPicker({
     };
     setMetrics(nextMetrics);
 
-    // Recuadro por defecto: cuadrado fijo en la zona inferior-izquierda.
-    const sizePx = QR_SIZE_PT * scale;
+    // Recuadro por defecto: rectángulo ancho fijo en la zona inferior-izquierda.
     const defaultBox = clampBox(
       {
         left: DEFAULT_POS_PT.x * scale,
-        top: (natural.height - DEFAULT_POS_PT.y - QR_SIZE_PT) * scale,
-        width: sizePx,
-        height: sizePx,
+        top: (natural.height - DEFAULT_POS_PT.y - STAMP_H_PT) * scale,
+        width: STAMP_W_PT * scale,
+        height: STAMP_H_PT * scale,
       },
       nextMetrics,
     );
@@ -305,7 +305,7 @@ export default function FirmaPosicionPicker({
               <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 pointer-events-none">
                 <QrCode className="w-4 h-4" />
                 <span className="px-1 text-center leading-tight">
-                  Sello de firma / QR
+                  Sello de firma (QR + datos)
                 </span>
               </div>
               <Move className="absolute -top-1.5 -left-1.5 w-3 h-3 text-emerald-600 bg-white dark:bg-gray-800 rounded-full pointer-events-none" />

@@ -232,7 +232,7 @@ function buildInitialBudgetRowsState(
 
   const restoredRows = originalRows.map((row) => {
     const itemId = row.itemId;
-    const key = typeof itemId === "number" ? `${itemId}-${row.mes}` : null;
+    const key = typeof itemId === "number" ? (`${itemId}-${row.mes}` as const) : null;
     let changedItem = key ? changedItemsByKey.get(key) : undefined;
 
     if (!changedItem && typeof itemId === "number") {
@@ -261,18 +261,18 @@ function buildInitialBudgetRowsState(
 
   const newRows = Array.from(changedItemsByItemId.values())
     .flat()
-    .map((item) => {
+    .map((item): BudgetRow => {
       const catalogItem = itemsCatalogo.find((option) => option.id === item.itemId);
       return {
         localId: `restored-new-${item.itemId}-${item.mes}`,
         itemId: item.itemId,
         itemNumero: catalogItem?.numero ?? "",
-      mes: item.mes,
-      presupuesto: String(item.presupuesto),
-      status: "new" as const,
-      montoMinimo: 0,
-    };
-  });
+        mes: item.mes,
+        presupuesto: String(item.presupuesto),
+        status: "new",
+        montoMinimo: 0,
+      };
+    });
 
   return [...restoredRows, ...newRows];
 }

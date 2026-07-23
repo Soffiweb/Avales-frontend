@@ -15,15 +15,6 @@ export function getPrimaryEvento(
   );
 }
 
-export function getPrimaryEventoId(reform: ReformResponse): number | null {
-  return (
-    reform.eventos[0]?.eventoId ??
-    reform.origenes[0]?.eventoId ??
-    reform.destinos[0]?.eventoId ??
-    null
-  );
-}
-
 /** IDs únicos de todos los eventos tocados por la reforma (ediciones + movimientos). */
 export function getInvolvedEventoIds(reform: ReformResponse): Set<number> {
   const ids = new Set<number>();

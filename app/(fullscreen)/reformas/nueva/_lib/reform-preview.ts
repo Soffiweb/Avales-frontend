@@ -1,4 +1,4 @@
-import { MES_NOMBRES } from "@/lib/api/reforms-multi";
+import { MES_NOMBRES } from "@/lib/api/reforms";
 import { formatCurrency, formatGenero } from "@/lib/utils/formatters";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento } from "@/types/evento";

@@ -10,11 +10,14 @@ import {
   normalizeEventoAlcance,
   normalizeEventoTipoEvento,
 } from "@/lib/constants";
-import { MES_OPCIONES } from "@/lib/api/reforms-multi";
 import { formatCurrency, formatDateInput } from "@/lib/utils/formatters";
 import type { CatalogItemPresupuestario } from "@/types/catalog";
 import type { Evento, EventoItem, FormaParticipacionCupos } from "@/types/evento";
-import type { ReformChangesDto, ReformFormaParticipacionChanges } from "@/lib/api/reforms";
+import {
+  MES_OPCIONES,
+  type ReformChangesDto,
+  type ReformFormaParticipacionChanges,
+} from "@/lib/api/reforms";
 
 export type EventoMovimientoLinea = {
   itemId: number;
@@ -261,15 +264,15 @@ function buildInitialBudgetRowsState(
 
   const newRows = Array.from(changedItemsByItemId.values())
     .flat()
-    .map((item): BudgetRow => {
+    .map((item) => {
       const catalogItem = itemsCatalogo.find((option) => option.id === item.itemId);
       return {
         localId: `restored-new-${item.itemId}-${item.mes}`,
         itemId: item.itemId,
-        itemNumero: catalogItem?.numero ?? "",
+        itemNumero: catalogItem?.numero ?? ("" as const),
         mes: item.mes,
         presupuesto: String(item.presupuesto),
-        status: "new",
+        status: "new" as const,
         montoMinimo: 0,
       };
     });

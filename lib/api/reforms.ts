@@ -197,6 +197,7 @@ export type ReformDestinoEntry = {
 
 export type ReformResponse = {
   id: number;
+  numeroReforma: string;
   estado: string;
   motivo: string;
   de?: string | null;
@@ -225,6 +226,48 @@ export type ReformResponse = {
 
 export type ListReformsOptions = {
   tipo?: TipoReforma;
+};
+
+export type FuentePresupuestoReforma = "FONDOS_PUBLICOS" | "AUTOGESTION";
+
+export type EventoDisponibleReformaMulti = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  disciplina?: CatalogItem | null;
+  formaParticipacionId: number;
+  referencia?: string | null;
+  presupuestoTotal: string;
+  items?: Array<{
+    itemId: number;
+    nombre: string;
+    numero: number;
+    mes: number;
+    presupuesto: string;
+    montoComprometido: string;
+    montoEjecutado: string;
+    saldoDisponible: string;
+  }>;
+};
+
+/** Un evento con sus formas de participación elegibles agrupadas (dedupe de EventoDisponibleReformaMulti por eventoId). */
+export type EventoDisponibleAgrupado = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  disciplina?: CatalogItem | null;
+  formas: Array<{
+    formaParticipacionId: number;
+    referencia?: string | null;
+    presupuestoTotal: string;
+    items?: EventoDisponibleReformaMulti["items"];
+  }>;
+};
+
+export type ListEventosDisponiblesReformaMultiQuery = {
+  fuente: FuentePresupuestoReforma;
+  search?: string;
+  disciplinaId?: number;
 };
 
 function getFilenameFromContentDisposition(
@@ -339,14 +382,6 @@ export async function aprobarReform(
   });
 }
 
-export function canDownloadReformExcel(reform: ReformResponse) {
-  return (
-    reform.eventos.length === 1 &&
-    reform.origenes.length === 0 &&
-    reform.destinos.length === 0
-  );
-}
-
 export async function rechazarReform(
   id: number,
   observacion: string,
@@ -379,6 +414,59 @@ export async function listReforms(options: ListReformsOptions = {}) {
   });
 }
 
+export async function getEventosDisponiblesReformaMulti(
+  query: ListEventosDisponiblesReformaMultiQuery,
+) {
+  const params = new URLSearchParams();
+  params.set("fuente", query.fuente);
+  if (query.search) params.set("search", query.search);
+  if (query.disciplinaId !== undefined) {
+    params.set("disciplinaId", String(query.disciplinaId));
+  }
+
+  return apiFetch<EventoDisponibleReformaMulti[]>(
+    `/reforms/eventos-disponibles?${params.toString()}`,
+    { method: "GET" },
+  );
+}
+
+/**
+ * Dedupe de /reforms/eventos-disponibles (una fila por evento+forma) a
+ * una fila por evento, con sus formas elegibles agrupadas. La fuente ya viene
+ * filtrada por tipoAval y excluye formas avaladas o bloqueadas por otra
+ * reforma pendiente (ver reforms.service.ts).
+ */
+export function groupEventosDisponiblesPorEvento(
+  eventos: EventoDisponibleReformaMulti[],
+): EventoDisponibleAgrupado[] {
+  const map = new Map<number, EventoDisponibleAgrupado>();
+
+  eventos.forEach((evento) => {
+    const forma = {
+      formaParticipacionId: evento.formaParticipacionId,
+      referencia: evento.referencia,
+      presupuestoTotal: evento.presupuestoTotal,
+      items: evento.items,
+    };
+
+    const existing = map.get(evento.id);
+    if (existing) {
+      existing.formas.push(forma);
+      return;
+    }
+
+    map.set(evento.id, {
+      id: evento.id,
+      codigo: evento.codigo,
+      nombre: evento.nombre,
+      disciplina: evento.disciplina,
+      formas: [forma],
+    });
+  });
+
+  return Array.from(map.values());
+}
+
 export const TIPO_REFORMA_LABELS: Record<TipoReforma, string> = {
   DATOS_INFORMATIVOS: "Datos informativos",
   PRESUPUESTO: "Presupuesto",
@@ -390,6 +478,26 @@ export const TIPO_REFORMA_OPTIONS: { value: TipoReforma; label: string }[] = [
   { value: "PRESUPUESTO", label: TIPO_REFORMA_LABELS.PRESUPUESTO },
   { value: "MIXTA", label: TIPO_REFORMA_LABELS.MIXTA },
 ];
+
+export const MES_NOMBRES: Record<number, string> = {
+  1: "Enero",
+  2: "Febrero",
+  3: "Marzo",
+  4: "Abril",
+  5: "Mayo",
+  6: "Junio",
+  7: "Julio",
+  8: "Agosto",
+  9: "Septiembre",
+  10: "Octubre",
+  11: "Noviembre",
+  12: "Diciembre",
+};
+
+export const MES_OPCIONES = Array.from({ length: 12 }, (_, i) => ({
+  value: i + 1,
+  label: MES_NOMBRES[i + 1],
+}));
 
 export async function getReform(id: number) {
   return apiFetch<ReformResponse>(`/reforms/${id}`, {

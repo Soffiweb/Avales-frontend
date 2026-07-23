@@ -283,6 +283,9 @@ export default function ReformasPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredReforms.map((reform) => {
               const primaryEvento = getPrimaryEvento(reform);
+              const involvedEventoCount = getInvolvedEventoIds(reform).size;
+              const extraEventoCount =
+                involvedEventoCount > 1 ? involvedEventoCount - 1 : 0;
               const isSingleEventoReform =
                 reform.eventos.length === 1 &&
                 reform.origenes.length === 0 &&
@@ -299,16 +302,19 @@ export default function ReformasPage() {
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Reforma #{reform.id}
+                      Reforma {reform.numeroReforma}
                     </p>
                     <h2
                       className="mt-1 text-lg font-semibold leading-6 text-gray-900 dark:text-gray-100 break-words"
-                      title={primaryEvento?.nombre}
+                      title={reform.motivo}
                     >
-                      {primaryEvento?.nombre || "Evento sin nombre"}
+                      {reform.motivo || "Sin motivo especificado"}
                     </h2>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      {primaryEvento?.codigo || "Sin código"}
+                    <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
+                      {primaryEvento?.nombre ?? "Sin evento asociado"}
+                      {extraEventoCount > 0
+                        ? ` +${extraEventoCount} evento${extraEventoCount === 1 ? "" : "s"}`
+                        : ""}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
@@ -344,13 +350,6 @@ export default function ReformasPage() {
                 </div>
 
                 <dl className="flex-1 space-y-3 text-sm">
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Motivo</dt>
-                    <dd className="mt-1 line-clamp-2 text-gray-900 dark:text-gray-100">
-                      {reform.motivo || "-"}
-                    </dd>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <dt className="text-gray-500 dark:text-gray-400">

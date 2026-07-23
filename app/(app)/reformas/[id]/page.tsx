@@ -15,11 +15,11 @@ import { getEvento } from "@/lib/api/eventos";
 import type { Evento } from "@/types/evento";
 import {
   aprobarReform,
-  canDownloadReformExcel,
   downloadReformExcel,
   getReform,
   rechazarReform,
   TIPO_REFORMA_LABELS,
+  MES_NOMBRES,
   type ReformDestinoEntry,
   type ReformEventoEntry,
   type ReformFieldComparison,
@@ -29,7 +29,6 @@ import {
   type ReformResponse,
   type TipoReforma,
 } from "@/lib/api/reforms";
-import { MES_NOMBRES } from "@/lib/api/reforms-multi";
 import { canReviewReforms } from "@/lib/auth/access";
 import {
   formatCurrency,
@@ -37,11 +36,7 @@ import {
   formatDateDMY,
 } from "@/lib/utils/formatters";
 import { getTipoAvalLabel } from "@/lib/constants";
-import {
-  getInvolvedEventoIds,
-  getPrimaryEvento,
-  getPrimaryEventoId,
-} from "../_lib/summary";
+import { getInvolvedEventoIds, getPrimaryEvento } from "../_lib/summary";
 import ReformReviewCard from "../_components/reform-review-card";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -952,12 +947,6 @@ export default function ReformaDetailPage() {
 
   const handleDownloadExcel = async () => {
     if (!reform) return;
-    if (!canDownloadReformExcel(reform)) {
-      setActionError(
-        "Excel no disponible para reformas de varios eventos todavía.",
-      );
-      return;
-    }
 
     setActionError(null);
     setExcelLoading(true);
@@ -1008,11 +997,9 @@ export default function ReformaDetailPage() {
   }
 
   const primaryEvento = getPrimaryEvento(reform);
-  const primaryEventoId = getPrimaryEventoId(reform);
   const involvedEventoCount = getInvolvedEventoIds(reform).size;
   const extraEventosCount =
     involvedEventoCount > 1 ? involvedEventoCount - 1 : 0;
-  const canDownloadExcel = canDownloadReformExcel(reform);
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
@@ -1046,7 +1033,7 @@ export default function ReformaDetailPage() {
                 Detalle de reforma
               </p>
               <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Reforma #{reform.id}
+                Reforma {reform.numeroReforma}
               </h1>
               <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                 <span>
@@ -1059,14 +1046,6 @@ export default function ReformaDetailPage() {
                   </span>
                 ) : null}
               </p>
-              {primaryEventoId ? (
-                <Link
-                  href={`/eventos/${primaryEventoId}`}
-                  className="mt-3 inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-900/60"
-                >
-                  Ver evento
-                </Link>
-              ) : null}
             </div>
 
             <div className="w-full max-w-md space-y-3 sm:w-auto">
@@ -1085,12 +1064,7 @@ export default function ReformaDetailPage() {
                 <button
                   type="button"
                   onClick={handleDownloadExcel}
-                  disabled={excelLoading || !canDownloadExcel}
-                  title={
-                    !canDownloadExcel
-                      ? "Excel no disponible para reformas de varios eventos todavía"
-                      : undefined
-                  }
+                  disabled={excelLoading}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Download className="h-4 w-4" />

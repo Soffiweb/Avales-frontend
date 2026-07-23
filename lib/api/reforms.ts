@@ -197,6 +197,7 @@ export type ReformDestinoEntry = {
 
 export type ReformResponse = {
   id: number;
+  numeroReforma: string;
   estado: string;
   motivo: string;
   de?: string | null;
@@ -381,14 +382,6 @@ export async function aprobarReform(
   });
 }
 
-export function canDownloadReformExcel(reform: ReformResponse) {
-  return (
-    reform.eventos.length === 1 &&
-    reform.origenes.length === 0 &&
-    reform.destinos.length === 0
-  );
-}
-
 export async function rechazarReform(
   id: number,
   observacion: string,
@@ -432,16 +425,16 @@ export async function getEventosDisponiblesReformaMulti(
   }
 
   return apiFetch<EventoDisponibleReformaMulti[]>(
-    `/reforms-multi/eventos-disponibles?${params.toString()}`,
+    `/reforms/eventos-disponibles?${params.toString()}`,
     { method: "GET" },
   );
 }
 
 /**
- * Dedupe de /reforms-multi/eventos-disponibles (una fila por evento+forma) a
+ * Dedupe de /reforms/eventos-disponibles (una fila por evento+forma) a
  * una fila por evento, con sus formas elegibles agrupadas. La fuente ya viene
  * filtrada por tipoAval y excluye formas avaladas o bloqueadas por otra
- * reforma pendiente (ver reforms-multi.service.ts).
+ * reforma pendiente (ver reforms.service.ts).
  */
 export function groupEventosDisponiblesPorEvento(
   eventos: EventoDisponibleReformaMulti[],

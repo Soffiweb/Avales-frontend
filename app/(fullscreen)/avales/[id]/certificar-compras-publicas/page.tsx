@@ -87,7 +87,7 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       canton: item.canton ?? undefined,
       club: item.club ?? undefined,
       entrenadorNombre: item.entrenadorNombre ?? undefined,
-      pronostico: item.pronostico ?? undefined,
+      propositos: item.propositos ?? undefined,
       observacion: withExtras.observacion ?? undefined,
       rol: item.rol ?? undefined,
     };

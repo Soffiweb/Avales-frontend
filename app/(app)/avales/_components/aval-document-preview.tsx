@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Aval, DeportistaPronosticoDto } from "@/types/aval";
+import type { Aval, PropositoDto } from "@/types/aval";
 import {
   formatCurrencyFromString,
   formatDateDMY,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/utils/aval-collections";
 import {
   getPronosticoProfile,
+  getPropositos,
   type PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
 
@@ -35,7 +36,7 @@ type FormData = {
     canton?: string;
     club?: string;
     entrenadorNombre?: string;
-    pronostico?: DeportistaPronosticoDto;
+    propositos?: PropositoDto[];
     payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
@@ -120,6 +121,8 @@ type PronosticoPreviewColumn = {
   label: string;
   group?: string;
   align?: "left" | "center" | "right";
+  /** Plantilla 3: varias pruebas por deportista, una por línea en la celda. */
+  preLine?: boolean;
   render: (deportista: PronosticoPreviewDeportista, index: number) => string;
 };
 
@@ -135,7 +138,7 @@ const ALIGN_CLASS: Record<"left" | "center" | "right", string> = {
 function getPronosticoPreviewColumns(
   profile: PronosticoProfile,
 ): PronosticoPreviewColumn[] {
-  const includeClub = profile.template !== "PRONOSTICO_3";
+  const includeClub = profile.fields.some((field) => field.path === "club");
 
   const base: PronosticoPreviewColumn[] = [
     {
@@ -185,13 +188,13 @@ function getPronosticoPreviewColumns(
       {
         key: "ubicacionActual",
         label: "Ubicación nacional actual",
-        render: (d) => d.pronostico?.ubicacionActual || "-",
+        render: (d) => getPropositos(d.propositos)[0]?.ubicacionActual || "-",
       },
       {
         key: "ubicacionPropuesta",
         label: "Ubicación",
         group: "Propósitos",
-        render: (d) => d.pronostico?.ubicacionPronosticada || "-",
+        render: (d) => getPropositos(d.propositos)[0]?.ubicacionProposito || "-",
       },
     ];
   }
@@ -202,46 +205,64 @@ function getPronosticoPreviewColumns(
       {
         key: "divisionPeso",
         label: "División de Peso",
-        render: (d) => d.pronostico?.divisionPeso || "-",
+        render: (d) => getPropositos(d.propositos)[0]?.divisionPeso || "-",
       },
       {
         key: "ubicacionActual",
         label: "Ubicación nacional actual",
-        render: (d) => d.pronostico?.ubicacionActual || "-",
+        render: (d) => getPropositos(d.propositos)[0]?.ubicacionActual || "-",
       },
       {
         key: "ubicacionPropuesta",
         label: "Ubicación",
         group: "Propósito",
-        render: (d) => d.pronostico?.ubicacionPronosticada || "-",
+        render: (d) => getPropositos(d.propositos)[0]?.ubicacionProposito || "-",
       },
     ];
   }
 
-  // PRONOSTICO_3: disciplinas de marca/tiempo/puntos (atletismo, natación, etc.)
+  // PRONOSTICO_3: disciplinas de marca/tiempo/puntos (atletismo, natación,
+  // etc.) — un deportista puede tener varias pruebas; cada columna apila una
+  // línea por prueba, en el mismo orden, dentro de la misma celda.
   return [
     ...base,
     {
       key: "prueba",
       label: "Pruebas",
-      render: (d) => d.pronostico?.prueba || "-",
+      preLine: true,
+      render: (d) =>
+        getPropositos(d.propositos)
+          .map((p) => p.prueba || "-")
+          .join("\n") || "-",
     },
     {
       key: "mejorMarca",
       label: "Mejor tiempo-marcas-puntos actual",
-      render: (d) => joinPreviewMark(d.pronostico?.marcaActual, d.pronostico?.unidadMarcaActual),
+      preLine: true,
+      render: (d) =>
+        getPropositos(d.propositos)
+          .map((p) => joinPreviewMark(p.marcaActual, p.unidadMarcaActual))
+          .join("\n") || "-",
     },
     {
       key: "marcaPropuesta",
       label: "Marcas",
       group: "Propósitos",
-      render: (d) => joinPreviewMark(d.pronostico?.marcaPronosticada, d.pronostico?.unidadMarcaPronostico),
+      preLine: true,
+      render: (d) =>
+        getPropositos(d.propositos)
+          .map((p) => joinPreviewMark(p.marcaProposito, p.unidadMarcaProposito))
+          .join("\n") || "-",
     },
     {
       key: "ubicacionPropuesta",
       label: "Ubicación",
       group: "Propósitos",
-      render: (d) => d.pronostico?.ubicacionPronosticada || "-",
+      preLine: true,
+      render: (d) =>
+        getPropositos(d.propositos)
+          .map((p) => p.ubicacionProposito || "-")
+          .join("\n") || "-",
     },
   ];
 }
@@ -325,7 +346,7 @@ function PronosticoListadoPreview({
                       key={col.key}
                       className={`border border-slate-400 px-2 py-1 align-top ${
                         col.align ? ALIGN_CLASS[col.align] : ""
-                      }`}
+                      } ${col.preLine ? "whitespace-pre-line" : ""}`}
                     >
                       {col.render(deportista, index)}
                     </td>

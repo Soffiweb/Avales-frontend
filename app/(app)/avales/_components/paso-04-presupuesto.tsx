@@ -27,7 +27,7 @@ import { getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
 import type {
   Aval,
   AdjuntoSolicitud,
-  DeportistaPronosticoDto,
+  PropositoDto,
   EditAvalPayload,
   Genero,
   ModalidadParticipacion,
@@ -62,8 +62,8 @@ type FormData = {
     canton?: string;
     club?: string;
     entrenadorNombre?: string;
-    ordenPronostico?: number;
-    pronostico?: DeportistaPronosticoDto;
+    ordenProposito?: number;
+    propositos?: PropositoDto[];
     payload?: Record<string, unknown>;
     rol?: string;
     modalidadParticipacion?: ModalidadParticipacion;
@@ -439,7 +439,7 @@ export default function Paso04Presupuesto({
           descripcion: crit,
         })),
         deportistas: formData.deportistas.map((d, index) => ({
-          ordenPronostico: index + 1,
+          ordenProposito: index + 1,
           deportistaExternoId: d.deportistaExternoId ?? String(d.id),
           rol: d.rol ?? "ATLETA",
           nombre: d.nombre?.trim() || undefined,
@@ -453,7 +453,7 @@ export default function Paso04Presupuesto({
           canton: d.canton?.trim() || undefined,
           club: d.club?.trim() || undefined,
           entrenadorNombre: d.entrenadorNombre?.trim() || undefined,
-          pronostico: d.pronostico,
+          propositos: d.propositos,
           payload: d.payload,
           modalidadParticipacion: d.modalidadParticipacion,
         })),

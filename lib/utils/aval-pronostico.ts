@@ -1,24 +1,29 @@
 import type { Evento } from "@/types/evento";
+import type { PropositoDto } from "@/types/aval";
 
 export type PronosticoTemplate =
   | "PRONOSTICO_1"
   | "PRONOSTICO_2"
   | "PRONOSTICO_3";
 
+// "proposito.*" son los campos que viven dentro de cada ítem de
+// deportistasAval[].propositos (ver types/aval.ts#PropositoDto). No es un
+// pronóstico: es el propósito (marca/ubicación meta) de por qué el
+// deportista asiste a la competencia.
 export type DeportistaPronosticoFieldPath =
   | "categoriaNombre"
   | "afiliacion"
   | "canton"
   | "club"
   | "entrenadorNombre"
-  | "pronostico.ubicacionActual"
-  | "pronostico.ubicacionPronosticada"
-  | "pronostico.divisionPeso"
-  | "pronostico.prueba"
-  | "pronostico.marcaActual"
-  | "pronostico.unidadMarcaActual"
-  | "pronostico.marcaPronosticada"
-  | "pronostico.unidadMarcaPronostico";
+  | "proposito.ubicacionActual"
+  | "proposito.ubicacionProposito"
+  | "proposito.divisionPeso"
+  | "proposito.prueba"
+  | "proposito.marcaActual"
+  | "proposito.unidadMarcaActual"
+  | "proposito.marcaProposito"
+  | "proposito.unidadMarcaProposito";
 
 export type PronosticoFieldDefinition = {
   path: DeportistaPronosticoFieldPath;
@@ -31,6 +36,10 @@ export type PronosticoProfile = {
   disciplinaCodigo: string;
   disciplinaLabel: string;
   fields: PronosticoFieldDefinition[];
+  // PRONOSTICO_3: un deportista puede tener varias pruebas (varios ítems en
+  // propositos[]), cada una con su propia marca/ubicación. Las demás
+  // plantillas también usan propositos[], pero con un solo ítem.
+  multiplePruebas: boolean;
 };
 
 // Cantón, club y entrenador son alternativas del mismo dato de procedencia:
@@ -106,48 +115,48 @@ const COMMON_FIELDS: Record<
   },
 };
 
-const PRONOSTICO_FIELDS: Record<
+export const PRONOSTICO_FIELDS: Record<
   Exclude<DeportistaPronosticoFieldPath, keyof typeof COMMON_FIELDS>,
   PronosticoFieldDefinition
 > = {
-  "pronostico.ubicacionActual": {
-    path: "pronostico.ubicacionActual",
+  "proposito.ubicacionActual": {
+    path: "proposito.ubicacionActual",
     label: "Ubicación actual",
     placeholder: "Ubicación actual",
   },
-  "pronostico.ubicacionPronosticada": {
-    path: "pronostico.ubicacionPronosticada",
-    label: "Ubicación pronosticada",
-    placeholder: "Ubicación pronosticada",
+  "proposito.ubicacionProposito": {
+    path: "proposito.ubicacionProposito",
+    label: "Ubicación propósito",
+    placeholder: "Ubicación propósito",
   },
-  "pronostico.divisionPeso": {
-    path: "pronostico.divisionPeso",
+  "proposito.divisionPeso": {
+    path: "proposito.divisionPeso",
     label: "División de peso",
     placeholder: "División de peso",
   },
-  "pronostico.prueba": {
-    path: "pronostico.prueba",
+  "proposito.prueba": {
+    path: "proposito.prueba",
     label: "Prueba",
     placeholder: "Prueba",
   },
-  "pronostico.marcaActual": {
-    path: "pronostico.marcaActual",
+  "proposito.marcaActual": {
+    path: "proposito.marcaActual",
     label: "Marca actual",
     placeholder: "Marca actual",
   },
-  "pronostico.unidadMarcaActual": {
-    path: "pronostico.unidadMarcaActual",
+  "proposito.unidadMarcaActual": {
+    path: "proposito.unidadMarcaActual",
     label: "Unidad marca actual",
     placeholder: "Ej. seg, kg, pts",
   },
-  "pronostico.marcaPronosticada": {
-    path: "pronostico.marcaPronosticada",
-    label: "Marca pronosticada",
-    placeholder: "Marca pronosticada",
+  "proposito.marcaProposito": {
+    path: "proposito.marcaProposito",
+    label: "Marca propósito",
+    placeholder: "Marca propósito",
   },
-  "pronostico.unidadMarcaPronostico": {
-    path: "pronostico.unidadMarcaPronostico",
-    label: "Unidad marca pronosticada",
+  "proposito.unidadMarcaProposito": {
+    path: "proposito.unidadMarcaProposito",
+    label: "Unidad marca propósito",
     placeholder: "Ej. seg, kg, pts",
   },
 };
@@ -158,28 +167,29 @@ const TEMPLATE_FIELDS: Record<PronosticoTemplate, PronosticoFieldDefinition[]> =
     COMMON_FIELDS.canton,
     COMMON_FIELDS.club,
     COMMON_FIELDS.entrenadorNombre,
-    PRONOSTICO_FIELDS["pronostico.ubicacionActual"],
-    PRONOSTICO_FIELDS["pronostico.ubicacionPronosticada"],
+    PRONOSTICO_FIELDS["proposito.ubicacionActual"],
+    PRONOSTICO_FIELDS["proposito.ubicacionProposito"],
   ],
   PRONOSTICO_2: [
     COMMON_FIELDS.categoriaNombre,
     COMMON_FIELDS.canton,
     COMMON_FIELDS.club,
     COMMON_FIELDS.entrenadorNombre,
-    PRONOSTICO_FIELDS["pronostico.divisionPeso"],
-    PRONOSTICO_FIELDS["pronostico.ubicacionActual"],
-    PRONOSTICO_FIELDS["pronostico.ubicacionPronosticada"],
+    PRONOSTICO_FIELDS["proposito.divisionPeso"],
+    PRONOSTICO_FIELDS["proposito.ubicacionActual"],
+    PRONOSTICO_FIELDS["proposito.ubicacionProposito"],
   ],
   PRONOSTICO_3: [
     COMMON_FIELDS.categoriaNombre,
     COMMON_FIELDS.canton,
+    COMMON_FIELDS.club,
     COMMON_FIELDS.entrenadorNombre,
-    PRONOSTICO_FIELDS["pronostico.prueba"],
-    PRONOSTICO_FIELDS["pronostico.marcaActual"],
-    PRONOSTICO_FIELDS["pronostico.unidadMarcaActual"],
-    PRONOSTICO_FIELDS["pronostico.marcaPronosticada"],
-    PRONOSTICO_FIELDS["pronostico.unidadMarcaPronostico"],
-    PRONOSTICO_FIELDS["pronostico.ubicacionPronosticada"],
+    PRONOSTICO_FIELDS["proposito.prueba"],
+    PRONOSTICO_FIELDS["proposito.marcaActual"],
+    PRONOSTICO_FIELDS["proposito.unidadMarcaActual"],
+    PRONOSTICO_FIELDS["proposito.marcaProposito"],
+    PRONOSTICO_FIELDS["proposito.unidadMarcaProposito"],
+    PRONOSTICO_FIELDS["proposito.ubicacionProposito"],
   ],
 };
 
@@ -217,5 +227,43 @@ export function getPronosticoProfile(
     disciplinaCodigo,
     disciplinaLabel: evento?.disciplina?.nombre ?? disciplinaCodigo,
     fields: TEMPLATE_FIELDS[template],
+    multiplePruebas: template === "PRONOSTICO_3",
   };
+}
+
+export function isPropositoFieldPath(path: DeportistaPronosticoFieldPath): boolean {
+  return path.startsWith("proposito.");
+}
+
+// Campos que viven en un ítem de propositos[] (los que aplican a esta
+// disciplina, según la plantilla). Plantilla 3 los edita en el repetidor (N
+// ítems); plantillas 1/2 usan los mismos campos pero sueltos, sobre un único
+// ítem fijo (propositos[0]).
+export function getPropositoFieldDefinitions(
+  profile: PronosticoProfile,
+): PronosticoFieldDefinition[] {
+  return profile.fields.filter((field) => isPropositoFieldPath(field.path));
+}
+
+export function createEmptyProposito(): PropositoDto {
+  return {};
+}
+
+// Lectura ordenada por `orden` (el backend no garantiza el orden de
+// llegada del arreglo).
+export function getPropositos(
+  propositos?: PropositoDto[] | null,
+): PropositoDto[] {
+  if (!propositos?.length) return [];
+  return [...propositos].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+}
+
+// Plantillas 1/2 editan un solo ítem (propositos[0]) con campos sueltos;
+// plantilla 3 edita N ítems en el repetidor. En ambos casos el arreglo debe
+// tener al menos un ítem para que la UI siempre tenga algo que mostrar.
+export function ensureAtLeastOneProposito(
+  propositos?: PropositoDto[] | null,
+): PropositoDto[] {
+  const rows = getPropositos(propositos);
+  return rows.length ? rows : [createEmptyProposito()];
 }

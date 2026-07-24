@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
+  ListaDeportistasPreview,
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
@@ -616,6 +617,9 @@ export default function RevisionDtmPage() {
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
             <AvalDocumentosSection aval={aval} />
+            <PreviewCollapsible title="Lista deportistas">
+              <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
+            </PreviewCollapsible>
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>

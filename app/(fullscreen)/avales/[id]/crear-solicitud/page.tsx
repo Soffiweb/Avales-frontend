@@ -8,7 +8,7 @@ import { getAval } from "@/lib/api/avales";
 import type {
   Aval,
   DeportistaAval,
-  DeportistaPronosticoDto,
+  PropositoDto,
   EntrenadorAval,
   ModalidadParticipacion,
   OtroParticipanteAval,
@@ -18,7 +18,10 @@ import type {
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import { getTipoAvalLabel } from "@/lib/constants";
-import { SolicitudAvalPreview } from "@/app/(app)/avales/_components/aval-document-preview";
+import {
+  ListaDeportistasPreview,
+  SolicitudAvalPreview,
+} from "@/app/(app)/avales/_components/aval-document-preview";
 import type { Genero } from "@/types/user";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import Paso01Deportistas from "@/app/(app)/avales/_components/paso-01-deportistas";
@@ -49,8 +52,8 @@ type FormData = {
     canton?: string;
     club?: string;
     entrenadorNombre?: string;
-    ordenPronostico?: number;
-    pronostico?: DeportistaPronosticoDto;
+    ordenProposito?: number;
+    propositos?: PropositoDto[];
     afiliado?: boolean;
     payload?: Record<string, unknown>;
     observacion?: string;
@@ -173,23 +176,31 @@ function toBooleanValue(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function resolvePronostico(
+function resolvePropositos(
   item: DeportistaAval,
   payload: Record<string, unknown> | undefined,
-): DeportistaPronosticoDto | undefined {
-  const source = toRecord(item.pronostico) ?? toRecord(payload?.pronostico);
+): PropositoDto[] | undefined {
+  const source = Array.isArray(item.propositos)
+    ? item.propositos
+    : Array.isArray(payload?.propositos)
+      ? (payload!.propositos as unknown[])
+      : undefined;
   if (!source) return undefined;
 
-  return {
-    ubicacionActual: toStringValue(source.ubicacionActual),
-    ubicacionPronosticada: toStringValue(source.ubicacionPronosticada),
-    divisionPeso: toStringValue(source.divisionPeso),
-    prueba: toStringValue(source.prueba),
-    marcaActual: toStringValue(source.marcaActual),
-    unidadMarcaActual: toStringValue(source.unidadMarcaActual),
-    marcaPronosticada: toStringValue(source.marcaPronosticada),
-    unidadMarcaPronostico: toStringValue(source.unidadMarcaPronostico),
-  };
+  return source
+    .map((entry) => toRecord(entry))
+    .filter((record): record is Record<string, unknown> => Boolean(record))
+    .map((record) => ({
+      orden: toNumberValue(record.orden),
+      ubicacionActual: toStringValue(record.ubicacionActual),
+      divisionPeso: toStringValue(record.divisionPeso),
+      prueba: toStringValue(record.prueba),
+      marcaActual: toStringValue(record.marcaActual),
+      unidadMarcaActual: toStringValue(record.unidadMarcaActual),
+      ubicacionProposito: toStringValue(record.ubicacionProposito),
+      marcaProposito: toStringValue(record.marcaProposito),
+      unidadMarcaProposito: toStringValue(record.unidadMarcaProposito),
+    }));
 }
 
 function buildInitialFormData(aval: Aval): FormData {
@@ -240,11 +251,11 @@ function buildInitialFormData(aval: Aval): FormData {
         item.entrenadorNombre ??
         item.deportista?.entrenadorNombre ??
         toStringValue(payload?.entrenadorNombre),
-      ordenPronostico:
-        item.ordenPronostico ??
-        item.deportista?.ordenPronostico ??
-        toNumberValue(payload?.ordenPronostico),
-      pronostico: resolvePronostico(item, payload),
+      ordenProposito:
+        item.ordenProposito ??
+        item.deportista?.ordenProposito ??
+        toNumberValue(payload?.ordenProposito),
+      propositos: resolvePropositos(item, payload),
       afiliado,
       payload,
       observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
@@ -537,6 +548,9 @@ export default function CrearSolicitudPage() {
       >
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
+            <PreviewCollapsible title="Lista deportistas">
+              <ListaDeportistasPreview aval={aval} formData={formData} />
+            </PreviewCollapsible>
             <PreviewCollapsible title="Solicitud de aval" defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={formData} />
             </PreviewCollapsible>

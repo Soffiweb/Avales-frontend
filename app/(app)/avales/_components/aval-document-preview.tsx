@@ -1,4 +1,5 @@
-import type { Aval } from "@/types/aval";
+import type { ReactNode } from "react";
+import type { Aval, DeportistaPronosticoDto } from "@/types/aval";
 import {
   formatCurrencyFromString,
   formatDateDMY,
@@ -14,6 +15,10 @@ import {
   getAvalDelegationSummary,
   getAvalPresupuestoItems,
 } from "@/lib/utils/aval-collections";
+import {
+  getPronosticoProfile,
+  type PronosticoProfile,
+} from "@/lib/utils/aval-pronostico";
 
 type FormData = {
   deportistas: Array<{
@@ -25,6 +30,12 @@ type FormData = {
     apellidos?: string;
     cedula?: string;
     fechaNacimiento?: string;
+    categoriaNombre?: string;
+    afiliacion?: string;
+    canton?: string;
+    club?: string;
+    entrenadorNombre?: string;
+    pronostico?: DeportistaPronosticoDto;
     payload?: Record<string, unknown>;
     observacion?: string;
     rol?: string;
@@ -86,6 +97,249 @@ function formatPreviewBirthDate(value?: string | null) {
   return `${dia}/${PREVIEW_MONTHS_ABBR[parts.month - 1]}/${parts.year}`;
 }
 
+type PronosticoPreviewDeportista = FormData["deportistas"][number];
+
+// Mismo criterio que el backend (pronostico-excel.service.ts): entrenador,
+// cantón y club (si aplica) se combinan en una sola celda "Entrenador-Cantón-Club".
+function resolveDatosGenerales(
+  deportista: PronosticoPreviewDeportista,
+  includeClub: boolean,
+) {
+  const parts = includeClub
+    ? [deportista.entrenadorNombre, deportista.canton, deportista.club]
+    : [deportista.entrenadorNombre, deportista.canton];
+  return parts.filter((p) => p?.trim()).join("-") || "-";
+}
+
+function joinPreviewMark(mark?: string, unit?: string) {
+  return [mark?.trim(), unit?.trim()].filter(Boolean).join(" ") || "-";
+}
+
+type PronosticoPreviewColumn = {
+  key: string;
+  label: string;
+  group?: string;
+  align?: "left" | "center" | "right";
+  render: (deportista: PronosticoPreviewDeportista, index: number) => string;
+};
+
+const ALIGN_CLASS: Record<"left" | "center" | "right", string> = {
+  left: "text-left",
+  center: "text-center",
+  right: "text-right",
+};
+
+// Un solo listado, con columnas base compartidas por las tres plantillas de
+// pronóstico y un tramo final que varía según la disciplina (ver capturas de
+// los Excel reales: PRONOSTICO 1/2/3 en el backend).
+function getPronosticoPreviewColumns(
+  profile: PronosticoProfile,
+): PronosticoPreviewColumn[] {
+  const includeClub = profile.template !== "PRONOSTICO_3";
+
+  const base: PronosticoPreviewColumn[] = [
+    {
+      key: "no",
+      label: "No.",
+      align: "center",
+      render: (_d, index) => String(index + 1),
+    },
+    {
+      key: "nombre",
+      label: "Apellidos y Nombres",
+      render: (d) => d.nombre,
+    },
+    {
+      key: "afiliacion",
+      label: "Afiliación",
+      render: (d) => d.afiliacion || "-",
+    },
+    {
+      key: "categoria",
+      label: "Categoría",
+      render: (d) => d.categoriaNombre || "-",
+    },
+    {
+      key: "datosGenerales",
+      label: includeClub ? "Entrenador-Cantón-Club" : "Entrenador-Cantón",
+      group: "Datos Generales",
+      render: (d) => resolveDatosGenerales(d, includeClub),
+    },
+    {
+      key: "cedula",
+      label: "N° Cédula",
+      group: "Datos Generales",
+      render: (d) => d.cedula || "-",
+    },
+    {
+      key: "fechaNac",
+      label: "Fecha Nac.",
+      group: "Datos Generales",
+      render: (d) => formatPreviewBirthDate(d.fechaNacimiento),
+    },
+  ];
+
+  if (profile.template === "PRONOSTICO_1") {
+    return [
+      ...base,
+      {
+        key: "ubicacionActual",
+        label: "Ubicación nacional actual",
+        render: (d) => d.pronostico?.ubicacionActual || "-",
+      },
+      {
+        key: "ubicacionPropuesta",
+        label: "Ubicación",
+        group: "Propósitos",
+        render: (d) => d.pronostico?.ubicacionPronosticada || "-",
+      },
+    ];
+  }
+
+  if (profile.template === "PRONOSTICO_2") {
+    return [
+      ...base,
+      {
+        key: "divisionPeso",
+        label: "División de Peso",
+        render: (d) => d.pronostico?.divisionPeso || "-",
+      },
+      {
+        key: "ubicacionActual",
+        label: "Ubicación nacional actual",
+        render: (d) => d.pronostico?.ubicacionActual || "-",
+      },
+      {
+        key: "ubicacionPropuesta",
+        label: "Ubicación",
+        group: "Propósito",
+        render: (d) => d.pronostico?.ubicacionPronosticada || "-",
+      },
+    ];
+  }
+
+  // PRONOSTICO_3: disciplinas de marca/tiempo/puntos (atletismo, natación, etc.)
+  return [
+    ...base,
+    {
+      key: "prueba",
+      label: "Pruebas",
+      render: (d) => d.pronostico?.prueba || "-",
+    },
+    {
+      key: "mejorMarca",
+      label: "Mejor tiempo-marcas-puntos actual",
+      render: (d) => joinPreviewMark(d.pronostico?.marcaActual, d.pronostico?.unidadMarcaActual),
+    },
+    {
+      key: "marcaPropuesta",
+      label: "Marcas",
+      group: "Propósitos",
+      render: (d) => joinPreviewMark(d.pronostico?.marcaPronosticada, d.pronostico?.unidadMarcaPronostico),
+    },
+    {
+      key: "ubicacionPropuesta",
+      label: "Ubicación",
+      group: "Propósitos",
+      render: (d) => d.pronostico?.ubicacionPronosticada || "-",
+    },
+  ];
+}
+
+function PronosticoListadoPreview({
+  profile,
+  deportistas,
+}: {
+  profile: PronosticoProfile;
+  deportistas: PronosticoPreviewDeportista[];
+}) {
+  const columns = getPronosticoPreviewColumns(profile);
+
+  const headerRow1: ReactNode[] = [];
+  const headerRow2: ReactNode[] = [];
+  for (let i = 0; i < columns.length; ) {
+    const col = columns[i];
+    if (!col.group) {
+      headerRow1.push(
+        <th
+          key={col.key}
+          rowSpan={2}
+          className="border border-slate-500 px-2 py-1.5 text-left font-semibold align-bottom"
+        >
+          {col.label}
+        </th>,
+      );
+      i += 1;
+      continue;
+    }
+    let j = i;
+    while (j < columns.length && columns[j].group === col.group) j += 1;
+    headerRow1.push(
+      <th
+        key={`group-${col.group}-${i}`}
+        colSpan={j - i}
+        className="border border-slate-500 px-2 py-1 text-center font-semibold"
+      >
+        {col.group}
+      </th>,
+    );
+    for (let k = i; k < j; k += 1) {
+      headerRow2.push(
+        <th
+          key={columns[k].key}
+          className="border border-slate-500 px-2 py-1.5 text-left font-semibold"
+        >
+          {columns[k].label}
+        </th>,
+      );
+    }
+    i = j;
+  }
+
+  return (
+    <div className="bg-white p-5 xl:p-6 border border-slate-300">
+      <h3 className="text-center text-[15px] font-semibold uppercase">
+        Listado / Pronóstico de deportistas — {profile.disciplinaLabel}
+      </h3>
+      <div className="mt-3 overflow-x-auto">
+        <table className="min-w-full border-collapse text-[11px]">
+          <thead className="bg-cyan-200">
+            <tr>{headerRow1}</tr>
+            <tr>{headerRow2}</tr>
+          </thead>
+          <tbody>
+            {deportistas.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="border border-slate-400 px-2 py-3 text-center text-slate-500"
+                >
+                  Selecciona deportistas para ver el listado aquí.
+                </td>
+              </tr>
+            ) : (
+              deportistas.map((deportista, index) => (
+                <tr key={deportista.id}>
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={`border border-slate-400 px-2 py-1 align-top ${
+                        col.align ? ALIGN_CLASS[col.align] : ""
+                      }`}
+                    >
+                      {col.render(deportista, index)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function AvalDocumentPreview({
   aval,
   formData,
@@ -126,7 +380,12 @@ export default function AvalDocumentPreview({
     formData.criterios.length > 0 ||
     Boolean(formData.observaciones?.trim()) ||
     Boolean(formData.requerimientos?.length);
-  const showNomina = mode !== "solicitud";
+  // Certificado de afiliación (escuela de iniciación) desactivado: ya no se
+  // genera para avales nuevos. Se reemplaza por el listado/pronóstico de
+  // deportistas (más abajo) en las mismas vistas donde aparecía.
+  const showNomina = false;
+  const pronosticoProfile = getPronosticoProfile(evento);
+  const showListadoPronostico = mode !== "solicitud" && Boolean(pronosticoProfile);
   const showSolicitud = mode !== "nomina" && (showDetallePage || mode === "solicitud");
   const manualRequerimientos = (formData.requerimientos ?? []).filter(
     (item) => {
@@ -320,6 +579,13 @@ export default function AvalDocumentPreview({
           </div>
         </div>
       </div>
+      )}
+
+      {showListadoPronostico && pronosticoProfile && (
+        <PronosticoListadoPreview
+          profile={pronosticoProfile}
+          deportistas={formData.deportistas}
+        />
       )}
 
       {showSolicitud && (

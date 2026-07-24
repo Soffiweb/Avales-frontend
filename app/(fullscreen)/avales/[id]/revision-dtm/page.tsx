@@ -24,10 +24,6 @@ import RevisionMetodologoPreview, {
   type ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
 import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
-import CertificacionAfiliacionesPreview, {
-  SECRETARIA_DTM_NOMBRE_DEFAULT,
-  SECRETARIA_DTM_CARGO_DEFAULT,
-} from "@/app/(app)/avales/_components/certificacion-afiliaciones-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
@@ -622,13 +618,6 @@ export default function RevisionDtmPage() {
             <AvalDocumentosSection aval={aval} />
             <PreviewCollapsible title="Solicitud aval">
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Certificado de afiliación" defaultOpen>
-              <CertificacionAfiliacionesPreview
-                aval={aval}
-                secretariaNombre={SECRETARIA_DTM_NOMBRE_DEFAULT}
-                secretariaCargo={SECRETARIA_DTM_CARGO_DEFAULT}
-              />
             </PreviewCollapsible>
             {aval?.tipoAval !== "SOLO_RESULTADO" && (
               <PreviewCollapsible title="Presupuesto de salida">

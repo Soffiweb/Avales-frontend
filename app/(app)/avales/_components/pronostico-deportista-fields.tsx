@@ -1,19 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import type { DeportistaPronosticoDto } from "@/types/aval";
-import type {
-  DeportistaPronosticoFieldPath,
-  PronosticoFieldDefinition,
-  PronosticoProfile,
+import {
+  PROCEDENCIA_GROUP_FIELDS,
+  type DeportistaPronosticoFieldPath,
+  type PronosticoFieldDefinition,
+  type PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
 import type { PronosticoFieldErrors } from "@/lib/validation/aval-pronostico";
-
-const PROCEDENCIA_GROUP = new Set<DeportistaPronosticoFieldPath>([
-  "canton",
-  "club",
-  "entrenadorNombre",
-]);
 
 type PronosticoEditableDeportista = {
   categoriaNombre?: string;
@@ -29,6 +23,9 @@ type PronosticoDeportistaFieldsProps = {
   profile: PronosticoProfile;
   defaultCategoriaNombre?: string;
   errors?: PronosticoFieldErrors;
+  /** Chips de cantón/club/entrenador actualmente activos para este deportista. */
+  activePaths: ReadonlySet<DeportistaPronosticoFieldPath>;
+  onToggleActive: (path: DeportistaPronosticoFieldPath) => void;
   onChange: (
     path: DeportistaPronosticoFieldPath,
     value: string,
@@ -69,10 +66,6 @@ function getFieldValue(
     default:
       return "";
   }
-}
-
-function isFilled(deportista: PronosticoEditableDeportista, path: DeportistaPronosticoFieldPath) {
-  return getFieldValue(deportista, path).trim().length > 0;
 }
 
 function FieldInput({
@@ -119,29 +112,18 @@ export default function PronosticoDeportistaFields({
   profile,
   defaultCategoriaNombre,
   errors,
+  activePaths,
+  onToggleActive,
   onChange,
 }: PronosticoDeportistaFieldsProps) {
-  const groupFields = profile.fields.filter((field) => PROCEDENCIA_GROUP.has(field.path));
-  const otherFields = profile.fields.filter((field) => !PROCEDENCIA_GROUP.has(field.path));
-
-  const [activeGroupPaths, setActiveGroupPaths] = useState<Set<DeportistaPronosticoFieldPath>>(
-    () => new Set(groupFields.filter((field) => isFilled(deportista, field.path)).map((f) => f.path)),
+  const groupFields = profile.fields.filter((field) =>
+    PROCEDENCIA_GROUP_FIELDS.includes(field.path),
   );
-
-  const toggleGroupField = (path: DeportistaPronosticoFieldPath) => {
-    setActiveGroupPaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-        onChange(path, "");
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
-  };
-
-  const groupError = groupFields.map((field) => errors?.[field.path]).find(Boolean);
+  const otherFields = profile.fields.filter(
+    (field) => !PROCEDENCIA_GROUP_FIELDS.includes(field.path),
+  );
+  const noneActive = groupFields.length > 0 && groupFields.every((f) => !activePaths.has(f.path));
+  const groupError = noneActive ? errors?.[groupFields[0]?.path] : undefined;
 
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-800/40">
@@ -154,16 +136,16 @@ export default function PronosticoDeportistaFields({
       {groupFields.length > 0 ? (
         <div className="mb-3">
           <span className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
-            Procedencia (selecciona lo que apliquen)
+            Procedencia (selecciona lo que aplique)
           </span>
           <div className="flex flex-wrap gap-1.5">
             {groupFields.map((field) => {
-              const active = activeGroupPaths.has(field.path);
+              const active = activePaths.has(field.path);
               return (
                 <button
                   key={field.path}
                   type="button"
-                  onClick={() => toggleGroupField(field.path)}
+                  onClick={() => onToggleActive(field.path)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                     active
                       ? "border-indigo-500 bg-indigo-500 text-white"
@@ -181,10 +163,10 @@ export default function PronosticoDeportistaFields({
             </span>
           ) : null}
 
-          {groupFields.some((field) => activeGroupPaths.has(field.path)) ? (
+          {groupFields.some((field) => activePaths.has(field.path)) ? (
             <div className="mt-2 grid gap-3 md:grid-cols-2">
               {groupFields
-                .filter((field) => activeGroupPaths.has(field.path))
+                .filter((field) => activePaths.has(field.path))
                 .map((field) => (
                   <FieldInput
                     key={field.path}

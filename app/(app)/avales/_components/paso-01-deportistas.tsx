@@ -24,7 +24,10 @@ import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
   getPronosticoProfile,
+  PROCEDENCIA_GROUP_FIELDS,
+  PROCEDENCIA_DEFAULT_FIELD,
   type DeportistaPronosticoFieldPath,
+  type PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
 import {
   validatePronosticoDeportista,
@@ -193,6 +196,36 @@ function buildPronosticoPayload(
   };
 }
 
+function getDefaultProcedenciaActiva(
+  deportista: Pick<SelectedDeportista, "canton" | "club" | "entrenadorNombre">,
+  profile: PronosticoProfile | null,
+): Set<DeportistaPronosticoFieldPath> {
+  const active = new Set<DeportistaPronosticoFieldPath>();
+  if (!profile) return active;
+
+  const groupPathsPresent = profile.fields
+    .map((f) => f.path)
+    .filter((path) => PROCEDENCIA_GROUP_FIELDS.includes(path));
+
+  const values: Partial<Record<DeportistaPronosticoFieldPath, string | undefined>> = {
+    canton: deportista.canton,
+    club: deportista.club,
+    entrenadorNombre: deportista.entrenadorNombre,
+  };
+
+  for (const path of groupPathsPresent) {
+    if (values[path]?.trim()) active.add(path);
+  }
+  // Si nada tiene valor todavía (deportista recién agregado, o guardado en
+  // blanco), entrenador arranca seleccionado por defecto. Si ya hay algo
+  // lleno (ej. club de un draft guardado), respetamos esa elección previa
+  // en vez de forzar entrenador encima.
+  if (active.size === 0 && groupPathsPresent.includes(PROCEDENCIA_DEFAULT_FIELD)) {
+    active.add(PROCEDENCIA_DEFAULT_FIELD);
+  }
+  return active;
+}
+
 function getEntrenadorDisplayName(entrenador: SelectedEntrenador | undefined) {
   if (!entrenador) return "";
   return "esTextoLibre" in entrenador && entrenador.esTextoLibre
@@ -264,6 +297,19 @@ export default function Paso01Deportistas({
       }) as SelectedDeportista[],
     ),
   );
+
+  // Qué chips de cantón/club/entrenador están activos por deportista. No se
+  // deriva solo de los valores: un campo vacío puede ser "inactivo" (chip
+  // apagado) o "activo pero sin llenar" (error de validación).
+  const [procedenciaActivos, setProcedenciaActivos] = useState<
+    Record<number, Set<DeportistaPronosticoFieldPath>>
+  >(() => {
+    const map: Record<number, Set<DeportistaPronosticoFieldPath>> = {};
+    for (const d of selectedDeportistas) {
+      map[d.id] = getDefaultProcedenciaActiva(d, pronosticoProfile);
+    }
+    return map;
+  });
 
   const [searchEntrenadores, setSearchEntrenadores] = useState("");
   const [entrenadores, setEntrenadores] = useState<User[]>([]);
@@ -578,6 +624,15 @@ export default function Paso01Deportistas({
       delete next[deportista.id];
       return next;
     });
+    if (pronosticoProfile) {
+      setProcedenciaActivos((prev) => ({
+        ...prev,
+        [deportista.id]: getDefaultProcedenciaActiva(
+          { canton: "", club: "", entrenadorNombre: entrenadorPrincipalNombre },
+          pronosticoProfile,
+        ),
+      }));
+    }
     setSearchDeportistas("");
   };
 
@@ -588,6 +643,27 @@ export default function Paso01Deportistas({
       delete next[deportistaId];
       return next;
     });
+    setProcedenciaActivos((prev) => {
+      const next = { ...prev };
+      delete next[deportistaId];
+      return next;
+    });
+  };
+
+  const handleToggleProcedencia = (
+    deportistaId: number,
+    path: DeportistaPronosticoFieldPath,
+  ) => {
+    const wasActive = procedenciaActivos[deportistaId]?.has(path) ?? false;
+    setProcedenciaActivos((prev) => {
+      const next = new Set(prev[deportistaId] ?? []);
+      if (wasActive) next.delete(path);
+      else next.add(path);
+      return { ...prev, [deportistaId]: next };
+    });
+    if (wasActive) {
+      handlePronosticoFieldChange(deportistaId, path, "");
+    }
   };
 
   const handlePronosticoFieldChange = (
@@ -810,7 +886,11 @@ export default function Paso01Deportistas({
     if (pronosticoProfile) {
       const nextErrors = selectedDeportistas.reduce<Record<number, PronosticoFieldErrors>>(
         (acc, deportista) => {
-          const fieldErrors = validatePronosticoDeportista(deportista, pronosticoProfile);
+          const fieldErrors = validatePronosticoDeportista(
+            deportista,
+            pronosticoProfile,
+            procedenciaActivos[deportista.id],
+          );
           if (Object.keys(fieldErrors).length > 0) {
             acc[deportista.id] = fieldErrors;
           }
@@ -990,6 +1070,13 @@ export default function Paso01Deportistas({
                       profile={pronosticoProfile}
                       defaultCategoriaNombre={categoriaEventoDefault}
                       errors={pronosticoErrors[deportista.id]}
+                      activePaths={
+                        procedenciaActivos[deportista.id] ??
+                        new Set<DeportistaPronosticoFieldPath>()
+                      }
+                      onToggleActive={(path) =>
+                        handleToggleProcedencia(deportista.id, path)
+                      }
                       onChange={(path, value) =>
                         handlePronosticoFieldChange(deportista.id, path, value)
                       }

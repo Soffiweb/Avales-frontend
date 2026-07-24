@@ -1,17 +1,9 @@
 import type { DeportistaPronosticoDto } from "@/types/aval";
-import type {
-  DeportistaPronosticoFieldPath,
-  PronosticoProfile,
+import {
+  PROCEDENCIA_GROUP_FIELDS,
+  type DeportistaPronosticoFieldPath,
+  type PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
-
-// Cantón, club y entrenador son alternativas del mismo dato de procedencia:
-// se completa el que aplique (federación → entrenador, club → club, provincia → cantón),
-// no los tres a la vez.
-const PROCEDENCIA_GROUP: DeportistaPronosticoFieldPath[] = [
-  "canton",
-  "club",
-  "entrenadorNombre",
-];
 
 export type PronosticoEditableDeportista = {
   categoriaNombre?: string;
@@ -67,22 +59,33 @@ function isFilled(deportista: PronosticoEditableDeportista, path: DeportistaPron
   return typeof value === "string" && value.trim().length > 0;
 }
 
+/**
+ * @param procedenciaActiva Qué chips de cantón/club/entrenador están
+ * activos para este deportista (decidido en la UI, no derivable de los
+ * valores solos: un campo vacío puede ser "inactivo" o "activo sin llenar").
+ */
 export function validatePronosticoDeportista(
   deportista: PronosticoEditableDeportista,
   profile: PronosticoProfile | null,
+  procedenciaActiva?: ReadonlySet<DeportistaPronosticoFieldPath>,
 ): PronosticoFieldErrors {
   if (!profile) return {};
 
+  const activeSet = procedenciaActiva ?? new Set<DeportistaPronosticoFieldPath>();
   const groupFields = profile.fields.filter((field) =>
-    PROCEDENCIA_GROUP.includes(field.path),
+    PROCEDENCIA_GROUP_FIELDS.includes(field.path),
   );
-  const groupSatisfied = groupFields.some((field) => isFilled(deportista, field.path));
+  const anyGroupFieldActive = groupFields.some((field) => activeSet.has(field.path));
 
   return profile.fields.reduce<PronosticoFieldErrors>((errors, field) => {
-    if (PROCEDENCIA_GROUP.includes(field.path)) {
-      if (!groupSatisfied) {
+    if (PROCEDENCIA_GROUP_FIELDS.includes(field.path)) {
+      if (!anyGroupFieldActive) {
         const labels = groupFields.map((f) => f.label.toLowerCase());
-        errors[field.path] = `Completa al menos uno: ${labels.join(", ")}.`;
+        errors[field.path] = `Selecciona al menos uno: ${labels.join(", ")}.`;
+        return errors;
+      }
+      if (activeSet.has(field.path) && !isFilled(deportista, field.path)) {
+        errors[field.path] = `Completa ${field.label.toLowerCase()}.`;
       }
       return errors;
     }

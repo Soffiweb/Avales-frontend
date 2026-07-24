@@ -33,6 +33,19 @@ export type PronosticoProfile = {
   fields: PronosticoFieldDefinition[];
 };
 
+// Cantón, club y entrenador son alternativas del mismo dato de procedencia:
+// se completa el que aplique (federación → entrenador, club → club,
+// provincia → cantón), no los tres a la vez. Fuente única para el grupo,
+// compartida entre validación, UI de campos y el estado de chips activos.
+export const PROCEDENCIA_GROUP_FIELDS: DeportistaPronosticoFieldPath[] = [
+  "canton",
+  "club",
+  "entrenadorNombre",
+];
+
+export const PROCEDENCIA_DEFAULT_FIELD: DeportistaPronosticoFieldPath =
+  "entrenadorNombre";
+
 const DISCIPLINAS_PRONOSTICO_1 = new Set([
   "BALONCESTO",
   "FUTBOL",

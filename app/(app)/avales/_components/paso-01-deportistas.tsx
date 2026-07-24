@@ -24,7 +24,6 @@ import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
   getPronosticoProfile,
-  normalizeDisciplinaKey,
   type DeportistaPronosticoFieldPath,
 } from "@/lib/utils/aval-pronostico";
 import {
@@ -210,9 +209,6 @@ export default function Paso01Deportistas({
 }: Paso01DeportistasProps) {
   const { user } = useAuth();
   const pronosticoProfile = getPronosticoProfile(aval.evento);
-  const eventoDisciplinaKey = normalizeDisciplinaKey(
-    aval.evento?.disciplinaCodigo ?? aval.evento?.disciplina?.nombre,
-  );
   const categoriaEventoDefault =
     aval.evento?.categoria?.nombre?.trim() || undefined;
   const [fechaEmision, setFechaEmision] = useState(
@@ -499,20 +495,14 @@ export default function Paso01Deportistas({
       };
 
       const res = await listDeportistas(options);
-      const rawItems = res.data ?? [];
-      const filteredItems = eventoDisciplinaKey
-        ? rawItems.filter(
-            (d) => normalizeDisciplinaKey(d.disciplina?.nombre) === eventoDisciplinaKey,
-          )
-        : rawItems;
-      const items = sortDeportistasByApellido(filteredItems);
+      const items = sortDeportistasByApellido(res.data ?? []);
       setDeportistas(items);
     } catch (err: any) {
       console.error("Error al cargar deportistas:", err);
     } finally {
       setLoadingDeportistas(false);
     }
-  }, [searchDeportistas, eventoDisciplinaKey]);
+  }, [searchDeportistas]);
 
   const fetchEntrenadores = useCallback(async () => {
     try {

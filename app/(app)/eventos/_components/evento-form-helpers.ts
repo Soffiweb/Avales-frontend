@@ -11,7 +11,6 @@ import {
   getCategoryByCatalogValue,
   normalizeCategoryValue,
 } from "@/lib/utils/categories";
-import { getCatalogItemCode } from "@/lib/utils/catalog";
 import { formatDateInput, getCalendarMonth } from "@/lib/utils/formatters/dates";
 import type { CatalogItem } from "@/types/catalog";
 import type { Evento, FormaParticipacionInputDto } from "@/types/evento";
@@ -38,7 +37,6 @@ export const EMPTY_FORM_VALUES: EventoFormValues = {
   numEntrenadoresMujeres: 0,
   numAtletasHombres: 0,
   numAtletasMujeres: 0,
-  eventoItems: [],
   formasParticipacion: [],
 };
 
@@ -67,32 +65,6 @@ export function resolveCategoriaCatalogItem(
 }
 
 export function mapEventoToFormValues(evento: Evento): EventoFormValues {
-  const eventoItemsFromFormas =
-    evento.formasParticipacion?.flatMap((forma) => {
-      const fuente = tipoAvalToFuente(forma.tipoAval);
-      if (!fuente) return [];
-
-      return (forma.items ?? []).map((item) => ({
-        itemId: item.item.id,
-        mes: item.mes,
-        presupuesto: Number.parseFloat(item.presupuesto) || 0,
-        fuente,
-        montoComprometido:
-          Number.parseFloat(item.montoComprometido ?? "0") || 0,
-        montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
-      }));
-    }) ?? [];
-
-  const fallbackEventoItems =
-    evento.eventoItems?.map((item) => ({
-      itemId: item.item.id,
-      mes: item.mes,
-      presupuesto: Number.parseFloat(item.presupuesto) || 0,
-      fuente: item.fuente ?? "FONDOS_PUBLICOS",
-      montoComprometido: Number.parseFloat(item.montoComprometido ?? "0") || 0,
-      montoEjecutado: Number.parseFloat(item.montoEjecutado ?? "0") || 0,
-    })) ?? [];
-
   return {
     codigo: evento.codigo ?? "",
     tipoParticipacion:
@@ -122,21 +94,32 @@ export function mapEventoToFormValues(evento: Evento): EventoFormValues {
     numEntrenadoresMujeres: evento.numEntrenadoresMujeres ?? 0,
     numAtletasHombres: evento.numAtletasHombres ?? 0,
     numAtletasMujeres: evento.numAtletasMujeres ?? 0,
-    eventoItems:
-      eventoItemsFromFormas.length > 0
-        ? eventoItemsFromFormas
-        : fallbackEventoItems,
     formasParticipacion:
-      evento.formasParticipacion?.map((forma) => ({
-        id: forma.id,
-        tipoAval: forma.tipoAval,
-        referencia: forma.referencia ?? "",
-        observacion: forma.observacion ?? "",
-        numEntrenadoresHombres: forma.numEntrenadoresHombres,
-        numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
-        numAtletasHombres: forma.numAtletasHombres,
-        numAtletasMujeres: forma.numAtletasMujeres,
-      })) ?? [],
+      evento.formasParticipacion?.map((forma) => {
+        const fuente = tipoAvalToFuente(forma.tipoAval);
+        return {
+          id: forma.id,
+          tipoAval: forma.tipoAval,
+          referencia: forma.referencia ?? "",
+          observacion: forma.observacion ?? "",
+          numEntrenadoresHombres: forma.numEntrenadoresHombres,
+          numEntrenadoresMujeres: forma.numEntrenadoresMujeres,
+          numAtletasHombres: forma.numAtletasHombres,
+          numAtletasMujeres: forma.numAtletasMujeres,
+          items: fuente
+            ? (forma.items ?? []).map((item) => ({
+                itemId: item.item.id,
+                mes: item.mes,
+                presupuesto: Number.parseFloat(item.presupuesto) || 0,
+                fuente,
+                montoComprometido:
+                  Number.parseFloat(item.montoComprometido ?? "0") || 0,
+                montoEjecutado:
+                  Number.parseFloat(item.montoEjecutado ?? "0") || 0,
+              }))
+            : [],
+        };
+      }) ?? [],
   };
 }
 
@@ -150,26 +133,17 @@ function tipoAvalToFuente(
 
 function buildFormasParticipacionInput(
   values: EventoFormValues,
-  existingFormas?: Evento["formasParticipacion"],
 ): FormaParticipacionInputDto[] {
-  const eventoItems = values.eventoItems ?? [];
-  const existingFormaByTipoAval = new Map(
-    (existingFormas ?? []).map((forma) => [forma.tipoAval, forma]),
-  );
-
   return (values.formasParticipacion ?? []).map((forma) => {
     const fuente = tipoAvalToFuente(forma.tipoAval);
     const items = fuente
-      ? eventoItems
-          .filter((item) => item.fuente === fuente)
-          .map((item) => ({
-            itemId: item.itemId,
-            mes: item.mes,
-            presupuesto: item.presupuesto,
-          }))
+      ? (forma.items ?? []).map((item) => ({
+          itemId: item.itemId,
+          mes: item.mes,
+          presupuesto: item.presupuesto,
+        }))
       : [];
-    const existingForma = existingFormaByTipoAval.get(forma.tipoAval);
-    const resolvedId = forma.id ?? existingForma?.id;
+    const resolvedId = forma.id;
 
     return {
       ...(resolvedId ? { id: resolvedId } : {}),
@@ -232,7 +206,6 @@ export function buildUpdateEventoPayloadFromForm(
   values: EventoFormValues,
   disciplinaId?: number,
   categoriaId?: number,
-  evento?: Evento,
 ): UpdateEventoPayload | null {
   const tipoParticipacion =
     normalizeEventoTipoParticipacion(values.tipoParticipacion) ?? undefined;
@@ -271,10 +244,7 @@ export function buildUpdateEventoPayloadFromForm(
       ? formatDateInput(values.fechaInicio)
       : null,
     fechaFin: values.fechaFin?.trim() ? formatDateInput(values.fechaFin) : null,
-    formasParticipacion: buildFormasParticipacionInput(
-      values,
-      evento?.formasParticipacion,
-    ),
+    formasParticipacion: buildFormasParticipacionInput(values),
   };
 }
 

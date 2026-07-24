@@ -1,6 +1,5 @@
 import {
   EVENTO_ALCANCE_VALUES,
-  EVENTO_CATEGORIA_VALUES,
   EVENTO_TIPO_EVENTO_VALUES,
   EVENTO_TIPO_PARTICIPACION_VALUES,
   type EventoTipoParticipacion
@@ -30,6 +29,7 @@ export const formaParticipacionSchema = z.object({
   numEntrenadoresMujeres: z.number().int().min(0),
   numAtletasHombres: z.number().int().min(0),
   numAtletasMujeres: z.number().int().min(0),
+  items: z.array(eventoItemSchema).optional(),
 });
 
 const optionalDateSchema = z.string().optional().or(z.literal(""));
@@ -67,11 +67,7 @@ export const eventoSchema = z.object({
     .enum(["MASCULINO", "FEMENINO", "MASCULINO_FEMENINO"])
     .or(z.literal("")),
   disciplinaCodigo: z.string().min(1, "Selecciona una disciplina"),
-  categoriaCodigo: z
-    .enum(
-      [...EVENTO_CATEGORIA_VALUES] as [string, ...string[]]
-    )
-    .or(z.literal("")),
+  categoriaCodigo: z.string().max(100).or(z.literal("")),
   mesProgramado: z
     .number()
     .int()
@@ -97,7 +93,6 @@ export const eventoSchema = z.object({
     .min(0, "Numero de entrenadores mujeres invalido"),
   numAtletasHombres: z.number().int().min(0, "Numero de atletas hombres invalido"),
   numAtletasMujeres: z.number().int().min(0, "Numero de atletas mujeres invalido"),
-  eventoItems: z.array(eventoItemSchema).optional(),
   formasParticipacion: z
     .array(formaParticipacionSchema)
     .max(3, "Máximo 3 tipos de participación")
@@ -120,16 +115,6 @@ export const eventoSchema = z.object({
       message,
     });
   }
-
-  const tipos = (values.formasParticipacion ?? []).map((f) => f.tipoAval);
-  if (new Set(tipos).size !== tipos.length) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["formasParticipacion"],
-      message: "No puede repetirse el mismo tipo de aval.",
-    });
-  }
-
 });
 
 export const reformFormaParticipacionChangesSchema = z.object({

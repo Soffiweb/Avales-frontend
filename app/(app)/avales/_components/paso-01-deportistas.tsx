@@ -1039,6 +1039,14 @@ export default function Paso01Deportistas({
           Escribe al menos {DEPORTISTA_SEARCH_MIN_LENGTH} letras. Se muestran hasta{" "}
           {DEPORTISTA_SEARCH_LIMIT} resultados.
         </p>
+        {pronosticoProfile ? (
+          <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
+            Pronóstico activo: <strong>{pronosticoProfile.template.replace("_", " ")}</strong> para{" "}
+            <strong>{pronosticoProfile.disciplinaLabel}</strong>. Al agregar un deportista se habilitan
+            los campos requeridos para generar el Excel automáticamente.
+          </div>
+        ) : null}
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input

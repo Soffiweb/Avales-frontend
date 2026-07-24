@@ -33,7 +33,7 @@ import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
 import { downloadEventsTemplate } from "@/lib/api/template-download";
 import {
   canAccessReforms,
-  canCreateReforma,
+  // canCreateReforma, // solo usado por el botón "Solicitar reforma" deshabilitado
   canManageEvents as canManageEventsCheck,
   isAdminUser,
   isDTMUser,
@@ -309,7 +309,7 @@ export default function EventoDetailPage() {
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const eventoIncompleto = isEventoIncompleto(evento);
   const missingFields = getEventoMissingFields(evento);
-  const canManageReforms = canCreateReforma(user) && !isDTM;
+  // const canManageReforms = canCreateReforma(user) && !isDTM; // solo usado por el botón "Solicitar reforma" deshabilitado
   const canViewReforms = canAccessReforms(user) || isDTM || isTrainerUser(user);
   // Un evento es "creable" mientras exista al menos una forma de participación
   // sin aval asociado. Cada forma de participación solo admite un aval.
@@ -332,7 +332,7 @@ export default function EventoDetailPage() {
   );
   const submitDisabled =
     formasDelTipoSeleccionado.length > 0 && formaParticipacionId == null;
-  const canRequestReforma = canManageReforms && !hasPendingReform;
+  // const canRequestReforma = canManageReforms && !hasPendingReform; // botón "Solicitar reforma" deshabilitado: reformas ya no se piden desde un evento puntual, ver /reformas
   const completionHref = `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
     `/eventos/${evento.id}`,
   )}`;
@@ -662,15 +662,19 @@ export default function EventoDetailPage() {
                     )}
                   </>
                 )}
+                {/* Botón "Solicitar reforma" deshabilitado: las reformas ya no se piden
+                    desde un evento puntual (ahora cubren N eventos + movimientos de
+                    presupuesto), se crean desde /reformas.
                 {canManageReforms && canRequestReforma && (
                   <Link
-                    href={`/eventos/${evento.id}/reforma`}
+                    href={`/reformas/nueva?eventoId=${evento.id}`}
                     className="flex items-center gap-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2.5 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
                   >
                     <ClipboardEdit className="w-4 h-4 shrink-0" />
                     <span>Solicitar reforma</span>
                   </Link>
                 )}
+                */}
                 {hasPendingReform && pendingReformId && (
                   <Link
                     href={`/reformas/${pendingReformId}`}
@@ -759,7 +763,19 @@ export default function EventoDetailPage() {
                       </p>
                     ) : (
                       <div className="space-y-6">
-                        {formasPorTipo.map((forma) => {
+                        {formasPorTipo.map((forma, formaIndex) => {
+                          const avalesDeForma = avalesEvento.filter((aval) => {
+                            const formaVinculadaId =
+                              aval.evento?.formaParticipacionActual?.id;
+                            if (formaVinculadaId != null) {
+                              return formaVinculadaId === forma.id;
+                            }
+                            // Avales legado sin forma vinculada: solo listar aquí si
+                            // no hay ambigüedad (única forma de este tipo).
+                            return (
+                              formasPorTipo.length === 1 && aval.tipoAval === tipoAval
+                            );
+                          });
                           const totalAtletas =
                             forma.numAtletasHombres + forma.numAtletasMujeres;
                           const totalEntrenadores =
@@ -795,7 +811,20 @@ export default function EventoDetailPage() {
                           const sinFinanciamiento = forma.tipoAval === "SOLO_RESULTADO";
 
                           return (
-                            <div key={forma.id} className="space-y-4">
+                            <div
+                              key={forma.id}
+                              className="space-y-4 rounded-2xl border-2 border-gray-200 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-900/20"
+                            >
+                              {formasPorTipo.length > 1 && (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white dark:bg-gray-100 dark:text-gray-900">
+                                    {formaIndex + 1}
+                                  </span>
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Participación {formaIndex + 1} de {formasPorTipo.length}
+                                  </span>
+                                </div>
+                              )}
                               <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr_1.2fr]">
                                 <div className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                                   <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Referencia</p>
@@ -913,15 +942,12 @@ export default function EventoDetailPage() {
                                   </div>
                                 )}
                               </div>
-                            </div>
-                          );
-                        })}
 
-                        <div>
-                          <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Avales</h3>
-                          {avalesPorTipo.length > 0 ? (
-                            <div className="space-y-3">
-                              {avalesPorTipo.map((aval) => (
+                              <div>
+                                <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Avales</h3>
+                                {avalesDeForma.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {avalesDeForma.map((aval) => (
                                 <div
                                   key={aval.id}
                                   className="w-fit min-w-[360px] max-w-xl rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/30"
@@ -980,12 +1006,15 @@ export default function EventoDetailPage() {
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Todavía no se ha creado ningún aval para este tipo de participación.
-                            </p>
-                          )}
-                        </div>
+                                ) : (
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    Todavía no se ha creado ningún aval para esta forma de participación.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

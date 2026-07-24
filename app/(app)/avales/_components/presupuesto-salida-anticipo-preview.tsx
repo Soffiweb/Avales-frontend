@@ -92,6 +92,8 @@ type Props = {
     pdaFirmanteCargo?: string;
     financieroFirmanteNombre?: string;
     financieroFirmanteCargo?: string;
+    responsableAnticipoNombre?: string;
+    responsableAnticipoDocumento?: string;
   };
   items?: PresupuestoSalidaPreviewItem[];
 };
@@ -118,7 +120,12 @@ export default function PresupuestoSalidaAnticipoPreview({
   const formatCantidad = (value: number) =>
     Number.isInteger(value) ? String(value) : formatDecimal(value);
   const evento = aval.evento;
-  const responsable = getResponsibleTrainerData(aval);
+  const responsableFallback = getResponsibleTrainerData(aval);
+  const responsable = {
+    nombre: draft?.responsableAnticipoNombre?.trim() || responsableFallback.nombre,
+    cedula:
+      draft?.responsableAnticipoDocumento?.trim() || responsableFallback.cedula,
+  };
   const cupos = getAvalCupos(aval);
   const presupuestoSourceItems = getAvalPresupuestoItems(aval);
   const entrenadores =

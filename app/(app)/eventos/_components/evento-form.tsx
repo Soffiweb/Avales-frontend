@@ -1,7 +1,7 @@
 "use client";
 
 import { Controller } from "react-hook-form";
-import { Plus, Sparkles, Trash2 } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 
 import DatePicker from "@/components/forms/DatePicker";
 import type { Evento } from "@/types/evento";
@@ -13,11 +13,10 @@ import {
   EVENTO_TAREA_OPTIONS,
   EVENTO_TIPO_PARTICIPACION_OPTIONS,
   TIPO_AVAL_OPTIONS,
-  getTipoAvalLabel,
 } from "@/lib/constants";
 import { getCatalogItemCode } from "@/lib/utils/catalog";
-import { parseDecimalInput, parseIntegerInput } from "./evento-form-helpers";
 import EventoFileUpload from "./evento-file-upload";
+import FormaParticipacionCard from "./forma-participacion-card";
 import { useEventoForm } from "./use-evento-form";
 
 type Props = {
@@ -25,30 +24,6 @@ type Props = {
   evento?: Evento;
   onCreated?: () => Promise<void>;
   onUpdated?: () => Promise<void>;
-};
-
-function tipoAvalToFuente(
-  tipoAval?: string,
-): "FONDOS_PUBLICOS" | "AUTOGESTION" | undefined {
-  return tipoAval === "FONDOS_PUBLICOS" || tipoAval === "AUTOGESTION"
-    ? tipoAval
-    : undefined;
-}
-
-const PRESUPUESTO_SECTION_INFO: Record<
-  "FONDOS_PUBLICOS" | "AUTOGESTION",
-  { title: string; description: string; empty: string }
-> = {
-  FONDOS_PUBLICOS: {
-    title: "Fondos públicos",
-    description: "Items financiados con presupuesto público.",
-    empty: "No hay items de fondos públicos.",
-  },
-  AUTOGESTION: {
-    title: "Fondos de autogestión",
-    description: "Items financiados con recursos de autogestión.",
-    empty: "No hay items de autogestión.",
-  },
 };
 
 export default function EventoForm({
@@ -59,7 +34,6 @@ export default function EventoForm({
 }: Props) {
   const {
     addFormaParticipacion,
-    appendBudgetItem,
     archivo,
     archivoPreview,
     buttonLabel,
@@ -69,12 +43,10 @@ export default function EventoForm({
     disciplinas,
     draggingArchivo,
     errors,
-    eventoItemsValues,
-    fields,
     formasParticipacionFields,
-    formasParticipacionValues,
     generateCodigoError,
     generatingCodigo,
+    getValues,
     handleArchivoDragLeave,
     handleArchivoDragOver,
     handleArchivoDrop,
@@ -85,12 +57,9 @@ export default function EventoForm({
     itemsByActividad,
     onSubmit,
     register,
-    remove,
     removeFormaParticipacion,
     removeFile,
     submitError,
-    totalPresupuestoAutogestion,
-    totalPresupuestoFondosPublicos,
     totalPresupuesto,
   } = useEventoForm({
     mode,
@@ -99,14 +68,7 @@ export default function EventoForm({
     onUpdated,
   });
 
-  const usedTiposAval = new Set(
-    formasParticipacionValues.map((forma) => forma?.tipoAval),
-  );
-  const availableTipoAvalOptions = TIPO_AVAL_OPTIONS.filter(
-    (option) => !usedTiposAval.has(option.value),
-  );
-  const canAddFormaParticipacion =
-    formasParticipacionFields.length < 3 && availableTipoAvalOptions.length > 0;
+  const canAddFormaParticipacion = formasParticipacionFields.length < 3;
 
   return (
     <form
@@ -557,410 +519,22 @@ export default function EventoForm({
       </div>
 
       <div className="p-5 space-y-3">
-        {formasParticipacionFields.map((formaField, formaIndex) => {
-          const tipoAval =
-            formasParticipacionValues[formaIndex]?.tipoAval ??
-            formaField.tipoAval;
-          const fuente = tipoAvalToFuente(tipoAval);
-          const sectionInfo = fuente
-            ? PRESUPUESTO_SECTION_INFO[fuente]
-            : undefined;
-          const sectionTotal =
-            fuente === "FONDOS_PUBLICOS"
-              ? totalPresupuestoFondosPublicos
-              : fuente === "AUTOGESTION"
-                ? totalPresupuestoAutogestion
-                : 0;
-          const sectionItems = fuente
-            ? fields
-                .map((field, index) => ({
-                  field,
-                  index,
-                  itemFuente:
-                    eventoItemsValues[index]?.fuente ?? "FONDOS_PUBLICOS",
-                }))
-                .filter((item) => item.itemFuente === fuente)
-            : [];
-
-          return (
-            <div
-              key={formaField.id}
-              className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700/60 dark:bg-gray-900/20"
-            >
-              <input
-                type="hidden"
-                {...register(`formasParticipacion.${formaIndex}.tipoAval`)}
-                value={tipoAval}
-              />
-
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                  {getTipoAvalLabel(tipoAval)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeFormaParticipacion(formaIndex)}
-                  className="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
-                  title="Eliminar tipo de participación"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="mb-4 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Referencia <span className="text-red-600">*</span>
-                  </label>
-                  <input
-                    className="form-input w-full"
-                    type="text"
-                    placeholder="Referencia de la participación (ej: nombre de la organización, institución o similar)"
-                    required
-                    {...register(
-                      `formasParticipacion.${formaIndex}.referencia`,
-                    )}
-                  />
-                  {errors.formasParticipacion?.[formaIndex]?.referencia && (
-                    <p className="mt-1 text-xs text-red-600">
-                      {
-                        errors.formasParticipacion[formaIndex]?.referencia
-                          ?.message
-                      }
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Observación
-                  </label>
-                  <input
-                    className="form-input w-full"
-                    type="text"
-                    placeholder="Detalle opcional"
-                    {...register(
-                      `formasParticipacion.${formaIndex}.observacion`,
-                    )}
-                  />
-                  {errors.formasParticipacion?.[formaIndex]?.observacion && (
-                    <p className="mt-1 text-xs text-red-600">
-                      {
-                        errors.formasParticipacion[formaIndex]?.observacion
-                          ?.message
-                      }
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Entrenadores y otro personal (hombres)
-                  </label>
-                  <input
-                    className="form-input w-full"
-                    type="text"
-                    inputMode="numeric"
-                    {...register(
-                      `formasParticipacion.${formaIndex}.numEntrenadoresHombres`,
-                      { setValueAs: parseIntegerInput },
-                    )}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Cupo compartido: entrenadores, jueces, delegados, etc.
-                  </p>
-                  {errors.formasParticipacion?.[formaIndex]
-                    ?.numEntrenadoresHombres && (
-                    <p className="mt-1 text-xs text-red-600">
-                      {
-                        errors.formasParticipacion[formaIndex]
-                          ?.numEntrenadoresHombres?.message
-                      }
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Entrenadores y otro personal (mujeres)
-                  </label>
-                  <input
-                    className="form-input w-full"
-                    type="text"
-                    inputMode="numeric"
-                    {...register(
-                      `formasParticipacion.${formaIndex}.numEntrenadoresMujeres`,
-                      { setValueAs: parseIntegerInput },
-                    )}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Cupo compartido: entrenadores, jueces, delegados, etc.
-                  </p>
-                  {errors.formasParticipacion?.[formaIndex]
-                    ?.numEntrenadoresMujeres && (
-                    <p className="mt-1 text-xs text-red-600">
-                      {
-                        errors.formasParticipacion[formaIndex]
-                          ?.numEntrenadoresMujeres?.message
-                      }
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Atletas hombres
-                  </label>
-                  <input
-                    className="form-input w-full"
-                    type="text"
-                    inputMode="numeric"
-                    {...register(
-                      `formasParticipacion.${formaIndex}.numAtletasHombres`,
-                      { setValueAs: parseIntegerInput },
-                    )}
-                  />
-                  {errors.formasParticipacion?.[formaIndex]
-                    ?.numAtletasHombres && (
-                    <p className="mt-1 text-xs text-red-600">
-                      {
-                        errors.formasParticipacion[formaIndex]
-                          ?.numAtletasHombres?.message
-                      }
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Atletas mujeres
-                  </label>
-                  <input
-                    className="form-input w-full"
-                    type="text"
-                    inputMode="numeric"
-                    {...register(
-                      `formasParticipacion.${formaIndex}.numAtletasMujeres`,
-                      { setValueAs: parseIntegerInput },
-                    )}
-                  />
-                  {errors.formasParticipacion?.[formaIndex]
-                    ?.numAtletasMujeres && (
-                    <p className="mt-1 text-xs text-red-600">
-                      {
-                        errors.formasParticipacion[formaIndex]
-                          ?.numAtletasMujeres?.message
-                      }
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {fuente && sectionInfo && (
-                <div className="mt-4 space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700/60">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-medium text-gray-800 dark:text-gray-100">
-                        {sectionInfo.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {sectionInfo.description}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Total
-                      </p>
-                      <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
-                        $
-                        {sectionTotal.toLocaleString("es-EC", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {sectionItems.map(({ field, index }, sectionIndex) => (
-                    <div
-                      key={field.id}
-                      className="space-y-2 rounded-lg bg-white p-3 dark:bg-gray-800/70"
-                    >
-                      <input
-                        type="hidden"
-                        {...register(`eventoItems.${index}.fuente`)}
-                        value={fuente}
-                      />
-
-                      <div className="grid grid-cols-12 gap-3 items-start">
-                        <div className="col-span-11">
-                          {sectionIndex === 0 && (
-                            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                              Item
-                            </label>
-                          )}
-                          <select
-                            className="form-select w-full text-sm"
-                            {...register(`eventoItems.${index}.itemId`, {
-                              setValueAs: (v) =>
-                                v === "" ? undefined : Number(v),
-                            })}
-                          >
-                            <option value="">Seleccionar item...</option>
-                            {Object.entries(itemsByActividad).map(
-                              ([actName, items]) => (
-                                <optgroup key={actName} label={actName}>
-                                  {items.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.numero} - {item.nombre}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ),
-                            )}
-                          </select>
-                          {errors.eventoItems?.[index]?.itemId && (
-                            <p className="mt-1 text-xs text-red-600">
-                              {errors.eventoItems[index].itemId?.message}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="col-span-1 flex items-end">
-                          {sectionIndex === 0 && (
-                            <span className="mb-1 block select-none text-xs text-transparent">
-                              .
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => remove(index)}
-                            className="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
-                            title="Eliminar item"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 items-start">
-                        <div>
-                          {sectionIndex === 0 && (
-                            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                              Mes
-                            </label>
-                          )}
-                          <select
-                            className="form-select w-full text-sm"
-                            {...register(`eventoItems.${index}.mes`, {
-                              setValueAs: (v) =>
-                                v === "" ? undefined : Number(v),
-                            })}
-                          >
-                            <option value="">Mes...</option>
-                            {EVENTO_MES_OPTIONS.map((m) => (
-                              <option key={m.value} value={m.value}>
-                                {m.label}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.eventoItems?.[index]?.mes && (
-                            <p className="mt-1 text-xs text-red-600">
-                              {errors.eventoItems[index].mes?.message}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          {sectionIndex === 0 && (
-                            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                              Presupuesto ($)
-                            </label>
-                          )}
-                          <input
-                            className="form-input w-full text-sm"
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            {...register(`eventoItems.${index}.presupuesto`, {
-                              setValueAs: parseDecimalInput,
-                            })}
-                          />
-                          {errors.eventoItems?.[index]?.presupuesto && (
-                            <p className="mt-1 text-xs text-red-600">
-                              {errors.eventoItems[index].presupuesto?.message}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          {sectionIndex === 0 && (
-                            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                              Comprometido ($)
-                            </label>
-                          )}
-                          <input
-                            className="form-input w-full text-sm"
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            {...register(
-                              `eventoItems.${index}.montoComprometido`,
-                              {
-                                setValueAs: parseDecimalInput,
-                              },
-                            )}
-                          />
-                        </div>
-
-                        <div>
-                          {sectionIndex === 0 && (
-                            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                              Ejecutado ($)
-                            </label>
-                          )}
-                          <input
-                            className="form-input w-full text-sm"
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            {...register(
-                              `eventoItems.${index}.montoEjecutado`,
-                              {
-                                setValueAs: parseDecimalInput,
-                              },
-                            )}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => appendBudgetItem(fuente)}
-                    className="flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Agregar item de {sectionInfo.title.toLowerCase()}
-                  </button>
-
-                  {sectionItems.length === 0 && (
-                    <p className="text-sm italic text-gray-400 dark:text-gray-500">
-                      {sectionInfo.empty}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {formasParticipacionFields.map((formaField, formaIndex) => (
+          <FormaParticipacionCard
+            key={formaField.id}
+            control={control}
+            register={register}
+            errors={errors}
+            getValues={getValues}
+            formaIndex={formaIndex}
+            itemsByActividad={itemsByActividad}
+            onRemove={() => removeFormaParticipacion(formaIndex)}
+          />
+        ))}
 
         {canAddFormaParticipacion && (
           <div className="flex flex-wrap gap-2">
-            {availableTipoAvalOptions.map((option) => (
+            {TIPO_AVAL_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"

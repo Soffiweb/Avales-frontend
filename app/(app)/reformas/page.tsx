@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calendar, ClipboardEdit, Clock3, Search } from "lucide-react";
+import { Calendar, ClipboardEdit, Clock3, Plus, Search } from "lucide-react";
 
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
@@ -14,9 +14,18 @@ import {
   type TipoReforma,
 } from "@/lib/api/reforms";
 import { listEventos } from "@/lib/api/eventos";
-import { canAccessReforms, getNormalizedRoles } from "@/lib/auth/access";
+import {
+  canAccessReforms,
+  canCreateReforma,
+  getNormalizedRoles,
+} from "@/lib/auth/access";
 import { formatDateTimeShort } from "@/lib/utils/formatters";
 import { matchesSearchTerm } from "@/lib/utils/normalize-text";
+import {
+  getInvolvedEventoIds,
+  getInvolvedEventoLabels,
+  getPrimaryEvento,
+} from "./_lib/summary";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDIENTE:
@@ -74,6 +83,7 @@ export default function ReformasPage() {
   const userRoles = getNormalizedRoles(user);
   const isEntrenador = userRoles.includes("ENTRENADOR");
   const canViewReforms = canAccessReforms(user);
+  const canCreate = canCreateReforma(user);
 
   useEffect(() => {
     if (authLoading) return;
@@ -108,7 +118,9 @@ export default function ReformasPage() {
         if (isEntrenador) {
           const allowedEventoIds = new Set(eventos.map((evento) => evento.id));
           filteredReforms = filteredReforms.filter((reform) =>
-            allowedEventoIds.has(reform.eventoId),
+            Array.from(getInvolvedEventoIds(reform)).some((eventoId) =>
+              allowedEventoIds.has(eventoId),
+            ),
           );
         }
 
@@ -126,6 +138,20 @@ export default function ReformasPage() {
 
     void fetchReforms();
   }, [authLoading, canViewReforms, isEntrenador, tipoFilter]);
+
+  const filteredReforms = useMemo(() => {
+    return reforms.filter((reform) => {
+      const matchesStatus = statusFilter
+        ? reform.estado === statusFilter
+        : true;
+      const matchesSearch = matchesSearchTerm(search, [
+        reform.motivo,
+        ...getInvolvedEventoLabels(reform),
+        String(reform.id),
+      ]);
+      return matchesStatus && matchesSearch;
+    });
+  }, [reforms, search, statusFilter]);
 
   if (authLoading) {
     return (
@@ -150,21 +176,6 @@ export default function ReformasPage() {
     );
   }
 
-  const filteredReforms = useMemo(() => {
-    return reforms.filter((reform) => {
-      const matchesStatus = statusFilter
-        ? reform.estado === statusFilter
-        : true;
-      const matchesSearch = matchesSearchTerm(search, [
-        reform.motivo,
-        reform.evento?.nombre,
-        reform.evento?.codigo,
-        String(reform.id),
-      ]);
-      return matchesStatus && matchesSearch;
-    });
-  }, [reforms, search, statusFilter]);
-
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
       {error ? (
@@ -179,13 +190,25 @@ export default function ReformasPage() {
 
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Reformas
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Revisa las solicitudes de reforma registradas para los eventos.
-            </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Reformas
+              </h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Revisa las solicitudes de reforma registradas para los eventos.
+              </p>
+            </div>
+
+            {canCreate ? (
+              <Link
+                href="/reformas/nueva"
+                className="inline-flex items-center gap-2 self-start rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+              >
+                <Plus className="h-4 w-4" />
+                Nueva reforma
+              </Link>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -258,7 +281,20 @@ export default function ReformasPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filteredReforms.map((reform) => (
+            {filteredReforms.map((reform) => {
+              const primaryEvento = getPrimaryEvento(reform);
+              const involvedEventoCount = getInvolvedEventoIds(reform).size;
+              const extraEventoCount =
+                involvedEventoCount > 1 ? involvedEventoCount - 1 : 0;
+              const isSingleEventoReform =
+                reform.eventos.length === 1 &&
+                reform.origenes.length === 0 &&
+                reform.destinos.length === 0;
+              const disciplinaNombre = primaryEvento
+                ? disciplinaMap.get(primaryEvento.id)
+                : undefined;
+
+              return (
               <article
                 key={reform.id}
                 className="flex flex-col h-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -266,16 +302,19 @@ export default function ReformasPage() {
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1 pr-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Reforma #{reform.id}
+                      Reforma {reform.numeroReforma}
                     </p>
                     <h2
                       className="mt-1 text-lg font-semibold leading-6 text-gray-900 dark:text-gray-100 break-words"
-                      title={reform.evento?.nombre}
+                      title={reform.motivo}
                     >
-                      {reform.evento?.nombre || "Evento sin nombre"}
+                      {reform.motivo || "Sin motivo especificado"}
                     </h2>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      {reform.evento?.codigo || "Sin código"}
+                    <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">
+                      {primaryEvento?.nombre ?? "Sin evento asociado"}
+                      {extraEventoCount > 0
+                        ? ` +${extraEventoCount} evento${extraEventoCount === 1 ? "" : "s"}`
+                        : ""}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
@@ -286,33 +325,31 @@ export default function ReformasPage() {
                     >
                       {reform.estado}
                     </span>
-                    {reform.tipo ? (
+                    {isSingleEventoReform ? (
                       <span
                         className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                          TIPO_REFORMA_STYLES[reform.tipo] ??
+                          TIPO_REFORMA_STYLES[reform.eventos[0].tipo] ??
                           "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                         }`}
                         title="Tipo derivado según los campos editados"
                       >
-                        {TIPO_REFORMA_LABELS[reform.tipo] ?? reform.tipo}
+                        {TIPO_REFORMA_LABELS[reform.eventos[0].tipo] ??
+                          reform.eventos[0].tipo}
                       </span>
-                    ) : null}
-                    {disciplinaMap.get(reform.eventoId) ? (
+                    ) : (
+                      <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
+                        Multi-evento
+                      </span>
+                    )}
+                    {disciplinaNombre ? (
                       <span className="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-medium bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
-                        {disciplinaMap.get(reform.eventoId)}
+                        {disciplinaNombre}
                       </span>
                     ) : null}
                   </div>
                 </div>
 
                 <dl className="flex-1 space-y-3 text-sm">
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Motivo</dt>
-                    <dd className="mt-1 line-clamp-2 text-gray-900 dark:text-gray-100">
-                      {reform.motivo || "-"}
-                    </dd>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <dt className="text-gray-500 dark:text-gray-400">
@@ -329,7 +366,7 @@ export default function ReformasPage() {
                         Estado del evento
                       </dt>
                       <dd className="mt-1 text-gray-900 dark:text-gray-100">
-                        {reform.evento?.estado || "-"}
+                        {primaryEvento?.estado || "-"}
                       </dd>
                     </div>
                     <div>
@@ -365,7 +402,8 @@ export default function ReformasPage() {
                   </Link>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

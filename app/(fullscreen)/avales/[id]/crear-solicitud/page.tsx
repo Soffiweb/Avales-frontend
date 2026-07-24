@@ -467,7 +467,7 @@ export default function CrearSolicitudPage() {
         <div className="h-full overflow-y-auto">
           <div
             className={`mx-auto px-6 sm:px-8 py-8 ${
-              previewVisible ? "max-w-xl" : "max-w-3xl"
+              previewVisible ? "max-w-2xl" : "max-w-5xl"
             }`}
           >
             {/* Header */}

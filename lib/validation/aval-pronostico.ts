@@ -4,6 +4,15 @@ import type {
   PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
 
+// Cantón, club y entrenador son alternativas del mismo dato de procedencia:
+// se completa el que aplique (federación → entrenador, club → club, provincia → cantón),
+// no los tres a la vez.
+const PROCEDENCIA_GROUP: DeportistaPronosticoFieldPath[] = [
+  "canton",
+  "club",
+  "entrenadorNombre",
+];
+
 export type PronosticoEditableDeportista = {
   categoriaNombre?: string;
   afiliacion?: string;
@@ -53,15 +62,32 @@ function getValue(
   }
 }
 
+function isFilled(deportista: PronosticoEditableDeportista, path: DeportistaPronosticoFieldPath) {
+  const value = getValue(deportista, path);
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export function validatePronosticoDeportista(
   deportista: PronosticoEditableDeportista,
   profile: PronosticoProfile | null,
 ): PronosticoFieldErrors {
   if (!profile) return {};
 
+  const groupFields = profile.fields.filter((field) =>
+    PROCEDENCIA_GROUP.includes(field.path),
+  );
+  const groupSatisfied = groupFields.some((field) => isFilled(deportista, field.path));
+
   return profile.fields.reduce<PronosticoFieldErrors>((errors, field) => {
-    const value = getValue(deportista, field.path);
-    if (typeof value !== "string" || value.trim().length === 0) {
+    if (PROCEDENCIA_GROUP.includes(field.path)) {
+      if (!groupSatisfied) {
+        const labels = groupFields.map((f) => f.label.toLowerCase());
+        errors[field.path] = `Completa al menos uno: ${labels.join(", ")}.`;
+      }
+      return errors;
+    }
+
+    if (!isFilled(deportista, field.path)) {
       errors[field.path] = `Completa ${field.label.toLowerCase()}.`;
     }
     return errors;

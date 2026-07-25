@@ -154,6 +154,11 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
         segment: "disciplinas",
       },
       {
+        label: "Flujo de aprobación",
+        href: "/catalogos/flujo",
+        segment: "flujo",
+      },
+      {
         label: "Comentarios Hoja de Ruta",
         href: "/catalogos/comentarios-hoja-ruta",
         segment: "comentarios-hoja-ruta",

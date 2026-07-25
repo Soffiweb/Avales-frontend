@@ -1912,19 +1912,10 @@ export default function AvalDetailPage() {
         <AvalPdfComposerModal
           avalId={aval.id}
           availableDocs={{
-            avalTecnico: aval.avalTecnicoPdfUrl,
             comprasPublicas: aval.comprasPublicasPdfUrl,
-            revisionMetodologo: aval.revisionMetodologoUrl,
-            revisionDtm: aval.revisionDtmUrl,
-            certificacionPresupuestaria: aval.certificacionPresupuestariaUrl,
-            escuelaIniciacion: aval.escuelaIniciacionPdfUrl,
-            convocatoria: aval.convocatoriaUrl,
-            certificadoMedico: aval.certificadoMedicoUrl,
+            avalTecnico: aval.avalTecnicoPdfUrl,
             pronosticoDeportistas: aval.pronosticoDeportistasUrl,
-            // La hoja de ruta no tiene URL persistida — se genera
-            // on-demand desde el endpoint. Pasamos un sentinel truthy
-            // para que el composer la trate como disponible siempre.
-            hojaRuta: "on-demand",
+            certificacionPresupuestaria: aval.certificacionPresupuestariaUrl,
           }}
           onClose={() => setComposerOpen(false)}
         />

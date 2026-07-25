@@ -19,17 +19,19 @@ type Props = {
   onClose: () => void;
 };
 
+/**
+ * Documentos que se ofrecen en el composer, en orden de aparición.
+ *
+ * Son únicamente los cuatro que emite la federación. Los archivos que carga el
+ * solicitante (convocatoria y certificado médico) siguen accesibles desde
+ * `AvalDocumentosSection` en las pantallas de revisión, y los pasos internos de
+ * revisión no son documentos descargables.
+ */
 const DOC_ORDER: ComposableDocumentKey[] = [
-  "convocatoria",
-  "certificadoMedico",
-  "pronosticoDeportistas",
-  "escuelaIniciacion",
-  "avalTecnico",
   "comprasPublicas",
-  "revisionMetodologo",
-  "revisionDtm",
+  "avalTecnico",
+  "pronosticoDeportistas",
   "certificacionPresupuestaria",
-  "hojaRuta",
 ];
 
 export default function AvalPdfComposerModal({

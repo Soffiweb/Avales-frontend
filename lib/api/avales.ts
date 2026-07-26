@@ -10,6 +10,7 @@ import type {
   Estado,
   EtapaFlujo,
   Historial,
+  TipoDocumentoIdentidad,
   UpsertAvalParticipantesPayload,
 } from "@/types/aval";
 
@@ -86,7 +87,7 @@ export async function uploadConvocatoria(
   eventoId: number,
   convocatoria: File,
   certificadoMedico: File,
-  pronosticoDeportistas: File | File[],
+  pronosticoDeportistas?: File | File[],
   options?: {
     tipoAval?: CreateColeccionAvalPayload["tipoAval"];
     formaParticipacionId?: CreateColeccionAvalPayload["formaParticipacionId"];
@@ -97,9 +98,11 @@ export async function uploadConvocatoria(
   formData.append("eventoId", String(eventoId));
   formData.append("convocatoria", convocatoria);
   formData.append("certificadoMedico", certificadoMedico);
-  const pronosticoFiles = Array.isArray(pronosticoDeportistas)
-    ? pronosticoDeportistas
-    : [pronosticoDeportistas];
+  const pronosticoFiles = pronosticoDeportistas
+    ? Array.isArray(pronosticoDeportistas)
+      ? pronosticoDeportistas
+      : [pronosticoDeportistas]
+    : [];
   for (const file of pronosticoFiles) {
     formData.append("pronosticoDeportistas", file);
   }
@@ -290,6 +293,12 @@ export type CreatePdaPayload = {
   montoAsignado?: number;
   items?: CreatePdaItemPayload[];
   notas?: PdaNotaPayload[];
+  /** Responsable del anticipo/presupuesto. Si se omiten los 4 campos, no se
+   *  modifica el responsable ya guardado en el aval. */
+  responsableAnticipoId?: number;
+  responsableAnticipoNombre?: string;
+  responsableAnticipoTipoDocumento?: TipoDocumentoIdentidad;
+  responsableAnticipoNumeroDocumento?: string;
 };
 
 export async function createPda(id: number, payload: CreatePdaPayload) {

@@ -1,22 +1,30 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { APP_CATEGORIES } from "@/lib/utils/categories";
 
 type UploadInstructionsProps = {
   type: "usuarios" | "eventos";
   compact?: boolean;
+  /** Nombres de categorías traídos del catálogo, para el hint de CATEGORIA. */
+  categorias?: string[];
 };
 
-const USERS_INSTRUCTIONS = [
-  "Usa la plantilla y no cambies los nombres de las columnas.",
-  "Formato: .xlsx (recomendado) o .csv.",
-  "CEDULA debe tener 10 dígitos.",
-  `CATEGORIA permite solo: ${APP_CATEGORIES.join(", ")}.`,
-  "DISCIPLINA debe existir en el catálogo (código o nombre exacto).",
-  "CARGO debe ser un rol válido del sistema.",
-  "Si una CEDULA ya existe, se actualiza; si no existe, se crea.",
-];
+function buildUsersInstructions(categorias?: string[]) {
+  const categoriaLine =
+    categorias && categorias.length > 0
+      ? `CATEGORIA permite solo: ${categorias.join(", ")}.`
+      : "CATEGORIA debe existir en el catálogo del sistema.";
+
+  return [
+    "Usa la plantilla y no cambies los nombres de las columnas.",
+    "Formato: .xlsx (recomendado) o .csv.",
+    "CEDULA debe tener 10 dígitos.",
+    categoriaLine,
+    "DISCIPLINA debe existir en el catálogo (código o nombre exacto).",
+    "CARGO debe ser un rol válido del sistema.",
+    "Si una CEDULA ya existe, se actualiza; si no existe, se crea.",
+  ];
+}
 
 const EVENTS_INSTRUCTIONS = [
   "Usa la plantilla y no cambies los nombres de las columnas.",
@@ -31,8 +39,12 @@ const EVENTS_INSTRUCTIONS = [
 export default function UploadInstructions({
   type,
   compact = false,
+  categorias,
 }: UploadInstructionsProps) {
-  const items = type === "usuarios" ? USERS_INSTRUCTIONS : EVENTS_INSTRUCTIONS;
+  const items =
+    type === "usuarios"
+      ? buildUsersInstructions(categorias)
+      : EVENTS_INSTRUCTIONS;
 
   return (
     <div

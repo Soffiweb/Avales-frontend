@@ -240,13 +240,15 @@ export default function CertificarComprasPublicasPage() {
     avalId,
     requiredRole: isComprasPublicasUser,
     editableEtapa: (currentAval) =>
-      getApprovalFlowStages(currentAval).includes("COMPRAS_PUBLICAS")
-        ? "PDA"
-        : "COMPRAS_PUBLICAS",
+      getPreviousApprovalStagesForAval(currentAval, "COMPRAS_PUBLICAS").at(-1) ??
+      "COMPRAS_PUBLICAS",
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,
-    additionalEditableCheck: useCallback((a: Aval) => !a.comprasPublicas, []),
+    additionalEditableCheck: useCallback(
+      (a: Aval) => getApprovalFlowStages(a).includes("COMPRAS_PUBLICAS"),
+      [],
+    ),
     validateApprove: useCallback((_currentAval: Aval) => {
       if (!sumilla.trim()) {
         return "Debes completar la sumilla indicando la resolución adjunta.";

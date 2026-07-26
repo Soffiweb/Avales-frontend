@@ -169,7 +169,7 @@ export function filterSidebarItems(items: SidebarItem[], user: User) {
 
   return items
     .filter((it) => {
-      if (it.type === "link" && (it.href === "/reformas" || it.href === "/reformas-multi")) {
+      if (it.type === "link" && it.href === "/reformas") {
         return canAccessReforms(user);
       }
       return hasAnyRole(roles, it.roles);

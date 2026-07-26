@@ -33,7 +33,7 @@ import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
 import { downloadEventsTemplate } from "@/lib/api/template-download";
 import {
   canAccessReforms,
-  canCreateReforma,
+  // canCreateReforma, // solo usado por el botón "Solicitar reforma" deshabilitado
   canManageEvents as canManageEventsCheck,
   isAdminUser,
   isDTMUser,
@@ -233,7 +233,7 @@ export default function EventoDetailPage() {
   }: {
     convocatoria: File;
     certificadoMedico: File;
-    pronosticoDeportistas: File[];
+    pronosticoDeportistas?: File[];
   }) => {
     if (!evento) throw new Error("No se ha seleccionado un evento.");
     if (isEventoIncompleto(evento)) {
@@ -309,7 +309,7 @@ export default function EventoDetailPage() {
   const hasPendingReform = Boolean(evento.tieneReformaPendiente);
   const eventoIncompleto = isEventoIncompleto(evento);
   const missingFields = getEventoMissingFields(evento);
-  const canManageReforms = canCreateReforma(user) && !isDTM;
+  // const canManageReforms = canCreateReforma(user) && !isDTM; // solo usado por el botón "Solicitar reforma" deshabilitado
   const canViewReforms = canAccessReforms(user) || isDTM || isTrainerUser(user);
   // Un evento es "creable" mientras exista al menos una forma de participación
   // sin aval asociado. Cada forma de participación solo admite un aval.
@@ -332,7 +332,7 @@ export default function EventoDetailPage() {
   );
   const submitDisabled =
     formasDelTipoSeleccionado.length > 0 && formaParticipacionId == null;
-  const canRequestReforma = canManageReforms && !hasPendingReform;
+  // const canRequestReforma = canManageReforms && !hasPendingReform; // botón "Solicitar reforma" deshabilitado: reformas ya no se piden desde un evento puntual, ver /reformas
   const completionHref = `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
     `/eventos/${evento.id}`,
   )}`;
@@ -363,6 +363,7 @@ export default function EventoDetailPage() {
         onUpload={handleUploadConvocatoria}
         title="Subir documentos obligatorios"
         description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
+        requirePronosticoDeportistas={false}
         submitDisabled={submitDisabled}
         submitDisabledReason="Selecciona una forma de participación para continuar."
       >
@@ -661,15 +662,19 @@ export default function EventoDetailPage() {
                     )}
                   </>
                 )}
+                {/* Botón "Solicitar reforma" deshabilitado: las reformas ya no se piden
+                    desde un evento puntual (ahora cubren N eventos + movimientos de
+                    presupuesto), se crean desde /reformas.
                 {canManageReforms && canRequestReforma && (
                   <Link
-                    href={`/eventos/${evento.id}/reforma`}
+                    href={`/reformas/nueva?eventoId=${evento.id}`}
                     className="flex items-center gap-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2.5 text-sm font-medium text-amber-700 dark:text-amber-300 transition hover:bg-amber-100 dark:hover:bg-amber-900/30"
                   >
                     <ClipboardEdit className="w-4 h-4 shrink-0" />
                     <span>Solicitar reforma</span>
                   </Link>
                 )}
+                */}
                 {hasPendingReform && pendingReformId && (
                   <Link
                     href={`/reformas/${pendingReformId}`}

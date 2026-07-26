@@ -1,6 +1,5 @@
-import { ROLES } from "@/lib/constants";
-import { APP_CATEGORIES, isValidAppCategory, normalizeCategoryValue } from "@/lib/utils/categories";
 import type { CatalogItem } from "@/types/catalog";
+import type { Role } from "@/types/role";
 import type { ColumnDef, UploadType } from "./template-columns";
 
 export type RowIssues = Record<string, string>;
@@ -26,7 +25,19 @@ const disciplineAliases: Record<string, string> = {
   KARATEDO: "KARATE_DO",
 };
 
-const roleValues = new Set(ROLES.map((role) => normalizeComparable(role)));
+/** Set con códigos y nombres (normalizados) de un catálogo, para validar contra ambos. */
+function buildCatalogValueSet(
+  items: Array<Pick<CatalogItem, "codigo" | "nombre">>
+) {
+  const set = new Set<string>();
+  for (const item of items) {
+    const code = normalizeComparable(item.codigo ?? "");
+    const name = normalizeComparable(item.nombre ?? "");
+    if (code) set.add(code);
+    if (name) set.add(name);
+  }
+  return set;
+}
 
 const roleAliases: Record<string, string> = {
   ADMINISTRADOR_GENERAL: "ADMIN",
@@ -58,10 +69,10 @@ function splitDisciplinaCandidates(value: string) {
     .filter(Boolean);
 }
 
-function isValidRole(value: string) {
+function isValidRole(value: string, roleValues: Set<string>) {
   const normalized = normalizeComparable(value);
   const resolved = roleAliases[normalized] ?? normalized;
-  return roleValues.has(resolved);
+  return roleValues.has(resolved) || roleValues.has(normalized);
 }
 
 function isValidDiscipline(value: string, disciplines: CatalogItem[]) {
@@ -92,18 +103,23 @@ function isValidDiscipline(value: string, disciplines: CatalogItem[]) {
   });
 }
 
-function isValidCategory(value: string) {
-  return isValidAppCategory(value);
+function isValidCategory(value: string, categoriaValues: Set<string>) {
+  const normalized = normalizeComparable(value);
+  if (!normalized) return false;
+  if (normalized === "TODAS") return true;
+  return categoriaValues.has(normalized);
 }
 
-function getInvalidCategories(value: string) {
-  const normalized = normalizeCategoryValue(value);
+function getInvalidCategories(value: string, categoriaValues: Set<string>) {
+  const normalized = normalizeComparable(value);
   if (!normalized || normalized === "TODAS") return [];
 
   const candidates = splitDisciplinaCandidates(value);
   if (candidates.length === 0) return [value.trim()].filter(Boolean);
 
-  return candidates.filter((candidate) => !isValidCategory(candidate));
+  return candidates.filter(
+    (candidate) => !isValidCategory(candidate, categoriaValues)
+  );
 }
 
 function getInvalidDisciplines(value: string, disciplines: CatalogItem[]) {
@@ -278,9 +294,13 @@ export function validatePreviewRows(
   type: UploadType,
   rows: Record<string, string>[],
   columns: ColumnDef[],
-  disciplines: CatalogItem[]
+  disciplines: CatalogItem[],
+  categorias: CatalogItem[] = [],
+  roles: Array<Pick<Role, "codigo" | "nombre">> = []
 ): RowIssuesByIndex {
   const issuesByRow: RowIssuesByIndex = {};
+  const categoriaValues = buildCatalogValueSet(categorias);
+  const roleValues = buildCatalogValueSet(roles);
 
   rows.forEach((row, rowIndex) => {
     const issues: RowIssues = {};
@@ -294,16 +314,24 @@ export function validatePreviewRows(
 
     if (type === "usuarios") {
       const categoria = row.CATEGORIA?.trim() ?? "";
-      if (categoria && !isValidCategory(categoria)) {
-        const invalidCategories = getInvalidCategories(categoria);
+      if (
+        categoria &&
+        categorias.length > 0 &&
+        !isValidCategory(categoria, categoriaValues)
+      ) {
+        const invalidCategories = getInvalidCategories(categoria, categoriaValues);
         const detail =
           invalidCategories.length > 0
             ? invalidCategories.map((item) => `"${item}"`).join(", ")
             : `"${categoria}"`;
+        const validList = categorias
+          .map((item) => item.nombre)
+          .filter(Boolean)
+          .join(", ");
         pushIssue(
           issues,
           "CATEGORIA",
-          `Categoría inválida: ${detail}. Valores válidos: ${APP_CATEGORIES.join(", ")}`,
+          `Categoría inválida: ${detail}. Valores válidos: ${validList}`,
         );
       }
 
@@ -313,7 +341,7 @@ export function validatePreviewRows(
       }
 
       const cargo = row.CARGO?.trim() ?? "";
-      if (cargo && !isValidRole(cargo)) {
+      if (cargo && roles.length > 0 && !isValidRole(cargo, roleValues)) {
         pushIssue(issues, "CARGO", "Cargo no encontrado en el sistema");
       }
 

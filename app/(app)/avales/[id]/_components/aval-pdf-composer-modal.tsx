@@ -40,9 +40,10 @@ const HIDDEN_WHEN_UNAVAILABLE = new Set<ComposableDocumentKey>([
   "escuelaIniciacion",
 ]);
 
-// Pronóstico de deportistas no tiene endpoint de generación on-the-fly: si
-// hay URL, ya está guardada y basta con abrirla directo (sin pasar por
-// openAvalPdfPreview, que espera un endpoint de PREVIEW_ENDPOINTS).
+// Pronóstico de deportistas no tiene endpoint de generación on-the-fly: es
+// un archivo ya guardado (generado por el sistema en avales nuevos, subido
+// a mano en los viejos) y basta con abrirlo directo, sin pasar por
+// openAvalPdfPreview (que espera un endpoint de PREVIEW_ENDPOINTS).
 const DIRECT_URL_PREVIEW_KEYS = new Set<ComposableDocumentKey>([
   "pronosticoDeportistas",
 ]);
@@ -61,25 +62,16 @@ export default function AvalPdfComposerModal({
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Los avales viejos (previos a que se dejara de generar escuela de
-  // iniciación) traen esa URL siempre; en los nuevos ya no aparece. La
-  // usamos como bandera para saber si el pronóstico es un adjunto suelto
-  // (viejo, sin preview confiable) o el Excel generado por el sistema
-  // (nuevo, sí previsualizable).
-  const isLegacyAval = Boolean(availableDocs.escuelaIniciacion);
-
   const rows = useMemo(
     () =>
       DOC_ORDER.map((key) => {
         const url = availableDocs[key];
         const available = Boolean(url);
         const hasPreview =
-          key === "pronosticoDeportistas"
-            ? available && !isLegacyAval
-            : !!PREVIEW_ENDPOINTS[key];
+          key === "pronosticoDeportistas" ? available : !!PREVIEW_ENDPOINTS[key];
         return { key, available, hasPreview };
       }).filter((row) => row.available || !HIDDEN_WHEN_UNAVAILABLE.has(row.key)),
-    [availableDocs, isLegacyAval],
+    [availableDocs],
   );
 
   function toggle(key: ComposableDocumentKey) {

@@ -193,6 +193,16 @@ const TEMPLATE_FIELDS: Record<PronosticoTemplate, PronosticoFieldDefinition[]> =
   ],
 };
 
+// El backend guarda el pronóstico principal siempre con el mismo basename:
+// el Excel que genera el sistema al crear/actualizar el aval sale como
+// `pronostico-deportistas.xlsx`, mientras que los avales viejos traen el
+// archivo que se subió a mano (normalmente PDF). Sin bandera en la API, la
+// extensión es el único discriminante disponible.
+export function isPronosticoGeneradoPorSistema(url?: string | null): boolean {
+  if (!url) return false;
+  return /pronostico-deportistas\.xlsx(\?|#|$)/i.test(url);
+}
+
 export function normalizeDisciplinaKey(value?: string | null) {
   if (!value) return "";
   return value

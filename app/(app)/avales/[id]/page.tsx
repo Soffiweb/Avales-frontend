@@ -67,6 +67,7 @@ import {
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 import { getAvalCupos, getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
+import { isPronosticoGeneradoPorSistema } from "@/lib/utils/aval-pronostico";
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
@@ -1141,15 +1142,23 @@ export default function AvalDetailPage() {
         uploadCertificadoMedico(aval.id, files[0]).then((r) => r.data),
       replaceLabel: "Reemplazar certificado médico",
     },
-    {
-      label: "Descargar pronóstico de deportistas",
-      url: aval.pronosticoDeportistasUrl,
-      icon: ClipboardCheck,
-      replaceHandler: (files) =>
-        uploadPronosticoDeportistas(aval.id, files).then((r) => r.data),
-      replaceLabel: "Reemplazar / agregar pronósticos",
-      allowMultiple: true,
-    },
+    // El pronóstico que genera el sistema no se descarga ni se reemplaza
+    // desde acá: sale del Excel armado con los datos de los deportistas y
+    // sigue disponible en el modal de armar PDF. La fila solo aplica a los
+    // avales viejos, donde el archivo se subió a mano.
+    ...(isPronosticoGeneradoPorSistema(aval.pronosticoDeportistasUrl)
+      ? []
+      : [
+          {
+            label: "Descargar pronóstico de deportistas",
+            url: aval.pronosticoDeportistasUrl,
+            icon: ClipboardCheck,
+            replaceHandler: (files: File[]) =>
+              uploadPronosticoDeportistas(aval.id, files).then((r) => r.data),
+            replaceLabel: "Reemplazar / agregar pronósticos",
+            allowMultiple: true,
+          },
+        ]),
   ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);

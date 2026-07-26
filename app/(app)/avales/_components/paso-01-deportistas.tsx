@@ -12,7 +12,7 @@ import type { Genero, User } from "@/types/user";
 import PronosticoDeportistaFields from "./pronostico-deportista-fields";
 import type {
   Aval,
-  DeportistaPronosticoDto,
+  PropositoDto,
   ModalidadParticipacion,
   TipoAval,
 } from "@/types/aval";
@@ -24,7 +24,12 @@ import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
   getPronosticoProfile,
+  ensureAtLeastOneProposito,
+  createEmptyProposito,
+  PROCEDENCIA_GROUP_FIELDS,
+  PROCEDENCIA_DEFAULT_FIELD,
   type DeportistaPronosticoFieldPath,
+  type PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
 import {
   validatePronosticoDeportista,
@@ -52,8 +57,8 @@ type FormData = {
     canton?: string;
     club?: string;
     entrenadorNombre?: string;
-    ordenPronostico?: number;
-    pronostico?: DeportistaPronosticoDto;
+    ordenProposito?: number;
+    propositos?: PropositoDto[];
     afiliado?: boolean;
     payload?: Record<string, unknown>;
     observacion?: string;
@@ -100,8 +105,8 @@ type SelectedDeportista = Omit<Deportista, "afiliacion"> & {
   afiliacion?: string;
   canton?: string;
   entrenadorNombre?: string;
-  ordenPronostico?: number;
-  pronostico?: DeportistaPronosticoDto;
+  ordenProposito?: number;
+  propositos?: PropositoDto[];
   afiliado?: boolean;
   payload?: Record<string, unknown>;
 };
@@ -174,23 +179,65 @@ function toBooleanValue(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function buildPronosticoPayload(
-  pronostico: unknown,
-  payload?: Record<string, unknown>,
-): DeportistaPronosticoDto | undefined {
-  const source = toRecord(pronostico) ?? toRecord(payload?.pronostico);
-  if (!source) return undefined;
-
+function toPropositoDto(source: Record<string, unknown>): PropositoDto {
   return {
+    orden: toNumberValue(source.orden),
     ubicacionActual: toStringValue(source.ubicacionActual),
-    ubicacionPronosticada: toStringValue(source.ubicacionPronosticada),
     divisionPeso: toStringValue(source.divisionPeso),
     prueba: toStringValue(source.prueba),
     marcaActual: toStringValue(source.marcaActual),
     unidadMarcaActual: toStringValue(source.unidadMarcaActual),
-    marcaPronosticada: toStringValue(source.marcaPronosticada),
-    unidadMarcaPronostico: toStringValue(source.unidadMarcaPronostico),
+    ubicacionProposito: toStringValue(source.ubicacionProposito),
+    marcaProposito: toStringValue(source.marcaProposito),
+    unidadMarcaProposito: toStringValue(source.unidadMarcaProposito),
   };
+}
+
+function buildPropositosPayload(
+  propositos: unknown,
+  payload?: Record<string, unknown>,
+): PropositoDto[] | undefined {
+  const source = Array.isArray(propositos)
+    ? propositos
+    : Array.isArray(payload?.propositos)
+      ? (payload!.propositos as unknown[])
+      : undefined;
+  if (!source) return undefined;
+
+  return source
+    .map((item) => toRecord(item))
+    .filter((record): record is Record<string, unknown> => Boolean(record))
+    .map(toPropositoDto);
+}
+
+function getDefaultProcedenciaActiva(
+  deportista: Pick<SelectedDeportista, "canton" | "club" | "entrenadorNombre">,
+  profile: PronosticoProfile | null,
+): Set<DeportistaPronosticoFieldPath> {
+  const active = new Set<DeportistaPronosticoFieldPath>();
+  if (!profile) return active;
+
+  const groupPathsPresent = profile.fields
+    .map((f) => f.path)
+    .filter((path) => PROCEDENCIA_GROUP_FIELDS.includes(path));
+
+  const values: Partial<Record<DeportistaPronosticoFieldPath, string | undefined>> = {
+    canton: deportista.canton,
+    club: deportista.club,
+    entrenadorNombre: deportista.entrenadorNombre,
+  };
+
+  for (const path of groupPathsPresent) {
+    if (values[path]?.trim()) active.add(path);
+  }
+  // Si nada tiene valor todavía (deportista recién agregado, o guardado en
+  // blanco), entrenador arranca seleccionado por defecto. Si ya hay algo
+  // lleno (ej. club de un draft guardado), respetamos esa elección previa
+  // en vez de forzar entrenador encima.
+  if (active.size === 0 && groupPathsPresent.includes(PROCEDENCIA_DEFAULT_FIELD)) {
+    active.add(PROCEDENCIA_DEFAULT_FIELD);
+  }
+  return active;
 }
 
 function getEntrenadorDisplayName(entrenador: SelectedEntrenador | undefined) {
@@ -253,8 +300,10 @@ export default function Paso01Deportistas({
           club: d.club ?? toStringValue(payload?.club) ?? "",
           entrenadorNombre:
             d.entrenadorNombre ?? toStringValue(payload?.entrenadorNombre) ?? "",
-          ordenPronostico: d.ordenPronostico ?? toNumberValue(payload?.ordenPronostico),
-          pronostico: d.pronostico ?? buildPronosticoPayload(d.pronostico, payload),
+          ordenProposito: d.ordenProposito ?? toNumberValue(payload?.ordenProposito),
+          propositos: ensureAtLeastOneProposito(
+            d.propositos ?? buildPropositosPayload(d.propositos, payload),
+          ),
           afiliado,
           rol: d.rol ?? "ATLETA",
           modalidadParticipacion:
@@ -264,6 +313,30 @@ export default function Paso01Deportistas({
       }) as SelectedDeportista[],
     ),
   );
+
+  // Qué chips de cantón/club/entrenador están activos por deportista. No se
+  // deriva solo de los valores: un campo vacío puede ser "inactivo" (chip
+  // apagado) o "activo pero sin llenar" (error de validación).
+  const [procedenciaActivos, setProcedenciaActivos] = useState<
+    Record<number, Set<DeportistaPronosticoFieldPath>>
+  >(() => {
+    const map: Record<number, Set<DeportistaPronosticoFieldPath>> = {};
+    for (const d of selectedDeportistas) {
+      map[d.id] = getDefaultProcedenciaActiva(d, pronosticoProfile);
+    }
+    return map;
+  });
+  const procedenciaActivosRef = useRef(procedenciaActivos);
+  // getPronosticoProfile devuelve un objeto nuevo en cada render (no está
+  // memoizado): si entrara al arreglo de deps del effect de sincronización,
+  // lo dispararía en cada render y provocaría un loop de renders.
+  const pronosticoProfileRef = useRef(pronosticoProfile);
+  // Deportistas cuyo campo "Entrenador" fue escrito a mano: el effect de
+  // sincronización con el entrenador principal ya no debe tocarlos.
+  const [entrenadorManualOverrides, setEntrenadorManualOverrides] = useState<
+    Set<number>
+  >(new Set());
+  const entrenadorManualOverridesRef = useRef(entrenadorManualOverrides);
 
   const [searchEntrenadores, setSearchEntrenadores] = useState("");
   const [entrenadores, setEntrenadores] = useState<User[]>([]);
@@ -376,8 +449,11 @@ export default function Paso01Deportistas({
           club: d.club?.trim() || undefined,
           entrenadorNombre:
             d.entrenadorNombre?.trim() || entrenadorPrincipalNombre || undefined,
-          ordenPronostico: index + 1,
-          pronostico: d.pronostico,
+          ordenProposito: index + 1,
+          propositos: (d.propositos ?? []).map((p, i) => ({
+            ...p,
+            orden: p.orden ?? i + 1,
+          })),
           payload: {
             ...payload,
             genero: d.genero ?? null,
@@ -390,8 +466,8 @@ export default function Paso01Deportistas({
             club: d.club?.trim() || null,
             entrenadorNombre:
               d.entrenadorNombre?.trim() || entrenadorPrincipalNombre || null,
-            ordenPronostico: index + 1,
-            pronostico: d.pronostico ?? null,
+            ordenProposito: index + 1,
+            propositos: d.propositos ?? null,
           },
           observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
           rol: d.rol ?? "ATLETA",
@@ -464,18 +540,37 @@ export default function Paso01Deportistas({
     autoSelectEntrenadorRef.current = true;
   }, [selectedEntrenadores, totalEntrenadoresRequeridos, user]);
 
+  // Mantiene entrenadorNombre en sincronía con el entrenador principal: si
+  // cambia el principal (o se borra), se refleja en todo deportista cuya
+  // procedencia activa sea "entrenador". No toca a quien tenga cantón/club
+  // activo en su lugar. procedenciaActivos se lee por ref (no como dep) para
+  // no reprocesar todos los deportistas cada vez que se togglea un chip
+  // ajeno, lo que pisaría ediciones manuales de otros deportistas.
+  procedenciaActivosRef.current = procedenciaActivos;
+  pronosticoProfileRef.current = pronosticoProfile;
+  entrenadorManualOverridesRef.current = entrenadorManualOverrides;
+
   useEffect(() => {
     const principal = selectedEntrenadores.find((e) => e.id === principalEntrenadorId);
     const principalNombre = getEntrenadorDisplayName(principal);
-    if (!principalNombre) return;
+    const activos = procedenciaActivosRef.current;
+    const hasPronosticoProfile = Boolean(pronosticoProfileRef.current);
+    const manualOverrides = entrenadorManualOverridesRef.current;
 
-    setSelectedDeportistas((prev) =>
-      prev.map((deportista) =>
-        deportista.entrenadorNombre?.trim()
-          ? deportista
-          : { ...deportista, entrenadorNombre: principalNombre },
-      ),
-    );
+    setSelectedDeportistas((prev) => {
+      let changed = false;
+      const next = prev.map((deportista) => {
+        if (manualOverrides.has(deportista.id)) return deportista;
+        const syncEntrenador = hasPronosticoProfile
+          ? activos[deportista.id]?.has("entrenadorNombre") ?? false
+          : true;
+        if (!syncEntrenador) return deportista;
+        if ((deportista.entrenadorNombre ?? "") === principalNombre) return deportista;
+        changed = true;
+        return { ...deportista, entrenadorNombre: principalNombre };
+      });
+      return changed ? next : prev;
+    });
   }, [principalEntrenadorId, selectedEntrenadores]);
 
   const fetchDeportistas = useCallback(async () => {
@@ -566,7 +661,7 @@ export default function Paso01Deportistas({
           afiliacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
           canton: "",
           entrenadorNombre: entrenadorPrincipalNombre,
-          pronostico: {},
+          propositos: ensureAtLeastOneProposito(),
           afiliado,
           rol: "ATLETA",
           modalidadParticipacion: getDefaultModalidad(tipoAval),
@@ -578,6 +673,15 @@ export default function Paso01Deportistas({
       delete next[deportista.id];
       return next;
     });
+    if (pronosticoProfile) {
+      setProcedenciaActivos((prev) => ({
+        ...prev,
+        [deportista.id]: getDefaultProcedenciaActiva(
+          { canton: "", club: "", entrenadorNombre: entrenadorPrincipalNombre },
+          pronosticoProfile,
+        ),
+      }));
+    }
     setSearchDeportistas("");
   };
 
@@ -588,8 +692,47 @@ export default function Paso01Deportistas({
       delete next[deportistaId];
       return next;
     });
+    setProcedenciaActivos((prev) => {
+      const next = { ...prev };
+      delete next[deportistaId];
+      return next;
+    });
+    setEntrenadorManualOverrides((prev) => {
+      if (!prev.has(deportistaId)) return prev;
+      const next = new Set(prev);
+      next.delete(deportistaId);
+      return next;
+    });
   };
 
+  const handleToggleProcedencia = (
+    deportistaId: number,
+    path: DeportistaPronosticoFieldPath,
+  ) => {
+    const wasActive = procedenciaActivos[deportistaId]?.has(path) ?? false;
+    setProcedenciaActivos((prev) => {
+      const next = new Set(prev[deportistaId] ?? []);
+      if (wasActive) next.delete(path);
+      else next.add(path);
+      return { ...prev, [deportistaId]: next };
+    });
+    if (wasActive) {
+      handlePronosticoFieldChange(deportistaId, path, "");
+      // Al apagar el chip, la próxima vez que se prenda vuelve a seguir el
+      // valor por defecto (entrenador principal) en vez de quedar "manual".
+      if (path === "entrenadorNombre") {
+        setEntrenadorManualOverrides((prev) => {
+          if (!prev.has(deportistaId)) return prev;
+          const next = new Set(prev);
+          next.delete(deportistaId);
+          return next;
+        });
+      }
+    }
+  };
+
+  // Solo los 5 campos deportista-level: los de propositos[] (plantillas 1/2
+  // con índice fijo 0, plantilla 3 con N filas) van por handlePruebaFieldChange.
   const handlePronosticoFieldChange = (
     deportistaId: number,
     path: DeportistaPronosticoFieldPath,
@@ -609,70 +752,6 @@ export default function Paso01Deportistas({
             return { ...deportista, club: value };
           case "entrenadorNombre":
             return { ...deportista, entrenadorNombre: value };
-          case "pronostico.ubicacionActual":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                ubicacionActual: value,
-              },
-            };
-          case "pronostico.ubicacionPronosticada":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                ubicacionPronosticada: value,
-              },
-            };
-          case "pronostico.divisionPeso":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                divisionPeso: value,
-              },
-            };
-          case "pronostico.prueba":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                prueba: value,
-              },
-            };
-          case "pronostico.marcaActual":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                marcaActual: value,
-              },
-            };
-          case "pronostico.unidadMarcaActual":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                unidadMarcaActual: value,
-              },
-            };
-          case "pronostico.marcaPronosticada":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                marcaPronosticada: value,
-              },
-            };
-          case "pronostico.unidadMarcaPronostico":
-            return {
-              ...deportista,
-              pronostico: {
-                ...(deportista.pronostico ?? {}),
-                unidadMarcaPronostico: value,
-              },
-            };
           default:
             return deportista;
         }
@@ -689,6 +768,93 @@ export default function Paso01Deportistas({
       } else {
         next[deportistaId] = nextErrors;
       }
+      return next;
+    });
+  };
+
+  const handleAddPrueba = (deportistaId: number) => {
+    setSelectedDeportistas((prev) =>
+      prev.map((deportista) => {
+        if (deportista.id !== deportistaId) return deportista;
+        return {
+          ...deportista,
+          propositos: [...(deportista.propositos ?? []), createEmptyProposito()],
+        };
+      }),
+    );
+  };
+
+  const handleRemovePrueba = (deportistaId: number, index: number) => {
+    setSelectedDeportistas((prev) =>
+      prev.map((deportista) => {
+        if (deportista.id !== deportistaId) return deportista;
+        return {
+          ...deportista,
+          propositos: (deportista.propositos ?? []).filter((_, i) => i !== index),
+        };
+      }),
+    );
+    setPronosticoErrors((prev) => {
+      if (!prev[deportistaId]) return prev;
+      const next = { ...prev };
+      delete next[deportistaId];
+      return next;
+    });
+  };
+
+  const handlePruebaFieldChange = (
+    deportistaId: number,
+    index: number,
+    path: DeportistaPronosticoFieldPath,
+    value: string,
+  ) => {
+    setSelectedDeportistas((prev) =>
+      prev.map((deportista) => {
+        if (deportista.id !== deportistaId) return deportista;
+        const propositos = [...(deportista.propositos ?? [])];
+        const row = { ...propositos[index] };
+        switch (path) {
+          case "proposito.prueba":
+            row.prueba = value;
+            break;
+          case "proposito.marcaActual":
+            row.marcaActual = value;
+            break;
+          case "proposito.unidadMarcaActual":
+            row.unidadMarcaActual = value;
+            break;
+          case "proposito.marcaProposito":
+            row.marcaProposito = value;
+            break;
+          case "proposito.unidadMarcaProposito":
+            row.unidadMarcaProposito = value;
+            break;
+          case "proposito.ubicacionActual":
+            row.ubicacionActual = value;
+            break;
+          case "proposito.ubicacionProposito":
+            row.ubicacionProposito = value;
+            break;
+          case "proposito.divisionPeso":
+            row.divisionPeso = value;
+            break;
+          default:
+            return deportista;
+        }
+        propositos[index] = row;
+        return { ...deportista, propositos };
+      }),
+    );
+    setPronosticoErrors((prev) => {
+      const rowError = prev[deportistaId]?.pruebas?.[index]?.[path];
+      if (!rowError) return prev;
+      const next = { ...prev };
+      const currentErrors = next[deportistaId] ?? {};
+      const nextPruebas = [...(currentErrors.pruebas ?? [])];
+      const nextRow = { ...nextPruebas[index] };
+      delete nextRow[path];
+      nextPruebas[index] = nextRow;
+      next[deportistaId] = { ...currentErrors, pruebas: nextPruebas };
       return next;
     });
   };
@@ -810,7 +976,11 @@ export default function Paso01Deportistas({
     if (pronosticoProfile) {
       const nextErrors = selectedDeportistas.reduce<Record<number, PronosticoFieldErrors>>(
         (acc, deportista) => {
-          const fieldErrors = validatePronosticoDeportista(deportista, pronosticoProfile);
+          const fieldErrors = validatePronosticoDeportista(
+            deportista,
+            pronosticoProfile,
+            procedenciaActivos[deportista.id],
+          );
           if (Object.keys(fieldErrors).length > 0) {
             acc[deportista.id] = fieldErrors;
           }
@@ -995,12 +1165,33 @@ export default function Paso01Deportistas({
                   {pronosticoProfile ? (
                     <PronosticoDeportistaFields
                       deportista={deportista}
-                      index={index}
                       profile={pronosticoProfile}
                       defaultCategoriaNombre={categoriaEventoDefault}
                       errors={pronosticoErrors[deportista.id]}
-                      onChange={(path, value) =>
-                        handlePronosticoFieldChange(deportista.id, path, value)
+                      activePaths={
+                        procedenciaActivos[deportista.id] ??
+                        new Set<DeportistaPronosticoFieldPath>()
+                      }
+                      onToggleActive={(path) =>
+                        handleToggleProcedencia(deportista.id, path)
+                      }
+                      onChange={(path, value) => {
+                        if (path === "entrenadorNombre") {
+                          setEntrenadorManualOverrides((prev) => {
+                            if (prev.has(deportista.id)) return prev;
+                            const next = new Set(prev);
+                            next.add(deportista.id);
+                            return next;
+                          });
+                        }
+                        handlePronosticoFieldChange(deportista.id, path, value);
+                      }}
+                      onAddPrueba={() => handleAddPrueba(deportista.id)}
+                      onRemovePrueba={(index) =>
+                        handleRemovePrueba(deportista.id, index)
+                      }
+                      onPruebaFieldChange={(index, path, value) =>
+                        handlePruebaFieldChange(deportista.id, index, path, value)
                       }
                     />
                   ) : null}

@@ -34,6 +34,21 @@ const DOC_ORDER: ComposableDocumentKey[] = [
   "certificacionPresupuestaria",
 ];
 
+// Escuela de iniciación dejó de generarse para avales nuevos (queda solo en
+// avales viejos). No tiene sentido mostrarla deshabilitada para siempre —
+// se oculta la fila directamente cuando no hay archivo.
+const HIDDEN_WHEN_UNAVAILABLE = new Set<ComposableDocumentKey>([
+  "escuelaIniciacion",
+]);
+
+// Pronóstico de deportistas no tiene endpoint de generación on-the-fly: es
+// un archivo ya guardado (generado por el sistema en avales nuevos, subido
+// a mano en los viejos) y basta con abrirlo directo, sin pasar por
+// openAvalPdfPreview (que espera un endpoint de PREVIEW_ENDPOINTS).
+const DIRECT_URL_PREVIEW_KEYS = new Set<ComposableDocumentKey>([
+  "pronosticoDeportistas",
+]);
+
 export default function AvalPdfComposerModal({
   avalId,
   availableDocs,
@@ -53,8 +68,10 @@ export default function AvalPdfComposerModal({
       DOC_ORDER.map((key) => {
         const url = availableDocs[key];
         const available = Boolean(url);
-        return { key, available, hasPreview: !!PREVIEW_ENDPOINTS[key] };
-      }),
+        const hasPreview =
+          key === "pronosticoDeportistas" ? available : !!PREVIEW_ENDPOINTS[key];
+        return { key, available, hasPreview };
+      }).filter((row) => row.available || !HIDDEN_WHEN_UNAVAILABLE.has(row.key)),
     [availableDocs],
   );
 
@@ -69,6 +86,13 @@ export default function AvalPdfComposerModal({
 
   async function handlePreview(key: ComposableDocumentKey) {
     setError(null);
+
+    if (DIRECT_URL_PREVIEW_KEYS.has(key)) {
+      const url = availableDocs[key];
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     setPreviewing(key);
     try {
       await openAvalPdfPreview(avalId, key);

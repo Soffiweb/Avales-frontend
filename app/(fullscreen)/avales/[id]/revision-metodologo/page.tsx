@@ -88,6 +88,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
       cedula: item.deportista?.cedula ?? undefined,
       fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
+      categoriaNombre: item.categoriaNombre ?? undefined,
+      afiliacion: item.afiliacion ?? undefined,
+      canton: item.canton ?? undefined,
+      club: item.club ?? undefined,
+      entrenadorNombre: item.entrenadorNombre ?? undefined,
+      propositos: item.propositos ?? undefined,
       observacion: withExtras.observacion ?? undefined,
       rol: item.rol ?? undefined,
     };
@@ -884,11 +890,11 @@ export default function RevisionMetodologoPage() {
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
             <AvalDocumentosSection aval={aval} />
-            <PreviewCollapsible title="Solicitud aval">
-              <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
+            </PreviewCollapsible>
+            <PreviewCollapsible title="Solicitud aval">
+              <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
             {aval?.tipoAval !== "SOLO_RESULTADO" && (
               <PreviewCollapsible title="Presupuesto de salida">

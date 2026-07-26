@@ -5,6 +5,7 @@ import type { ApiResponse } from "@/types/api-response";
 export type ListDeportistasOptions = {
   genero?: string;
   query?: string;
+  deporte?: string;
   page?: number;
   limit?: number;
 };
@@ -136,6 +137,7 @@ export async function listDeportistas(
 
   if (genero) params.set("genero", genero);
   if (options.query) params.set("query", options.query);
+  if (options.deporte) params.set("deporte", options.deporte);
   if (options.page) params.set("page", String(options.page));
   if (options.limit) params.set("limit", String(options.limit));
 

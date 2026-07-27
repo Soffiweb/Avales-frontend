@@ -28,9 +28,9 @@ type Props = {
  * revisión no son documentos descargables.
  */
 const DOC_ORDER: ComposableDocumentKey[] = [
-  "comprasPublicas",
   "avalTecnico",
   "pronosticoDeportistas",
+  "comprasPublicas",
   "certificacionPresupuestaria",
 ];
 
@@ -108,7 +108,10 @@ export default function AvalPdfComposerModal({
     setError(null);
     setDownloading(true);
     try {
-      await downloadComposedPdf(avalId, Array.from(selected));
+      await downloadComposedPdf(
+        avalId,
+        DOC_ORDER.filter((key) => selected.has(key)),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo descargar el PDF");
     } finally {

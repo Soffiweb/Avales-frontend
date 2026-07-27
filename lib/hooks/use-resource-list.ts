@@ -20,7 +20,7 @@ export type PaginationMeta = {
 export function extractPagination(
   res: unknown,
   fallbackPage: number,
-  fallbackLimit: number
+  fallbackLimit: number,
 ): PaginationMeta {
   const r = res as Record<string, unknown>;
   const meta = (r?.meta ?? {}) as Record<string, unknown>;
@@ -37,19 +37,16 @@ export function extractPagination(
     (meta.limit as number | undefined);
 
   const rawTotal =
-    (pg.total as number | undefined) ??
-    (meta.total as number | undefined);
+    (pg.total as number | undefined) ?? (meta.total as number | undefined);
 
   const rawLastPage =
-    (pg.last_page as number | undefined) ??
-    (pg.lastPage as number | undefined);
+    (pg.last_page as number | undefined) ?? (pg.lastPage as number | undefined);
 
   const page =
     typeof rawPage === "number" && rawPage > 0 ? rawPage : fallbackPage;
   const limit =
     typeof rawLimit === "number" && rawLimit > 0 ? rawLimit : fallbackLimit;
-  const total =
-    typeof rawTotal === "number" && rawTotal >= 0 ? rawTotal : 0;
+  const total = typeof rawTotal === "number" && rawTotal >= 0 ? rawTotal : 0;
   const lastPage =
     typeof rawLastPage === "number" && rawLastPage > 0
       ? rawLastPage
@@ -103,7 +100,7 @@ export function useResourceList<TData>({
 
   const pagination = useMemo(
     () => extractPagination(res, page, limit),
-    [res, page, limit]
+    [res, page, limit],
   );
 
   const totalPages = Math.max(1, pagination.lastPage);

@@ -44,9 +44,11 @@ export function useDisciplinaPronosticoPlantilla(disciplinaId?: number | null) {
   return {
     isLoading,
     disciplina,
-    // Solo se afirma que falta cuando la disciplina vino en el catálogo: si
-    // aún está cargando o el catálogo falló, no se bloquea el flujo.
-    sinPlantilla: Boolean(disciplina && !disciplina.pronosticoPlantilla),
+    // Se compara contra `null` a propósito: el backend manda `null` cuando la
+    // disciplina no tiene plantilla, y omite el campo si aún no soporta la
+    // funcionalidad. Con `!plantilla` un backend viejo dejaría todas las
+    // disciplinas como "sin plantilla" y bloquearía la creación de avales.
+    sinPlantilla: disciplina?.pronosticoPlantilla === null,
   };
 }
 

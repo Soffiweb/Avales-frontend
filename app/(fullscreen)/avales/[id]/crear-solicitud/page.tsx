@@ -8,7 +8,7 @@ import { getAval } from "@/lib/api/avales";
 import type {
   Aval,
   DeportistaAval,
-  DeportistaPronosticoDto,
+  PropositoDto,
   EntrenadorAval,
   ModalidadParticipacion,
   OtroParticipanteAval,
@@ -18,13 +18,11 @@ import type {
 import { getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import { getTipoAvalLabel } from "@/lib/constants";
-import { SolicitudAvalPreview } from "@/app/(app)/avales/_components/aval-document-preview";
-import CertificacionAfiliacionesPreview, {
-  SECRETARIA_DTM_NOMBRE_DEFAULT,
-  SECRETARIA_DTM_CARGO_DEFAULT,
-} from "@/app/(app)/avales/_components/certificacion-afiliaciones-preview";
-import { listUsers } from "@/lib/api/user";
-import type { Genero, User } from "@/types/user";
+import {
+  ListaDeportistasPreview,
+  SolicitudAvalPreview,
+} from "@/app/(app)/avales/_components/aval-document-preview";
+import type { Genero } from "@/types/user";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import Paso01Deportistas from "@/app/(app)/avales/_components/paso-01-deportistas";
 import Paso02Logistica from "@/app/(app)/avales/_components/paso-02-logistica";
@@ -54,8 +52,8 @@ type FormData = {
     canton?: string;
     club?: string;
     entrenadorNombre?: string;
-    ordenPronostico?: number;
-    pronostico?: DeportistaPronosticoDto;
+    ordenProposito?: number;
+    propositos?: PropositoDto[];
     afiliado?: boolean;
     payload?: Record<string, unknown>;
     observacion?: string;
@@ -178,23 +176,31 @@ function toBooleanValue(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function resolvePronostico(
+function resolvePropositos(
   item: DeportistaAval,
   payload: Record<string, unknown> | undefined,
-): DeportistaPronosticoDto | undefined {
-  const source = toRecord(item.pronostico) ?? toRecord(payload?.pronostico);
+): PropositoDto[] | undefined {
+  const source = Array.isArray(item.propositos)
+    ? item.propositos
+    : Array.isArray(payload?.propositos)
+      ? (payload!.propositos as unknown[])
+      : undefined;
   if (!source) return undefined;
 
-  return {
-    ubicacionActual: toStringValue(source.ubicacionActual),
-    ubicacionPronosticada: toStringValue(source.ubicacionPronosticada),
-    divisionPeso: toStringValue(source.divisionPeso),
-    prueba: toStringValue(source.prueba),
-    marcaActual: toStringValue(source.marcaActual),
-    unidadMarcaActual: toStringValue(source.unidadMarcaActual),
-    marcaPronosticada: toStringValue(source.marcaPronosticada),
-    unidadMarcaPronostico: toStringValue(source.unidadMarcaPronostico),
-  };
+  return source
+    .map((entry) => toRecord(entry))
+    .filter((record): record is Record<string, unknown> => Boolean(record))
+    .map((record) => ({
+      orden: toNumberValue(record.orden),
+      ubicacionActual: toStringValue(record.ubicacionActual),
+      divisionPeso: toStringValue(record.divisionPeso),
+      prueba: toStringValue(record.prueba),
+      marcaActual: toStringValue(record.marcaActual),
+      unidadMarcaActual: toStringValue(record.unidadMarcaActual),
+      ubicacionProposito: toStringValue(record.ubicacionProposito),
+      marcaProposito: toStringValue(record.marcaProposito),
+      unidadMarcaProposito: toStringValue(record.unidadMarcaProposito),
+    }));
 }
 
 function buildInitialFormData(aval: Aval): FormData {
@@ -245,11 +251,11 @@ function buildInitialFormData(aval: Aval): FormData {
         item.entrenadorNombre ??
         item.deportista?.entrenadorNombre ??
         toStringValue(payload?.entrenadorNombre),
-      ordenPronostico:
-        item.ordenPronostico ??
-        item.deportista?.ordenPronostico ??
-        toNumberValue(payload?.ordenPronostico),
-      pronostico: resolvePronostico(item, payload),
+      ordenProposito:
+        item.ordenProposito ??
+        item.deportista?.ordenProposito ??
+        toNumberValue(payload?.ordenProposito),
+      propositos: resolvePropositos(item, payload),
       afiliado,
       payload,
       observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
@@ -316,8 +322,6 @@ export default function CrearSolicitudPage() {
   const [aval, setAval] = useState<Aval | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [secretariaDtm, setSecretariaDtm] = useState<User | null>(null);
-  const [secretariaError, setSecretariaError] = useState<string | null>(null);
   const [previewVisible, setPreviewVisible] = useState(true);
   const { config: formConfig } = useAvalFormConfig(aval);
 
@@ -345,32 +349,6 @@ export default function CrearSolicitudPage() {
   useEffect(() => {
     loadAval();
   }, [loadAval]);
-
-  useEffect(() => {
-    let active = true;
-    async function loadSecretaria() {
-      try {
-        const res = await listUsers({ role: "SECRETARIA_DTM", limit: 1 });
-        if (!active) return;
-        const raw = res.data as unknown;
-        const users: User[] = Array.isArray(raw)
-          ? (raw as User[])
-          : Array.isArray((raw as Record<string, unknown>)?.items)
-          ? ((raw as Record<string, unknown>).items as User[])
-          : [];
-        if (users.length > 0) {
-          setSecretariaDtm(users[0]);
-        } else {
-          setSecretariaError("No hay usuario con rol SECRETARIA_DTM en el sistema.");
-        }
-      } catch (err) {
-        if (!active) return;
-        setSecretariaError(err instanceof Error ? err.message : "Error al buscar secretaria DTM.");
-      }
-    }
-    void loadSecretaria();
-    return () => { active = false; };
-  }, []);
 
   const handleStepComplete = useCallback(
     (stepData: Partial<FormData>) => {
@@ -467,7 +445,7 @@ export default function CrearSolicitudPage() {
         <div className="h-full overflow-y-auto">
           <div
             className={`mx-auto px-6 sm:px-8 py-8 ${
-              previewVisible ? "max-w-xl" : "max-w-3xl"
+              previewVisible ? "max-w-2xl" : "max-w-5xl"
             }`}
           >
             {/* Header */}
@@ -570,21 +548,8 @@ export default function CrearSolicitudPage() {
       >
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Certificado de afiliación" defaultOpen>
-              <CertificacionAfiliacionesPreview
-                aval={aval}
-                secretariaNombre={secretariaDtm ? `${secretariaDtm.nombre} ${secretariaDtm.apellido}` : SECRETARIA_DTM_NOMBRE_DEFAULT}
-                secretariaCargo={SECRETARIA_DTM_CARGO_DEFAULT}
-                secretariaErrorDebug={secretariaError ?? undefined}
-                entrenadorNombreOverride={formData.entrenadores[0]?.nombre}
-                deportistasOverride={formData.deportistas.map((d) => ({
-                  id: d.id,
-                  nombre: d.nombre,
-                  cedula: d.cedula ?? "-",
-                  fechaNacimiento: d.fechaNacimiento,
-                  observacion: d.observacion,
-                }))}
-              />
+            <PreviewCollapsible title="Lista deportistas">
+              <ListaDeportistasPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Solicitud de aval" defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={formData} />

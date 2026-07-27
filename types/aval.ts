@@ -159,20 +159,24 @@ export type DeportistaAvalDetail = {
   canton?: string;
   club?: string;
   entrenadorNombre?: string;
-  ordenPronostico?: number;
-  pronostico?: DeportistaPronosticoDto;
+  ordenProposito?: number;
+  propositos?: PropositoDto[];
   payload?: unknown;
 };
 
-export type DeportistaPronosticoDto = {
+// Un ítem por prueba (plantilla 3: varias por deportista; plantillas 1/2:
+// una sola). "Actual" es el dato de hoy; los campos *Proposito son la meta
+// de por qué asiste el deportista a la competencia (no es un pronóstico).
+export type PropositoDto = {
+  orden?: number;
   ubicacionActual?: string;
-  ubicacionPronosticada?: string;
   divisionPeso?: string;
   prueba?: string;
   marcaActual?: string;
   unidadMarcaActual?: string;
-  marcaPronosticada?: string;
-  unidadMarcaPronostico?: string;
+  ubicacionProposito?: string;
+  marcaProposito?: string;
+  unidadMarcaProposito?: string;
 };
 
 export type DeportistaAval = {
@@ -187,8 +191,8 @@ export type DeportistaAval = {
   canton?: string;
   club?: string;
   entrenadorNombre?: string;
-  ordenPronostico?: number;
-  pronostico?: DeportistaPronosticoDto;
+  ordenProposito?: number;
+  propositos?: PropositoDto[];
   deportista: DeportistaAvalDetail;
 };
 
@@ -501,8 +505,8 @@ export type DeportistaAvalDto = {
   canton?: string;
   club?: string;
   entrenadorNombre?: string;
-  ordenPronostico?: number;
-  pronostico?: DeportistaPronosticoDto;
+  ordenProposito?: number;
+  propositos?: PropositoDto[];
   payload?: Record<string, unknown>;
 };
 

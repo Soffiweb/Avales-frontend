@@ -106,6 +106,12 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
       cedula: item.deportista?.cedula ?? undefined,
       fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
+      categoriaNombre: item.categoriaNombre ?? undefined,
+      afiliacion: item.afiliacion ?? undefined,
+      canton: item.canton ?? undefined,
+      club: item.club ?? undefined,
+      entrenadorNombre: item.entrenadorNombre ?? undefined,
+      propositos: item.propositos ?? undefined,
       observacion: withExtras.observacion ?? undefined,
       rol: item.rol ?? undefined,
     };

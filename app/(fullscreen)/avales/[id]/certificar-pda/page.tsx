@@ -114,16 +114,32 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
+    const payload =
+      withExtras.deportista?.payload &&
+      typeof withExtras.deportista.payload === "object" &&
+      !Array.isArray(withExtras.deportista.payload)
+        ? (withExtras.deportista.payload as Record<string, unknown>)
+        : undefined;
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
       cedula: item.deportista?.cedula ?? undefined,
       fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
-      categoriaNombre: item.categoriaNombre ?? undefined,
-      afiliacion: item.afiliacion ?? undefined,
+      categoriaNombre:
+        item.categoriaNombre ??
+        (typeof payload?.categoriaNombre === "string"
+          ? payload.categoriaNombre
+          : undefined),
+      afiliacion:
+        item.afiliacion ??
+        (typeof payload?.afiliacion === "string" ? payload.afiliacion : undefined),
       canton: item.canton ?? undefined,
       club: item.club ?? undefined,
-      entrenadorNombre: item.entrenadorNombre ?? undefined,
+      entrenadorNombre:
+        item.entrenadorNombre ??
+        (typeof payload?.entrenadorNombre === "string"
+          ? payload.entrenadorNombre
+          : undefined),
       propositos: item.propositos ?? undefined,
       observacion: withExtras.observacion ?? undefined,
       rol: item.rol ?? undefined,

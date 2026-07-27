@@ -130,6 +130,21 @@ function formatPreviewBirthDate(value?: string | null) {
 
 type PronosticoPreviewDeportista = FormData["deportistas"][number];
 
+function getPreviewYear(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const parts = getCalendarDateParts(value);
+    if (parts) return parts.year;
+  }
+  return new Date().getFullYear();
+}
+
+function normalizePreviewAfiliacion(value: string | undefined, year: number) {
+  const text = value?.trim();
+  if (!text) return `AFILIADO/A ${year}`;
+  if (/^AFILIADO\/A(?:\s+\d{4})?$/i.test(text)) return `AFILIADO/A ${year}`;
+  return text;
+}
+
 // Mismo criterio que el backend (pronostico-excel.service.ts): entrenador,
 // cantón y club (si aplica) se combinan en una sola celda "Entrenador-Cantón-Club".
 function resolveDatosGenerales(
@@ -300,11 +315,92 @@ function getPronosticoPreviewColumns(
 function PronosticoListadoPreview({
   profile,
   deportistas,
+  entrenadorResponsable,
 }: {
   profile: PronosticoProfile;
   deportistas: PronosticoPreviewDeportista[];
+  entrenadorResponsable: string;
 }) {
   const columns = getPronosticoPreviewColumns(profile);
+  const verticalHeaderKeys = new Set(["afiliacion", "categoria"]);
+  const columnClass = (key: string) => {
+    if (profile.template === "PRONOSTICO_3") {
+      switch (key) {
+        case "no":
+          return "w-[4%] text-center";
+        case "nombre":
+          return "w-[20%]";
+        case "afiliacion":
+          return "w-[7%] text-center";
+        case "categoria":
+          return "w-[6%] text-center";
+        case "datosGenerales":
+          return "w-[13%] text-center";
+        case "cedula":
+          return "w-[9%] text-center";
+        case "fechaNac":
+          return "w-[8%] text-center";
+        case "prueba":
+          return "w-[9%] text-center";
+        case "mejorMarca":
+          return "w-[11%] text-center";
+        case "marcaPropuesta":
+        case "ubicacionPropuesta":
+          return "w-[7%] text-center";
+        default:
+          return "text-center";
+      }
+    }
+
+    if (profile.template === "PRONOSTICO_2") {
+      switch (key) {
+        case "no":
+          return "w-[4%] text-center";
+        case "nombre":
+          return "w-[23%]";
+        case "afiliacion":
+          return "w-[8%] text-center";
+        case "categoria":
+          return "w-[7%] text-center";
+        case "datosGenerales":
+          return "w-[14%] text-center";
+        case "cedula":
+          return "w-[10%] text-center";
+        case "fechaNac":
+          return "w-[9%] text-center";
+        case "divisionPeso":
+        case "ubicacionActual":
+          return "w-[9%] text-center";
+        case "ubicacionPropuesta":
+          return "w-[7%] text-center";
+        default:
+          return "text-center";
+      }
+    }
+
+    switch (key) {
+      case "no":
+        return "w-[4%] text-center";
+      case "nombre":
+        return "w-[26%]";
+      case "afiliacion":
+        return "w-[8%] text-center";
+      case "categoria":
+        return "w-[7%] text-center";
+      case "datosGenerales":
+        return "w-[16%] text-center";
+      case "cedula":
+        return "w-[11%] text-center";
+      case "fechaNac":
+        return "w-[10%] text-center";
+      case "ubicacionActual":
+        return "w-[10%] text-center";
+      case "ubicacionPropuesta":
+        return "w-[8%] text-center";
+      default:
+        return "text-center";
+    }
+  };
 
   const headerRow1: ReactNode[] = [];
   const headerRow2: ReactNode[] = [];
@@ -315,9 +411,20 @@ function PronosticoListadoPreview({
         <th
           key={col.key}
           rowSpan={2}
-          className="border border-slate-500 px-2 py-1.5 text-left font-semibold align-bottom"
+          className={`border-2 border-slate-900 bg-slate-50 px-1.5 py-2 text-center text-[9px] font-semibold uppercase align-middle ${columnClass(
+            col.key,
+          )}`}
         >
-          {col.label}
+          {verticalHeaderKeys.has(col.key) ? (
+            <span
+              className="inline-block whitespace-nowrap"
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+            >
+              {col.label}
+            </span>
+          ) : (
+            col.label
+          )}
         </th>,
       );
       i += 1;
@@ -329,7 +436,11 @@ function PronosticoListadoPreview({
       <th
         key={`group-${col.group}-${i}`}
         colSpan={j - i}
-        className="border border-slate-500 px-2 py-1 text-center font-semibold"
+        className={`border-2 border-slate-900 bg-slate-50 px-1.5 py-2 text-center font-semibold uppercase ${
+          col.group.toLowerCase().startsWith("prop")
+            ? "text-[10px] leading-tight"
+            : "text-[13px]"
+        }`}
       >
         {col.group}
       </th>,
@@ -338,7 +449,9 @@ function PronosticoListadoPreview({
       headerRow2.push(
         <th
           key={columns[k].key}
-          className="border border-slate-500 px-2 py-1.5 text-left font-semibold"
+          className={`border-2 border-slate-900 bg-slate-50 px-1.5 py-1.5 text-center text-[8px] font-semibold uppercase leading-tight ${columnClass(
+            columns[k].key,
+          )}`}
         >
           {columns[k].label}
         </th>,
@@ -348,13 +461,10 @@ function PronosticoListadoPreview({
   }
 
   return (
-    <div className="bg-white p-5 xl:p-6 border border-slate-300">
-      <h3 className="text-center text-[15px] font-semibold uppercase">
-        Listado / Pronóstico de deportistas — {profile.disciplinaLabel}
-      </h3>
-      <div className="mt-3 overflow-x-auto">
-        <table className="min-w-full border-collapse text-[11px]">
-          <thead className="bg-cyan-200">
+    <div className="bg-white p-4 xl:p-5 border border-slate-300">
+      <div className="rounded-sm border border-slate-300">
+        <table className="w-full table-fixed border-collapse text-[9px] text-slate-950">
+          <thead className="bg-white">
             <tr>{headerRow1}</tr>
             <tr>{headerRow2}</tr>
           </thead>
@@ -363,7 +473,7 @@ function PronosticoListadoPreview({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="border border-slate-400 px-2 py-3 text-center text-slate-500"
+                  className="border border-slate-300 px-2 py-3 text-center text-slate-500"
                 >
                   Selecciona deportistas para ver el listado aquí.
                 </td>
@@ -374,9 +484,15 @@ function PronosticoListadoPreview({
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={`border border-slate-400 px-2 py-1 align-top ${
+                      className={`border border-slate-300 px-1.5 py-2 align-middle leading-tight ${
                         col.align ? ALIGN_CLASS[col.align] : ""
-                      } ${col.preLine ? "whitespace-pre-line" : ""}`}
+                      } ${col.preLine ? "whitespace-pre-line" : ""} ${columnClass(
+                        col.key,
+                      )} ${
+                        col.key === "nombre" ? "text-center text-[11px] uppercase" : ""
+                      } ${
+                        col.key === "categoria" ? "text-[10px]" : ""
+                      } ${col.key === "afiliacion" ? "break-words text-[10px]" : ""}`}
                     >
                       {col.render(deportista, index)}
                     </td>
@@ -386,6 +502,14 @@ function PronosticoListadoPreview({
             )}
           </tbody>
         </table>
+      </div>
+      <div className="mt-10 w-64 text-center text-[10px] text-slate-950">
+        <div className="border-t border-slate-900 pt-2">
+          {entrenadorResponsable}
+        </div>
+        <div className="mt-1 font-semibold uppercase">
+          Entrenador de {profile.disciplinaLabel}
+        </div>
       </div>
     </div>
   );
@@ -421,6 +545,17 @@ export default function AvalDocumentPreview({
     aval.numeroColeccion ??
     String(aval.id ?? "S/N");
   const fechaEmision = formData.fechaEmision || aval.fechaEmision || null;
+  const previewYear = getPreviewYear(fechaEmision, aval.createdAt);
+  const deportistasPreview = formData.deportistas.map((deportista) => ({
+    ...deportista,
+    afiliacion: normalizePreviewAfiliacion(deportista.afiliacion, previewYear),
+    categoriaNombre: deportista.categoriaNombre?.trim() || categoria,
+    entrenadorNombre:
+      deportista.entrenadorNombre?.trim() || entrenadorResponsable,
+    observacion:
+      deportista.observacion?.trim() ||
+      normalizePreviewAfiliacion(deportista.afiliacion, previewYear),
+  }));
   const showDetallePage =
     Boolean(formData.fechaEmision) ||
     Boolean(formData.fechaHoraSalida) ||
@@ -586,7 +721,7 @@ export default function AvalDocumentPreview({
               </tr>
             </thead>
             <tbody>
-              {formData.deportistas.length === 0 ? (
+              {deportistasPreview.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -596,7 +731,7 @@ export default function AvalDocumentPreview({
                   </td>
                 </tr>
               ) : (
-                formData.deportistas.map((deportista, index) => (
+                deportistasPreview.map((deportista, index) => (
                   <tr key={deportista.id}>
                     <td className="border border-slate-400 px-2 py-1 text-center align-top">
                       {index + 1}
@@ -614,7 +749,7 @@ export default function AvalDocumentPreview({
                       {formatPreviewBirthDate(deportista.fechaNacimiento)}
                     </td>
                     <td className="border border-slate-400 px-2 py-1 align-top font-semibold">
-                      {deportista.observacion ?? "AFILIADO/A 2026"}
+                      {deportista.observacion}
                     </td>
                   </tr>
                 ))
@@ -637,7 +772,8 @@ export default function AvalDocumentPreview({
       {showListadoPronostico && pronosticoProfile && (
         <PronosticoListadoPreview
           profile={pronosticoProfile}
-          deportistas={formData.deportistas}
+          deportistas={deportistasPreview}
+          entrenadorResponsable={entrenadorResponsable}
         />
       )}
 

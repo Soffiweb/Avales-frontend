@@ -25,7 +25,11 @@ export default function DisciplinasPage() {
       const res = await getDisciplinas();
       setItems(res.data ?? []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar las disciplinas.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar las disciplinas.",
+      );
     } finally {
       setLoading(false);
     }
@@ -73,19 +77,25 @@ export default function DisciplinasPage() {
         await deleteDisciplina(id);
       }}
       singularTitle="Disciplina"
-      selectField={{
-        label: "Plantilla de pronostico",
-        emptyLabel: "Sin plantilla asignada",
-        helpText:
-          "Define el formato del excel de pronostico. Sin plantilla no se pueden crear avales de esta disciplina.",
-        options: plantillas.map((plantilla) => ({
-          value: plantilla.id,
-          label: plantilla.nombre,
-        })),
-        valueOf: (item) => item.pronosticoPlantilla?.id ?? null,
-        labelOf: (item) => item.pronosticoPlantilla?.nombre ?? null,
-        missingLabel: "Sin plantilla de pronostico",
-      }}
+      // Si el backend todavia no expone las plantillas, la pantalla queda
+      // igual que antes en vez de marcar todo como "sin plantilla".
+      selectField={
+        plantillas.length === 0
+          ? undefined
+          : {
+              label: "Plantilla de pronostico",
+              emptyLabel: "Sin plantilla asignada",
+              helpText:
+                "Define el formato del excel de pronostico. Sin plantilla no se pueden crear avales de esta disciplina.",
+              options: plantillas.map((plantilla) => ({
+                value: plantilla.id,
+                label: plantilla.nombre,
+              })),
+              valueOf: (item) => item.pronosticoPlantilla?.id ?? null,
+              labelOf: (item) => item.pronosticoPlantilla?.nombre ?? null,
+              missingLabel: "Sin plantilla de pronostico",
+            }
+      }
     />
   );
 }

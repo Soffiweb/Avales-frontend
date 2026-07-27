@@ -10,6 +10,7 @@ import AvalUploadOptions from "@/components/ui/aval-upload-options";
 import UploadModal from "@/components/ui/upload-modal";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
 import { listEventos, type ListEventosOptions } from "@/lib/api/eventos";
+import { useDisciplinaPronosticoPlantilla } from "@/lib/hooks/use-catalog";
 import {
   getEventoFormasParticipacion,
   isEventoIncompleto,
@@ -82,6 +83,8 @@ export default function NuevoAvalPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
+  const { sinPlantilla: disciplinaSinPlantilla } =
+    useDisciplinaPronosticoPlantilla(selectedEvento?.disciplinaId);
 
   const userRoles = getNormalizedRoles(user);
   const isEntrenador = userRoles.includes("ENTRENADOR") && !isAdminUser(user);
@@ -258,8 +261,14 @@ export default function NuevoAvalPage() {
         avalesSelectedEvento,
       ).filter((forma) => forma.tipoAval === tipoAval)
     : [];
-  const submitDisabled =
+  const faltaFormaParticipacion =
     formasDelTipoSeleccionado.length > 0 && formaParticipacionId == null;
+  // Sin plantilla de pronóstico el backend rechaza la creación del aval, así
+  // que se corta antes de que el entrenador suba los documentos.
+  const submitDisabled = faltaFormaParticipacion || disciplinaSinPlantilla;
+  const submitDisabledReason = disciplinaSinPlantilla
+    ? `La disciplina ${selectedEvento?.disciplina?.nombre ?? "del evento"} no tiene una plantilla de pronóstico configurada. Pídele a un administrador que la configure antes de crear el aval.`
+    : "Selecciona una forma de participación para continuar.";
 
   return (
     <>
@@ -285,7 +294,7 @@ export default function NuevoAvalPage() {
         }.`}
         requirePronosticoDeportistas={false}
         submitDisabled={submitDisabled}
-        submitDisabledReason="Selecciona una forma de participación para continuar."
+        submitDisabledReason={submitDisabledReason}
       >
         <AvalUploadOptions
           evento={selectedEvento}

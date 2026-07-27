@@ -30,6 +30,27 @@ export function useCatalog() {
 }
 
 /**
+ * Estado de la plantilla de pronóstico de una disciplina. El backend rechaza
+ * la creación del aval cuando la disciplina no tiene plantilla configurada,
+ * así que conviene avisarlo antes de que el usuario cargue los documentos.
+ */
+export function useDisciplinaPronosticoPlantilla(disciplinaId?: number | null) {
+  const { disciplinas, isLoading } = useCatalog();
+
+  const disciplina = disciplinaId
+    ? disciplinas.find((item) => item.id === disciplinaId)
+    : undefined;
+
+  return {
+    isLoading,
+    disciplina,
+    // Solo se afirma que falta cuando la disciplina vino en el catálogo: si
+    // aún está cargando o el catálogo falló, no se bloquea el flujo.
+    sinPlantilla: Boolean(disciplina && !disciplina.pronosticoPlantilla),
+  };
+}
+
+/**
  * Catálogo de roles del sistema (`/roles`), con `id`, `codigo` y `nombre`.
  * Comparte queryKey `["roles"]` con la administración de roles, así que
  * renombrar un rol se refleja en todos los selects tras invalidar.

@@ -637,9 +637,6 @@ export default function CertificacionFinancieraPage() {
             <PreviewCollapsible title={getAvalDocumentTitle(aval)}>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Certificacion financiera" defaultOpen>
-              <CertificacionFinancieraPreview aval={aval} draft={draft} />
-            </PreviewCollapsible>
             <PreviewCollapsible title="Presupuesto salida anticipo" defaultOpen>
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}
@@ -657,10 +654,12 @@ export default function CertificacionFinancieraPage() {
                 }}
               />
             </PreviewCollapsible>
+            <PreviewCollapsible title="Certificacion financiera" defaultOpen>
+              <CertificacionFinancieraPreview aval={aval} draft={draft} />
+            </PreviewCollapsible>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

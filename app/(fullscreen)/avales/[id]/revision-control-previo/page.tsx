@@ -13,6 +13,9 @@ import {
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
 import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
+import ComprasPublicasPreview, {
+  type ComprasPublicasDraft,
+} from "@/app/(app)/avales/_components/compras-publicas-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
@@ -48,6 +51,16 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
+};
+
+const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
+  numeroCertificado: "",
+  realizoProceso: null,
+  codigos: [],
+  descripcion: "",
+  nombreFirmante: "",
+  cargoFirmante: "",
+  fechaEmision: "",
 };
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
@@ -229,6 +242,27 @@ export default function RevisionControlPrevioPage() {
     }),
     [aval],
   );
+  const comprasPublicasDraft = useMemo<ComprasPublicasDraft>(() => {
+    const compras = aval?.comprasPublicas;
+    if (!compras) return EMPTY_COMPRAS_DRAFT;
+
+    return {
+      numeroCertificado: compras.numeroCertificado ?? "",
+      realizoProceso:
+        typeof compras.realizoProceso === "boolean"
+          ? compras.realizoProceso
+          : null,
+      codigos: (compras.codigos ?? []).map((item) => ({
+        codigo: item.codigo ?? "",
+        descripcion: item.descripcion ?? "",
+      })),
+      descripcion: compras.descripcion ?? "",
+      nombreFirmante: compras.nombreFirmante ?? "",
+      cargoFirmante: compras.cargoFirmante ?? "",
+      fechaEmision: compras.fechaEmision ?? "",
+    };
+  }, [aval]);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -356,6 +390,14 @@ export default function RevisionControlPrevioPage() {
             <PreviewCollapsible title={getAvalDocumentTitle(aval)} defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
+            {aval.comprasPublicas ? (
+              <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
+                <ComprasPublicasPreview
+                  aval={aval}
+                  draft={comprasPublicasDraft}
+                />
+              </PreviewCollapsible>
+            ) : null}
             <PreviewCollapsible title="Presupuesto de salida" defaultOpen>
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}

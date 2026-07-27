@@ -35,6 +35,7 @@ import AlertBanner from "@/components/ui/alert-banner";
 import { ensureFreshAccessToken } from "@/lib/api/client";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import AvalPresupuestoSection from "./_components/aval-presupuesto-section";
+import AvalPresupuestoPdaSection from "./_components/aval-presupuesto-pda-section";
 import AvalDeportistasSection from "./_components/aval-deportistas-section";
 import AvalLogisticaSection from "./_components/aval-logistica-section";
 import AvalPdfComposerModal from "./_components/aval-pdf-composer-modal";
@@ -1195,6 +1196,9 @@ export default function AvalDetailPage() {
   ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);
+  const canShowPresupuestoPda =
+    Boolean(aval.pda) &&
+    ((aval.pda?.items?.length ?? 0) > 0 || Boolean(aval.pda?.notas));
   const participantesSection = getSectionConfig(formConfig, "PARTICIPANTES");
   const presupuestoSection = getSectionConfig(formConfig, "PRESUPUESTO");
   const hasMixedParticipants = deportistasList.some(
@@ -1731,6 +1735,23 @@ export default function AvalDetailPage() {
                   presupuesto={presupuestoItems}
                   totalPresupuesto={totalPresupuesto}
                 />
+              </CollapsibleSection>
+            ) : null}
+
+            {canShowPresupuestoPda && (presupuestoSection?.visible ?? true) ? (
+              <CollapsibleSection
+                title="Presupuesto de salida"
+                defaultOpen
+                icon={
+                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                }
+                meta={
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Detalle y notas del presupuesto de salida.
+                  </p>
+                }
+              >
+                <AvalPresupuestoPdaSection aval={aval} />
               </CollapsibleSection>
             ) : null}
           </div>

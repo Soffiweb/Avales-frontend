@@ -17,16 +17,12 @@ import {
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
-import ComprasPublicasPreview, {
-  type ComprasPublicasDraft,
-} from "@/app/(app)/avales/_components/compras-publicas-preview";
-import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
-import RevisionMetodologoPreview, {
-  type ReviewItem,
-  type ReviewStateItem,
+import type {
+  ReviewItem,
+  ReviewStateItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
-import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
+import { getAvalDocumentTitle } from "@/lib/utils/aval-collections";
 import AlertBanner from "@/components/ui/alert-banner";
 import {
   DEFAULT_REVIEW_ITEMS,
@@ -53,16 +49,6 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
-};
-
-const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
-  numeroCertificado: "",
-  realizoProceso: null,
-  codigos: [],
-  descripcion: "",
-  nombreFirmante: "",
-  cargoFirmante: "",
-  fechaEmision: "",
 };
 
 type DtmDraft = {
@@ -327,47 +313,6 @@ export default function RevisionDtmPage() {
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
-  const comprasDraft = useMemo(() => {
-    if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
-    const compras = aval.comprasPublicas;
-    return {
-      numeroCertificado: compras.numeroCertificado ?? "",
-      realizoProceso:
-        typeof compras.realizoProceso === "boolean"
-          ? compras.realizoProceso
-          : null,
-      codigos:
-        compras.codigos?.map((item) => ({
-          codigo: item.codigo ?? "",
-          descripcion: item.descripcion ?? "",
-        })) ?? [],
-      descripcion: compras.descripcion ?? "",
-      nombreFirmante: compras.nombreFirmante ?? "",
-      cargoFirmante: compras.cargoFirmante ?? "",
-      fechaEmision: compras.fechaEmision ?? "",
-    };
-  }, [aval]);
-
-  const revisionHeader = useMemo(
-    () => ({
-      numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
-      dirigidoA: aval?.revisionMetodologo?.dirigidoA ?? "",
-      cargoDirigidoA: aval?.revisionMetodologo?.cargoDirigidoA ?? "",
-      descripcionEncabezado:
-        aval?.revisionMetodologo?.descripcionEncabezado ?? "",
-      fechaRevision: aval?.revisionMetodologo?.fechaRevision ?? "",
-    }),
-    [aval],
-  );
-  const revisionFooter = useMemo(
-    () => ({
-      observacionesFinales:
-        aval?.revisionMetodologo?.observacionesFinales ?? "",
-      firmanteNombre: aval?.revisionMetodologo?.firmanteNombre ?? "",
-      firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
-    }),
-    [aval],
-  );
 
   if (authLoading) {
     return (
@@ -621,34 +566,19 @@ export default function RevisionDtmPage() {
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud aval">
-              <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
-            {aval?.tipoAval !== "SOLO_RESULTADO" && (
-              <PreviewCollapsible title="Presupuesto de salida">
-                <PresupuestoSalidaAnticipoPreview aval={aval} />
-              </PreviewCollapsible>
-            )}
-            <PreviewCollapsible title="Certificacion compras publicas">
-              <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Revision metodologo">
-              <RevisionMetodologoPreview
+            {/* Documento único: el aval del entrenador ya incluye lo que el
+                DTM escribe (antes era un "Aval Técnico Competitivo" aparte). */}
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)} defaultOpen>
+              <SolicitudAvalPreview
                 aval={aval}
-                header={revisionHeader}
-                footer={revisionFooter}
-                reviewItems={reviewItems}
-                reviewState={reviewState}
-              />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Aval Técnico Competitivo" defaultOpen>
-              <AvalTecnicoCompetitivoPreview
-                aval={aval}
-                fechaEmision={draft.fechaPresentacion}
-                descripcion={draft.descripcion}
-                observacion={draft.observacion}
-                firmanteNombre={draft.firmanteNombre || defaultSignerName}
-                firmanteCargo={draft.firmanteCargo || defaultSignerCargo}
+                formData={trainerDocsData}
+                dtm={{
+                  fechaPresentacion: draft.fechaPresentacion,
+                  descripcion: draft.descripcion,
+                  observacion: draft.observacion,
+                  firmanteNombre: draft.firmanteNombre || defaultSignerName,
+                  firmanteCargo: draft.firmanteCargo || defaultSignerCargo,
+                }}
               />
             </PreviewCollapsible>
           </div>

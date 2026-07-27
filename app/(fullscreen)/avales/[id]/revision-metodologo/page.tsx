@@ -26,11 +26,8 @@ import {
 import RevisionMetodologoPreview, {
   type ReviewItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
-import ComprasPublicasPreview, {
-  type ComprasPublicasDraft,
-} from "@/app/(app)/avales/_components/compras-publicas-preview";
-import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
+import { getAvalDocumentTitle } from "@/lib/utils/aval-collections";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import { getApprovalStageLabel } from "@/lib/constants";
 import {
@@ -63,16 +60,6 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   objetivos: [],
   criterios: [],
   observaciones: "",
-};
-
-const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
-  numeroCertificado: "",
-  realizoProceso: null,
-  codigos: [],
-  descripcion: "",
-  nombreFirmante: "",
-  cargoFirmante: "",
-  fechaEmision: "",
 };
 
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
@@ -494,26 +481,6 @@ export default function RevisionMetodologoPage() {
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
-  const comprasDraft = useMemo(() => {
-    if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
-    const compras = aval.comprasPublicas;
-    return {
-      numeroCertificado: compras.numeroCertificado ?? "",
-      realizoProceso:
-        typeof compras.realizoProceso === "boolean"
-          ? compras.realizoProceso
-          : null,
-      codigos:
-        compras.codigos?.map((item) => ({
-          codigo: item.codigo ?? "",
-          descripcion: item.descripcion ?? "",
-        })) ?? [],
-      descripcion: compras.descripcion ?? "",
-      nombreFirmante: compras.nombreFirmante ?? "",
-      cargoFirmante: compras.cargoFirmante ?? "",
-      fechaEmision: compras.fechaEmision ?? "",
-    };
-  }, [aval]);
   const noCumpleCount = reviewItems.filter((item) => {
     const state = reviewState[item.key];
     return !resolveReviewItemCumple(aval, item, state);
@@ -893,16 +860,8 @@ export default function RevisionMetodologoPage() {
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud aval">
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)}>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
-            {aval?.tipoAval !== "SOLO_RESULTADO" && (
-              <PreviewCollapsible title="Presupuesto de salida">
-                <PresupuestoSalidaAnticipoPreview aval={aval} />
-              </PreviewCollapsible>
-            )}
-            <PreviewCollapsible title="Certificacion compras publicas">
-              <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Revision metodologo" defaultOpen>
               <RevisionMetodologoPreview

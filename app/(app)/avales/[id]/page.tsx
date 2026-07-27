@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
-  ClipboardCheck,
   MapPin,
   Users,
   Trophy,
@@ -67,7 +66,6 @@ import {
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
 import { getAvalCupos, getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
-import { isPronosticoGeneradoPorSistema } from "@/lib/utils/aval-pronostico";
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
@@ -1192,20 +1190,8 @@ export default function AvalDetailPage() {
         uploadCertificadoMedico(aval.id, files[0]).then((r) => r.data),
       replaceLabel: "Reemplazar certificado médico",
     },
-    // El pronóstico lo genera el sistema al crear/actualizar el aval, a partir
-    // de los datos de los deportistas, y sigue disponible en el modal de armar
-    // PDF. Por eso nunca se ofrece subirlo ni reemplazarlo desde acá: la fila
-    // aparece solo en los avales viejos, donde el archivo se subió a mano.
-    ...(aval.pronosticoDeportistasUrl &&
-    !isPronosticoGeneradoPorSistema(aval.pronosticoDeportistasUrl)
-      ? [
-          {
-            label: "Descargar pronóstico de deportistas",
-            url: aval.pronosticoDeportistasUrl,
-            icon: ClipboardCheck,
-          },
-        ]
-      : []),
+    // El pronóstico no se ofrece acá: es la misma lista de deportistas que ya
+    // se ve en su preview. Sigue disponible en el modal de armar PDF.
   ];
   const canShowPresupuestoSalida =
     isAvalCompleto && Boolean(evento?.presupuesto?.length);

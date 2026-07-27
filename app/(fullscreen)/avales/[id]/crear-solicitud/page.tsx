@@ -31,6 +31,7 @@ import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuest
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { inferEventoGenero } from "@/types/evento";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
+import { getAvalDocumentTitle } from "@/lib/utils/aval-collections";
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -548,10 +549,12 @@ export default function CrearSolicitudPage() {
       >
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Lista deportistas">
+            {/* En la creacion de la solicitud el entrenador necesita ver la
+                lista de deportistas siempre desplegada. */}
+            <PreviewCollapsible title="Lista deportistas" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud de aval" defaultOpen>
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)} defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
           </div>

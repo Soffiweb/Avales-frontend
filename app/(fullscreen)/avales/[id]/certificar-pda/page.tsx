@@ -37,6 +37,7 @@ import {
   getStagePredecessorForAval,
 } from "@/lib/approval-flow";
 import {
+  getAvalDocumentTitle,
   getAvalPresupuestoItems,
   parseNotasFromBd,
   type NotaDraft,
@@ -1690,7 +1691,7 @@ export default function CertificarAvalPage() {
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud aval">
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)}>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Presupuesto de salida" defaultOpen>

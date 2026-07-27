@@ -23,7 +23,7 @@ import {
   getApprovalStageLabel,
   getTipoAvalLabel,
 } from "@/lib/constants";
-import { getAvalCupos } from "@/lib/utils/aval-collections";
+import { getAvalCupos, getAvalNumero } from "@/lib/utils/aval-collections";
 import {
   getAvalCurrentEtapa,
   getFinalApprovalStageForAval,
@@ -66,13 +66,7 @@ function getStatusIcon(status?: string | null) {
 }
 
 function getAvalNumber(aval: Aval) {
-  return (
-    aval.numeroAval ??
-    aval.avalTecnico?.numeroAval ??
-    aval.numeroColeccion ??
-    aval.aval ??
-    String(aval.id)
-  );
+  return getAvalNumero(aval) ?? String(aval.id);
 }
 
 export default function AvalListCard({

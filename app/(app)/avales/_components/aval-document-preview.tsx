@@ -3,6 +3,7 @@ import type { Aval, PropositoDto } from "@/types/aval";
 import {
   formatCurrencyFromString,
   formatDateDMY,
+  formatDateWithOptions,
   formatEventScheduleDocumentLabel,
   formatGenero,
   getCalendarDateParts,
@@ -68,10 +69,39 @@ type FormData = {
   montoSolicitado?: number;
 };
 
+/**
+ * Bloque que el DTM le suma al aval del entrenador. Antes eran dos documentos
+ * (solicitud + aval técnico); ahora es uno solo que crece cuando llega al DTM.
+ */
+export type DtmRevisionData = {
+  fechaPresentacion?: string | null;
+  descripcion?: string | null;
+  observacion?: string | null;
+  firmanteNombre?: string | null;
+  firmanteCargo?: string | null;
+};
+
+/** Datos ya guardados del DTM. Vacío mientras el aval no llega a esa etapa. */
+export function getDtmRevisionData(
+  aval?: Aval | null,
+): DtmRevisionData | undefined {
+  const revision = aval?.revisionDtm;
+  if (!revision) return undefined;
+  return {
+    fechaPresentacion: revision.fechaPresentacion,
+    descripcion: revision.descripcion,
+    observacion: revision.observacion,
+    firmanteNombre: revision.firmanteNombre,
+    firmanteCargo: revision.firmanteCargo,
+  };
+}
+
 type AvalDocumentPreviewProps = {
   aval: Aval;
   formData: FormData;
   mode?: "all" | "nomina" | "solicitud";
+  /** Draft en vivo del DTM. Si no viene, se usa lo guardado en el aval. */
+  dtm?: DtmRevisionData;
 };
 
 export type AvalPreviewFormData = FormData;
@@ -365,8 +395,10 @@ export default function AvalDocumentPreview({
   aval,
   formData,
   mode = "all",
+  dtm,
 }: AvalDocumentPreviewProps) {
   const evento = aval.evento;
+  const dtmData = dtm ?? getDtmRevisionData(aval);
   const presupuestoItems = getAvalPresupuestoItems(aval);
   const delegacion = getAvalDelegationSummary(aval, {
     deportistas: formData.deportistas,
@@ -614,6 +646,24 @@ export default function AvalDocumentPreview({
           <h2 className="text-center text-[18px] font-semibold uppercase">
             Aval tecnico de participacion competitiva - {avalNumero}
           </h2>
+
+          {/* Encabezado del DTM: recién aparece cuando el aval llega a esa
+              etapa, antes el documento es solo el del entrenador. */}
+          {dtmData?.fechaPresentacion ? (
+            <p className="text-right text-[12px]">
+              {formatDateWithOptions(dtmData.fechaPresentacion, {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          ) : null}
+          {dtmData?.descripcion?.trim() ? (
+            <p className="text-[12px] leading-5 text-justify">
+              {dtmData.descripcion}
+            </p>
+          ) : null}
+
           <h3 className="text-center text-[15px] font-semibold uppercase">
             Datos informativos
           </h3>
@@ -932,6 +982,13 @@ export default function AvalDocumentPreview({
             </p>
           </div>
 
+          {dtmData?.observacion?.trim() ? (
+            <div className="text-[12px]">
+              <p className="font-semibold uppercase">Observacion DTM:</p>
+              <p className="mt-1">{dtmData.observacion}</p>
+            </div>
+          ) : null}
+
           <div className="pt-4 text-[12px]">
             <p>Atentamente,</p>
             <div className="mt-8 flex justify-between">
@@ -942,8 +999,12 @@ export default function AvalDocumentPreview({
               </div>
               <div className="text-right">
                 <p className="text-slate-400">____________________________</p>
-                <p className="font-semibold uppercase">PRESIDENTE FDPL</p>
-                <p className="text-[11px] uppercase">PRESIDENTE</p>
+                <p className="font-semibold uppercase">
+                  {dtmData?.firmanteNombre?.trim() || "PRESIDENTE FDPL"}
+                </p>
+                <p className="text-[11px] uppercase">
+                  {dtmData?.firmanteCargo?.trim() || "PRESIDENTE"}
+                </p>
               </div>
             </div>
           </div>
@@ -966,9 +1027,18 @@ export function ListaDeportistasPreview({
 export function SolicitudAvalPreview({
   aval,
   formData,
+  dtm,
 }: {
   aval: Aval;
   formData: FormData;
+  dtm?: DtmRevisionData;
 }) {
-  return <AvalDocumentPreview aval={aval} formData={formData} mode="solicitud" />;
+  return (
+    <AvalDocumentPreview
+      aval={aval}
+      formData={formData}
+      mode="solicitud"
+      dtm={dtm}
+    />
+  );
 }

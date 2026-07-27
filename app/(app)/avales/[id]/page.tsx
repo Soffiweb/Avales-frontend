@@ -34,7 +34,6 @@ import type { LucideProps } from "lucide-react";
 import AlertBanner from "@/components/ui/alert-banner";
 import { ensureFreshAccessToken } from "@/lib/api/client";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import AvalPresupuestoSection from "./_components/aval-presupuesto-section";
 import AvalPresupuestoPdaSection from "./_components/aval-presupuesto-pda-section";
 import AvalDeportistasSection from "./_components/aval-deportistas-section";
 import AvalLogisticaSection from "./_components/aval-logistica-section";
@@ -66,7 +65,7 @@ import {
   getCalendarDayDiff,
 } from "@/lib/utils/formatters";
 import { formatCategoryLabel } from "@/lib/utils/categories";
-import { getAvalCupos, getAvalPresupuestoItems } from "@/lib/utils/aval-collections";
+import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
   getEventoTipoParticipacionLabel,
   getTipoAvalLabel,
@@ -1160,12 +1159,6 @@ export default function AvalDetailPage() {
   const totalEntrenadores =
     cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
 
-  const presupuestoItems = getAvalPresupuestoItems(aval);
-  const totalPresupuesto = presupuestoItems.reduce((sum, item) => {
-    const valor = parseFloat(item.presupuesto) || 0;
-    return sum + valor;
-  }, 0);
-
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
   const solicitudAvalUrl =
     aval.solicitudUrl ?? aval.avalTecnicoPdfUrl ?? aval.avalTecnico?.archivo;
@@ -1194,8 +1187,6 @@ export default function AvalDetailPage() {
     // El pronóstico no se ofrece acá: es la misma lista de deportistas que ya
     // se ve en su preview. Sigue disponible en el modal de armar PDF.
   ];
-  const canShowPresupuestoSalida =
-    isAvalCompleto && Boolean(evento?.presupuesto?.length);
   const canShowPresupuestoPda =
     Boolean(aval.pda) &&
     ((aval.pda?.items?.length ?? 0) > 0 || Boolean(aval.pda?.notas));
@@ -1718,25 +1709,6 @@ export default function AvalDetailPage() {
                 ) : null}
               </div>
             </CollapsibleSection>
-
-            {canShowPresupuestoSalida && (presupuestoSection?.visible ?? true) ? (
-              <CollapsibleSection
-                title="Presupuesto de salida"
-                icon={
-                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                }
-                meta={
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Visible cuando finaliza aprobación financiera.
-                  </p>
-                }
-              >
-                <AvalPresupuestoSection
-                  presupuesto={presupuestoItems}
-                  totalPresupuesto={totalPresupuesto}
-                />
-              </CollapsibleSection>
-            ) : null}
 
             {canShowPresupuestoPda && (presupuestoSection?.visible ?? true) ? (
               <CollapsibleSection

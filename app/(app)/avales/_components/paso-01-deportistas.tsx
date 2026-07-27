@@ -247,6 +247,29 @@ function getEntrenadorDisplayName(entrenador: SelectedEntrenador | undefined) {
     : `${entrenador.nombre} ${entrenador.apellido ?? ""}`.trim();
 }
 
+function getAfiliacionLabel(afiliado: boolean, fechaEmision: string) {
+  const parsedYear = fechaEmision
+    ? new Date(`${fechaEmision}T00:00:00`).getFullYear()
+    : new Date().getFullYear();
+  const year = Number.isFinite(parsedYear)
+    ? parsedYear
+    : new Date().getFullYear();
+  return afiliado ? `AFILIADO/A ${year}` : "SIN AFILIACION";
+}
+
+function normalizeAfiliacionLabel(
+  value: string | undefined,
+  afiliado: boolean,
+  fechaEmision: string,
+) {
+  const text = value?.trim();
+  if (!text) return getAfiliacionLabel(afiliado, fechaEmision);
+  if (/^AFILIADO\/A(?:\s+\d{4})?$/i.test(text)) {
+    return getAfiliacionLabel(true, fechaEmision);
+  }
+  return text;
+}
+
 export default function Paso01Deportistas({
   formData,
   aval,
@@ -293,9 +316,11 @@ export default function Paso01Deportistas({
             categoriaEventoDefault ??
             "",
           afiliacion:
-            d.afiliacion ??
-            toStringValue(payload?.afiliacion) ??
-            (afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION"),
+            normalizeAfiliacionLabel(
+              d.afiliacion ?? toStringValue(payload?.afiliacion),
+              afiliado,
+              formData.fechaEmision || fechaEmision,
+            ),
           canton: d.canton ?? toStringValue(payload?.canton) ?? "",
           club: d.club ?? toStringValue(payload?.club) ?? "",
           entrenadorNombre:
@@ -444,7 +469,11 @@ export default function Paso01Deportistas({
           genero: d.genero,
           categoriaId: d.categoriaId,
           categoriaNombre: d.categoriaNombre?.trim() || undefined,
-          afiliacion: d.afiliacion?.trim() || undefined,
+          afiliacion: normalizeAfiliacionLabel(
+            d.afiliacion,
+            afiliado,
+            fechaEmision,
+          ),
           canton: d.canton?.trim() || undefined,
           club: d.club?.trim() || undefined,
           entrenadorNombre:
@@ -461,7 +490,11 @@ export default function Paso01Deportistas({
             afiliado,
             categoriaId: d.categoriaId ?? null,
             categoriaNombre: d.categoriaNombre?.trim() || null,
-            afiliacion: d.afiliacion?.trim() || null,
+            afiliacion: normalizeAfiliacionLabel(
+              d.afiliacion,
+              afiliado,
+              fechaEmision,
+            ),
             canton: d.canton?.trim() || null,
             club: d.club?.trim() || null,
             entrenadorNombre:
@@ -469,7 +502,7 @@ export default function Paso01Deportistas({
             ordenProposito: index + 1,
             propositos: d.propositos ?? null,
           },
-          observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
+          observacion: getAfiliacionLabel(afiliado, fechaEmision),
           rol: d.rol ?? "ATLETA",
           modalidadParticipacion:
             d.modalidadParticipacion ?? getDefaultModalidad(tipoAval),
@@ -658,7 +691,7 @@ export default function Paso01Deportistas({
           categoriaId: deportista.categoriaId ?? aval.evento?.categoria?.id ?? undefined,
           categoriaNombre:
             deportista.categoria?.nombre ?? categoriaEventoDefault ?? "",
-          afiliacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
+          afiliacion: getAfiliacionLabel(afiliado, fechaEmision),
           canton: "",
           entrenadorNombre: entrenadorPrincipalNombre,
           propositos: ensureAtLeastOneProposito(),

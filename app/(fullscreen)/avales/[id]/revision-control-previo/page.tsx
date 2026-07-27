@@ -29,6 +29,7 @@ import { isControlPrevioUser } from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
   getNextApprovalStageForAval,
+  getStagePredecessorForAval,
 } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
@@ -180,7 +181,9 @@ export default function RevisionControlPrevioPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isControlPrevioUser,
-    editableEtapa: "REVISION_DTM",
+    editableEtapa: (currentAval) =>
+      getStagePredecessorForAval(currentAval, "CONTROL_PREVIO") ??
+      "CONTROL_PREVIO",
     additionalEditableCheck: (currentAval) =>
       getApprovalFlowStages(currentAval).includes("CONTROL_PREVIO"),
     approvalEtapa: (etapa, currentAval) =>

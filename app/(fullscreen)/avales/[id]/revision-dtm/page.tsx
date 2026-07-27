@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
+import { getStagePredecessorForAval } from "@/lib/approval-flow";
 import {
   aprobarAval,
   adminSaveRevisionDtm,
@@ -192,7 +193,6 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
 }
 
 const APPROVAL_ETAPA: EtapaFlujo = "REVISION_DTM";
-const EDITABLE_ETAPA: EtapaFlujo = "REVISION_METODOLOGO";
 
 export default function RevisionDtmPage() {
   const params = useParams();
@@ -230,7 +230,8 @@ export default function RevisionDtmPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isDTMUser,
-    editableEtapa: EDITABLE_ETAPA,
+    editableEtapa: (currentAval) =>
+      getStagePredecessorForAval(currentAval, APPROVAL_ETAPA) ?? "SOLICITUD",
     approvalEtapa: APPROVAL_ETAPA,
     onApproveAction: useCallback(
       async ({ aval: a, userId, approvalEtapa, adminSaveOnly }) => {

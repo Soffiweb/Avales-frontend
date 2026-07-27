@@ -24,6 +24,12 @@ export type EtapaFlujo =
   | "SECRETARIA"
   | "FINANCIERO";
 
+/**
+ * El backend serializa el flujo configurado como `{ codigo, nombre }`.
+ * Se acepta tambien el string plano por compatibilidad con respuestas viejas.
+ */
+export type AvalFlujoEtapa = string | { codigo: string; nombre?: string | null };
+
 export type Genero = "MASCULINO" | "FEMENINO" | "MASCULINO_FEMENINO";
 
 export type CatalogItemSimple = {
@@ -354,7 +360,7 @@ export type Aval = {
   estado: Estado;
   etapaActual?: EtapaFlujo;
   tipoAval?: TipoAval | null;
-  flujo?: string[] | null;
+  flujo?: AvalFlujoEtapa[] | null;
   siguienteEtapa?: string | null;
   modalidadesPermitidas?: ModalidadParticipacion[] | null;
   montoSolicitado?: number | null;

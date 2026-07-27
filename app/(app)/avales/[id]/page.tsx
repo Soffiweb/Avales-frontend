@@ -12,6 +12,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type React from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   ChevronDown,
@@ -82,6 +83,7 @@ import {
 import {
   getApprovalFlowStages,
   getAvalCurrentEtapa,
+  getEtapasAprobadas,
   getFinalApprovalStageForAval,
   isAvalFlowApproved,
   normalizeEtapaFlujo,
@@ -203,6 +205,7 @@ const ETAPA_TO_PATH: Partial<Record<string, string>> = {
 type StageTimelineProps = {
   currentStage: EtapaFlujo;
   flowStages: EtapaFlujo[];
+  historial?: Historial[];
   isAdmin?: boolean;
   avalId?: number;
   isDraft?: boolean;
@@ -223,12 +226,17 @@ const STAGE_SHORT_LABELS: Record<EtapaFlujo, string> = {
 function StageTimeline({
   currentStage,
   flowStages,
+  historial,
   isAdmin = false,
   avalId,
   isDraft = false,
   isApproved = false,
 }: StageTimelineProps) {
   const finalStage = flowStages[flowStages.length - 1] ?? currentStage;
+  // El orden lo manda la configuracion del flujo, pero lo ya cumplido lo manda
+  // el historial: un aval en curso pudo recorrer las etapas en otro orden.
+  const etapasAprobadas = getEtapasAprobadas(historial);
+  const hasHistorial = (historial?.length ?? 0) > 0;
   const stages = flowStages
     .filter((etapa) => etapa !== "SECRETARIA")
     .map((etapa) => ({
@@ -262,6 +270,17 @@ function StageTimeline({
         : 0;
 
   const currentStageInfo = stages[currentIndex];
+
+  // Etapas anteriores a la actual que nunca se aprobaron: pasa en avales que
+  // arrancaron con un orden de flujo distinto al configurado hoy.
+  const skippedStages = isApproved
+    ? []
+    : stages.filter(
+        (stage, idx) =>
+          idx < currentIndex &&
+          hasHistorial &&
+          !etapasAprobadas.has(stage.etapa),
+      );
 
   return (
     <div className="space-y-5">
@@ -303,14 +322,24 @@ function StageTimeline({
         />
         <div className="relative flex justify-between gap-1">
           {stages.map((stage, idx) => {
-            const isStageCompleted = idx < currentIndex || isApproved;
             const isCurrentStage = idx === currentIndex && !isApproved;
+            // Sin historial cargado se cae a la posicion; con historial, manda
+            // lo aprobado (soporta etapas cumplidas fuera del orden actual).
+            const isStageCompleted =
+              isApproved ||
+              (hasHistorial
+                ? etapasAprobadas.has(stage.etapa)
+                : idx < currentIndex);
+            const isSkippedStage =
+              !isCurrentStage && !isStageCompleted && idx < currentIndex;
             const isDraftStage = isDraft && isCurrentStage;
-            const status = isStageCompleted
-              ? "done"
-              : isCurrentStage
-                ? "current"
-                : "upcoming";
+            const status = isCurrentStage
+              ? "current"
+              : isStageCompleted
+                ? "done"
+                : isSkippedStage
+                  ? "skipped"
+                  : "upcoming";
 
             const circleClasses =
               status === "done"
@@ -319,7 +348,9 @@ function StageTimeline({
                   ? "border-amber-500 bg-amber-50 text-amber-700 ring-4 ring-amber-100 shadow-md dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900/40"
                   : status === "current"
                     ? "border-blue-600 bg-white text-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/40 shadow-md"
-                    : "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500";
+                    : status === "skipped"
+                      ? "border-dashed border-amber-500 bg-white text-amber-600 dark:border-amber-500 dark:bg-gray-900 dark:text-amber-400"
+                      : "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500";
 
             const labelClasses =
               status === "done"
@@ -328,13 +359,19 @@ function StageTimeline({
                   ? "text-amber-700 dark:text-amber-300 font-semibold"
                   : status === "current"
                     ? "text-blue-700 dark:text-blue-300 font-semibold"
-                    : "text-gray-500 dark:text-gray-400";
+                    : status === "skipped"
+                      ? "text-amber-700 dark:text-amber-400"
+                      : "text-gray-500 dark:text-gray-400";
 
             const stageHref = ETAPA_TO_PATH[stage.etapa];
             const isClickable = isAdmin && avalId && stageHref;
+            const stageTitle =
+              status === "skipped"
+                ? `${stage.label} · pendiente: no se aprobó en este orden`
+                : stage.label;
             const titleText = isClickable
-              ? `${stage.label} · click para editar (modo admin)`
-              : stage.label;
+              ? `${stageTitle} · click para editar (modo admin)`
+              : stageTitle;
 
             const circle = (
               <div
@@ -373,6 +410,20 @@ function StageTimeline({
           })}
         </div>
       </div>
+
+      {skippedStages.length > 0 ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Este aval avanzó con un orden de flujo anterior al configurado hoy.
+            Etapas sin aprobación registrada:{" "}
+            <span className="font-semibold">
+              {skippedStages.map((stage) => stage.shortLabel).join(", ")}
+            </span>
+            .
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1309,6 +1360,7 @@ export default function AvalDetailPage() {
           <StageTimeline
             currentStage={displayCurrentEtapa}
             flowStages={flowStages}
+            historial={aval.historial}
             isAdmin={isAdminLike}
             avalId={aval.id}
             isDraft={aval.estado === "BORRADOR"}

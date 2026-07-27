@@ -25,7 +25,10 @@ import RevisionMetodologoPreview from "@/app/(app)/avales/_components/revision-m
 import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
 import { getApprovalStageLabel } from "@/lib/constants";
 import { isFinancieroUser } from "@/lib/auth/access";
-import { getApprovalFlowStages } from "@/lib/approval-flow";
+import {
+  getApprovalFlowStages,
+  getStagePredecessorForAval,
+} from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
@@ -228,9 +231,7 @@ export default function CertificacionFinancieraPage() {
     avalId,
     requiredRole: isFinancieroUser,
     editableEtapa: (currentAval) =>
-      getApprovalFlowStages(currentAval).includes("CONTROL_PREVIO")
-        ? "CONTROL_PREVIO"
-        : "REVISION_DTM",
+      getStagePredecessorForAval(currentAval, "FINANCIERO") ?? "FINANCIERO",
     approvalEtapa: APPROVAL_ETAPA,
     additionalEditableCheck: (currentAval) =>
       getApprovalFlowStages(currentAval).includes("FINANCIERO"),

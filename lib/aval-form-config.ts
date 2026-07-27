@@ -8,7 +8,7 @@ import type {
 import {
   getApprovalFlowStages,
   getAvalCurrentEtapa,
-  getPreviousApprovalStagesForAval,
+  isStageReadyForAval,
 } from "@/lib/approval-flow";
 
 function buildSections(currentEtapa: EtapaFlujo, aval: Aval): AvalFormSectionConfig[] {
@@ -16,20 +16,21 @@ function buildSections(currentEtapa: EtapaFlujo, aval: Aval): AvalFormSectionCon
   const hasCompras = flow.includes("COMPRAS_PUBLICAS");
   const hasControlPrevio = flow.includes("CONTROL_PREVIO");
   const hasFinanciero = flow.includes("FINANCIERO");
-  const metodologoSourceStage =
-    getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
-    "SOLICITUD";
+  // Una seccion se edita cuando el aval esta parado en la etapa previa a la
+  // suya dentro del flujo configurado.
+  const editableAt = (etapa: EtapaFlujo) =>
+    isStageReadyForAval(aval, etapa, currentEtapa);
 
   return [
     { key: "PARTICIPANTES", visible: true, editable: currentEtapa === "SOLICITUD", required: true },
     { key: "DOCUMENTOS", visible: true, editable: currentEtapa === "SOLICITUD", required: true },
     { key: "PRESUPUESTO", visible: aval.tipoAval !== "SOLO_RESULTADO", editable: currentEtapa === "SOLICITUD", required: aval.tipoAval !== "SOLO_RESULTADO" },
-    { key: "PDA", visible: flow.includes("PDA"), editable: currentEtapa === "SOLICITUD", required: flow.includes("PDA") },
-    { key: "COMPRAS_PUBLICAS", visible: hasCompras, editable: currentEtapa === "PDA", required: hasCompras },
-    { key: "REVISION_METODOLOGO", visible: true, editable: currentEtapa === metodologoSourceStage, required: true },
-    { key: "REVISION_DTM", visible: true, editable: currentEtapa === "REVISION_METODOLOGO", required: true },
-    { key: "CONTROL_PREVIO", visible: hasControlPrevio, editable: currentEtapa === "REVISION_DTM", required: hasControlPrevio },
-    { key: "FINANCIERO", visible: hasFinanciero, editable: currentEtapa === (hasControlPrevio ? "CONTROL_PREVIO" : "REVISION_DTM"), required: hasFinanciero },
+    { key: "PDA", visible: flow.includes("PDA"), editable: editableAt("PDA"), required: flow.includes("PDA") },
+    { key: "COMPRAS_PUBLICAS", visible: hasCompras, editable: editableAt("COMPRAS_PUBLICAS"), required: hasCompras },
+    { key: "REVISION_METODOLOGO", visible: true, editable: editableAt("REVISION_METODOLOGO"), required: true },
+    { key: "REVISION_DTM", visible: true, editable: editableAt("REVISION_DTM"), required: true },
+    { key: "CONTROL_PREVIO", visible: hasControlPrevio, editable: editableAt("CONTROL_PREVIO"), required: hasControlPrevio },
+    { key: "FINANCIERO", visible: hasFinanciero, editable: editableAt("FINANCIERO"), required: hasFinanciero },
   ];
 }
 

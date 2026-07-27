@@ -349,14 +349,17 @@ export function getAllowedModalidadesByTipoAval(
   return ["SOLO_RESULTADO"];
 }
 
+/**
+ * Orden por defecto, usado solo si la respuesta del backend no trae `flujo`.
+ * La secuencia real es configurable por tipo de aval (`/avales/admin/flujo`).
+ */
 export const APPROVAL_STAGE_FLOW: EtapaFlujo[] = [
   "SOLICITUD",
-  "PDA",
-  "COMPRAS_PUBLICAS",
   "REVISION_METODOLOGO",
   "REVISION_DTM",
+  "PDA",
+  "COMPRAS_PUBLICAS",
   "CONTROL_PREVIO",
-  "SECRETARIA",
   "FINANCIERO",
 ];
 
@@ -401,20 +404,3 @@ export function getApprovalStageBadgeStyles(
   return STAGE_BADGE_DEFAULT;
 }
 
-export function getNextApprovalStage(
-  etapa?: EtapaFlujo,
-): EtapaFlujo | undefined {
-  if (!etapa) return undefined;
-  const index = APPROVAL_STAGE_FLOW.indexOf(etapa);
-  if (index === -1 || index === APPROVAL_STAGE_FLOW.length - 1) return undefined;
-  return APPROVAL_STAGE_FLOW[index + 1];
-}
-
-export function getPreviousApprovalStages(
-  etapa?: EtapaFlujo,
-): EtapaFlujo[] {
-  if (!etapa) return [];
-  const index = APPROVAL_STAGE_FLOW.indexOf(etapa);
-  if (index <= 0) return [];
-  return APPROVAL_STAGE_FLOW.slice(0, index);
-}

@@ -34,6 +34,7 @@ import { getApprovalStageLabel, getTipoAvalLabel } from "@/lib/constants";
 import {
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
+  getStagePredecessorForAval,
 } from "@/lib/approval-flow";
 import {
   getAvalPresupuestoItems,
@@ -571,7 +572,8 @@ export default function CertificarAvalPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isPdaUser,
-    editableEtapa: "SOLICITUD",
+    editableEtapa: (currentAval) =>
+      getStagePredecessorForAval(currentAval, "PDA") ?? "SOLICITUD",
     approvalEtapa: (etapa, currentAval) =>
       getNextApprovalStageForAval(currentAval, etapa) ?? etapa,
     enableEtapaDestino: true,

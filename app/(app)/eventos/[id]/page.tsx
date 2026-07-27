@@ -30,6 +30,7 @@ import EventoIncompletoBadge from "@/components/ui/evento-incompleto-badge";
 import UploadModal from "@/components/ui/upload-modal";
 import { getEvento, softDeleteEvento } from "@/lib/api/eventos";
 import { getAvalesByEvento, uploadConvocatoria } from "@/lib/api/avales";
+import { useDisciplinaPronosticoPlantilla } from "@/lib/hooks/use-catalog";
 import { downloadEventsTemplate } from "@/lib/api/template-download";
 import {
   canAccessReforms,
@@ -147,6 +148,8 @@ export default function EventoDetailPage() {
   const [pendingReformId, setPendingReformId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { sinPlantilla: disciplinaSinPlantilla } =
+    useDisciplinaPronosticoPlantilla(evento?.disciplinaId);
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) {
@@ -330,8 +333,14 @@ export default function EventoDetailPage() {
   const formasDelTipoSeleccionado = formasConOcupacion.filter(
     (forma) => forma.tipoAval === tipoAval,
   );
-  const submitDisabled =
+  const faltaFormaParticipacion =
     formasDelTipoSeleccionado.length > 0 && formaParticipacionId == null;
+  // Sin plantilla de pronóstico el backend rechaza la creación del aval, así
+  // que se corta antes de que el entrenador suba los documentos.
+  const submitDisabled = faltaFormaParticipacion || disciplinaSinPlantilla;
+  const submitDisabledReason = disciplinaSinPlantilla
+    ? `La disciplina ${evento.disciplina?.nombre ?? "del evento"} no tiene una plantilla de pronóstico configurada. Pídele a un administrador que la configure antes de crear el aval.`
+    : "Selecciona una forma de participación para continuar.";
   // const canRequestReforma = canManageReforms && !hasPendingReform; // botón "Solicitar reforma" deshabilitado: reformas ya no se piden desde un evento puntual, ver /reformas
   const completionHref = `/eventos/${evento.id}/editar?mode=complete&next=${encodeURIComponent(
     `/eventos/${evento.id}`,
@@ -365,7 +374,7 @@ export default function EventoDetailPage() {
         description={`Sube la convocatoria y el certificado médico para crear el aval de "${evento.nombre}".`}
         requirePronosticoDeportistas={false}
         submitDisabled={submitDisabled}
-        submitDisabledReason="Selecciona una forma de participación para continuar."
+        submitDisabledReason={submitDisabledReason}
       >
         <AvalUploadOptions
           evento={evento}

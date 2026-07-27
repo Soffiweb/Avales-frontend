@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import ConfirmModal from "@/components/ui/confirm-modal";
@@ -11,6 +11,8 @@ import type { CatalogItem } from "@/types/catalog";
 type CatalogPayload = {
   nombre: string;
   codigo?: string | null;
+  /** Valor del select opcional; solo viaja si el catalogo define `selectField`. */
+  selectValue?: number | null;
 };
 
 type Notice = {
@@ -18,6 +20,24 @@ type Notice = {
   message: string;
   description?: string;
 } | null;
+
+/**
+ * Campo select opcional para catalogos que ademas de nombre y codigo tienen
+ * una relacion configurable (hoy: la plantilla de pronostico por disciplina).
+ */
+type SelectFieldConfig = {
+  label: string;
+  /** Texto de la opcion vacia, cuando no hay nada asignado. */
+  emptyLabel: string;
+  options: { value: number; label: string }[];
+  helpText?: string;
+  /** Valor actual del item, para precargar el formulario al editar. */
+  valueOf: (item: CatalogItem) => number | null;
+  /** Etiqueta a mostrar en la tarjeta cuando el item tiene valor. */
+  labelOf: (item: CatalogItem) => string | null;
+  /** Aviso en la tarjeta cuando el item no tiene valor asignado. */
+  missingLabel: string;
+};
 
 type Props = {
   title: string;
@@ -32,6 +52,7 @@ type Props = {
   onDelete: (id: number) => Promise<void>;
   singularTitle: string;
   backHref?: string;
+  selectField?: SelectFieldConfig;
 };
 
 export default function CatalogCrudView({
@@ -47,11 +68,13 @@ export default function CatalogCrudView({
   onDelete,
   singularTitle,
   backHref = "/catalogos",
+  selectField,
 }: Props) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [nombre, setNombre] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [selectValue, setSelectValue] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -70,6 +93,7 @@ export default function CatalogCrudView({
     setEditingItem(null);
     setNombre("");
     setCodigo("");
+    setSelectValue(null);
     setFormError(null);
     setFormOpen(false);
   };
@@ -78,6 +102,7 @@ export default function CatalogCrudView({
     setEditingItem(null);
     setNombre("");
     setCodigo("");
+    setSelectValue(null);
     setFormError(null);
     setFormOpen(true);
   };
@@ -86,6 +111,7 @@ export default function CatalogCrudView({
     setEditingItem(item);
     setNombre(item.nombre ?? "");
     setCodigo(item.codigo ?? "");
+    setSelectValue(selectField ? selectField.valueOf(item) : null);
     setFormError(null);
     setFormOpen(true);
   };
@@ -103,9 +129,10 @@ export default function CatalogCrudView({
       setSaving(true);
       setFormError(null);
 
-      const payload = {
+      const payload: CatalogPayload = {
         nombre: cleanNombre,
         codigo: cleanCodigo || null,
+        ...(selectField ? { selectValue } : {}),
       };
 
       if (editingItem) {
@@ -246,6 +273,32 @@ export default function CatalogCrudView({
                 placeholder="Codigo"
               />
             </div>
+            {selectField && (
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  {selectField.label}
+                </label>
+                <select
+                  value={selectValue ?? ""}
+                  onChange={(e) =>
+                    setSelectValue(e.target.value ? Number(e.target.value) : null)
+                  }
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:outline-none"
+                >
+                  <option value="">{selectField.emptyLabel}</option>
+                  {selectField.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {selectField.helpText && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {selectField.helpText}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {formError && (
@@ -333,6 +386,17 @@ export default function CatalogCrudView({
                       {item.eventosCount === 1 ? "" : "s"}
                     </p>
                   )}
+                  {selectField &&
+                    (selectField.labelOf(item) ? (
+                      <p className="mt-3 inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-700/60 px-2 py-1 text-xs text-gray-600 dark:text-gray-300">
+                        {selectField.labelOf(item)}
+                      </p>
+                    ) : (
+                      <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-900/30 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {selectField.missingLabel}
+                      </p>
+                    ))}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 pt-1">

@@ -26,8 +26,7 @@ import {
 import AvalListCard from "./_components/aval-list-card";
 import {
   getAvalCurrentEtapa,
-  getApprovalFlowStages,
-  getPreviousApprovalStagesForAval,
+  isStageReadyForAval,
 } from "@/lib/approval-flow";
 import { AVALES_PAGE_SIZE, TIPO_AVAL_OPTIONS } from "@/lib/constants";
 import { useResourceList } from "@/lib/hooks/use-resource-list";
@@ -79,30 +78,17 @@ function isAvalPendingForUser(
   const canAct = isProcessable && !wasRecentlyRejected;
 
   if (canAct) {
-    if (flags.isPda && etapa === "SOLICITUD") return true;
-    if (flags.isComprasPublicas) {
-      const flow = getApprovalFlowStages(aval);
-      if (flow.includes("COMPRAS_PUBLICAS") && etapa === "PDA") return true;
-    }
-    if (flags.isMetodologo) {
-      const metStage =
-        getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(-1) ??
-        "SOLICITUD";
-      if (etapa === metStage) return true;
-    }
-    if (flags.isDTM && etapa === "REVISION_METODOLOGO") return true;
-    if (flags.isControlPrevio) {
-      const flow = getApprovalFlowStages(aval);
-      if (flow.includes("CONTROL_PREVIO") && etapa === "REVISION_DTM")
-        return true;
-    }
-    if (flags.isFinanciero) {
-      const flow = getApprovalFlowStages(aval);
-      const finStage = flow.includes("CONTROL_PREVIO")
-        ? "CONTROL_PREVIO"
-        : "REVISION_DTM";
-      if (etapa === finStage) return true;
-    }
+    // Cada rol actua cuando el aval esta parado en la etapa previa a la suya
+    // segun el flujo configurado, no segun un orden fijo.
+    const isReady = (etapaRol: EtapaFlujo) =>
+      isStageReadyForAval(aval, etapaRol, etapa);
+
+    if (flags.isPda && isReady("PDA")) return true;
+    if (flags.isComprasPublicas && isReady("COMPRAS_PUBLICAS")) return true;
+    if (flags.isMetodologo && isReady("REVISION_METODOLOGO")) return true;
+    if (flags.isDTM && isReady("REVISION_DTM")) return true;
+    if (flags.isControlPrevio && isReady("CONTROL_PREVIO")) return true;
+    if (flags.isFinanciero && isReady("FINANCIERO")) return true;
   }
 
   if (flags.isTrainer && userId !== undefined) {

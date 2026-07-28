@@ -2,6 +2,10 @@
   "name": "avales-frontend",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.32.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=1536' next dev --webpack -p 4000",
     "build": "next build",
@@ -14,12 +18,14 @@
     "@radix-ui/react-popover": "^1.1.15",
     "@tailwindcss/forms": "^0.5.10",
     "@tanstack/react-query": "^5.100.14",
+    "avales-shared": "git+https://github.com/Soffiweb/avales-shared.git#v0.2.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
     "lucide-react": "^0.561.0",
     "next": "^16.0.10",
     "next-themes": "^0.4.6",
+    "pdfjs-dist": "^6.1.200",
     "react": "^19.2.4",
     "react-day-picker": "^9.13.0",
     "react-dom": "^19.2.4",

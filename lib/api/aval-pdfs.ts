@@ -11,7 +11,6 @@ export type ComposableDocumentKey =
   | "comprasPublicas"
   | "revisionMetodologo"
   | "revisionDtm"
-  | "presupuestoSalida"
   | "certificacionPresupuestaria"
   | "escuelaIniciacion"
   | "convocatoria"
@@ -24,7 +23,6 @@ export const DOCUMENT_LABELS: Record<ComposableDocumentKey, string> = {
   comprasPublicas: "Certificado compras públicas",
   revisionMetodologo: "Revisión metodólogo",
   revisionDtm: "Revisión DTM",
-  presupuestoSalida: "Presupuesto salida deportistas",
   certificacionPresupuestaria: "Certificación presupuestaria",
   escuelaIniciacion: "Escuela de iniciación",
   convocatoria: "Convocatoria",
@@ -35,8 +33,7 @@ export const DOCUMENT_LABELS: Record<ComposableDocumentKey, string> = {
 
 /**
  * Mapea cada documento composable al endpoint GET que genera su preview
- * on-the-fly (sin cambiar estado). null = no hay preview directo
- * (ej. el cert PDA fue removido; usar `presupuestoSalida` del financiero).
+ * on-the-fly (sin cambiar estado). null = no hay preview directo.
  */
 export const PREVIEW_ENDPOINTS: Record<
   ComposableDocumentKey,
@@ -46,7 +43,6 @@ export const PREVIEW_ENDPOINTS: Record<
   comprasPublicas: "/compras-publicas-pdf",
   revisionMetodologo: "/revision-metodologo-pdf",
   revisionDtm: "/revision-dtm-pdf",
-  presupuestoSalida: "/financiero-pdf",
   certificacionPresupuestaria: "/financiero-pdf",
   escuelaIniciacion: "/escuela-iniciacion-pdf",
   convocatoria: null,
@@ -101,6 +97,31 @@ export async function openAvalPdfPreview(
     newTab.close();
     throw err;
   }
+}
+
+/**
+ * Descarga el PDF (sin firmar) de un paso composable como `ArrayBuffer`,
+ * listo para renderizar con pdf.js. No usa `apiFetch` porque ese cliente
+ * parsea la respuesta como JSON; aquí necesitamos los bytes crudos.
+ */
+export async function fetchAvalPdfBuffer(
+  avalId: number,
+  key: ComposableDocumentKey,
+): Promise<ArrayBuffer> {
+  const endpoint = PREVIEW_ENDPOINTS[key];
+  if (!endpoint) {
+    throw new Error(
+      `No hay endpoint de preview directo para "${DOCUMENT_LABELS[key]}".`,
+    );
+  }
+
+  const url = `${API_BASE}/avales/${avalId}${endpoint}`;
+  const headers = await buildAuthHeader();
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`No se pudo cargar el PDF (HTTP ${res.status})`);
+  }
+  return res.arrayBuffer();
 }
 
 /**

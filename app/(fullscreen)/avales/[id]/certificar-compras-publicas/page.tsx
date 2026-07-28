@@ -1,26 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
 import {
-  aprobarAval,
   adminSaveComprasPublicas,
+  aprobarAval,
   createComprasPublicas,
-  getAval,
 } from "@/lib/api/avales";
 import type { Aval } from "@/types/aval";
-import {
-  ListaDeportistasPreview,
-  SolicitudAvalPreview,
-  type AvalPreviewFormData,
-} from "@/app/(app)/avales/_components/aval-document-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
-import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import AlertBanner from "@/components/ui/alert-banner";
 import SaveIndicator from "@/components/ui/save-indicator";
@@ -30,13 +23,11 @@ import { getApprovalStageLabel } from "@/lib/constants";
 import { isComprasPublicasUser } from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
-  getAvalCurrentEtapa,
   getNextApprovalStageForAval,
   getPreviousApprovalStagesForAval,
 } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
-import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
 
 function getTodayInputDate() {
@@ -54,84 +45,6 @@ const INITIAL_DRAFT: ComprasPublicasDraft = {
 };
 
 const EMPTY_CODIGO_ROW = { codigo: "", descripcion: "" };
-
-const EMPTY_DOCS_DATA: AvalPreviewFormData = {
-  deportistas: [],
-  entrenadores: [],
-  fechaHoraSalida: "",
-  fechaHoraRetorno: "",
-  lugarSalida: "",
-  lugarRetorno: "",
-  transporteSalida: "",
-  transporteRetorno: "",
-  objetivos: [],
-  criterios: [],
-  observaciones: "",
-};
-
-function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
-  const tecnico = aval.avalTecnico;
-
-  const deportistas = (tecnico?.deportistasAval ?? []).map((item) => {
-    const withExtras = item as typeof item & {
-      observacion?: string | null;
-      deportista: typeof item.deportista & { fechaNacimiento?: string | null };
-    };
-    return {
-      id: item.deportista?.id ?? item.id,
-      nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
-      cedula: item.deportista?.cedula ?? undefined,
-      fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
-      categoriaNombre: item.categoriaNombre ?? undefined,
-      afiliacion: item.afiliacion ?? undefined,
-      canton: item.canton ?? undefined,
-      club: item.club ?? undefined,
-      entrenadorNombre: item.entrenadorNombre ?? undefined,
-      propositos: item.propositos ?? undefined,
-      observacion: withExtras.observacion ?? undefined,
-      rol: item.rol ?? undefined,
-    };
-  });
-
-  const entrenadores = [...(aval.entrenadores ?? [])]
-    .sort((a, b) => Number(Boolean(b.esPrincipal)) - Number(Boolean(a.esPrincipal)))
-    .map((item) => {
-      const withUser = item as typeof item & {
-        usuario?: { nombre?: string; apellido?: string };
-        entrenador?: { nombre?: string; apellido?: string };
-        nombre?: string;
-        apellido?: string;
-      };
-      const nombre = (
-        [
-          withUser.entrenador?.nombre ?? withUser.usuario?.nombre ?? withUser.nombre,
-          withUser.entrenador?.apellido ?? withUser.usuario?.apellido ?? withUser.apellido,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .trim() || item.entrenadorNombre || `Entrenador ${item.id}`
-      ).toUpperCase();
-      return { id: item.entrenadorId ?? item.entrenador?.id ?? item.id, nombre };
-    });
-
-  return {
-    deportistas,
-    entrenadores,
-    fechaHoraSalida: tecnico?.fechaHoraSalida ?? "",
-    fechaHoraRetorno: tecnico?.fechaHoraRetorno ?? "",
-    lugarSalida: tecnico?.lugarSalida ?? "",
-    lugarRetorno: tecnico?.lugarRetorno ?? "",
-    transporteSalida: tecnico?.transporteSalida ?? "",
-    transporteRetorno: tecnico?.transporteRetorno ?? "",
-    objetivos: [...(tecnico?.objetivos ?? [])]
-      .sort((a, b) => a.orden - b.orden)
-      .map((item) => item.descripcion),
-    criterios: [...(tecnico?.criterios ?? [])]
-      .sort((a, b) => a.orden - b.orden)
-      .map((item) => item.descripcion),
-    observaciones: tecnico?.observaciones ?? "",
-  };
-}
 
 function toInputDate(value?: string | null) {
   if (!value) return "";
@@ -274,15 +187,9 @@ export default function CertificarComprasPublicasPage() {
           await adminSaveComprasPublicas(a.id, userId, payload, approvalEtapa);
         } else {
           await createComprasPublicas(a.id, payload);
-          // Refresh aval to get updated etapa after creating compras
-          const refreshed = await getAval(a.id);
-          const refreshedEtapa = getAvalCurrentEtapa(refreshed.data);
-          const nextEtapa = getNextApprovalStageForAval(
-            refreshed.data,
-            refreshedEtapa,
-          );
-          const resolvedEtapa = nextEtapa ?? refreshedEtapa;
-          await aprobarAval(a.id, userId, resolvedEtapa, { comentario: sumilla });
+          await aprobarAval(a.id, userId, approvalEtapa, {
+            comentario: sumilla,
+          });
         }
         autosaveRef.current.clear();
       },
@@ -432,10 +339,6 @@ export default function CertificarComprasPublicasPage() {
 
   const requiresContratacionData = draft.realizoProceso === true;
 
-  const trainerDocsData = useMemo(
-    () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
-    [aval],
-  );
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -845,16 +748,7 @@ export default function CertificarComprasPublicasPage() {
       <div className="w-full lg:w-1/2 bg-slate-100 dark:bg-slate-900 overflow-y-auto">
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <AvalDocumentosSection aval={aval} />
-            <PreviewCollapsible title="Lista deportistas">
-              <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud aval">
-              <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Presupuesto de salida">
-              <PresupuestoSalidaAnticipoPreview aval={aval} />
-            </PreviewCollapsible>
+            {/* Compras Públicas solo necesita su propio certificado. */}
             <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
               <ComprasPublicasPreview aval={aval} draft={draft} />
             </PreviewCollapsible>

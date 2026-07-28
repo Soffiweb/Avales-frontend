@@ -23,13 +23,12 @@ import {
   getApprovalStageLabel,
   getTipoAvalLabel,
 } from "@/lib/constants";
-import { getAvalCupos } from "@/lib/utils/aval-collections";
+import { getAvalCupos, getAvalNumero } from "@/lib/utils/aval-collections";
 import {
   getAvalCurrentEtapa,
-  getApprovalFlowStages,
   getFinalApprovalStageForAval,
-  getPreviousApprovalStagesForAval,
   isAvalFlowApproved,
+  isStageReadyForAval,
 } from "@/lib/approval-flow";
 import {
   formatDate,
@@ -67,13 +66,7 @@ function getStatusIcon(status?: string | null) {
 }
 
 function getAvalNumber(aval: Aval) {
-  return (
-    aval.numeroAval ??
-    aval.avalTecnico?.numeroAval ??
-    aval.numeroColeccion ??
-    aval.aval ??
-    String(aval.id)
-  );
+  return getAvalNumero(aval) ?? String(aval.id);
 }
 
 export default function AvalListCard({
@@ -141,11 +134,6 @@ export default function AvalListCard({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {avales.map((aval) => {
         const etapaParaMostrar = getAvalCurrentEtapa(aval) as EtapaFlujo;
-        const flowStages = getApprovalFlowStages(aval);
-        const metodologoSourceStage =
-          getPreviousApprovalStagesForAval(aval, "REVISION_METODOLOGO").at(
-            -1,
-          ) ?? ("SOLICITUD" as EtapaFlujo);
 
         // Solo se puede actuar si el aval está SOLICITADO y la etapa actual
         // matchea con el rol del usuario. Además, si el último evento del
@@ -155,9 +143,12 @@ export default function AvalListCard({
         // El historial viene ordenado DESC (más nuevo primero) → [0] es el último evento.
         const lastHistorial = aval.historial?.[0];
         const wasRecentlyRejected = lastHistorial?.estado === "RECHAZADO";
-        const stageMatchesRole = (role: EtapaFlujo) =>
-          isProcessable && !wasRecentlyRejected && etapaParaMostrar === role;
-        const canPdaAct = isPda && stageMatchesRole("SOLICITUD" as EtapaFlujo);
+        // La etapa que habilita a cada rol sale del flujo configurado.
+        const stageMatchesRole = (etapaRol: EtapaFlujo) =>
+          isProcessable &&
+          !wasRecentlyRejected &&
+          isStageReadyForAval(aval, etapaRol, etapaParaMostrar);
+        const canPdaAct = isPda && stageMatchesRole("PDA");
         const isAvalOwner =
           isTrainer &&
           userId !== undefined &&
@@ -170,24 +161,13 @@ export default function AvalListCard({
           ? "Editar aval"
           : "Crear aval";
         const canComprasAct =
-          flowStages.includes("COMPRAS_PUBLICAS") &&
-          isComprasPublicas &&
-          stageMatchesRole("PDA" as EtapaFlujo);
+          isComprasPublicas && stageMatchesRole("COMPRAS_PUBLICAS");
         const canMetodologoAct =
-          isMetodologo && stageMatchesRole(metodologoSourceStage);
-        const canDtmAct =
-          isDtm && stageMatchesRole("REVISION_METODOLOGO" as EtapaFlujo);
+          isMetodologo && stageMatchesRole("REVISION_METODOLOGO");
+        const canDtmAct = isDtm && stageMatchesRole("REVISION_DTM");
         const canControlPrevioAct =
-          flowStages.includes("CONTROL_PREVIO") &&
-          isControlPrevio &&
-          stageMatchesRole("REVISION_DTM" as EtapaFlujo);
-        const canFinancieroAct =
-          isFinanciero &&
-          stageMatchesRole(
-            flowStages.includes("CONTROL_PREVIO")
-              ? ("CONTROL_PREVIO" as EtapaFlujo)
-              : ("REVISION_DTM" as EtapaFlujo),
-          );
+          isControlPrevio && stageMatchesRole("CONTROL_PREVIO");
+        const canFinancieroAct = isFinanciero && stageMatchesRole("FINANCIERO");
         const isFlowApproved = isAvalFlowApproved(aval);
         const displayStage = isFlowApproved
           ? getFinalApprovalStageForAval(aval)

@@ -119,6 +119,10 @@ export default function PresupuestoSalidaAnticipoPreview({
   const financieroFirmanteCargo = draft?.financieroFirmanteCargo?.trim() ?? "";
   const formatCantidad = (value: number) =>
     Number.isInteger(value) ? String(value) : formatDecimal(value);
+  const toAmount = (value: unknown) => {
+    const parsed = Number.parseFloat(String(value ?? 0));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
   const evento = aval.evento;
   const responsableFallback = getResponsibleTrainerData(aval);
   const responsable = {
@@ -147,7 +151,7 @@ export default function PresupuestoSalidaAnticipoPreview({
   for (const fi of aval.evento.formaParticipacionActual?.items ?? []) {
     formaMap.set(
       fi.item.id,
-      (formaMap.get(fi.item.id) ?? 0) + Number.parseFloat(fi.presupuesto),
+      (formaMap.get(fi.item.id) ?? 0) + toAmount(fi.presupuesto),
     );
   }
 
@@ -171,7 +175,9 @@ export default function PresupuestoSalidaAnticipoPreview({
   ) {
     const multi = dias.length > 1;
     for (const [i, dia] of dias.entries()) {
-      const noDias = dia.noDias ?? 1;
+      const noDias = toAmount(dia.noDias ?? 1);
+      const cantidad = toAmount(dia.cantidad);
+      const valorUnitario = toAmount(dia.valorUnitario);
       const isFirst = i === 0;
       const isLast = i === dias.length - 1;
       let certPdaClass = "";
@@ -187,9 +193,9 @@ export default function PresupuestoSalidaAnticipoPreview({
         showCertPda: isFirst || !multi,
         certPdaClass,
         noDias,
-        cantidad: dia.cantidad,
-        valorUnitario: dia.valorUnitario,
-        total: noDias * dia.cantidad * dia.valorUnitario,
+        cantidad,
+        valorUnitario,
+        total: noDias * cantidad * valorUnitario,
       });
     }
   }
@@ -210,8 +216,8 @@ export default function PresupuestoSalidaAnticipoPreview({
           certPdaClass: "",
           noDias: 1,
           cantidad: 1,
-          valorUnitario: item.total ?? 0,
-          total: item.total ?? 0,
+          valorUnitario: toAmount(item.total),
+          total: toAmount(item.total),
         });
       } else {
         pushDias(item.id, item.nombre, valorCertPda, dias);
@@ -224,7 +230,10 @@ export default function PresupuestoSalidaAnticipoPreview({
         pdaItem.itemNombre ||
         presupuestoLookup.get(pdaItem.itemId) ||
         `Item ${pdaItem.itemId}`;
-      const valorCertPda = pdaItem.presupuestoCertificado ?? formaMap.get(pdaItem.itemId) ?? 0;
+      const valorCertPda =
+        pdaItem.presupuestoCertificado != null
+          ? toAmount(pdaItem.presupuestoCertificado)
+          : (formaMap.get(pdaItem.itemId) ?? 0);
       const dias = pdaItem.dias ?? [];
       if (dias.length === 0) {
         tableRows.push({
@@ -235,8 +244,8 @@ export default function PresupuestoSalidaAnticipoPreview({
           certPdaClass: "",
           noDias: 1,
           cantidad: 1,
-          valorUnitario: pdaItem.presupuesto,
-          total: pdaItem.presupuesto,
+          valorUnitario: toAmount(pdaItem.presupuesto),
+          total: toAmount(pdaItem.presupuesto),
         });
       } else {
         pushDias(pdaItem.itemId, itemNombre, valorCertPda, dias);

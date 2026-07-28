@@ -442,6 +442,68 @@ export async function aprobarAval(
   });
 }
 
+/**
+ * Firma electrónica + aprobación acopladas (multipart/form-data).
+ *
+ * El certificado `.p12`/`.pfx` y la contraseña viajan SOLO en este request
+ * (nunca a `localStorage`/estado persistente) — ver
+ * `src/modules/signature/dto/firmar-aprobar.dto.ts` en el backend.
+ * En v1 solo la etapa `COMPRAS_PUBLICAS` soporta este flujo.
+ */
+/**
+ * Posición del sello QR de firma, elegida visualmente por el usuario sobre
+ * el preview del PDF. Coordenadas en PUNTOS PDF con origen ABAJO-izquierda
+ * (página Letter = 612x792). Opcional: si se omite, el backend usa una
+ * posición por defecto.
+ */
+export type FirmaPosicion = {
+  firmaPosX: number;
+  firmaPosY: number;
+  firmaAncho: number;
+  firmaAlto: number;
+  firmaPagina: number;
+};
+
+export type FirmarAprobarAvalPayload = {
+  usuarioId: number;
+  etapa: EtapaFlujo;
+  password: string;
+  certificate: File;
+  comentario?: string;
+  posicion?: FirmaPosicion;
+};
+
+export async function firmarAprobarAval(
+  id: number,
+  payload: FirmarAprobarAvalPayload,
+) {
+  const formData = new FormData();
+  formData.append("usuarioId", String(payload.usuarioId));
+  formData.append("etapa", payload.etapa);
+  formData.append("password", payload.password);
+  formData.append("certificate", payload.certificate);
+  if (payload.comentario?.trim()) {
+    formData.append("comentario", payload.comentario.trim());
+  }
+
+  // Coordenadas del sello QR (opcionales). El backend las trata como puntos
+  // PDF con origen abajo-izquierda; si no viajan, aplica la posición default.
+  if (payload.posicion) {
+    const { firmaPosX, firmaPosY, firmaAncho, firmaAlto, firmaPagina } =
+      payload.posicion;
+    formData.append("firmaPosX", String(firmaPosX));
+    formData.append("firmaPosY", String(firmaPosY));
+    formData.append("firmaAncho", String(firmaAncho));
+    formData.append("firmaAlto", String(firmaAlto));
+    formData.append("firmaPagina", String(firmaPagina));
+  }
+
+  return apiFetch<Aval>(`/avales/${id}/firmar-aprobar`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
 // Endpoints "admin save" — permiten a SUPER_ADMIN/ADMIN guardar los datos
 // de la revision sin avanzar el flujo. Gateado en el backend por rol.
 export async function adminSaveRevisionMetodologo(

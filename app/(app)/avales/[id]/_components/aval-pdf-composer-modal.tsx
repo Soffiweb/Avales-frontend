@@ -19,18 +19,19 @@ type Props = {
   onClose: () => void;
 };
 
+/**
+ * Documentos que se ofrecen en el composer, en orden de aparición.
+ *
+ * Son únicamente los cuatro que emite la federación. Los archivos que carga el
+ * solicitante (convocatoria y certificado médico) siguen accesibles desde
+ * `AvalDocumentosSection` en las pantallas de revisión, y los pasos internos de
+ * revisión no son documentos descargables.
+ */
 const DOC_ORDER: ComposableDocumentKey[] = [
-  "convocatoria",
-  "certificadoMedico",
-  "pronosticoDeportistas",
-  "escuelaIniciacion",
   "avalTecnico",
+  "pronosticoDeportistas",
   "comprasPublicas",
-  "revisionMetodologo",
-  "revisionDtm",
-  "presupuestoSalida",
   "certificacionPresupuestaria",
-  "hojaRuta",
 ];
 
 // Escuela de iniciación dejó de generarse para avales nuevos (queda solo en
@@ -107,7 +108,10 @@ export default function AvalPdfComposerModal({
     setError(null);
     setDownloading(true);
     try {
-      await downloadComposedPdf(avalId, Array.from(selected));
+      await downloadComposedPdf(
+        avalId,
+        DOC_ORDER.filter((key) => selected.has(key)),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo descargar el PDF");
     } finally {

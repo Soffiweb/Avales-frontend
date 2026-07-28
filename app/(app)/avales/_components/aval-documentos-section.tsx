@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, HeartPulse, ClipboardCheck } from "lucide-react";
+import { Download, HeartPulse } from "lucide-react";
 import type { Aval, AdjuntoSolicitud } from "@/types/aval";
 
 type Props = {
@@ -49,7 +49,6 @@ function AdjuntoLink({ adjunto }: { adjunto: AdjuntoSolicitud }) {
 export default function AvalDocumentosSection({ aval }: Props) {
   const hasConvocatoria = Boolean(aval.convocatoriaUrl);
   const hasCertificado = Boolean(aval.certificadoMedicoUrl);
-  const hasPronostico = Boolean(aval.pronosticoDeportistasUrl);
   const adjuntosSolicitud = aval.adjuntosSolicitud ?? [];
   const convocatoriaAdjuntos = aval.convocatoriaAdjuntos ?? [];
   const pronosticoAdjuntos = aval.pronosticoDeportistasAdjuntos ?? [];
@@ -57,7 +56,6 @@ export default function AvalDocumentosSection({ aval }: Props) {
   const hasAny =
     hasConvocatoria ||
     hasCertificado ||
-    hasPronostico ||
     adjuntosSolicitud.length > 0 ||
     convocatoriaAdjuntos.length > 0 ||
     pronosticoAdjuntos.length > 0;
@@ -84,13 +82,8 @@ export default function AvalDocumentosSection({ aval }: Props) {
             icon={HeartPulse}
           />
         )}
-        {hasPronostico && (
-          <DownloadLink
-            href={aval.pronosticoDeportistasUrl!}
-            label="Descargar pronóstico de deportistas"
-            icon={ClipboardCheck}
-          />
-        )}
+        {/* El pronostico principal no se ofrece acá: es la misma lista de
+            deportistas que ya se ve en su preview. */}
 
         {adjuntosSolicitud.length > 0 && (
           <div className="mt-3">

@@ -14,6 +14,7 @@ import { getDirigido } from "@/lib/api/user";
 import { listRoles } from "@/lib/api/roles";
 import type { Aval } from "@/types/aval";
 import {
+  formatRole,
   formatRoles,
   formatEventScheduleSentence,
   getResponsibleTrainerName,
@@ -26,11 +27,8 @@ import {
 import RevisionMetodologoPreview, {
   type ReviewItem,
 } from "@/app/(app)/avales/_components/revision-metodologo-preview";
-import ComprasPublicasPreview, {
-  type ComprasPublicasDraft,
-} from "@/app/(app)/avales/_components/compras-publicas-preview";
-import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
+import { getAvalDocumentTitle } from "@/lib/utils/aval-collections";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import { getApprovalStageLabel } from "@/lib/constants";
 import {
@@ -50,6 +48,7 @@ import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
+import { normalizeRoleCode } from "@/lib/auth/roles";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -65,16 +64,6 @@ const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   observaciones: "",
 };
 
-const EMPTY_COMPRAS_DRAFT: ComprasPublicasDraft = {
-  numeroCertificado: "",
-  realizoProceso: null,
-  codigos: [],
-  descripcion: "",
-  nombreFirmante: "",
-  cargoFirmante: "",
-  fechaEmision: "",
-};
-
 function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
   const tecnico = aval.avalTecnico;
 
@@ -83,16 +72,32 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
+    const payload =
+      withExtras.deportista?.payload &&
+      typeof withExtras.deportista.payload === "object" &&
+      !Array.isArray(withExtras.deportista.payload)
+        ? (withExtras.deportista.payload as Record<string, unknown>)
+        : undefined;
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
       cedula: item.deportista?.cedula ?? undefined,
       fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
-      categoriaNombre: item.categoriaNombre ?? undefined,
-      afiliacion: item.afiliacion ?? undefined,
+      categoriaNombre:
+        item.categoriaNombre ??
+        (typeof payload?.categoriaNombre === "string"
+          ? payload.categoriaNombre
+          : undefined),
+      afiliacion:
+        item.afiliacion ??
+        (typeof payload?.afiliacion === "string" ? payload.afiliacion : undefined),
       canton: item.canton ?? undefined,
       club: item.club ?? undefined,
-      entrenadorNombre: item.entrenadorNombre ?? undefined,
+      entrenadorNombre:
+        item.entrenadorNombre ??
+        (typeof payload?.entrenadorNombre === "string"
+          ? payload.entrenadorNombre
+          : undefined),
       propositos: item.propositos ?? undefined,
       observacion: withExtras.observacion ?? undefined,
       rol: item.rol ?? undefined,
@@ -184,6 +189,24 @@ function getTodayLocalDate() {
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function resolveCatalogRoleName(
+  roles: Array<{ codigo?: string | null; nombre?: string | null }> | undefined,
+  code: string,
+) {
+  const normalizedCode = normalizeRoleCode(code);
+  return (
+    roles
+      ?.find((role) => normalizeRoleCode(role.codigo ?? "") === normalizedCode)
+      ?.nombre?.trim() || ""
+  );
+}
+
+function resolveRoleCargoFallback(cargo?: string | null) {
+  const text = cargo?.trim();
+  if (!text) return "";
+  return normalizeRoleCode(text) === "DTM" ? formatRole(text) : text;
 }
 
 export default function RevisionMetodologoPage() {
@@ -362,9 +385,11 @@ export default function RevisionMetodologoPage() {
         const nombre = first
           ? [first.nombre, first.apellido].filter(Boolean).join(" ").trim()
           : "";
-        const rolDtm = rolesRes?.data?.find((r) => r.codigo === "DTM");
+        const rolDtmNombre = resolveCatalogRoleName(rolesRes?.data, "DTM");
         setDtmName(nombre);
-        setDtmCargo(rolDtm?.nombre?.trim() || "DTM");
+        setDtmCargo(
+          rolDtmNombre || resolveRoleCargoFallback(first?.cargo) || "DTM",
+        );
       } catch {
         if (!active) return;
         setDtmName("");
@@ -422,7 +447,11 @@ export default function RevisionMetodologoPage() {
     setRevisionHeader((prev) => ({
       ...prev,
       dirigidoA: prev.dirigidoA || dtmName,
-      cargoDirigidoA: prev.cargoDirigidoA || dtmCargo || "DTM",
+      cargoDirigidoA:
+        !prev.cargoDirigidoA ||
+        normalizeRoleCode(prev.cargoDirigidoA) === "DTM"
+          ? dtmCargo || "DTM"
+          : prev.cargoDirigidoA,
     }));
   }, [dtmName, dtmCargo]);
 
@@ -434,7 +463,11 @@ export default function RevisionMetodologoPage() {
       .filter(Boolean)
       .join(" ")
       .trim();
-    const cargo = user.roles?.length ? formatRoles(user.roles) : "";
+    const cargo = user.rolesDetalle?.length
+      ? formatRoles(user.rolesDetalle)
+      : user.roles?.length
+        ? formatRoles(user.roles)
+        : "";
     setRevisionFooter((prev) => ({
       ...prev,
       firmanteNombre: prev.firmanteNombre || nombre,
@@ -494,26 +527,6 @@ export default function RevisionMetodologoPage() {
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
     [aval],
   );
-  const comprasDraft = useMemo(() => {
-    if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
-    const compras = aval.comprasPublicas;
-    return {
-      numeroCertificado: compras.numeroCertificado ?? "",
-      realizoProceso:
-        typeof compras.realizoProceso === "boolean"
-          ? compras.realizoProceso
-          : null,
-      codigos:
-        compras.codigos?.map((item) => ({
-          codigo: item.codigo ?? "",
-          descripcion: item.descripcion ?? "",
-        })) ?? [],
-      descripcion: compras.descripcion ?? "",
-      nombreFirmante: compras.nombreFirmante ?? "",
-      cargoFirmante: compras.cargoFirmante ?? "",
-      fechaEmision: compras.fechaEmision ?? "",
-    };
-  }, [aval]);
   const noCumpleCount = reviewItems.filter((item) => {
     const state = reviewState[item.key];
     return !resolveReviewItemCumple(aval, item, state);
@@ -893,16 +906,8 @@ export default function RevisionMetodologoPage() {
             <PreviewCollapsible title="Lista deportistas">
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud aval">
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)}>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
-            </PreviewCollapsible>
-            {aval?.tipoAval !== "SOLO_RESULTADO" && (
-              <PreviewCollapsible title="Presupuesto de salida">
-                <PresupuestoSalidaAnticipoPreview aval={aval} />
-              </PreviewCollapsible>
-            )}
-            <PreviewCollapsible title="Certificacion compras publicas">
-              <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
             </PreviewCollapsible>
             <PreviewCollapsible title="Revision metodologo" defaultOpen>
               <RevisionMetodologoPreview

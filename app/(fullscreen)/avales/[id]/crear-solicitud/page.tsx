@@ -31,6 +31,7 @@ import Paso04Presupuesto from "@/app/(app)/avales/_components/paso-04-presupuest
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { inferEventoGenero } from "@/types/evento";
 import { avalFlowDebugLog, summarizeAval } from "@/lib/debug/aval-flow";
+import { getAvalDocumentTitle } from "@/lib/utils/aval-collections";
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -203,7 +204,32 @@ function resolvePropositos(
     }));
 }
 
+function getAvalYear(aval: Aval) {
+  const value = aval.fechaEmision ?? aval.createdAt;
+  if (!value) return new Date().getFullYear();
+  const year = new Date(value).getFullYear();
+  return Number.isFinite(year) ? year : new Date().getFullYear();
+}
+
+function getAfiliacionLabel(afiliado: boolean, year: number) {
+  return afiliado ? `AFILIADO/A ${year}` : "SIN AFILIACION";
+}
+
+function normalizeAfiliacionLabel(
+  value: string | undefined,
+  afiliado: boolean,
+  year: number,
+) {
+  const text = value?.trim();
+  if (!text) return getAfiliacionLabel(afiliado, year);
+  if (/^AFILIADO\/A(?:\s+\d{4})?$/i.test(text)) {
+    return getAfiliacionLabel(true, year);
+  }
+  return text;
+}
+
 function buildInitialFormData(aval: Aval): FormData {
+  const avalYear = getAvalYear(aval);
   const deportistas = (aval.avalTecnico?.deportistasAval ?? []).map((item, index) => {
     const payload = toRecord(item.deportista?.payload);
     const afiliado =
@@ -236,9 +262,13 @@ function buildInitialFormData(aval: Aval): FormData {
         item.deportista?.categoriaNombre ??
         toStringValue(payload?.categoriaNombre),
       afiliacion:
-        item.afiliacion ??
-        item.deportista?.afiliacion ??
-        toStringValue(payload?.afiliacion),
+        normalizeAfiliacionLabel(
+          item.afiliacion ??
+            item.deportista?.afiliacion ??
+            toStringValue(payload?.afiliacion),
+          afiliado,
+          avalYear,
+        ),
       canton:
         item.canton ??
         item.deportista?.canton ??
@@ -258,7 +288,7 @@ function buildInitialFormData(aval: Aval): FormData {
       propositos: resolvePropositos(item, payload),
       afiliado,
       payload,
-      observacion: afiliado ? "AFILIADO/A 2026" : "SIN AFILIACION",
+      observacion: getAfiliacionLabel(afiliado, avalYear),
       rol: item.rol,
       modalidadParticipacion: item.modalidadParticipacion ?? undefined,
     };
@@ -548,10 +578,12 @@ export default function CrearSolicitudPage() {
       >
         <div className="p-6 xl:p-8">
           <div className="space-y-6">
-            <PreviewCollapsible title="Lista deportistas">
+            {/* En la creacion de la solicitud el entrenador necesita ver la
+                lista de deportistas siempre desplegada. */}
+            <PreviewCollapsible title="Lista deportistas" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud de aval" defaultOpen>
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)} defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={formData} />
             </PreviewCollapsible>
           </div>

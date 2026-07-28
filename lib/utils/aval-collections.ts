@@ -99,6 +99,24 @@ export function isAvalCollectionActive(aval: Aval) {
   return aval.estado === "BORRADOR" || aval.estado === "SOLICITADO";
 }
 
+export function getAvalNumero(aval?: Aval | null): string | undefined {
+  const numero =
+    aval?.numeroAval ??
+    aval?.avalTecnico?.numeroAval ??
+    aval?.numeroColeccion ??
+    aval?.aval;
+  return numero?.trim() || undefined;
+}
+
+/**
+ * Titulo del documento de solicitud. Mientras el aval sigue en borrador todavia
+ * no tiene numero asignado, por eso el fallback sin numero.
+ */
+export function getAvalDocumentTitle(aval?: Aval | null): string {
+  const numero = getAvalNumero(aval);
+  return numero ? `Aval N° ${numero}` : "Aval";
+}
+
 export function getCollectionIdentifier(aval: Aval) {
   return (
     aval.avalTecnico?.numeroAval?.trim() ||

@@ -5,22 +5,17 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useApprovalFlow } from "@/lib/hooks/use-approval-flow";
-import { aprobarAval, adminSaveControlPrevio, getRevisionMetodologoItems } from "@/lib/api/avales";
+import { aprobarAval, adminSaveControlPrevio } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   ListaDeportistasPreview,
   SolicitudAvalPreview,
   type AvalPreviewFormData,
 } from "@/app/(app)/avales/_components/aval-document-preview";
+import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import ComprasPublicasPreview, {
   type ComprasPublicasDraft,
 } from "@/app/(app)/avales/_components/compras-publicas-preview";
-import RevisionMetodologoPreview, {
-  type ReviewItem,
-  type ReviewStateItem,
-} from "@/app/(app)/avales/_components/revision-metodologo-preview";
-import AvalTecnicoCompetitivoPreview from "@/app/(app)/avales/_components/aval-tecnico-competitivo-preview";
-import PresupuestoSalidaAnticipoPreview from "@/app/(app)/avales/_components/presupuesto-salida-anticipo-preview";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import ApprovalFlowCard from "@/app/(app)/avales/_components/approval-flow-card";
 import AlertBanner from "@/components/ui/alert-banner";
@@ -29,6 +24,7 @@ import { isControlPrevioUser } from "@/lib/auth/access";
 import {
   getApprovalFlowStages,
   getNextApprovalStageForAval,
+  getStagePredecessorForAval,
 } from "@/lib/approval-flow";
 import { getActionConfig, getSectionConfig } from "@/lib/aval-form-config";
 import { useAvalFormConfig } from "@/lib/hooks/use-aval-form-config";
@@ -37,13 +33,11 @@ import {
   formatLocationWithProvince,
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
-import {
-  DEFAULT_REVIEW_ITEMS,
-  mergeReviewStateFromApi,
-  normalizeReviewItems,
-} from "@/app/(app)/avales/_components/revision-metodologo-config";
 import AvalDocumentosSection from "@/app/(app)/avales/_components/aval-documentos-section";
-import { parseNotasFromBd } from "@/lib/utils/aval-collections";
+import {
+  getAvalDocumentTitle,
+  parseNotasFromBd,
+} from "@/lib/utils/aval-collections";
 
 const EMPTY_DOCS_DATA: AvalPreviewFormData = {
   deportistas: [],
@@ -77,16 +71,32 @@ function buildTrainerDocsData(aval: Aval): AvalPreviewFormData {
       observacion?: string | null;
       deportista: typeof item.deportista & { fechaNacimiento?: string | null };
     };
+    const payload =
+      withExtras.deportista?.payload &&
+      typeof withExtras.deportista.payload === "object" &&
+      !Array.isArray(withExtras.deportista.payload)
+        ? (withExtras.deportista.payload as Record<string, unknown>)
+        : undefined;
     return {
       id: item.deportista?.id ?? item.id,
       nombre: item.deportista?.nombre ?? `Deportista ${item.id}`,
       cedula: item.deportista?.cedula ?? undefined,
       fechaNacimiento: withExtras.deportista?.fechaNacimiento ?? undefined,
-      categoriaNombre: item.categoriaNombre ?? undefined,
-      afiliacion: item.afiliacion ?? undefined,
+      categoriaNombre:
+        item.categoriaNombre ??
+        (typeof payload?.categoriaNombre === "string"
+          ? payload.categoriaNombre
+          : undefined),
+      afiliacion:
+        item.afiliacion ??
+        (typeof payload?.afiliacion === "string" ? payload.afiliacion : undefined),
       canton: item.canton ?? undefined,
       club: item.club ?? undefined,
-      entrenadorNombre: item.entrenadorNombre ?? undefined,
+      entrenadorNombre:
+        item.entrenadorNombre ??
+        (typeof payload?.entrenadorNombre === "string"
+          ? payload.entrenadorNombre
+          : undefined),
       propositos: item.propositos ?? undefined,
       observacion: withExtras.observacion ?? undefined,
       rol: item.rol ?? undefined,
@@ -156,8 +166,6 @@ export default function RevisionControlPrevioPage() {
   const router = useRouter();
   const avalId = Number(params.id);
 
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(DEFAULT_REVIEW_ITEMS);
-  const [reviewState, setReviewState] = useState<Record<string, ReviewStateItem>>({});
   const [descripcion, setDescripcion] = useState("");
 
   const {
@@ -180,7 +188,9 @@ export default function RevisionControlPrevioPage() {
   } = useApprovalFlow({
     avalId,
     requiredRole: isControlPrevioUser,
-    editableEtapa: "REVISION_DTM",
+    editableEtapa: (currentAval) =>
+      getStagePredecessorForAval(currentAval, "CONTROL_PREVIO") ??
+      "CONTROL_PREVIO",
     additionalEditableCheck: (currentAval) =>
       getApprovalFlowStages(currentAval).includes("CONTROL_PREVIO"),
     approvalEtapa: (etapa, currentAval) =>
@@ -208,32 +218,6 @@ export default function RevisionControlPrevioPage() {
     isControlPrevio && (isEditable || adminSaveOnly) && (controlPrevioSection?.visible ?? true);
 
   useEffect(() => {
-    let active = true;
-    async function loadReviewItems() {
-      try {
-        const response = await getRevisionMetodologoItems();
-        if (!active) return;
-        const normalized = normalizeReviewItems(
-          Array.isArray(response.data) ? response.data : [],
-        );
-        setReviewItems(normalized.length ? normalized : DEFAULT_REVIEW_ITEMS);
-      } catch {
-        if (!active) return;
-        setReviewItems(DEFAULT_REVIEW_ITEMS);
-      }
-    }
-    void loadReviewItems();
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!aval) return;
-    setReviewState(
-      mergeReviewStateFromApi(reviewItems, aval.revisionMetodologo?.items ?? []),
-    );
-  }, [aval, reviewItems]);
-
-  useEffect(() => {
     if (!aval) return;
     setDescripcion(
       aval.controlPrevio?.descripcion?.trim() ||
@@ -243,42 +227,6 @@ export default function RevisionControlPrevioPage() {
 
   const trainerDocsData = useMemo(
     () => (aval ? buildTrainerDocsData(aval) : EMPTY_DOCS_DATA),
-    [aval],
-  );
-  const comprasDraft = useMemo(() => {
-    if (!aval?.comprasPublicas) return EMPTY_COMPRAS_DRAFT;
-    const compras = aval.comprasPublicas;
-    return {
-      numeroCertificado: compras.numeroCertificado ?? "",
-      realizoProceso:
-        typeof compras.realizoProceso === "boolean" ? compras.realizoProceso : null,
-      codigos:
-        compras.codigos?.map((item) => ({
-          codigo: item.codigo ?? "",
-          descripcion: item.descripcion ?? "",
-        })) ?? [],
-      descripcion: compras.descripcion ?? "",
-      nombreFirmante: compras.nombreFirmante ?? "",
-      cargoFirmante: compras.cargoFirmante ?? "",
-      fechaEmision: compras.fechaEmision ?? "",
-    };
-  }, [aval]);
-  const revisionHeader = useMemo(
-    () => ({
-      numeroRevision: aval?.revisionMetodologo?.numeroRevision ?? "",
-      dirigidoA: aval?.revisionMetodologo?.dirigidoA ?? "",
-      cargoDirigidoA: aval?.revisionMetodologo?.cargoDirigidoA ?? "",
-      descripcionEncabezado: aval?.revisionMetodologo?.descripcionEncabezado ?? "",
-      fechaRevision: aval?.revisionMetodologo?.fechaRevision ?? "",
-    }),
-    [aval],
-  );
-  const revisionFooter = useMemo(
-    () => ({
-      observacionesFinales: aval?.revisionMetodologo?.observacionesFinales ?? "",
-      firmanteNombre: aval?.revisionMetodologo?.firmanteNombre ?? "",
-      firmanteCargo: aval?.revisionMetodologo?.firmanteCargo ?? "",
-    }),
     [aval],
   );
   const presupuestoSalidaDraft = useMemo(
@@ -310,6 +258,27 @@ export default function RevisionControlPrevioPage() {
     }),
     [aval],
   );
+  const comprasPublicasDraft = useMemo<ComprasPublicasDraft>(() => {
+    const compras = aval?.comprasPublicas;
+    if (!compras) return EMPTY_COMPRAS_DRAFT;
+
+    return {
+      numeroCertificado: compras.numeroCertificado ?? "",
+      realizoProceso:
+        typeof compras.realizoProceso === "boolean"
+          ? compras.realizoProceso
+          : null,
+      codigos: (compras.codigos ?? []).map((item) => ({
+        codigo: item.codigo ?? "",
+        descripcion: item.descripcion ?? "",
+      })),
+      descripcion: compras.descripcion ?? "",
+      nombreFirmante: compras.nombreFirmante ?? "",
+      cargoFirmante: compras.cargoFirmante ?? "",
+      fechaEmision: compras.fechaEmision ?? "",
+    };
+  }, [aval]);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -434,34 +403,17 @@ export default function RevisionControlPrevioPage() {
             <PreviewCollapsible title="Lista deportistas" defaultOpen>
               <ListaDeportistasPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Solicitud aval" defaultOpen>
+            <PreviewCollapsible title={getAvalDocumentTitle(aval)} defaultOpen>
               <SolicitudAvalPreview aval={aval} formData={trainerDocsData} />
             </PreviewCollapsible>
-            <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
-              <ComprasPublicasPreview aval={aval} draft={comprasDraft} />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Revision metodologo" defaultOpen>
-              <RevisionMetodologoPreview
-                aval={aval}
-                header={revisionHeader}
-                footer={revisionFooter}
-                reviewItems={reviewItems}
-                reviewState={reviewState}
-              />
-            </PreviewCollapsible>
-            <PreviewCollapsible title="Aval Técnico Competitivo" defaultOpen>
-              <AvalTecnicoCompetitivoPreview
-                aval={aval}
-                fechaEmision={
-                  aval.revisionDtm?.fechaPresentacion ??
-                  aval.revisionDtm?.createdAt ??
-                  aval.createdAt
-                }
-                observacion={aval.revisionDtm?.observacion ?? ""}
-                firmanteNombre={aval.revisionDtm?.firmanteNombre ?? ""}
-                firmanteCargo={aval.revisionDtm?.firmanteCargo ?? ""}
-              />
-            </PreviewCollapsible>
+            {aval.comprasPublicas ? (
+              <PreviewCollapsible title="Certificacion compras publicas" defaultOpen>
+                <ComprasPublicasPreview
+                  aval={aval}
+                  draft={comprasPublicasDraft}
+                />
+              </PreviewCollapsible>
+            ) : null}
             <PreviewCollapsible title="Presupuesto de salida" defaultOpen>
               <PresupuestoSalidaAnticipoPreview
                 aval={aval}

@@ -373,6 +373,28 @@ export default function Paso04Presupuesto({
       }
 
       if (
+        usesManualRequirements &&
+        serializedManualRequirements.some((item) => !item.detalle?.trim())
+      ) {
+        setError("Cada requerimiento debe tener un detalle.");
+        return;
+      }
+
+      if (!usesManualRequirements && presupuestoItems.length > 0) {
+        const sinDetalle = presupuestoItems.filter(
+          (pi) => !(detallesByItemId[pi.item.id] ?? "").trim(),
+        );
+        if (sinDetalle.length > 0) {
+          setError(
+            `Completa el detalle de: ${sinDetalle
+              .map((pi) => pi.item.nombre)
+              .join(", ")}.`,
+          );
+          return;
+        }
+      }
+
+      if (
         isSoloResultado &&
         serializedManualRequirements.some((item) => {
           const monto = Number.parseFloat(item.montoSolicitado ?? "0");
@@ -475,7 +497,7 @@ export default function Paso04Presupuesto({
           : presupuestoItems.length > 0
             ? presupuestoItems.map((pi) => ({
                 formaParticipacionItemId: pi.id,
-                detalle: detallesByItemId[pi.item.id] || undefined,
+                detalle: detallesByItemId[pi.item.id]?.trim() || undefined,
               }))
             : undefined,
         observaciones: observaciones.trim() || undefined,
@@ -608,8 +630,7 @@ export default function Paso04Presupuesto({
                         </div>
                         <label className="block">
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                            Detalle{" "}
-                            <span className="font-normal text-gray-400">(opcional)</span>
+                            Detalle <span className="text-rose-500">*</span>
                           </span>
                           <input
                             type="text"
@@ -696,8 +717,7 @@ export default function Paso04Presupuesto({
                         </div>
                         <label className="block">
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                            Detalle{" "}
-                            <span className="font-normal text-gray-400">(opcional)</span>
+                            Detalle <span className="text-rose-500">*</span>
                           </span>
                           <input
                             type="text"
@@ -873,8 +893,7 @@ export default function Paso04Presupuesto({
 
                         <label className="block w-full">
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                            Detalle{" "}
-                            <span className="font-normal text-gray-400">(opcional)</span>
+                            Detalle <span className="text-rose-500">*</span>
                           </span>
                           <input
                             type="text"

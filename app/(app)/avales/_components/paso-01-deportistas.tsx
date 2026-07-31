@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search, X, Loader2 } from "lucide-react";
 import {
   listDeportistas,
@@ -23,7 +23,6 @@ import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles, isAdminUser } from "@/lib/auth/access";
 import { getAvalCupos } from "@/lib/utils/aval-collections";
 import {
-  getPronosticoProfile,
   ensureAtLeastOneProposito,
   createEmptyProposito,
   PROCEDENCIA_GROUP_FIELDS,
@@ -35,6 +34,7 @@ import {
   validatePronosticoDeportista,
   type PronosticoFieldErrors,
 } from "@/lib/validation/aval-pronostico";
+import { usePronosticoProfile } from "@/lib/hooks/use-catalog";
 
 const DEPORTISTA_SEARCH_MIN_LENGTH = 3;
 const DEPORTISTA_SEARCH_LIMIT = 10;
@@ -278,7 +278,7 @@ export default function Paso01Deportistas({
   onBack,
 }: Paso01DeportistasProps) {
   const { user } = useAuth();
-  const pronosticoProfile = getPronosticoProfile(aval.evento);
+  const pronosticoProfile = usePronosticoProfile(aval.evento);
   const categoriaEventoDefault =
     aval.evento?.categoria?.nombre?.trim() || undefined;
   const [fechaEmision, setFechaEmision] = useState(
@@ -339,22 +339,28 @@ export default function Paso01Deportistas({
     ),
   );
 
-  // Qué chips de cantón/club/entrenador están activos por deportista. No se
+  // Qué chips de cantón/club/entrenador tocó el usuario, por deportista. No se
   // deriva solo de los valores: un campo vacío puede ser "inactivo" (chip
-  // apagado) o "activo pero sin llenar" (error de validación).
+  // apagado) o "activo pero sin llenar" (error de validación). Los deportistas
+  // sin entrada usan el default de `procedenciaActivosResueltos`.
   const [procedenciaActivos, setProcedenciaActivos] = useState<
     Record<number, Set<DeportistaPronosticoFieldPath>>
-  >(() => {
+  >({});
+  // El perfil llega del catálogo (asíncrono), así que los defaults no pueden
+  // calcularse una sola vez al montar: se resuelven en cada render mientras el
+  // deportista no tenga elección propia guardada.
+  const procedenciaActivosResueltos = useMemo(() => {
     const map: Record<number, Set<DeportistaPronosticoFieldPath>> = {};
     for (const d of selectedDeportistas) {
-      map[d.id] = getDefaultProcedenciaActiva(d, pronosticoProfile);
+      map[d.id] =
+        procedenciaActivos[d.id] ?? getDefaultProcedenciaActiva(d, pronosticoProfile);
     }
     return map;
-  });
-  const procedenciaActivosRef = useRef(procedenciaActivos);
-  // getPronosticoProfile devuelve un objeto nuevo en cada render (no está
-  // memoizado): si entrara al arreglo de deps del effect de sincronización,
-  // lo dispararía en cada render y provocaría un loop de renders.
+  }, [selectedDeportistas, procedenciaActivos, pronosticoProfile]);
+  const procedenciaActivosRef = useRef(procedenciaActivosResueltos);
+  // El perfil se lee por ref en el effect de sincronización: solo interesa si
+  // existe o no, y no debe re-disparar el effect cuando el catálogo lo
+  // resuelve.
   const pronosticoProfileRef = useRef(pronosticoProfile);
   // Deportistas cuyo campo "Entrenador" fue escrito a mano: el effect de
   // sincronización con el entrenador principal ya no debe tocarlos.
@@ -579,7 +585,7 @@ export default function Paso01Deportistas({
   // activo en su lugar. procedenciaActivos se lee por ref (no como dep) para
   // no reprocesar todos los deportistas cada vez que se togglea un chip
   // ajeno, lo que pisaría ediciones manuales de otros deportistas.
-  procedenciaActivosRef.current = procedenciaActivos;
+  procedenciaActivosRef.current = procedenciaActivosResueltos;
   pronosticoProfileRef.current = pronosticoProfile;
   entrenadorManualOverridesRef.current = entrenadorManualOverrides;
 
@@ -706,15 +712,6 @@ export default function Paso01Deportistas({
       delete next[deportista.id];
       return next;
     });
-    if (pronosticoProfile) {
-      setProcedenciaActivos((prev) => ({
-        ...prev,
-        [deportista.id]: getDefaultProcedenciaActiva(
-          { canton: "", club: "", entrenadorNombre: entrenadorPrincipalNombre },
-          pronosticoProfile,
-        ),
-      }));
-    }
     setSearchDeportistas("");
   };
 
@@ -742,9 +739,10 @@ export default function Paso01Deportistas({
     deportistaId: number,
     path: DeportistaPronosticoFieldPath,
   ) => {
-    const wasActive = procedenciaActivos[deportistaId]?.has(path) ?? false;
+    const activos = procedenciaActivosResueltos[deportistaId];
+    const wasActive = activos?.has(path) ?? false;
     setProcedenciaActivos((prev) => {
-      const next = new Set(prev[deportistaId] ?? []);
+      const next = new Set(prev[deportistaId] ?? activos ?? []);
       if (wasActive) next.delete(path);
       else next.add(path);
       return { ...prev, [deportistaId]: next };
@@ -1012,7 +1010,7 @@ export default function Paso01Deportistas({
           const fieldErrors = validatePronosticoDeportista(
             deportista,
             pronosticoProfile,
-            procedenciaActivos[deportista.id],
+            procedenciaActivosResueltos[deportista.id],
           );
           if (Object.keys(fieldErrors).length > 0) {
             acc[deportista.id] = fieldErrors;
@@ -1194,7 +1192,7 @@ export default function Paso01Deportistas({
                       defaultCategoriaNombre={categoriaEventoDefault}
                       errors={pronosticoErrors[deportista.id]}
                       activePaths={
-                        procedenciaActivos[deportista.id] ??
+                        procedenciaActivosResueltos[deportista.id] ??
                         new Set<DeportistaPronosticoFieldPath>()
                       }
                       onToggleActive={(path) =>

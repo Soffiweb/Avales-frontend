@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import type { Aval, PropositoDto } from "@/types/aval";
 import {
@@ -17,10 +19,10 @@ import {
   getAvalPresupuestoItems,
 } from "@/lib/utils/aval-collections";
 import {
-  getPronosticoProfile,
   getPropositos,
   type PronosticoProfile,
 } from "@/lib/utils/aval-pronostico";
+import { usePronosticoProfile } from "@/lib/hooks/use-catalog";
 
 type FormData = {
   deportistas: Array<{
@@ -572,7 +574,7 @@ export default function AvalDocumentPreview({
   // genera para avales nuevos. Se reemplaza por el listado/pronóstico de
   // deportistas (más abajo) en las mismas vistas donde aparecía.
   const showNomina = false;
-  const pronosticoProfile = getPronosticoProfile(evento);
+  const pronosticoProfile = usePronosticoProfile(evento);
   const showListadoPronostico = mode !== "solicitud" && Boolean(pronosticoProfile);
   const showSolicitud = mode !== "nomina" && (showDetallePage || mode === "solicitud");
   const manualRequerimientos = (formData.requerimientos ?? []).filter(

@@ -1,10 +1,16 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getCatalog } from "@/lib/api/catalog";
 import { listRoles } from "@/lib/api/roles";
+import {
+  getPronosticoProfile,
+  type PronosticoProfile,
+} from "@/lib/utils/aval-pronostico";
 import type { CatalogItem } from "@/types/catalog";
+import type { Evento } from "@/types/evento";
 import type { Role } from "@/types/role";
 
 /** Los catálogos cambian con muy poca frecuencia: cache más largo que el default. */
@@ -50,6 +56,47 @@ export function useDisciplinaPronosticoPlantilla(disciplinaId?: number | null) {
     // disciplinas como "sin plantilla" y bloquearía la creación de avales.
     sinPlantilla: disciplina?.pronosticoPlantilla === null,
   };
+}
+
+type EventoPronostico = Pick<Evento, "disciplina" | "disciplinaCodigo">;
+
+/**
+ * Perfil de pronóstico del evento (qué campos se piden por deportista),
+ * resuelto con la plantilla que el catálogo trae para la disciplina. El nombre
+ * de la disciplina no alcanza: la plantilla se configura desde catálogos, así
+ * que una disciplina nueva (ej. "Voleibol Playa") solo muestra sus campos si
+ * se lee del catálogo.
+ */
+export function usePronosticoProfile(
+  evento?: EventoPronostico | null,
+): PronosticoProfile | null {
+  const { disciplinas } = useCatalog();
+  const disciplinaId = evento?.disciplina?.id;
+  const disciplinaNombre = evento?.disciplina?.nombre;
+  const disciplinaCodigo = evento?.disciplinaCodigo ?? evento?.disciplina?.codigo;
+
+  const plantilla = disciplinaId
+    ? disciplinas.find((item) => item.id === disciplinaId)?.pronosticoPlantilla
+    : undefined;
+  // `undefined` (disciplina no encontrada o backend sin el campo) deja que el
+  // perfil caiga al mapa por código; `null` es "sin plantilla configurada".
+  const motor = plantilla ? plantilla.motor : plantilla;
+
+  // El objeto `evento` cambia de identidad en cada render de los pasos del
+  // aval, así que el memo se apoya en los datos de la disciplina.
+  return useMemo(
+    () =>
+      getPronosticoProfile(
+        {
+          disciplina: disciplinaId
+            ? { id: disciplinaId, nombre: disciplinaNombre ?? "" }
+            : null,
+          disciplinaCodigo,
+        },
+        motor,
+      ),
+    [disciplinaId, disciplinaNombre, disciplinaCodigo, motor],
+  );
 }
 
 /**

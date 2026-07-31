@@ -1,10 +1,8 @@
 import type { Evento } from "@/types/evento";
 import type { PropositoDto } from "@/types/aval";
+import type { MotorPronostico } from "@/types/catalog";
 
-export type PronosticoTemplate =
-  | "PRONOSTICO_1"
-  | "PRONOSTICO_2"
-  | "PRONOSTICO_3";
+export type PronosticoTemplate = MotorPronostico;
 
 // "proposito.*" son los campos que viven dentro de cada ítem de
 // deportistasAval[].propositos (ver types/aval.ts#PropositoDto). No es un
@@ -55,10 +53,15 @@ export const PROCEDENCIA_GROUP_FIELDS: DeportistaPronosticoFieldPath[] = [
 export const PROCEDENCIA_DEFAULT_FIELD: DeportistaPronosticoFieldPath =
   "entrenadorNombre";
 
+// Fallback para backends que todavía no exponen `pronosticoPlantilla` en el
+// catálogo de disciplinas: replica el mapa que el backend migró a la tabla
+// `PronosticoPlantilla`. La fuente de verdad es el catálogo, no estas listas:
+// una disciplina nueva (o renombrada) se configura desde catálogos.
 const DISCIPLINAS_PRONOSTICO_1 = new Set([
   "BALONCESTO",
   "FUTBOL",
   "VOLEIBOL",
+  "VOLEIBOL_PLAYA",
 ]);
 
 const DISCIPLINAS_PRONOSTICO_2 = new Set([
@@ -222,13 +225,22 @@ function resolvePronosticoTemplate(
   return null;
 }
 
+/**
+ * `motor` viene de la plantilla configurada en el catálogo de disciplinas
+ * (ver `usePronosticoProfile`): es la fuente de verdad. `undefined` significa
+ * "el catálogo no lo dice" (backend viejo o disciplina no encontrada) y cae al
+ * mapa hardcodeado; `null` significa "disciplina sin plantilla configurada",
+ * el mismo caso en que el backend bloquea la creación del aval.
+ */
 export function getPronosticoProfile(
   evento?: Pick<Evento, "disciplina" | "disciplinaCodigo"> | null,
+  motor?: MotorPronostico | null,
 ): PronosticoProfile | null {
   const disciplinaCodigo = normalizeDisciplinaKey(
     evento?.disciplinaCodigo ?? evento?.disciplina?.codigo ?? evento?.disciplina?.nombre,
   );
-  const template = resolvePronosticoTemplate(disciplinaCodigo);
+  const template =
+    motor === undefined ? resolvePronosticoTemplate(disciplinaCodigo) : motor;
 
   if (!template) return null;
 

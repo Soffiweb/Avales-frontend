@@ -129,6 +129,14 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     roles: ADMIN_ACCESS_ROLES,
   },
   {
+    type: "link",
+    label: "Reportes de avales",
+    href: "/reportes/avales",
+    segment: "reportes",
+    icon: "reportes",
+    roles: ["SUPER_ADMIN"],
+  },
+  {
     type: "group",
     label: "Catálogos",
     segment: "catalogos",

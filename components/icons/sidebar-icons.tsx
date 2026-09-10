@@ -9,6 +9,7 @@ import {
   FolderKanban,
   ShieldAlert,
   ShieldCheck,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export const SidebarIcons = {
@@ -22,6 +23,7 @@ export const SidebarIcons = {
   catalogos: FolderKanban,
   monitoreo: ShieldAlert,
   roles: ShieldCheck,
+  reportes: FileSpreadsheet,
 };
 
 export type SidebarIconKey = keyof typeof SidebarIcons;

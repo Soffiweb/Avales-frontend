@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import AlertBanner from "@/components/ui/alert-banner";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles } from "@/lib/auth/access";
-import { getAvalReports } from "@/lib/api/aval-reports";
+import { downloadAvalReport, getAvalReports } from "@/lib/api/aval-reports";
 import type {
   AvalReportRow,
   AvalReportsSummary,
@@ -231,6 +232,8 @@ function ReportsContent() {
   const [fechaFin, setFechaFin] = useState("");
   const [submittedRange, setSubmittedRange] = useState({ inicio: "", fin: "" });
   const [sortKey, setSortKey] = useState<SortKey>("aprobacion");
+  const [downloading, setDownloading] = useState<"excel" | "pdf" | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const invalidRange = Boolean(fechaInicio && fechaFin && fechaInicio > fechaFin);
   const reportQuery = useReportQuery(
     submittedRange.inicio,
@@ -241,6 +244,19 @@ function ReportsContent() {
   const search = () => {
     if (!fechaInicio || !fechaFin || invalidRange) return;
     setSubmittedRange({ inicio: fechaInicio, fin: fechaFin });
+  };
+
+  const download = async (format: "excel" | "pdf") => {
+    if (!submittedRange.inicio || !submittedRange.fin) return;
+    setDownloading(format);
+    setDownloadError(null);
+    try {
+      await downloadAvalReport(format, submittedRange.inicio, submittedRange.fin);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "No se pudo descargar el archivo.");
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
@@ -269,20 +285,41 @@ function ReportsContent() {
       </form>
 
       {reportQuery.error && <AlertBanner variant="error" message={reportQuery.error instanceof Error ? reportQuery.error.message : "No se pudo cargar el reporte."} />}
+      {downloadError && <AlertBanner variant="error" message={downloadError} />}
       {reportQuery.data && (
         <>
           {reportQuery.data.advertenciaMontoEjecutado && <AlertBanner variant="error" message={reportQuery.data.advertenciaMontoEjecutado} />}
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Resumen</h2>
-              <label className="text-sm text-gray-600 dark:text-gray-300">
-                Ordenar tablas
-                <select className="form-select ml-2" value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)}>
-                  <option value="aprobacion">Aprobación descendente</option>
-                  <option value="numero">Número de aval</option>
-                  <option value="estado">Estado</option>
-                </select>
-              </label>
+              <div className="flex flex-wrap items-end gap-2">
+                <button
+                  type="button"
+                  className="btn border border-emerald-600 text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                  onClick={() => download("excel")}
+                  disabled={Boolean(downloading)}
+                >
+                  {downloading === "excel" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                  Descargar Excel
+                </button>
+                <button
+                  type="button"
+                  className="btn border border-rose-600 text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                  onClick={() => download("pdf")}
+                  disabled={Boolean(downloading)}
+                >
+                  {downloading === "pdf" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                  Descargar PDF
+                </button>
+                <label className="text-sm text-gray-600 dark:text-gray-300">
+                  Ordenar tablas
+                  <select className="form-select ml-2" value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)}>
+                    <option value="aprobacion">Aprobación descendente</option>
+                    <option value="numero">Número de aval</option>
+                    <option value="estado">Estado</option>
+                  </select>
+                </label>
+              </div>
             </div>
             <SummaryTable summary={reportQuery.data.resumen} />
           </section>

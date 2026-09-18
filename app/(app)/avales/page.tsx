@@ -23,7 +23,7 @@ import {
   isTrainerUser,
   isLectorUser,
 } from "@/lib/auth/access";
-import AvalListCard from "./_components/aval-list-card";
+import AvalListTable from "./_components/aval-list-table";
 import {
   getAvalCurrentEtapa,
   isStageReadyForAval,
@@ -395,7 +395,7 @@ export default function AvalesPage() {
                     {pendientes.length}
                   </span>
                 </div>
-                <AvalListCard avales={pendientes} {...avalCardProps} />
+                <AvalListTable avales={pendientes} {...avalCardProps} />
               </>
             )}
             {otros.length > 0 && (
@@ -405,15 +405,15 @@ export default function AvalesPage() {
                     Otros avales
                   </h2>
                 )}
-                <AvalListCard avales={otros} {...avalCardProps} />
+                <AvalListTable avales={otros} {...avalCardProps} />
               </>
             )}
             {avales.length === 0 && (
-              <AvalListCard avales={[]} {...avalCardProps} />
+              <AvalListTable avales={[]} {...avalCardProps} />
             )}
           </>
         ) : (
-          <AvalListCard
+          <AvalListTable
             avales={avales}
             loading={loading}
             error={error}

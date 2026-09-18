@@ -45,10 +45,10 @@ export default function AvalFlujoProgreso({ aval }: { aval: Aval }) {
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h4 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Avance del flujo
         </h4>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-slate-500 dark:text-slate-400">
           {cumplidas} de {etapas.length} etapas
         </span>
       </div>
@@ -58,21 +58,29 @@ export default function AvalFlujoProgreso({ aval }: { aval: Aval }) {
           const estado = estadoDe(etapa);
           const esUltima = i === etapas.length - 1;
 
+          // Rellenos pastel en vez de sólidos saturados: cuatro círculos
+          // llenos de color compiten entre sí y con el resto de la fila
+          // desplegada. El estado se lee igual por tono, sin gritar.
+          //
+          // `actual` es el único que además lleva halo: al pasar todos a
+          // pastel, el relleno dejó de alcanzar para distinguir "en curso" de
+          // "cumplida" de un vistazo.
           const circulo = {
             cumplida:
-              "border-emerald-500 bg-emerald-500 text-white",
+              "border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300",
             actual:
-              "border-violet-500 bg-white text-violet-600 dark:bg-gray-800 dark:text-violet-300",
-            rechazada: "border-rose-500 bg-rose-500 text-white",
+              "border-indigo-200 bg-indigo-100 text-indigo-700 ring-2 ring-indigo-200 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/30",
+            rechazada:
+              "border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300",
             pendiente:
-              "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500",
+              "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-600 dark:bg-slate-700/40 dark:text-slate-400",
           }[estado];
 
           const texto = {
-            cumplida: "text-gray-700 dark:text-gray-300",
-            actual: "font-semibold text-violet-700 dark:text-violet-300",
+            cumplida: "text-slate-700 dark:text-slate-300",
+            actual: "font-semibold text-indigo-700 dark:text-indigo-300",
             rechazada: "font-semibold text-rose-600 dark:text-rose-400",
-            pendiente: "text-gray-400 dark:text-gray-500",
+            pendiente: "text-slate-500 dark:text-slate-400",
           }[estado];
 
           return (
@@ -97,8 +105,8 @@ export default function AvalFlujoProgreso({ aval }: { aval: Aval }) {
                 <span
                   className={`mt-3.5 h-0.5 w-6 shrink-0 rounded ${
                     estado === "cumplida"
-                      ? "bg-emerald-400"
-                      : "bg-gray-200 dark:bg-gray-700"
+                      ? "bg-emerald-200 dark:bg-emerald-500/30"
+                      : "bg-slate-200 dark:bg-slate-700"
                   }`}
                   aria-hidden="true"
                 />

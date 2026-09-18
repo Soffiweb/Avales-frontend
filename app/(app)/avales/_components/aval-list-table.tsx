@@ -18,6 +18,9 @@ import {
   Stamp,
 } from "lucide-react";
 
+import { EyeIcon } from "@phosphor-icons/react";
+import Link from "next/link";
+
 import type { Aval, EtapaFlujo } from "@/types/aval";
 import {
   getApprovalStageBadgeStyles,
@@ -399,7 +402,7 @@ export default function AvalListTable({
 
                     <Td className="py-2.5">
                       <span
-                        className={`inline-flex max-w-full items-center gap-1.5 truncate rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}
+                        className={`inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles.bg} ${statusStyles.text} ${statusStyles.border}`}
                         title={stageLabel}
                       >
                         <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -487,7 +490,23 @@ export default function AvalListTable({
                   </Tr>
 
                   {abiertos.has(aval.id) && (
-                    <ExpandedRow colSpan={COLUMN_COUNT}>
+                    <ExpandedRow
+                      colSpan={COLUMN_COUNT}
+                      // Sin condición, igual que el item "Ver detalle" del
+                      // menú de acciones de esta misma fila: ver el aval no
+                      // está restringido por rol, lo que se restringe son las
+                      // acciones de etapa. El pie repite ese mismo acceso
+                      // donde el usuario ya está mirando el detalle.
+                      footer={
+                        <Link
+                          href={`/avales/${aval.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                        >
+                          <EyeIcon size={14} aria-hidden="true" />
+                          Ver detalle completo
+                        </Link>
+                      }
+                    >
                       <AvalFlujoProgreso aval={aval} />
 
                       <div className="my-4 border-t border-gray-200 dark:border-gray-700" />

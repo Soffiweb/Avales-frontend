@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 
 import AlertBanner from "@/components/ui/alert-banner";
 import SearchInput from "@/components/ui/search-input";
+import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import { listAvales, type ListAvalesOptions } from "@/lib/api/avales";
 import type { Aval, EtapaFlujo } from "@/types/aval";
@@ -124,6 +125,24 @@ export default function AvalesPage() {
     Boolean(user?.disciplinaCodigo) ||
     user?.disciplinaId != null ||
     Boolean(user?.disciplinas && user.disciplinas.length > 0);
+
+  // El listado es el mismo para todos los roles, pero lo que cada uno ve no:
+  // el admin mira el sistema entero, el revisor su disciplina y el resto lo
+  // suyo. El título lo dice para que nadie confunda "no hay avales" con "no
+  // tengo permiso de ver los que hay".
+  const tituloPagina = isAdmin
+    ? "Gestión de Avales"
+    : isReviewer
+      ? "Avales de mi Disciplina"
+      : "Mis Avales";
+
+  const descripcionPagina = isAdmin
+    ? "Visualiza todos los avales solicitados en el sistema."
+    : isReviewer
+      ? "Todos los avales de tu disciplina en cualquier estado."
+      : "Gestiona tus solicitudes de avales para eventos deportivos.";
+
+  const puedeCrearAval = !isAdmin && !isReviewer && !isSecretaria && !isLector;
 
   // etapa no se sincroniza a URL (comportamiento existente)
   const [etapa, setEtapa] = useState("");
@@ -263,40 +282,35 @@ export default function AvalesPage() {
       )}
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-              {isAdmin ? "Gestión de Avales" : isReviewer ? "Avales de mi Disciplina" : "Mis Avales"}
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {isAdmin
-                ? "Visualiza todos los avales solicitados en el sistema."
-                : isReviewer
-                ? "Todos los avales de tu disciplina en cualquier estado."
-                : "Gestiona tus solicitudes de avales para eventos deportivos."}
-            </p>
-          </div>
-
-          {!isAdmin && !isReviewer && !isSecretaria && !isLector &&
-            (hasDisciplina ? (
-              <Link
-                href="/avales/nuevo"
-                className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white shrink-0"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Crear aval
-              </Link>
-            ) : (
-              <button
-                disabled
-                className="btn bg-gray-400 text-gray-100 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400 shrink-0"
-                title="Debes tener una disciplina asignada para crear avales"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Crear aval
-              </button>
-            ))}
-        </div>
+        <PageHeader
+          title={tituloPagina}
+          description={descripcionPagina}
+          // El último tramo repite el título en vez de decir siempre "Avales":
+          // el rastro tiene que coincidir con lo que la pantalla dice ser.
+          breadcrumb={[{ label: tituloPagina }]}
+          actions={
+            puedeCrearAval ? (
+              hasDisciplina ? (
+                <Link
+                  href="/avales/nuevo"
+                  className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white shrink-0"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crear aval
+                </Link>
+              ) : (
+                <button
+                  disabled
+                  className="btn bg-gray-400 text-gray-100 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400 shrink-0"
+                  title="Debes tener una disciplina asignada para crear avales"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crear aval
+                </button>
+              )
+            ) : null
+          }
+        />
 
         <div className="flex flex-col sm:flex-row gap-2">
           <SearchInput

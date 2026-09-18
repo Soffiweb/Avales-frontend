@@ -317,22 +317,34 @@ export default function Dashboard() {
         </div>
         {activeTab === "avales" && (
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {PERIODO_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setMeses(opt.value)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    meses === opt.value
-                      ? "bg-indigo-500 text-white"
-                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <Clock className="h-4 w-4 text-gray-400" aria-hidden="true" />
+            {/* Segmented control: el contenedor es el "riel" gris y la opción
+                activa se levanta como una tarjeta blanca. Se lee como un
+                interruptor, no como tres botones sueltos. */}
+            <div
+              role="tablist"
+              aria-label="Período"
+              className="inline-flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900/60"
+            >
+              {PERIODO_OPTIONS.map((opt) => {
+                const selected = meses === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setMeses(opt.value)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                      selected
+                        ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100"
+                        : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -340,22 +352,26 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex gap-6" aria-label="Tabs">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
+        <nav className="-mb-px flex gap-1" aria-label="Secciones">
+          {TABS.map((tab) => {
+            const selected = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                aria-current={selected ? "page" : undefined}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  selected
+                    ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
+                    : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                }`}
+              >
+                <tab.icon className="h-4 w-4" aria-hidden="true" />
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -982,41 +998,72 @@ function formatCompact(value: number): string {
   return value.toFixed(0);
 }
 
+/**
+ * Paleta del "chip" de icono de cada KPI.
+ *
+ * Las clases se escriben COMPLETAS a propósito. Tailwind genera CSS a partir
+ * de lo que encuentra escrito en el código fuente, así que armar el nombre en
+ * runtime (ej. `` `${color}/10` ``) produce una clase que nunca se genera —
+ * ese era el motivo por el que el icono se veía sin fondo.
+ */
+const STAT_TONES: Record<string, string> = {
+  "bg-blue-500": "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400",
+  "bg-indigo-500":
+    "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400",
+  "bg-purple-500":
+    "bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400",
+  "bg-emerald-500":
+    "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400",
+  "bg-green-500":
+    "bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400",
+  "bg-teal-500": "bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400",
+  "bg-amber-500":
+    "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400",
+  "bg-rose-500": "bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400",
+};
+
+const STAT_TONE_FALLBACK =
+  "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+
 function StatCard({
   title,
   value,
   icon,
   color,
-  iconColor,
   subtitle,
 }: {
   title: string;
   value?: number | string | null;
   icon: React.ReactNode;
   color: string;
+  /** @deprecated El color del icono ahora sale de `color` vía `STAT_TONES`. */
   iconColor?: string;
   subtitle?: string;
 }) {
+  const tone = STAT_TONES[color] ?? STAT_TONE_FALLBACK;
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          {title}
-        </p>
-        <div
-          className={`p-2 rounded-lg bg-opacity-10 dark:bg-opacity-20 ${color.replace("bg-", "bg-")}/10 ${iconColor ?? "text-gray-500"}`}
-        >
-          {icon}
-        </div>
+    <div className="group rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600">
+      <div
+        className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}
+      >
+        {icon}
       </div>
-      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-        {value ?? "-"}
+
+      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        {title}
       </p>
-      {subtitle && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {subtitle}
+
+      <div className="mt-2 flex flex-wrap items-baseline gap-2">
+        <p className="text-3xl font-bold leading-none text-gray-900 dark:text-gray-100">
+          {value ?? "-"}
         </p>
-      )}
+        {subtitle && (
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            {subtitle}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

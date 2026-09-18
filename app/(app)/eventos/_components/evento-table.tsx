@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Tr,
+  Td,
+} from "@/components/ui/table";
 import Link from "next/link";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 
@@ -48,77 +57,60 @@ export default function EventoTable({
   const showEmpty = !loading && !error && eventos.length === 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="table-auto w-full dark:text-gray-300">
-          <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-b border-gray-100 dark:border-gray-700/60">
+    <TableContainer>
+        <Table>
+          <TableHead>
               <tr>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Nombre</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Tipo de evento</div>
-                </th>
+                <Th>Nombre</Th>
+                <Th>Tipo de evento</Th>
 
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Disciplina</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Categoría</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Lugar</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Programación</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Estado</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Acciones</div>
-                </th>
+                <Th>Disciplina</Th>
+                <Th>Categoría</Th>
+                <Th>Lugar</Th>
+                <Th>Programación</Th>
+                <Th>Estado</Th>
+                <Th>Acciones</Th>
               </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
+            </TableHead>
+            <TableBody>
               {loading && (
                 <tr>
-                  <td
-                    className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
+                  <Td
+                    className="text-center text-gray-500 dark:text-gray-400"
                     colSpan={COLUMN_COUNT}
                   >
                     Cargando eventos...
-                  </td>
+                  </Td>
                 </tr>
               )}
 
               {error && !loading && (
                 <tr>
-                  <td
-                    className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-red-500"
+                  <Td
+                    className="text-center text-red-500"
                     colSpan={COLUMN_COUNT}
                   >
                     {error}
-                  </td>
+                  </Td>
                 </tr>
               )}
 
               {showEmpty && (
                 <tr>
-                  <td
-                    className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-gray-500 dark:text-gray-400"
+                  <Td
+                    className="text-center text-gray-500 dark:text-gray-400"
                     colSpan={COLUMN_COUNT}
                   >
                     No hay eventos registrados.
-                  </td>
+                  </Td>
                 </tr>
               )}
 
               {!loading &&
                 !error &&
                 eventos.map((evento) => (
-                  <tr key={evento.id}>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                  <Tr key={evento.id}>
+                    <Td>
                       <div className="font-semibold text-gray-800 dark:text-gray-100">
                         {evento.nombre || "-"}
                       </div>
@@ -132,35 +124,35 @@ export default function EventoTable({
                           {evento.codigo}
                         </div>
                       )}
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {evento.tipoEvento || "-"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {evento.disciplina?.nombre || "-"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {formatCategoryLabel(
                           evento.categoria?.nombre ?? evento.categoriaCodigo
                         )}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {formatLocationWithProvince(evento)}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {formatEventScheduleLabel(evento)}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="flex flex-col gap-1">
                         <span
                           className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide uppercase ${getStatusClasses(
@@ -175,8 +167,8 @@ export default function EventoTable({
                           </span>
                         )}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="flex items-center justify-start gap-2">
                         <Link
                           href={`/eventos/${evento.id}`}
@@ -210,12 +202,11 @@ export default function EventoTable({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-            </tbody>
-        </table>
-      </div>
-    </div>
+            </TableBody>
+        </Table>
+    </TableContainer>
   );
 }

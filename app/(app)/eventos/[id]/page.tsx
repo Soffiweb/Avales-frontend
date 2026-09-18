@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Tr,
+  Td,
+} from "@/components/ui/table";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -887,64 +896,64 @@ export default function EventoDetailPage() {
                                     Este tipo de participación no registra presupuesto.
                                   </div>
                                 ) : items.length > 0 ? (
-                                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700/60">
-                                    <table className="w-full">
-                                      <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-900/30 dark:text-gray-400">
+                                  <TableContainer>
+                                    <Table>
+                                      <TableHead>
                                         <tr>
-                                          <th className="px-4 py-3 text-left">Item</th>
-                                          <th className="px-4 py-3 text-left">Actividad</th>
-                                          <th className="px-4 py-3 text-left">Descripción</th>
-                                          <th className="px-4 py-3 text-center">Mes</th>
-                                          <th className="px-4 py-3 text-right">V. Unitario</th>
-                                          <th className="px-4 py-3 text-right">Asignado</th>
-                                          <th className="px-4 py-3 text-right">Disponible</th>
+                                          <Th>Item</Th>
+                                          <Th>Actividad</Th>
+                                          <Th>Descripción</Th>
+                                          <Th className="text-center">Mes</Th>
+                                          <Th className="text-right">V. Unitario</Th>
+                                          <Th className="text-right">Asignado</Th>
+                                          <Th className="text-right">Disponible</Th>
                                         </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                                      </TableHead>
+                                      <TableBody>
                                         {itemsConDisponible.map((eventoItem) => (
-                                          <tr key={eventoItem.id} className="text-sm">
-                                            <td className="px-4 py-3">
+                                          <Tr key={eventoItem.id}>
+                                            <Td>
                                               <div className="font-medium text-gray-900 dark:text-gray-100">
                                                 {eventoItem.item.numero}. {eventoItem.item.nombre}
                                               </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                            </Td>
+                                            <Td>
                                               {eventoItem.item.actividad ? (
                                                 <span>{eventoItem.item.actividad.numero}. {eventoItem.item.actividad.nombre}</span>
                                               ) : (
                                                 <span className="text-gray-400">-</span>
                                               )}
-                                            </td>
-                                            <td className="max-w-xs truncate px-4 py-3 text-gray-600 dark:text-gray-300">
+                                            </Td>
+                                            <Td className="max-w-xs truncate">
                                               {eventoItem.item.descripcion || "-"}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
+                                            </Td>
+                                            <Td className="text-center">
                                               <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                                                 {formatMonth(eventoItem.mes)}
                                               </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                                            </Td>
+                                            <Td className="text-right">
                                               {eventoItem.valorUnitario
                                                 ? formatCurrency(parseFloat(eventoItem.valorUnitario))
                                                 : "-"}
-                                            </td>
-                                            <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                                            </Td>
+                                            <Td className="text-right">
                                               {formatCurrency(eventoItem.asignado)}
-                                            </td>
-                                            <td
-                                              className={`px-4 py-3 text-right font-medium ${
+                                            </Td>
+                                            <Td
+                                              className={`text-right font-medium ${
                                                 eventoItem.disponible <= 0
                                                   ? "text-rose-600 dark:text-rose-300"
                                                   : "text-gray-900 dark:text-gray-100"
                                               }`}
                                             >
                                               {formatCurrency(eventoItem.disponible)}
-                                            </td>
-                                          </tr>
+                                            </Td>
+                                          </Tr>
                                         ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
+                                      </TableBody>
+                                    </Table>
+                                  </TableContainer>
                                 ) : (
                                   <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
                                     No hay items presupuestarios registrados para este tipo de participación.

@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Tr,
+  Td,
+} from "@/components/ui/table";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -142,26 +151,26 @@ export default function EventoHistorialPage() {
               </h2>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <tr>
-                  <th className="px-5 py-3 text-left font-semibold">Fecha</th>
-                  <th className="px-5 py-3 text-left font-semibold">Estado</th>
-                  <th className="px-5 py-3 text-left font-semibold">Motivo</th>
-                  <th className="px-5 py-3 text-left font-semibold">Solicitante</th>
-                  <th className="px-5 py-3 text-left font-semibold">Aprobador</th>
-                  <th className="px-5 py-3 text-left font-semibold">Versiones</th>
-                  <th className="px-5 py-3 text-right font-semibold">Acción</th>
+                  <Th>Fecha</Th>
+                  <Th>Estado</Th>
+                  <Th>Motivo</Th>
+                  <Th>Solicitante</Th>
+                  <Th>Aprobador</Th>
+                  <Th>Versiones</Th>
+                  <Th className="text-right">Acción</Th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              </TableHead>
+              <TableBody>
                 {reforms.map((reform) => (
-                  <tr key={reform.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-900/30">
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
+                  <Tr key={reform.id}>
+                    <Td>
                       {formatDateTimeShort(reform.createdAt)}
-                    </td>
-                    <td className="px-5 py-3">
+                    </Td>
+                    <Td>
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
                           reform.estado,
@@ -169,22 +178,22 @@ export default function EventoHistorialPage() {
                       >
                         {reform.estado}
                       </span>
-                    </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
+                    </Td>
+                    <Td>
                       {reform.motivo || "-"}
-                    </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
+                    </Td>
+                    <Td>
                       {formatUserLabel(reform.solicitante)}
-                    </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
+                    </Td>
+                    <Td>
                       {formatUserLabel(reform.aprobador)}
-                    </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-200">
+                    </Td>
+                    <Td>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         base:{reform.versionBaseId ?? "-"} · aprobada:{reform.versionAprobadaId ?? "-"}
                       </span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
+                    </Td>
+                    <Td className="text-right">
                       <Link
                         href={`/reformas/${reform.id}`}
                         className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-200 dark:hover:bg-gray-900/50"
@@ -192,12 +201,12 @@ export default function EventoHistorialPage() {
                         <Eye className="h-4 w-4" />
                         Ver detalle
                       </Link>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </div>
       )}
     </div>

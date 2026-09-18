@@ -11,6 +11,14 @@ import {
 
 import { useAuth } from "@/app/providers/auth-provider";
 import AlertBanner from "@/components/ui/alert-banner";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  Td,
+  Th,
+  Tr,
+} from "@/components/ui/table";
 import { getEvento } from "@/lib/api/eventos";
 import type { Evento } from "@/types/evento";
 import {
@@ -536,45 +544,43 @@ function EventSidePanel({
               Sin ítems presupuestarios.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50 dark:bg-gray-900/50">
+            <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+              {/* Densidad en `Table` y no `TableContainer`: la tabla ya vive
+                  dentro de la tarjeta del panel, que aporta su propio borde;
+                  el contenedor agregaría un segundo marco encima. */}
+              <Table density="dense">
+                <TableHead>
                   <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
-                      Ítem
-                    </th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
-                      Mes
-                    </th>
-                    <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
-                      Valor
-                    </th>
+                    <Th>Ítem</Th>
+                    <Th>Mes</Th>
+                    <Th className="text-right">Valor</Th>
                   </tr>
-                </thead>
-                <tbody>
+                </TableHead>
+                <TableBody>
                   {budgetRows.map((row) => (
-                    <tr
+                    <Tr
                       key={row.key}
                       className={
                         row.changed
                           ? "bg-amber-50/70 dark:bg-amber-900/10"
-                          : undefined
+                          : ""
                       }
                     >
-                      <td className="border-t border-gray-100 px-3 py-2 text-gray-900 dark:border-gray-700 dark:text-gray-100">
+                      {/* `wrap`: el nombre del ítem es la única columna de
+                          texto largo y la tarjeta no scrollea en horizontal;
+                          sin envolver, el nombre se cortaría contra el borde. */}
+                      <Td wrap className="text-slate-900 dark:text-slate-100">
                         <span className="font-semibold">{row.code}</span>{" "}
                         {row.item}
-                      </td>
-                      <td className="border-t border-gray-100 px-3 py-2 text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                        {tone === "before" ? row.beforeMonth : row.month}
-                      </td>
-                      <td className="border-t border-gray-100 px-3 py-2 text-right font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100">
+                      </Td>
+                      <Td>{tone === "before" ? row.beforeMonth : row.month}</Td>
+                      <Td className="text-right font-semibold text-slate-900 dark:text-slate-100">
                         {tone === "before" ? row.before : row.after}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </div>
@@ -767,42 +773,45 @@ function MovimientosPresupuestoTable({
               </div>
 
               {entry.items.length > 0 ? (
-                <div className="mt-3 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
-                  <table className="w-full border-collapse text-xs">
-                    <thead className="bg-gray-50 dark:bg-gray-800/80">
+                <div className="mt-3 overflow-hidden rounded-md border border-slate-200 dark:border-slate-700">
+                  {/* Se fue el `border-collapse`: los primitivos separan filas
+                      con `divide-y`, que da la misma línea simple sin el riesgo
+                      de bordes dobles entre celdas. */}
+                  <Table density="dense">
+                    <TableHead>
                       <tr>
-                        <th className="border-b border-gray-200 px-2 py-2 text-left font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                          Ítem
-                        </th>
-                        <th className="border-b border-gray-200 px-2 py-2 text-left font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                          Mes
-                        </th>
-                        <th className="border-b border-gray-200 px-2 py-2 text-right font-medium text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                          Monto
-                        </th>
+                        <Th>Ítem</Th>
+                        <Th>Mes</Th>
+                        <Th className="text-right">Monto</Th>
                       </tr>
-                    </thead>
-                    <tbody>
+                    </TableHead>
+                    <TableBody>
                       {entry.items.map((linea, index) => (
-                        <tr key={`${linea.itemId}-${linea.mes}-${index}`}>
-                          <td className="border-b border-gray-100 px-2 py-2 text-gray-700 dark:border-gray-800 dark:text-gray-200">
+                        <Tr key={`${linea.itemId}-${linea.mes}-${index}`}>
+                          {/* Mismo motivo que en el panel de comparación: el
+                              nombre del ítem es largo y la tarjeta no tiene
+                              scroll horizontal. */}
+                          <Td wrap>
                             {linea.item?.nombre
                               ? `${linea.item.numero ?? linea.item.id} · ${linea.item.nombre}`
                               : `Item #${linea.itemId}`}
-                          </td>
-                          <td className="border-b border-gray-100 px-2 py-2 text-gray-700 dark:border-gray-800 dark:text-gray-200">
-                            {MES_NOMBRES[linea.mes] ?? `Mes ${linea.mes}`}
-                          </td>
-                          <td
-                            className={`border-b border-gray-100 px-2 py-2 text-right font-semibold dark:border-gray-800 ${accentClass}`}
-                          >
-                            {sign}
-                            {formatCurrencyFromString(getLineaMonto(linea))}
-                          </td>
-                        </tr>
+                          </Td>
+                          <Td>{MES_NOMBRES[linea.mes] ?? `Mes ${linea.mes}`}</Td>
+                          <Td className="text-right font-semibold">
+                            {/* El color de acento va en un `span` y no en la
+                                celda: `Td` ya pinta el texto en slate y esa
+                                clase se emite después en la hoja de estilos,
+                                así que desde `className` el acento perdería.
+                                En un hijo el color gana siempre. */}
+                            <span className={accentClass}>
+                              {sign}
+                              {formatCurrencyFromString(getLineaMonto(linea))}
+                            </span>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               ) : null}
             </div>

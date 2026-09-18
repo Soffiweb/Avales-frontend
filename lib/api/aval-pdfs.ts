@@ -155,3 +155,33 @@ export async function downloadComposedPdf(
   document.body.removeChild(link);
   URL.revokeObjectURL(blobUrl);
 }
+
+/**
+ * Descarga el aval completo como ZIP: el PDF mergeado más los adjuntos que no
+ * son PDF ni imagen (Excel, CSV) sueltos dentro del archivo.
+ *
+ * Va por `fetch` autenticado y no por un `<a href>` plano: el endpoint está
+ * protegido y el token vive en localStorage, no en cookie, así que un enlace
+ * directo se va con 401.
+ */
+export async function downloadAvalCompletoZip(
+  avalId: number,
+  nombreArchivo?: string,
+): Promise<void> {
+  const url = `${API_BASE}/avales/${avalId}/aval-completo-zip`;
+  const headers = await buildAuthHeader();
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`No se pudo descargar el aval (HTTP ${res.status})`);
+  }
+
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = nombreArchivo ?? `aval-${avalId}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
+}

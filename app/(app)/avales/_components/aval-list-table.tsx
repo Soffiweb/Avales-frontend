@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import {
   Calendar,
+  Download,
   Eye,
   Clock,
+  Trash2,
   MapPin,
   Trophy,
   User,
@@ -36,6 +37,12 @@ import {
   getResponsibleTrainerName,
 } from "@/lib/utils/formatters";
 import { Fragment, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import AlertBanner from "@/components/ui/alert-banner";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import RowActionsMenu, { type RowAction } from "@/components/ui/row-actions-menu";
+import { deleteAvalRequest } from "@/lib/api/avales";
+import { downloadAvalCompletoZip } from "@/lib/api/aval-pdfs";
 import {
   TableContainer,
   Table,
@@ -117,13 +124,11 @@ function Detalle({
   );
 }
 
-const ACTION_BASE =
-  "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors";
-
 export default function AvalListTable({
   avales,
   loading,
   error,
+  isAdmin = false,
   isPda = false,
   isDtm = false,
   isMetodologo = false,
@@ -138,6 +143,40 @@ export default function AvalListTable({
   // avales sin tener que cerrar uno para ver el otro.
   const [abiertos, setAbiertos] = useState<Set<number>>(new Set());
 
+  const queryClient = useQueryClient();
+  // El aval a eliminar se guarda entero: el modal necesita su numero para que
+  // el usuario confirme sobre cual esta actuando, no sobre "el seleccionado".
+  const [aEliminar, setAEliminar] = useState<Aval | null>(null);
+  const [accionError, setAccionError] = useState<string | null>(null);
+
+  const eliminar = useMutation({
+    mutationFn: (id: number) => deleteAvalRequest(id),
+    onSuccess: async () => {
+      setAEliminar(null);
+      await queryClient.invalidateQueries({ queryKey: ["avales"] });
+    },
+    onError: (err: unknown) => {
+      setAEliminar(null);
+      setAccionError(
+        err instanceof Error ? err.message : "No se pudo eliminar el aval.",
+      );
+    },
+  });
+
+  const descargar = async (aval: Aval) => {
+    setAccionError(null);
+    try {
+      await downloadAvalCompletoZip(
+        aval.id,
+        `aval-${getAvalNumero(aval) ?? aval.id}.zip`,
+      );
+    } catch (err: unknown) {
+      setAccionError(
+        err instanceof Error ? err.message : "No se pudo descargar el aval.",
+      );
+    }
+  };
+
   const toggle = (id: number) =>
     setAbiertos((prev) => {
       const next = new Set(prev);
@@ -147,17 +186,33 @@ export default function AvalListTable({
     });
 
   return (
+    <>
+      {accionError && (
+        <div className="mb-3">
+          <AlertBanner
+            variant="error"
+            message={accionError}
+            onClose={() => setAccionError(null)}
+          />
+        </div>
+      )}
+
     <TableContainer>
       <Table className="table-fixed">
         <TableHead>
           <tr>
-            <Th className="w-12" aria-label="Detalle" />
-            <Th className="w-28">N.°</Th>
+            <Th className="w-10" aria-label="Detalle" />
+            <Th className="w-24">N.°</Th>
             {/* Evento no lleva ancho: se queda con el espacio sobrante. */}
             <Th>Evento</Th>
-            <Th className="w-52">Estado</Th>
-            <Th className="w-48">Responsable</Th>
-            <Th className="w-44 text-right">Acciones</Th>
+            <Th className="w-44">Estado</Th>
+            <Th className="w-56">Responsable</Th>
+            {/* Solo el botón de tres puntos. El encabezado queda para
+                lectores de pantalla: en 64px la palabra se cortaba, y sobre un
+                menú de acciones no aporta nada visualmente. */}
+            <Th className="w-16 pl-0 text-right">
+              <span className="sr-only">Acciones</span>
+            </Th>
           </tr>
         </TableHead>
 
@@ -221,6 +276,16 @@ export default function AvalListTable({
                 ? "Editar"
                 : "Crear";
 
+              // Mismas reglas que la pantalla de detalle: el dueño puede
+              // eliminar su solicitud mientras siga en BORRADOR o no haya
+              // pasado de SOLICITUD; un admin puede eliminar el aval completo.
+              const canDeleteSolicitud =
+                isAvalOwner &&
+                (aval.estado === "BORRADOR" ||
+                  (aval.estado === "SOLICITADO" &&
+                    etapaParaMostrar === "SOLICITUD"));
+              const puedeEliminar = canDeleteSolicitud || isAdmin;
+
               const canPdaAct = isPda && stageMatchesRole("PDA");
               const canComprasAct =
                 isComprasPublicas && stageMatchesRole("COMPRAS_PUBLICAS");
@@ -261,7 +326,7 @@ export default function AvalListTable({
                         : ""
                     }
                   >
-                    <Td className="w-10 pr-0 py-3">
+                    <Td className="w-10 py-2.5 pr-0">
                       <ExpandToggle
                         expanded={abiertos.has(aval.id)}
                         onToggle={() => toggle(aval.id)}
@@ -269,112 +334,105 @@ export default function AvalListTable({
                       />
                     </Td>
 
-                    <Td className="whitespace-nowrap py-3 font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <Td className="whitespace-nowrap py-2.5 font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {getAvalNumero(aval) ?? aval.id}
                     </Td>
 
-                    <Td wrap className="py-3">
+                    <Td className="py-2.5">
                       <span
-                        className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-gray-100"
+                        className="block truncate text-sm font-medium text-gray-900 dark:text-gray-100"
                         title={evento?.nombre ?? undefined}
                       >
                         {evento?.nombre || "-"}
                       </span>
-                      <span className="mt-0.5 block text-xs uppercase text-gray-500 dark:text-gray-400">
+                      <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
                         {evento?.disciplina?.nombre || "Sin disciplina"}
                       </span>
                     </Td>
 
-                    <Td wrap className="py-3">
+                    <Td className="py-2.5">
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}
+                        className={`inline-flex max-w-full items-center gap-1.5 truncate rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}
+                        title={stageLabel}
                       >
                         <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
                         {stageLabel}
                       </span>
                     </Td>
 
-                    <Td wrap className="py-3">
-                      <span className="line-clamp-2 text-sm leading-snug">
+                    <Td className="py-2.5">
+                      <span
+                        className="block truncate text-sm"
+                        title={getResponsibleTrainerName(aval, "-")}
+                      >
                         {getResponsibleTrainerName(aval, "-")}
                       </span>
                     </Td>
 
-                    <Td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/avales/${aval.id}`}
-                          className={`${ACTION_BASE} border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50`}
-                          aria-label={`Ver detalle del aval de ${evento?.nombre || "evento"}`}
-                        >
-                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                          Ver
-                        </Link>
-
-                        {canEditSolicitud && (
-                          <Link
-                            href={`/avales/${aval.id}/crear-solicitud`}
-                            className={`${ACTION_BASE} bg-indigo-500 text-white hover:bg-indigo-600`}
-                          >
-                            <FileEdit className="h-3.5 w-3.5" aria-hidden="true" />
-                            {editSolicitudLabel}
-                          </Link>
-                        )}
-                        {canPdaAct && (
-                          <Link
-                            href={`/avales/${aval.id}/certificar-pda`}
-                            className={`${ACTION_BASE} bg-cyan-600 text-white hover:bg-cyan-700`}
-                          >
-                            <Stamp className="h-3.5 w-3.5" aria-hidden="true" />
-                            Certificar
-                          </Link>
-                        )}
-                        {canComprasAct && (
-                          <Link
-                            href={`/avales/${aval.id}/certificar-compras-publicas`}
-                            className={`${ACTION_BASE} bg-emerald-600 text-white hover:bg-emerald-700`}
-                          >
-                            <Stamp className="h-3.5 w-3.5" aria-hidden="true" />
-                            Certificar
-                          </Link>
-                        )}
-                        {canDtmAct && (
-                          <Link
-                            href={`/avales/${aval.id}/revision-dtm`}
-                            className={`${ACTION_BASE} bg-amber-500 text-white hover:bg-amber-600`}
-                          >
-                            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                            Revisar
-                          </Link>
-                        )}
-                        {canMetodologoAct && (
-                          <Link
-                            href={`/avales/${aval.id}/revision-metodologo`}
-                            className={`${ACTION_BASE} bg-amber-500 text-white hover:bg-amber-600`}
-                          >
-                            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                            Revisar
-                          </Link>
-                        )}
-                        {canControlPrevioAct && (
-                          <Link
-                            href={`/avales/${aval.id}/revision-control-previo`}
-                            className={`${ACTION_BASE} bg-amber-500 text-white hover:bg-amber-600`}
-                          >
-                            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                            Revisar
-                          </Link>
-                        )}
-                        {canFinancieroAct && (
-                          <Link
-                            href={`/avales/${aval.id}/certificacion-financiera`}
-                            className={`${ACTION_BASE} bg-indigo-600 text-white hover:bg-indigo-700`}
-                          >
-                            <Stamp className="h-3.5 w-3.5" aria-hidden="true" />
-                            Certificar
-                          </Link>
-                        )}
-                      </div>
+                    <Td className="py-2.5 pl-0 text-right">
+                      <RowActionsMenu
+                        label={`el aval ${getAvalNumero(aval) ?? aval.id}`}
+                        actions={
+                          [
+                            {
+                              label: "Ver detalle",
+                              icon: Eye,
+                              href: `/avales/${aval.id}`,
+                            },
+                            canEditSolicitud && {
+                              label: `${editSolicitudLabel} aval`,
+                              icon: FileEdit,
+                              href: `/avales/${aval.id}/crear-solicitud`,
+                            },
+                            canPdaAct && {
+                              label: "Certificar PDA",
+                              icon: Stamp,
+                              href: `/avales/${aval.id}/certificar-pda`,
+                            },
+                            canComprasAct && {
+                              label: "Certificar compras públicas",
+                              icon: Stamp,
+                              href: `/avales/${aval.id}/certificar-compras-publicas`,
+                            },
+                            canDtmAct && {
+                              label: "Revisar como DTM",
+                              icon: Eye,
+                              href: `/avales/${aval.id}/revision-dtm`,
+                            },
+                            canMetodologoAct && {
+                              label: "Revisar como metodólogo",
+                              icon: Eye,
+                              href: `/avales/${aval.id}/revision-metodologo`,
+                            },
+                            canControlPrevioAct && {
+                              label: "Revisar control previo",
+                              icon: Eye,
+                              href: `/avales/${aval.id}/revision-control-previo`,
+                            },
+                            canFinancieroAct && {
+                              label: "Certificación financiera",
+                              icon: Stamp,
+                              href: `/avales/${aval.id}/certificacion-financiera`,
+                            },
+                            {
+                              label: "Descargar aval completo",
+                              icon: Download,
+                              onClick: () => void descargar(aval),
+                            },
+                            puedeEliminar && {
+                              label: isAdmin
+                                ? "Eliminar aval"
+                                : "Eliminar solicitud",
+                              icon: Trash2,
+                              danger: true,
+                              onClick: () => {
+                                setAccionError(null);
+                                setAEliminar(aval);
+                              },
+                            },
+                          ].filter(Boolean) as RowAction[]
+                        }
+                      />
                     </Td>
                   </Tr>
 
@@ -409,5 +467,29 @@ export default function AvalListTable({
         </TableBody>
       </Table>
     </TableContainer>
+
+      {/* Misma advertencia que la pantalla de detalle: eliminar un aval borra
+          datos y archivos en storage, y no se puede deshacer. No se muestra
+          una confirmacion mas debil solo porque se dispare desde la lista. */}
+      <ConfirmModal
+        open={Boolean(aEliminar)}
+        title={isAdmin ? "Eliminar aval completo" : "Eliminar solicitud de aval"}
+        description={
+          aEliminar
+            ? isAdmin
+              ? `¿Seguro que quieres eliminar el aval ${
+                  getAvalNumero(aEliminar) ?? aEliminar.id
+                }? Se borrarán todos los datos, archivos en storage y el evento quedará disponible para crear un nuevo aval. Esta acción no se puede deshacer.`
+              : `¿Seguro que quieres eliminar la solicitud del aval ${
+                  getAvalNumero(aEliminar) ?? aEliminar.id
+                }? Esta acción no se puede deshacer.`
+            : undefined
+        }
+        confirmLabel="Eliminar"
+        loading={eliminar.isPending}
+        onConfirm={() => aEliminar && eliminar.mutate(aEliminar.id)}
+        onClose={() => setAEliminar(null)}
+      />
+    </>
   );
 }

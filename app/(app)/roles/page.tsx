@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Tr,
+  Td,
+} from "@/components/ui/table";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Pencil } from "lucide-react";
@@ -111,37 +120,27 @@ export default function RolesAdminPage() {
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+        <TableContainer>
+          <Table>
+            <TableHead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Código
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Nombre
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Descripción
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Acciones
-                </th>
+                <Th>Código</Th>
+                <Th>Nombre</Th>
+                <Th>Descripción</Th>
+                <Th className="text-right">Acciones</Th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
+            </TableHead>
+            <TableBody>
               {roles.map((rol) => (
-                <tr key={rol.id}>
-                  <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-300">
-                    {rol.codigo}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                <Tr key={rol.id}>
+                  <Td className="font-mono">{rol.codigo}</Td>
+                  <Td className="font-medium text-gray-900 dark:text-gray-100">
                     {rol.nombre}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-md truncate">
+                  </Td>
+                  <Td className="max-w-md truncate whitespace-normal">
                     {rol.descripcion ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </Td>
+                  <Td className="text-right">
                     <button
                       onClick={() => openEdit(rol)}
                       className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -149,12 +148,12 @@ export default function RolesAdminPage() {
                       <Pencil className="h-3.5 w-3.5" />
                       Editar
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {editing ? (

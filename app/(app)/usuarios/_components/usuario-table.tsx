@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Tr,
+  Td,
+} from "@/components/ui/table";
 import Link from "next/link";
 import { Eye, Pencil, Trash2, Users } from "lucide-react";
 
@@ -38,112 +47,93 @@ export default function UsuarioTable({
   const showEmpty = !loading && !error && users.length === 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="table-auto w-full dark:text-gray-300">
-          <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-b border-gray-100 dark:border-gray-700/60">
+    <TableContainer>
+        <Table>
+          <TableHead>
               <tr>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Nombre</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Apellido</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Email</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Cedula</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Categoria</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Disciplina</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Roles</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Permiso reforma</div>
-                </th>
-                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Acciones</div>
-                </th>
+                <Th>Nombre</Th>
+                <Th>Apellido</Th>
+                <Th>Email</Th>
+                <Th>Cédula</Th>
+                <Th>Categoría</Th>
+                <Th>Disciplina</Th>
+                <Th>Roles</Th>
+                <Th>Permiso reforma</Th>
+                <Th>Acciones</Th>
               </tr>
-            </thead>
+            </TableHead>
             {/* Table body */}
-            <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
+            <TableBody>
               {loading &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={`skeleton-${i}`} className="animate-pulse">
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-10" /></td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-10" /></Td>
+                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></Td>
                   </tr>
                 ))}
 
               {error && !loading && (
                 <tr>
-                  <td
-                    className="px-2 first:pl-5 last:pr-5 py-4 whitespace-nowrap text-center text-red-500"
+                  <Td
+                    className="text-center text-red-500"
                     colSpan={9}
                   >
                     {error}
-                  </td>
+                  </Td>
                 </tr>
               )}
 
               {showEmpty && (
                 <tr>
-                  <td
-                    className="px-2 first:pl-5 last:pr-5 py-12 text-center"
+                  <Td
+                    className="py-12 text-center"
                     colSpan={9}
                   >
                     <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                     <p className="text-base text-gray-500 dark:text-gray-400">No hay usuarios para mostrar.</p>
-                  </td>
+                  </Td>
                 </tr>
               )}
 
               {!loading &&
                 !error &&
                 users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                  <Tr key={user.id}>
+                    <Td>
                       <div className="font-semibold text-gray-800 dark:text-gray-100">
                         {user.nombre || "-"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {user.apellido || "-"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {user.email}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {user.cedula || "-"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {formatCategoryLabel(
                           user.categoria?.nombre ?? user.categoriaCodigo
                         )}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 w-[260px] max-w-[260px]">
+                    </Td>
+                    <Td className="w-[260px] max-w-[260px] whitespace-normal">
                       <div
                         className="block w-full truncate text-gray-700 dark:text-gray-300"
                         title={
@@ -159,13 +149,13 @@ export default function UsuarioTable({
                           ? `${user.disciplinas.length} disciplina(s)`
                           : "-"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {formatRoles(user.roles)}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="text-gray-700 dark:text-gray-300">
                         {(user.roles ?? []).some(
                           (role) =>
@@ -175,8 +165,8 @@ export default function UsuarioTable({
                           ? formatBoolean(user.puedeSolicitarReformas)
                           : "No aplica"}
                       </div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-2 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/settings/profile?id=${user.id}`}
@@ -206,12 +196,11 @@ export default function UsuarioTable({
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-            </tbody>
-        </table>
-      </div>
-    </div>
+            </TableBody>
+        </Table>
+    </TableContainer>
   );
 }

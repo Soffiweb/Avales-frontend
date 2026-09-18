@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Tr,
+  Td,
+} from "@/components/ui/table";
 import { useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { isAdminUser } from "@/lib/auth/access";
@@ -256,62 +265,62 @@ function MonitoreoAdminContent({
             <AlertBanner variant="error" message={erroresError} onClose={() => {}} />
           )}
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 dark:bg-gray-800/60 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <tr>
-                  <th className="px-4 py-3">Request ID</th>
-                  <th className="px-4 py-3">Método</th>
-                  <th className="px-4 py-3">Ruta</th>
-                  <th className="px-4 py-3">Código</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Detalle</th>
-                  <th className="px-4 py-3">Fecha</th>
+                  <Th>Request ID</Th>
+                  <Th>Método</Th>
+                  <Th>Ruta</Th>
+                  <Th>Código</Th>
+                  <Th>Tipo</Th>
+                  <Th>Detalle</Th>
+                  <Th>Fecha</Th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+              </TableHead>
+              <TableBody>
                 {erroresLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                    <Td colSpan={7} className="py-8 text-center text-gray-400">
                       Cargando...
-                    </td>
+                    </Td>
                   </tr>
                 ) : errores.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                    <Td colSpan={7} className="py-8 text-center text-gray-400">
                       No hay registros.
-                    </td>
+                    </Td>
                   </tr>
                 ) : (
                   errores.map((e) => (
-                    <tr key={e.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                      <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400 max-w-[12rem] truncate" title={e.requestId}>
+                    <Tr key={e.id}>
+                      <Td className="font-mono text-xs max-w-[12rem] truncate" title={e.requestId}>
                         {e.requestId}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
+                      </Td>
+                      <Td className="font-medium">
                         {e.metodo ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[14rem] truncate" title={e.ruta ?? ""}>
+                      </Td>
+                      <Td className="max-w-[14rem] truncate" title={e.ruta ?? ""}>
                         {e.ruta ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      </Td>
+                      <Td>
                         {e.statusCode ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[10rem] truncate" title={e.errorType ?? ""}>
+                      </Td>
+                      <Td className="max-w-[10rem] truncate" title={e.errorType ?? ""}>
                         {e.errorType ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[16rem] truncate" title={e.detalle ?? ""}>
+                      </Td>
+                      <Td className="max-w-[16rem] truncate" title={e.detalle ?? ""}>
                         {e.detalle ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      </Td>
+                      <Td className="whitespace-nowrap">
                         {formatDate(e.createdAt)}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 sm:mb-0">
@@ -367,45 +376,45 @@ function MonitoreoAdminContent({
             <AlertBanner variant="error" message={reportesError} onClose={() => {}} />
           )}
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 dark:bg-gray-800/60 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <tr>
-                  <th className="px-4 py-3">ID</th>
-                  <th className="px-4 py-3">Descripción</th>
-                  <th className="px-4 py-3">URL</th>
-                  <th className="px-4 py-3">Request ID</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Fecha</th>
+                  <Th>ID</Th>
+                  <Th>Descripción</Th>
+                  <Th>URL</Th>
+                  <Th>Request ID</Th>
+                  <Th>Estado</Th>
+                  <Th>Fecha</Th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
+              </TableHead>
+              <TableBody>
                 {reportesLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                    <Td colSpan={6} className="py-8 text-center text-gray-400">
                       Cargando...
-                    </td>
+                    </Td>
                   </tr>
                 ) : reportes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                    <Td colSpan={6} className="py-8 text-center text-gray-400">
                       No hay reportes.
-                    </td>
+                    </Td>
                   </tr>
                 ) : (
                   reportes.map((r) => (
-                    <tr key={r.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{r.id}</td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-[16rem] truncate" title={r.descripcion}>
+                    <Tr key={r.id}>
+                      <Td>{r.id}</Td>
+                      <Td className="max-w-[16rem] truncate" title={r.descripcion}>
                         {r.descripcion}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[12rem] truncate" title={r.url ?? ""}>
+                      </Td>
+                      <Td className="max-w-[12rem] truncate" title={r.url ?? ""}>
                         {r.url ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400 max-w-[10rem] truncate" title={r.requestId ?? ""}>
+                      </Td>
+                      <Td className="font-mono text-xs max-w-[10rem] truncate" title={r.requestId ?? ""}>
                         {r.requestId ?? "—"}
-                      </td>
-                      <td className="px-4 py-3">
+                      </Td>
+                      <Td>
                         <select
                           className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${ESTADO_COLORS[r.estado]}`}
                           value={r.estado}
@@ -419,16 +428,16 @@ function MonitoreoAdminContent({
                             </option>
                           ))}
                         </select>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      </Td>
+                      <Td className="whitespace-nowrap">
                         {formatDate(r.createdAt)}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-3 sm:mb-0">

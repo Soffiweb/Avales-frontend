@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  Table,
+  TableHead,
+  TableBody,
+  Th,
+  Td,
+} from "@/components/ui/table";
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, FileSpreadsheet, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { uploadEventsExcel, type UploadExcelResponse } from "@/lib/api/eventos";
@@ -210,26 +217,26 @@ export default function UploadEventsExcelModal({
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Errores ({response.errores.length})</h4>
                     </div>
                     <div className="max-h-48 overflow-y-auto">
-                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
+                      <Table density="dense" className="min-w-full">
+                        <TableHead>
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Fila</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Detalle</th>
+                            <Th>Fila</Th>
+                            <Th>Detalle</Th>
                           </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                        </TableHead>
+                        <TableBody>
                           {response.errores.map((err, idx) => (
                             <tr key={idx}>
-                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-medium">
+                              <Td className="font-medium">
                                 {err.fila}
-                              </td>
-                              <td className="px-4 py-2 text-sm text-red-600 dark:text-red-400">
+                              </Td>
+                              <Td className="text-red-600 dark:text-red-400">
                                 {err.error}
-                              </td>
+                              </Td>
                             </tr>
                           ))}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                 )}

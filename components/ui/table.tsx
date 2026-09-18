@@ -313,6 +313,10 @@ export function ExpandToggle({
  *
  * Se renderiza como una `tr` propia con `colSpan` completo: meter el detalle
  * dentro de la misma fila rompería la alineación de columnas.
+ *
+ * El contenido va dentro de una tarjeta con borde propio en vez de apoyarse
+ * solo en un fondo distinto. Sin ese borde el detalle se lee como texto suelto
+ * flotando entre dos filas, y no queda claro a cuál pertenece.
  */
 export function ExpandedRow({
   colSpan,
@@ -322,9 +326,13 @@ export function ExpandedRow({
   children: ReactNode;
 }) {
   return (
-    <tr className="bg-gray-50/70 dark:bg-gray-900/40">
-      <td colSpan={colSpan} className="px-5 py-4">
-        {children}
+    <tr>
+      {/* Sin padding lateral propio: la tarjeta de adentro pone su margen, así
+          queda alineada con el contenido de la fila y no con el borde. */}
+      <td colSpan={colSpan} className="bg-gray-50 p-0 dark:bg-gray-900/50">
+        <div className="mx-5 my-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          {children}
+        </div>
       </td>
     </tr>
   );

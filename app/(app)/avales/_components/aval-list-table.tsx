@@ -253,8 +253,14 @@ export default function AvalListTable({
 
               return (
                 <Fragment key={aval.id}>
-                  <Tr>
-                    <Td className="w-10 pr-0">
+                  <Tr
+                    className={
+                      abiertos.has(aval.id)
+                        ? "bg-gray-50 dark:bg-gray-900/50"
+                        : ""
+                    }
+                  >
+                    <Td className="w-10 pr-0 py-3">
                       <ExpandToggle
                         expanded={abiertos.has(aval.id)}
                         onToggle={() => toggle(aval.id)}
@@ -262,23 +268,23 @@ export default function AvalListTable({
                       />
                     </Td>
 
-                    <Td className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+                    <Td className="whitespace-nowrap py-3 font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {getAvalNumero(aval) ?? aval.id}
                     </Td>
 
-                    <Td className="max-w-[26rem] whitespace-normal">
+                    <Td className="whitespace-normal py-3">
                       <span
-                        className="block truncate font-medium text-gray-900 dark:text-gray-100"
+                        className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-gray-100"
                         title={evento?.nombre ?? undefined}
                       >
                         {evento?.nombre || "-"}
                       </span>
-                      <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
+                      <span className="mt-0.5 block text-xs uppercase text-gray-500 dark:text-gray-400">
                         {evento?.disciplina?.nombre || "Sin disciplina"}
                       </span>
                     </Td>
 
-                    <Td>
+                    <Td className="py-3">
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}
                       >
@@ -287,13 +293,13 @@ export default function AvalListTable({
                       </span>
                     </Td>
 
-                    <Td className="max-w-[14rem]">
-                      <span className="block truncate">
+                    <Td className="max-w-[13rem] whitespace-normal py-3">
+                      <span className="line-clamp-2 text-sm leading-snug">
                         {getResponsibleTrainerName(aval, "-")}
                       </span>
                     </Td>
 
-                    <Td className="text-right">
+                    <Td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/avales/${aval.id}`}
@@ -373,7 +379,7 @@ export default function AvalListTable({
 
                   {abiertos.has(aval.id) && (
                     <ExpandedRow colSpan={COLUMN_COUNT}>
-                      <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <dl className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Detalle icon={FileText} termino="Tipo de aval">
                           {getTipoAvalLabel(aval.tipoAval) || "-"}
                         </Detalle>

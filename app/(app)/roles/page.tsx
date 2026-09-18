@@ -8,6 +8,8 @@ import {
   Th,
   Tr,
   Td,
+  SortableTh,
+  useTableSort,
 } from "@/components/ui/table";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +33,13 @@ export default function RolesAdminPage() {
   });
 
   const roles: Role[] = (data?.data as Role[] | undefined) ?? [];
+
+  // `listRoles` devuelve la lista COMPLETA (sin paginar), así que ordenar en
+  // el cliente refleja el total y no solo una página.
+  const { sorted: rolesOrdenados, sort, onSort } = useTableSort<
+    Role,
+    "codigo" | "nombre" | "descripcion"
+  >(roles, (rol, key) => rol[key]);
 
   const [editing, setEditing] = useState<Role | null>(null);
   const [formNombre, setFormNombre] = useState("");
@@ -124,14 +133,20 @@ export default function RolesAdminPage() {
           <Table>
             <TableHead>
               <tr>
-                <Th>Código</Th>
-                <Th>Nombre</Th>
-                <Th>Descripción</Th>
+                <SortableTh sortKey="codigo" sort={sort} onSort={onSort}>
+                  Código
+                </SortableTh>
+                <SortableTh sortKey="nombre" sort={sort} onSort={onSort}>
+                  Nombre
+                </SortableTh>
+                <SortableTh sortKey="descripcion" sort={sort} onSort={onSort}>
+                  Descripción
+                </SortableTh>
                 <Th className="text-right">Acciones</Th>
               </tr>
             </TableHead>
             <TableBody>
-              {roles.map((rol) => (
+              {rolesOrdenados.map((rol) => (
                 <Tr key={rol.id}>
                   <Td className="font-mono">{rol.codigo}</Td>
                   <Td className="font-medium text-gray-900 dark:text-gray-100">

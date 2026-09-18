@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, PanelLeftClose } from "lucide-react";
 import { useAppProvider } from "@/app/providers/app-provider";
 
 import ThemeToggle from "@/components/theme-toggle";
@@ -10,12 +10,18 @@ import { useAuth } from "@/app/providers/auth-provider";
 import type { RoleLike } from "@/types/user";
 import { getRoleCode, getRoleName } from "@/lib/auth/roles";
 
+/** Mismo contorno que el resto de los controles del header, para que el menú
+ *  no se lea como un icono suelto sin área clickeable. */
+const CONTROL_CLASS =
+  "items-center rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200";
+
 export default function Header({
   variant = "default",
 }: {
   variant?: "default" | "v2" | "v3";
 }) {
-  const { sidebarOpen, setSidebarOpen } = useAppProvider();
+  const { sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } =
+    useAppProvider();
   const { user, switchRole } = useAuth();
   const [switching, setSwitching] = useState(false);
 
@@ -43,16 +49,36 @@ export default function Header({
         >
           {/* Izquierda */}
           <div className="flex items-center">
-            {/* Hamburguesa: botón con contorno, como el resto de los controles,
-                en vez de un icono suelto sin área clickeable clara. */}
+            {/* Son dos botones y no uno con lógica adentro porque el menú se
+                comporta distinto según el ancho: en móvil se abre y se cierra
+                como cajón encima del contenido, y en escritorio se expande y
+                se colapsa sin taparlo. Resolverlo por breakpoint de CSS evita
+                tener que medir la ventana en JavaScript, que además daría un
+                primer render equivocado. */}
             <button
-              className="rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              className={CONTROL_CLASS + " lg:hidden"}
               aria-controls="sidebar"
               aria-expanded={sidebarOpen}
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
               <span className="sr-only">Abrir menú</span>
               <Menu className="h-5 w-5" aria-hidden="true" />
+            </button>
+
+            <button
+              className={CONTROL_CLASS + " hidden lg:inline-flex"}
+              aria-controls="sidebar"
+              aria-expanded={sidebarExpanded}
+              title={sidebarExpanded ? "Colapsar menú" : "Expandir menú"}
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+            >
+              <span className="sr-only">Expandir o colapsar el menú</span>
+              <PanelLeftClose
+                className={`h-5 w-5 transition-transform duration-200 ${
+                  sidebarExpanded ? "" : "rotate-180"
+                }`}
+                aria-hidden="true"
+              />
             </button>
           </div>
 

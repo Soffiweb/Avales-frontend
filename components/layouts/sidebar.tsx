@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppProvider } from "@/app/providers/app-provider";
 import { useSelectedLayoutSegments } from "next/navigation";
 import { useWindowWidth } from "@/components/utils/use-window-width";
-import { ChevronDown, PanelLeftClose, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import SidebarLinkGroup from "../ui/sidebar-link-group";
 import SidebarLink from "../ui/sidebar-link";
 import Logo from "../ui/logo";
@@ -32,8 +32,15 @@ const ITEM_ACTIVE =
 const ITEM_IDLE =
   "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-100";
 
-/** El label se oculta cuando el sidebar está colapsado a solo iconos. */
-const LABEL_COLLAPSE = "lg:hidden lg:sidebar-expanded:block 2xl:block";
+/**
+ * Las etiquetas de cada ítem: visibles siempre en móvil (donde el menú es un
+ * cajón ancho) y en escritorio solo cuando está expandido.
+ *
+ * Antes llevaban `2xl:block`, que a partir de 1536px las mostraba siempre e
+ * ignoraba el estado de colapso. Eso dejaba el control de expandir sin efecto
+ * en pantallas grandes, que es justo donde más se lo usa.
+ */
+const LABEL_COLLAPSE = "lg:hidden lg:sidebar-expanded:block";
 
 export default function Sidebar({
   variant = "default",
@@ -49,8 +56,11 @@ export default function Sidebar({
   // Si ya está expanded, no hay nada que hacer en hover.
   const [isHovering, setIsHovering] = useState(false);
   const effectivelyExpanded = sidebarExpanded || isHovering;
-  const expandOnly =
-    !effectivelyExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
+  // Con el menú colapsado a iconos no hay dónde dibujar un submenú, así que
+  // el primer click expande en vez de desplegar. Antes esto se cortaba en
+  // 1536px porque ahí el menú estaba fijo en ancho completo; ahora que se
+  // puede colapsar en cualquier ancho de escritorio, el corte ya no aplica.
+  const expandOnly = !effectivelyExpanded && breakpoint && breakpoint >= 1024;
   const { user, loading } = useAuth();
   const items = user ? filterSidebarItems(SIDEBAR_ITEMS, user) : [];
   const shouldRender =
@@ -105,7 +115,7 @@ export default function Sidebar({
       <div
         id="sidebar"
         ref={sidebar}
-        className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-white dark:bg-gray-800 px-3 py-4 transition-all duration-200 ease-in-out ${
+        className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 shrink-0 bg-white dark:bg-gray-800 px-3 py-4 transition-all duration-200 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-64"
         } ${
           variant === "v2"
@@ -132,7 +142,7 @@ export default function Sidebar({
         <nav className="grow">
           <h3 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
             <span
-              className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
+              className="hidden lg:block lg:sidebar-expanded:hidden text-center w-6"
               aria-hidden="true"
             >
               •••
@@ -149,7 +159,7 @@ export default function Sidebar({
                 return (
                   <li key={`section-${item.label}`} className="pt-4 first:pt-0">
                     <div
-                      className="mx-3 hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden border-t border-gray-200 dark:border-gray-700"
+                      className="mx-3 hidden lg:block lg:sidebar-expanded:hidden border-t border-gray-200 dark:border-gray-700"
                       aria-hidden="true"
                     />
                     <h4
@@ -271,19 +281,6 @@ export default function Sidebar({
             <VersionBadge />
           </div>
 
-          <div className="hidden lg:flex 2xl:hidden justify-center">
-            <button
-              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer"
-              onClick={() => setSidebarExpanded(!sidebarExpanded)}
-              title={sidebarExpanded ? "Colapsar menú" : "Expandir menú"}
-            >
-              <span className="sr-only">Expandir o colapsar el menú</span>
-              <PanelLeftClose
-                size={18}
-                className="sidebar-expanded:rotate-180 transition-transform duration-200"
-              />
-            </button>
-          </div>
         </div>
       </div>
     </div>

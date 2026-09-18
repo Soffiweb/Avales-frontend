@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Menu } from "lucide-react";
 import { useAppProvider } from "@/app/providers/app-provider";
 
 import ThemeToggle from "@/components/theme-toggle";
@@ -34,64 +35,60 @@ export default function Header({
     >
       <div className="px-4 sm:px-6 lg:px-8">
         <div
-          className={`flex items-center justify-between h-16 ${
+          className={`flex h-16 items-center justify-between ${
             variant === "v2" || variant === "v3"
               ? ""
               : "lg:border-b border-gray-200 dark:border-gray-700/60"
           }`}
         >
-          {/* Header: Left side */}
-          <div className="flex">
-            {/* Hamburger button */}
+          {/* Izquierda */}
+          <div className="flex items-center">
+            {/* Hamburguesa: botón con contorno, como el resto de los controles,
+                en vez de un icono suelto sin área clickeable clara. */}
             <button
-              className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 lg:hidden"
+              className="rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
               aria-controls="sidebar"
               aria-expanded={sidebarOpen}
-              onClick={() => {
-                setSidebarOpen(!sidebarOpen);
-              }}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              <span className="sr-only">Open sidebar</span>
-              <svg
-                className="w-6 h-6 fill-current"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect x="4" y="5" width="16" height="2" />
-                <rect x="4" y="11" width="16" height="2" />
-                <rect x="4" y="17" width="16" height="2" />
-              </svg>
+              <span className="sr-only">Abrir menú</span>
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
-          {/* Header: Right side */}
-          <div className="flex items-center space-x-3">
+          {/* Derecha */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {showRoleSwitcher ? (
-              <select
-                className="form-select h-9 text-sm"
-                value={activeCode}
-                disabled={switching}
-                onChange={async (e) => {
-                  const nextCode = e.target.value;
-                  if (!nextCode || nextCode === activeCode) return;
-                  try {
-                    setSwitching(true);
-                    await switchRole(nextCode);
-                  } finally {
-                    setSwitching(false);
-                  }
-                }}
-              >
-                {roles.map((role) => (
-                  <option key={getRoleCode(role)} value={getRoleCode(role)}>
-                    {getRoleName(role)}
-                  </option>
-                ))}
-              </select>
+              <label className="flex items-center gap-2">
+                <span className="sr-only">Cambiar rol activo</span>
+                <select
+                  className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 transition-colors hover:border-gray-300 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-gray-600"
+                  value={activeCode}
+                  disabled={switching}
+                  onChange={async (e) => {
+                    const nextCode = e.target.value;
+                    if (!nextCode || nextCode === activeCode) return;
+                    try {
+                      setSwitching(true);
+                      await switchRole(nextCode);
+                    } finally {
+                      setSwitching(false);
+                    }
+                  }}
+                >
+                  {roles.map((role) => (
+                    <option key={getRoleCode(role)} value={getRoleCode(role)}>
+                      {getRoleName(role)}
+                    </option>
+                  ))}
+                </select>
+              </label>
             ) : null}
+
             <ThemeToggle />
-            {/*  Divider */}
-            <hr className="w-px h-6 bg-gray-200 dark:bg-gray-700/60 border-none" />
+
+            <hr className="h-6 w-px border-none bg-gray-200 dark:bg-gray-700/60" />
+
             <DropdownProfile align="right" />
           </div>
         </div>

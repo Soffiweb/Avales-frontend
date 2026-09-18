@@ -42,6 +42,13 @@ const repoUrl =
   "https://github.com/Soffiweb/Avales-frontend";
 
 const nextConfig: NextConfig = {
+  // Sin esto, importar desde "@phosphor-icons/react" arrastra el barrel entero
+  // (miles de iconos) en cada compilación de desarrollo. Con la optimización,
+  // Next reescribe cada named import a su archivo suelto y el bundle solo
+  // incluye los iconos usados.
+  experimental: {
+    optimizePackageImports: ["@phosphor-icons/react"],
+  },
   env: {
     NEXT_PUBLIC_GIT_SHA: gitSha,
     NEXT_PUBLIC_BUILD_NUMBER: buildNumber,

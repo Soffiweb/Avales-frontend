@@ -266,3 +266,66 @@ export function useTableSort<T, K extends string>(
 
   return { sorted, sort, onSort };
 }
+
+/* ── Filas desplegables ──────────────────────────────────────────────────── */
+
+/**
+ * Botón de expandir/colapsar para la primera celda de una fila.
+ *
+ * El patrón es: columnas para los datos con los que el usuario compara y
+ * busca, y el resto detrás del despliegue. Evita tener que elegir entre una
+ * tabla que no muestra lo suficiente y una fila con veinte columnas.
+ */
+export function ExpandToggle({
+  expanded,
+  onToggle,
+  label,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  /** Se usa en el aria-label, ej. "el pedido PED-1631". */
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      aria-label={`${expanded ? "Ocultar" : "Ver"} el detalle de ${label}`}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+    >
+      <svg
+        className={`h-4 w-4 transition-transform duration-200 ${
+          expanded ? "rotate-90" : ""
+        }`}
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M7.5 5l5 5-5 5V5z" />
+      </svg>
+    </button>
+  );
+}
+
+/**
+ * Fila de detalle que aparece debajo de su fila principal.
+ *
+ * Se renderiza como una `tr` propia con `colSpan` completo: meter el detalle
+ * dentro de la misma fila rompería la alineación de columnas.
+ */
+export function ExpandedRow({
+  colSpan,
+  children,
+}: {
+  colSpan: number;
+  children: ReactNode;
+}) {
+  return (
+    <tr className="bg-gray-50/70 dark:bg-gray-900/40">
+      <td colSpan={colSpan} className="px-5 py-4">
+        {children}
+      </td>
+    </tr>
+  );
+}

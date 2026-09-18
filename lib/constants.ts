@@ -378,23 +378,35 @@ export function getApprovalStageLabel(etapa: EtapaFlujo): string {
   return APPROVAL_STAGE_LABELS[etapa] ?? etapa;
 }
 
+/**
+ * Badges de etapa en tono pastel: fondo `-50`, borde `-200`, texto `-700`.
+ *
+ * El borde no es decorativo. Un fondo `-50` sobre blanco es tan claro que el
+ * chip pierde el contorno y el estado se lee como texto suelto dentro de la
+ * celda; el borde es lo que lo vuelve a leer como etiqueta. Por eso viaja en
+ * el mismo objeto que el fondo y no lo pone cada consumidor: un badge sin
+ * borde no es una variante válida.
+ */
 const STAGE_BADGE_DEFAULT = {
-  bg: "bg-amber-100 dark:bg-amber-900/60",
-  text: "text-amber-800 dark:text-amber-200",
+  bg: "bg-amber-50 dark:bg-amber-500/10",
+  text: "text-amber-700 dark:text-amber-300",
+  border: "border-amber-200 dark:border-amber-500/30",
 };
 const STAGE_BADGE_FINANCIERO = {
-  bg: "bg-green-100 dark:bg-green-900/60",
-  text: "text-green-800 dark:text-green-200",
+  bg: "bg-emerald-50 dark:bg-emerald-500/10",
+  text: "text-emerald-700 dark:text-emerald-300",
+  border: "border-emerald-200 dark:border-emerald-500/30",
 };
 const STAGE_BADGE_RECHAZADO = {
-  bg: "bg-rose-100 dark:bg-rose-900/60",
-  text: "text-rose-800 dark:text-rose-200",
+  bg: "bg-rose-50 dark:bg-rose-500/10",
+  text: "text-rose-700 dark:text-rose-300",
+  border: "border-rose-200 dark:border-rose-500/30",
 };
 
 export function getApprovalStageBadgeStyles(
   estado?: string | null,
   etapa?: EtapaFlujo,
-): { bg: string; text: string } {
+): { bg: string; text: string; border: string } {
   if (estado?.toUpperCase() === "RECHAZADO") {
     return STAGE_BADGE_RECHAZADO;
   }

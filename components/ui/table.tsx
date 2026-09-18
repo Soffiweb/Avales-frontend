@@ -130,12 +130,27 @@ export function Tr({
 export function Td({
   children,
   className = "",
+  wrap = false,
   ...rest
-}: TdHTMLAttributes<HTMLTableCellElement> & { children?: ReactNode }) {
+}: TdHTMLAttributes<HTMLTableCellElement> & {
+  children?: ReactNode;
+  /**
+   * Permite que el contenido use varias líneas.
+   *
+   * Es un prop y no una clase que se pase por `className` a propósito:
+   * `whitespace-normal` y `whitespace-nowrap` tienen la misma especificidad,
+   * así que al apilarlas no gana la última del atributo sino la que Tailwind
+   * emite después en la hoja de estilos — y ahí gana `nowrap`. El texto nunca
+   * wrappeaba y cualquier `line-clamp` quedaba reducido a una sola línea.
+   */
+  wrap?: boolean;
+}) {
   const density = useContext(DensityContext);
   return (
     <td
-      className={`whitespace-nowrap text-gray-700 dark:text-gray-300 ${CELL_PADDING[density]} ${className}`}
+      className={`${
+        wrap ? "whitespace-normal" : "whitespace-nowrap"
+      } text-gray-700 dark:text-gray-300 ${CELL_PADDING[density]} ${className}`}
       {...rest}
     >
       {children}

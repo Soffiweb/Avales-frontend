@@ -152,7 +152,7 @@ export default function RolesAdminPage() {
                   <Td className="font-medium text-gray-900 dark:text-gray-100">
                     {rol.nombre}
                   </Td>
-                  <Td className="max-w-md truncate whitespace-normal">
+                  <Td wrap className="max-w-md truncate">
                     {rol.descripcion ?? "—"}
                   </Td>
                   <Td className="text-right">

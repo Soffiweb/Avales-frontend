@@ -133,7 +133,7 @@ export default function UsuarioTable({
                         )}
                       </div>
                     </Td>
-                    <Td className="w-[260px] max-w-[260px] whitespace-normal">
+                    <Td wrap className="w-[260px] max-w-[260px]">
                       <div
                         className="block w-full truncate text-gray-700 dark:text-gray-300"
                         title={

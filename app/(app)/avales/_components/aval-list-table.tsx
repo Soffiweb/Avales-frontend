@@ -148,15 +148,16 @@ export default function AvalListTable({
 
   return (
     <TableContainer>
-      <Table>
+      <Table className="table-fixed">
         <TableHead>
           <tr>
-            <Th className="w-10" aria-label="Detalle" />
-            <Th>N.°</Th>
+            <Th className="w-12" aria-label="Detalle" />
+            <Th className="w-28">N.°</Th>
+            {/* Evento no lleva ancho: se queda con el espacio sobrante. */}
             <Th>Evento</Th>
-            <Th>Estado</Th>
-            <Th>Responsable</Th>
-            <Th className="text-right">Acciones</Th>
+            <Th className="w-52">Estado</Th>
+            <Th className="w-48">Responsable</Th>
+            <Th className="w-44 text-right">Acciones</Th>
           </tr>
         </TableHead>
 
@@ -272,7 +273,7 @@ export default function AvalListTable({
                       {getAvalNumero(aval) ?? aval.id}
                     </Td>
 
-                    <Td className="whitespace-normal py-3">
+                    <Td wrap className="py-3">
                       <span
                         className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-gray-100"
                         title={evento?.nombre ?? undefined}
@@ -284,7 +285,7 @@ export default function AvalListTable({
                       </span>
                     </Td>
 
-                    <Td className="py-3">
+                    <Td wrap className="py-3">
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}
                       >
@@ -293,7 +294,7 @@ export default function AvalListTable({
                       </span>
                     </Td>
 
-                    <Td className="max-w-[13rem] whitespace-normal py-3">
+                    <Td wrap className="py-3">
                       <span className="line-clamp-2 text-sm leading-snug">
                         {getResponsibleTrainerName(aval, "-")}
                       </span>

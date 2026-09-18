@@ -167,8 +167,11 @@ export function canSeeSidebar(
 export function filterSidebarItems(items: SidebarItem[], user: User) {
   const roles = getNormalizedRoles(user);
 
-  return items
+  const visible = items
     .filter((it) => {
+      // Las secciones son solo encabezados: no tienen permisos propios, su
+      // visibilidad depende de los items que encabezan (se resuelve abajo).
+      if (it.type === "section") return true;
       if (it.type === "link" && it.href === "/reformas") {
         return canAccessReforms(user);
       }
@@ -182,4 +185,12 @@ export function filterSidebarItems(items: SidebarItem[], user: User) {
       return it;
     })
     .filter((it) => (it.type === "group" ? it.children.length > 0 : true));
+
+  // Descarta encabezados que quedaron sin items debajo: un rol sin acceso a
+  // nada de "Administración" no debe ver ese título colgando solo.
+  return visible.filter((it, i) => {
+    if (it.type !== "section") return true;
+    const next = visible[i + 1];
+    return Boolean(next) && next.type !== "section";
+  });
 }

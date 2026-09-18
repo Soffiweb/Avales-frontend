@@ -7,17 +7,22 @@ interface SidebarLinkProps {
   href: string;
 }
 
+/**
+ * Link de navegación del sidebar.
+ *
+ * No aplica estilos de estado: el "pill" (activo / hover) lo pinta el
+ * contenido que recibe, porque el sidebar necesita variantes distintas para
+ * items de primer nivel y para hijos de un grupo. Acá solo vive el
+ * comportamiento: cerrar el menú en mobile y marcar la página actual para
+ * lectores de pantalla.
+ */
 export default function SidebarLink({ children, href }: SidebarLinkProps) {
   const pathname = usePathname();
   const { setSidebarOpen } = useAppProvider();
 
   return (
     <Link
-      className={`block text-gray-800 dark:text-gray-100 transition ${
-        pathname === href
-          ? "group-[.is-link-group]:text-violet-500"
-          : "hover:text-gray-900 dark:hover:text-white group-[.is-link-group]:text-gray-500/90 dark:group-[.is-link-group]:text-gray-400 hover:group-[.is-link-group]:text-gray-700 dark:hover:group-[.is-link-group]:text-gray-200"
-      }`}
+      className="block"
       href={href}
       onClick={() => setSidebarOpen(false)}
       aria-current={pathname === href ? "page" : undefined}

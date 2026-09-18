@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppProvider } from "@/app/providers/app-provider";
 import { useSelectedLayoutSegments } from "next/navigation";
 import { useWindowWidth } from "@/components/utils/use-window-width";
+import { ChevronDown, PanelLeftClose, X } from "lucide-react";
 import SidebarLinkGroup from "../ui/sidebar-link-group";
 import SidebarLink from "../ui/sidebar-link";
 import Logo from "../ui/logo";
@@ -15,6 +16,24 @@ import {
 } from "@/lib/navigation/sidebar.config";
 import { canSeeSidebar, filterSidebarItems } from "@/lib/auth/access";
 import { SidebarIcons } from "@/components/icons/sidebar-icons";
+
+/**
+ * Clases del "pill" de navegación.
+ *
+ * El estado activo usa un fondo sólido suave en vez del degradado anterior:
+ * a simple vista hay que poder responder "¿dónde estoy?" sin buscar. El hover
+ * también pinta fondo, no solo texto, para que el objetivo clickeable se vea
+ * antes de hacer click.
+ */
+const ITEM_BASE =
+  "group/item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150";
+const ITEM_ACTIVE =
+  "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300";
+const ITEM_IDLE =
+  "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-100";
+
+/** El label se oculta cuando el sidebar está colapsado a solo iconos. */
+const LABEL_COLLAPSE = "lg:hidden lg:sidebar-expanded:block 2xl:block";
 
 export default function Sidebar({
   variant = "default",
@@ -76,7 +95,7 @@ export default function Sidebar({
     >
       {/* Sidebar backdrop (mobile only) */}
       <div
-        className={`fixed inset-0 bg-gray-900/30 z-40 lg:hidden lg:z-auto transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 lg:hidden lg:z-auto transition-opacity duration-200 ${
           sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         aria-hidden="true"
@@ -86,219 +105,183 @@ export default function Sidebar({
       <div
         id="sidebar"
         ref={sidebar}
-        className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-white dark:bg-gray-800 p-4 transition-all duration-200 ease-in-out ${
+        className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-white dark:bg-gray-800 px-3 py-4 transition-all duration-200 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-64"
         } ${
           variant === "v2"
             ? "border-r border-gray-200 dark:border-gray-700/60"
-            : "rounded-r-2xl shadow-xs"
+            : "border-r border-gray-200 dark:border-gray-700/60"
         }`}
       >
         {/* Sidebar header */}
-        <div className="flex justify-between mb-10 pr-3 sm:px-2">
-          {/* Close button */}
+        <div className="flex items-center justify-between mb-8 px-1">
+          <Logo />
+          {/* Close button (mobile only) */}
           <button
-            className="lg:hidden text-gray-500 hover:text-gray-400"
+            className="lg:hidden rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 transition-colors"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-controls="sidebar"
             aria-expanded={sidebarOpen}
           >
-            <span className="sr-only">Close sidebar</span>
-            <svg
-              className="w-6 h-6 fill-current"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M10.7 18.7l1.4-1.4L7.8 13H20v-2H7.8l4.3-4.3-1.4-1.4L4 12z" />
-            </svg>
+            <span className="sr-only">Cerrar menú</span>
+            <X className="w-5 h-5" />
           </button>
-          {/* Logo */}
-          <Logo />
         </div>
 
         {/* Links */}
-        <div className="space-y-8">
-          {/* Pages group */}
-          <div>
-            <h3 className="text-xs uppercase text-gray-400 dark:text-gray-500 font-semibold pl-3">
-              <span
-                className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
-                aria-hidden="true"
-              >
-                •••
-              </span>
-              <span className="lg:hidden lg:sidebar-expanded:block 2xl:block">
-                Pages
-              </span>
-            </h3>
-            <ul className="mt-3">
-              {items.map((item) => {
-                const isActive = segments.includes(item.segment);
+        <nav className="grow">
+          <h3 className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            <span
+              className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
+              aria-hidden="true"
+            >
+              •••
+            </span>
+            <span className={LABEL_COLLAPSE}>Menú</span>
+          </h3>
 
-                // GROUP
-                if (item.type === "group") {
-                  const Icon = item.icon ? SidebarIcons[item.icon] : null;
-
-                  return (
-                    <SidebarLinkGroup key={item.label} open={isActive}>
-                      {(handleClick, open) => (
-                        <>
-                          <a
-                            href="#0"
-                            className={`block text-gray-800 dark:text-gray-100 truncate transition ${
-                              isActive
-                                ? ""
-                                : "hover:text-gray-900 dark:hover:text-white"
-                            }`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              if (expandOnly) {
-                                setSidebarExpanded(true);
-                                return;
-                              }
-                              handleClick();
-                            }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                {Icon && (
-                                  <Icon
-                                    size={18}
-                                    className={
-                                      isActive
-                                        ? "text-violet-500"
-                                        : "text-gray-400 dark:text-gray-500"
-                                    }
-                                  />
-                                )}
-                                <span
-                                  className={`text-sm font-medium ${
-                                    Icon ? "ml-4" : "ml-2"
-                                  } block lg:hidden lg:sidebar-expanded:block 2xl:block duration-200`}
-                                >
-                                  {item.label}
-                                </span>
-                              </div>
-
-                              <div className="flex shrink-0 ml-2">
-                                <svg
-                                  className={`w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500 ${
-                                    open && "rotate-180"
-                                  }`}
-                                  viewBox="0 0 12 12"
-                                >
-                                  <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
-                                </svg>
-                              </div>
-                            </div>
-                          </a>
-
-                          <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
-                            <ul className={`pl-8 mt-2 ${!open && "hidden"}`}>
-                              {item.children.map((c) => {
-                                const ChildIcon = c.icon
-                                  ? SidebarIcons[c.icon]
-                                  : null;
-                                const childActive = segments.includes(
-                                  c.segment
-                                );
-
-                                return (
-                                  <li key={c.href} className="mb-1 last:mb-0">
-                                    <SidebarLink href={c.href}>
-                                      <div className="flex items-center">
-                                        {ChildIcon && (
-                                          <ChildIcon
-                                            size={16}
-                                            className={
-                                              childActive
-                                                ? "text-violet-500"
-                                                : "text-gray-400 dark:text-gray-500"
-                                            }
-                                          />
-                                        )}
-                                        <span
-                                          className={`text-sm font-medium ${
-                                            ChildIcon ? "ml-3" : "ml-2"
-                                          } block lg:hidden lg:sidebar-expanded:block 2xl:block duration-200`}
-                                        >
-                                          {c.label}
-                                        </span>
-                                      </div>
-                                    </SidebarLink>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        </>
-                      )}
-                    </SidebarLinkGroup>
-                  );
-                }
-
-                // LINK
-                const Icon = item.icon ? SidebarIcons[item.icon] : null;
+          <ul className="space-y-1">
+            {items.map((item) => {
+              // SECTION — encabezado que agrupa los items siguientes. Cuando el
+              // sidebar está colapsado se reduce a un separador, porque un
+              // título recortado a 20px no comunica nada.
+              if (item.type === "section") {
                 return (
-                  <li
-                    key={item.href}
-                    className={`pl-4 pr-3 py-2 rounded-lg mb-0.5 last:mb-0 bg-linear-to-r ${
-                      isActive &&
-                      "from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]"
-                    }`}
-                  >
-                    <SidebarLink href={item.href}>
-                      <div className="flex items-center">
-                        {Icon && (
-                          <Icon
-                            size={18}
-                            className={
-                              isActive
-                                ? "text-violet-500"
-                                : "text-gray-400 dark:text-gray-500"
-                            }
-                          />
-                        )}
-                        <span
-                          className={`truncate text-sm font-medium ${
-                            Icon ? "ml-4" : "ml-2"
-                          } block lg:hidden lg:sidebar-expanded:block 2xl:block duration-200`}
-                        >
-                          {item.label}
-                        </span>
-                      </div>
-                    </SidebarLink>
+                  <li key={`section-${item.label}`} className="pt-4 first:pt-0">
+                    <div
+                      className="mx-3 hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden border-t border-gray-200 dark:border-gray-700"
+                      aria-hidden="true"
+                    />
+                    <h4
+                      className={`px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 ${LABEL_COLLAPSE}`}
+                    >
+                      {item.label}
+                    </h4>
                   </li>
                 );
-              })}
-            </ul>
-          </div>
-        </div>
+              }
 
-        {/* Version badge */}
-        <div className="mt-auto pt-3 px-4 pb-1 text-center">
-          <div className="block lg:hidden lg:sidebar-expanded:block 2xl:block">
+              const isActive = segments.includes(item.segment);
+
+              // GROUP
+              if (item.type === "group") {
+                const Icon = item.icon ? SidebarIcons[item.icon] : null;
+
+                return (
+                  <SidebarLinkGroup key={item.label} open={isActive}>
+                    {(handleClick, open) => (
+                      <>
+                        <button
+                          type="button"
+                          className={`w-full ${ITEM_BASE} ${
+                            isActive ? ITEM_ACTIVE : ITEM_IDLE
+                          }`}
+                          aria-expanded={open}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (expandOnly) {
+                              setSidebarExpanded(true);
+                              return;
+                            }
+                            handleClick();
+                          }}
+                        >
+                          {Icon && (
+                            <Icon
+                              size={20}
+                              className="shrink-0"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span className={`grow text-left ${LABEL_COLLAPSE}`}>
+                            {item.label}
+                          </span>
+                          <ChevronDown
+                            size={16}
+                            className={`shrink-0 transition-transform duration-200 ${LABEL_COLLAPSE} ${
+                              open ? "rotate-180" : ""
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        <div className={LABEL_COLLAPSE}>
+                          <ul
+                            className={`mt-1 space-y-0.5 border-l border-gray-200 dark:border-gray-700 pl-3 ml-5 ${
+                              !open && "hidden"
+                            }`}
+                          >
+                            {item.children.map((c) => {
+                              const childActive = segments.includes(c.segment);
+
+                              return (
+                                <li key={c.href}>
+                                  <SidebarLink href={c.href}>
+                                    <span
+                                      className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
+                                        childActive
+                                          ? "bg-violet-50 font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                          : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-100"
+                                      }`}
+                                    >
+                                      {c.label}
+                                    </span>
+                                  </SidebarLink>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      </>
+                    )}
+                  </SidebarLinkGroup>
+                );
+              }
+
+              // LINK
+              const Icon = item.icon ? SidebarIcons[item.icon] : null;
+              return (
+                <li key={item.href}>
+                  <SidebarLink href={item.href}>
+                    {/* `title` da tooltip nativo cuando el sidebar está
+                        colapsado y solo se ve el icono. */}
+                    <span
+                      className={`${ITEM_BASE} ${
+                        isActive ? ITEM_ACTIVE : ITEM_IDLE
+                      }`}
+                      title={item.label}
+                    >
+                      {Icon && (
+                        <Icon size={20} className="shrink-0" aria-hidden="true" />
+                      )}
+                      <span className={`truncate ${LABEL_COLLAPSE}`}>
+                        {item.label}
+                      </span>
+                    </span>
+                  </SidebarLink>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Footer: versión + colapsar */}
+        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700/60">
+          <div className={`px-3 pb-2 text-center ${LABEL_COLLAPSE}`}>
             <VersionBadge />
           </div>
-        </div>
 
-        {/* Expand / collapse button */}
-        <div className="pt-3 hidden lg:inline-flex 2xl:hidden justify-end ">
-          <div className="w-12 pl-4 pr-3 py-2">
+          <div className="hidden lg:flex 2xl:hidden justify-center">
             <button
-              className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 cursor-pointer"
+              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors cursor-pointer"
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              title={sidebarExpanded ? "Colapsar menú" : "Expandir menú"}
             >
-              <span className="sr-only">Expand / collapse sidebar</span>
-              <svg
-                className="shrink-0 fill-current text-gray-400 dark:text-gray-500 sidebar-expanded:rotate-180"
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-              >
-                <path d="M15 16a1 1 0 0 1-1-1V1a1 1 0 1 1 2 0v14a1 1 0 0 1-1 1ZM8.586 7H1a1 1 0 1 0 0 2h7.586l-2.793 2.793a1 1 0 1 0 1.414 1.414l4.5-4.5A.997.997 0 0 0 12 8.01M11.924 7.617a.997.997 0 0 0-.217-.324l-4.5-4.5a1 1 0 0 0-1.414 1.414L8.586 7M12 7.99a.996.996 0 0 0-.076-.373Z" />
-              </svg>
+              <span className="sr-only">Expandir o colapsar el menú</span>
+              <PanelLeftClose
+                size={18}
+                className="sidebar-expanded:rotate-180 transition-transform duration-200"
+              />
             </button>
           </div>
         </div>

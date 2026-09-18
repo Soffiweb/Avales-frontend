@@ -1,23 +1,26 @@
-import { useState } from 'react'
+import { useState } from "react";
 
 interface SidebarLinkGroupProps {
-  children: (handleClick: () => void, openGroup: boolean) => React.ReactNode
-  open?: boolean
+  children: (handleClick: () => void, openGroup: boolean) => React.ReactNode;
+  open?: boolean;
 }
 
+/**
+ * Contenedor de un grupo colapsable del sidebar.
+ *
+ * El `li` es solo estructura: el estilo del estado activo vive en el botón que
+ * renderiza el consumidor, para que el "pill" cubra exactamente el área
+ * clickeable y no todo el bloque con sus hijos desplegados.
+ */
 export default function SidebarLinkGroup({
   children,
-  open = false
+  open = false,
 }: SidebarLinkGroupProps) {
-  const [openGroup, setOpenGroup] = useState<boolean>(open)
+  const [openGroup, setOpenGroup] = useState<boolean>(open);
 
   const handleClick = () => {
     setOpenGroup(!openGroup);
-  }
+  };
 
-  return (
-    <li className={`pl-4 pr-3 py-2 rounded-lg mb-0.5 last:mb-0 bg-linear-to-r group is-link-group ${open && 'from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]'}`}>
-      {children(handleClick, openGroup)}
-    </li>
-  )
+  return <li className="group is-link-group">{children(handleClick, openGroup)}</li>;
 }

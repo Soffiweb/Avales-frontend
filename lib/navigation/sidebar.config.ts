@@ -4,6 +4,16 @@ import { SidebarIconKey } from "@/components/icons/sidebar-icons";
 import { ADMIN_ACCESS_ROLES } from "@/lib/auth/access";
 
 export type SidebarItem =
+  /**
+   * Encabezado que agrupa visualmente los items que vienen debajo, hasta la
+   * siguiente sección. No navega ni colapsa: la categorización no debe costar
+   * un click extra en pantallas de uso diario.
+   *
+   * No lleva `roles`: se oculta solo cuando todos los items que encabeza
+   * quedaron filtrados. Así no hay que mantener sincronizada una lista de
+   * roles duplicada.
+   */
+  | { type: "section"; label: string }
   | {
       type: "link";
       label: string;
@@ -51,30 +61,10 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
       "LECTOR",
     ],
   },
-  {
-    type: "link",
-    label: "Deportistas",
-    href: "/deportistas",
-    segment: "deportistas",
-    icon: "deportistas",
-    roles: ["SUPER_ADMIN", "ADMIN", "DTM", "DTM_EIDE"],
-  },
-  {
-    type: "link",
-    label: "Usuarios",
-    href: "/usuarios",
-    segment: "usuarios",
-    icon: "usuarios",
-    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA_DTM"],
-  },
-  {
-    type: "link",
-    label: "Roles",
-    href: "/roles",
-    segment: "roles",
-    icon: "roles",
-    roles: ["SUPER_ADMIN", "ADMIN"],
-  },
+
+  // Gestión va primero: Avales es la pantalla de uso diario y tiene que quedar
+  // lo más arriba posible.
+  { type: "section", label: "Gestión" },
   {
     type: "link",
     label: "Avales",
@@ -112,6 +102,34 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     icon: "reformas",
     roles: ["SUPER_ADMIN", "ADMIN", "PDA", "ENTRENADOR", "DTM", "DTM_EIDE", "CONTROL_PREVIO"],
   },
+
+  { type: "section", label: "Personas" },
+  {
+    type: "link",
+    label: "Deportistas",
+    href: "/deportistas",
+    segment: "deportistas",
+    icon: "deportistas",
+    roles: ["SUPER_ADMIN", "ADMIN", "DTM", "DTM_EIDE"],
+  },
+  {
+    type: "link",
+    label: "Usuarios",
+    href: "/usuarios",
+    segment: "usuarios",
+    icon: "usuarios",
+    roles: ["SUPER_ADMIN", "ADMIN", "SECRETARIA_DTM"],
+  },
+  {
+    type: "link",
+    label: "Roles",
+    href: "/roles",
+    segment: "roles",
+    icon: "roles",
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+
+  { type: "section", label: "Administración" },
   {
     type: "link",
     label: "Carga Masiva",

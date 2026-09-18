@@ -7,7 +7,7 @@ import { Upload } from "lucide-react";
 import AlertBanner from "@/components/ui/alert-banner";
 import SearchInput from "@/components/ui/search-input";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import EventoCard from "./_components/evento-card";
+import EventoTable from "./_components/evento-table";
 import Pagination from "@/components/ui/pagination";
 import UploadEventsExcelModal from "@/components/events/upload-excel-events-modal";
 import { useAuth } from "@/app/providers/auth-provider";
@@ -206,7 +206,7 @@ export default function EventosPage() {
           </div>
         </div>
 
-        <EventoCard
+        <EventoTable
           eventos={eventos}
           loading={loading}
           error={error}

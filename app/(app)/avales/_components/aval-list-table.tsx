@@ -39,6 +39,7 @@ import {
 import { Fragment, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AlertBanner from "@/components/ui/alert-banner";
+import AvalFlujoProgreso from "./aval-flujo-progreso";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import RowActionsMenu, { type RowAction } from "@/components/ui/row-actions-menu";
 import { deleteAvalRequest } from "@/lib/api/avales";
@@ -95,6 +96,45 @@ function getStatusIcon(status?: string | null) {
 }
 
 const COLUMN_COUNT = 6;
+
+/**
+ * Paleta del avatar. El color sale de un hash del nombre para que la misma
+ * persona se vea siempre igual: si fuera aleatorio o por índice de fila,
+ * cambiaría al reordenar o paginar y dejaría de servir como pista visual.
+ */
+const AVATAR_TONES = [
+  "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300",
+  "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+  "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+  "bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300",
+];
+
+function iniciales(nombre: string) {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  const primera = partes[0][0] ?? "";
+  const segunda = partes.length > 1 ? (partes[partes.length - 1][0] ?? "") : "";
+  return (primera + segunda).toUpperCase();
+}
+
+function tonoAvatar(nombre: string) {
+  let hash = 0;
+  for (const char of nombre) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return AVATAR_TONES[hash % AVATAR_TONES.length];
+}
+
+function Avatar({ nombre }: { nombre: string }) {
+  return (
+    <span
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${tonoAvatar(nombre)}`}
+      aria-hidden="true"
+    >
+      {iniciales(nombre)}
+    </span>
+  );
+}
 
 /** Par término/descripción del panel desplegable. */
 function Detalle({
@@ -345,8 +385,15 @@ export default function AvalListTable({
                       >
                         {evento?.nombre || "-"}
                       </span>
-                      <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
-                        {evento?.disciplina?.nombre || "Sin disciplina"}
+                      <span className="mt-1 flex items-center gap-2 text-xs">
+                        <span className="max-w-[12rem] truncate rounded-md bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                          {evento?.disciplina?.nombre || "Sin disciplina"}
+                        </span>
+                        {formatLocationWithProvince(evento) && (
+                          <span className="truncate text-gray-400 dark:text-gray-500">
+                            · {formatLocationWithProvince(evento)}
+                          </span>
+                        )}
                       </span>
                     </Td>
 
@@ -361,11 +408,14 @@ export default function AvalListTable({
                     </Td>
 
                     <Td className="py-2.5">
-                      <span
-                        className="block truncate text-sm"
-                        title={getResponsibleTrainerName(aval, "-")}
-                      >
-                        {getResponsibleTrainerName(aval, "-")}
+                      <span className="flex items-center gap-2">
+                        <Avatar nombre={getResponsibleTrainerName(aval, "-")} />
+                        <span
+                          className="truncate text-sm"
+                          title={getResponsibleTrainerName(aval, "-")}
+                        >
+                          {getResponsibleTrainerName(aval, "-")}
+                        </span>
                       </span>
                     </Td>
 
@@ -438,6 +488,10 @@ export default function AvalListTable({
 
                   {abiertos.has(aval.id) && (
                     <ExpandedRow colSpan={COLUMN_COUNT}>
+                      <AvalFlujoProgreso aval={aval} />
+
+                      <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
+
                       <dl className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Detalle icon={FileText} termino="Tipo de aval">
                           {getTipoAvalLabel(aval.tipoAval) || "-"}

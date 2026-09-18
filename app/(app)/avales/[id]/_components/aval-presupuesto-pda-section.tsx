@@ -1,6 +1,7 @@
 "use client";
 
 import type { Aval } from "@/types/aval";
+import { SectionLabel } from "@/components/ui/section-card";
 import { formatDecimal } from "@/lib/utils/formatters";
 import {
   getAvalPresupuestoItems,
@@ -124,12 +125,15 @@ export default function AvalPresupuestoPdaSection({
   const total = rows.reduce((sum, row) => sum + row.total, 0);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    // Esta sección imita el papel del presupuesto certificado, por eso
+    // mantiene fondo blanco fijo y no sigue el modo oscuro: es el documento,
+    // no una tarjeta más de la pantalla.
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
       <div className="space-y-7 bg-white px-5 py-6">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] overflow-hidden rounded-xl text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-700">
+              <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-600">
                 <th className="px-5 py-3.5 text-left">
                   {isFondosPublicos ? "Detalle" : "Concepto"}
                 </th>
@@ -147,26 +151,26 @@ export default function AvalPresupuestoPdaSection({
                 rows.map((row) => (
                   <tr
                     key={row.key}
-                    className="border-b border-gray-100 bg-white text-gray-900 last:border-0"
+                    className="border-b border-slate-100 bg-white text-slate-900 last:border-0"
                   >
                     <td className="px-5 py-3.5 font-medium">{row.detalle}</td>
                     {isFondosPublicos ? (
                       <td
-                        className={`px-5 py-3.5 text-right tabular-nums text-gray-600 ${row.certPdaClass}`}
+                        className={`px-5 py-3.5 text-right tabular-nums text-slate-600 ${row.certPdaClass}`}
                       >
                         {row.showCertPda ? formatDecimal(row.valorCertPda) : ""}
                       </td>
                     ) : null}
-                    <td className="px-5 py-3.5 text-center tabular-nums text-gray-600">
+                    <td className="px-5 py-3.5 text-center tabular-nums text-slate-600">
                       {formatCantidad(row.noDias)}
                     </td>
-                    <td className="px-5 py-3.5 text-center tabular-nums text-gray-600">
+                    <td className="px-5 py-3.5 text-center tabular-nums text-slate-600">
                       {formatCantidad(row.cantidad)}
                     </td>
-                    <td className="px-5 py-3.5 text-right tabular-nums text-gray-600">
+                    <td className="px-5 py-3.5 text-right tabular-nums text-slate-600">
                       {formatDecimal(row.valorUnitario)}
                     </td>
-                    <td className="px-5 py-3.5 text-right font-semibold tabular-nums text-gray-900">
+                    <td className="px-5 py-3.5 text-right font-semibold tabular-nums text-slate-900">
                       {formatDecimal(row.total)}
                     </td>
                   </tr>
@@ -174,14 +178,14 @@ export default function AvalPresupuestoPdaSection({
               ) : (
                 <tr>
                   <td
-                    className="px-4 py-8 text-center text-sm text-gray-500"
+                    className="px-4 py-8 text-center text-sm text-slate-500"
                     colSpan={isFondosPublicos ? 6 : 5}
                   >
                     Sin detalle certificado por PDA.
                   </td>
                 </tr>
               )}
-              <tr className="border-t border-gray-200 bg-gray-50 font-semibold text-gray-900">
+              <tr className="border-t border-slate-200 bg-slate-50/70 font-bold text-slate-900">
                 <td className="px-5 py-4 text-right">Total</td>
                 {isFondosPublicos ? (
                   <td className="px-5 py-4 text-right tabular-nums">
@@ -198,14 +202,12 @@ export default function AvalPresupuestoPdaSection({
         </div>
 
         {notas.length > 0 ? (
-          <div className="space-y-3 text-sm text-gray-800">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500">
-              Notas del presupuesto
-            </p>
+          <div className="space-y-3 text-sm text-slate-800">
+            <SectionLabel>Notas del presupuesto</SectionLabel>
             {notas.map((nota, index) => (
               <p
                 key={`${index}-${nota}`}
-                className="whitespace-pre-line rounded-lg border border-gray-200 border-l-4 border-l-gray-400 bg-white px-4 py-3 shadow-sm"
+                className="whitespace-pre-line rounded-xl border border-slate-200/70 border-l-4 border-l-indigo-300 bg-slate-50/60 px-4 py-3"
               >
                 <span className="font-semibold">{`Nota ${index + 1}:`}</span>{" "}
                 {nota}
@@ -214,13 +216,13 @@ export default function AvalPresupuestoPdaSection({
           </div>
         ) : null}
 
-        <div className="flex justify-center border-t border-gray-200 px-5 pt-8 pb-2">
+        <div className="flex justify-center border-t border-slate-200 px-5 pt-8 pb-2">
           <div className="w-full max-w-sm text-center">
-            <div className="mx-auto mb-3 w-72 max-w-full border-t border-gray-300" />
-            <p className="text-sm font-semibold text-gray-900">
+            <div className="mx-auto mb-3 w-72 max-w-full border-t border-slate-300" />
+            <p className="text-sm font-bold text-slate-900">
               {aprobadoPor || "Pendiente de firmante"}
             </p>
-            <p className="mt-1 text-[0.7rem] uppercase tracking-wide text-gray-500">
+            <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               {cargoAprobador || "Responsable PDA"}
             </p>
           </div>

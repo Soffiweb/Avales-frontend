@@ -34,11 +34,20 @@ import type { LucideProps } from "lucide-react";
 import AlertBanner from "@/components/ui/alert-banner";
 import { ensureFreshAccessToken } from "@/lib/api/client";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import CopyEventCodeButton from "@/components/ui/copy-event-code-button";
 import AvalPresupuestoPdaSection from "./_components/aval-presupuesto-pda-section";
 import AvalDeportistasSection from "./_components/aval-deportistas-section";
 import AvalLogisticaSection from "./_components/aval-logistica-section";
 import AvalPdfComposerModal from "./_components/aval-pdf-composer-modal";
 import Breadcrumb from "@/components/ui/breadcrumb";
+import {
+  SectionCard,
+  SectionCardHeaderTitle,
+  SectionLabel,
+  SECTION_CARD_CLASS,
+  SECTION_CARD_HEADER_CLASS,
+  type SectionIconTone,
+} from "@/components/ui/section-card";
 import { useAuth } from "@/app/providers/auth-provider";
 import {
   deleteAvalRequest,
@@ -112,9 +121,79 @@ function formatSolicitudNumber(value?: string | number | null) {
   return String(numeric).padStart(3, "0");
 }
 
+/**
+ * Paleta pastel de los indicadores de estado de la página.
+ *
+ * Todo lo que informa un estado (chips del evento, badge de tiempo, estados
+ * del historial) sale de acá en vez de escribir los tres colores a mano en
+ * cada lugar. Con rellenos sólidos, media pantalla terminaba compitiendo por
+ * atención y no se distinguía el dato del adorno; en pastel el estado se lee
+ * igual por tono y el borde es lo que lo sigue leyendo como etiqueta sobre
+ * fondo blanco.
+ */
+type PastelTone = "slate" | "indigo" | "emerald" | "sky" | "amber" | "rose";
+
+const PASTEL_TONES: Record<PastelTone, string> = {
+  slate:
+    "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/30",
+  indigo:
+    "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30",
+  emerald:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30",
+  sky: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30",
+  amber:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30",
+  rose: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
+};
+
+function PastelBadge({
+  tone,
+  children,
+  title,
+}: {
+  tone: PastelTone;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${PASTEL_TONES[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Cuenta regresiva al evento, con el tono marcando la urgencia.
+ *
+ * Devuelve texto y tono juntos porque el dato aparece en dos lugares (la ficha
+ * de programación y el resumen del sidebar) y con dos representaciones
+ * distintas del mismo número el usuario cree que son dos cosas distintas.
+ */
+function getDaysUntilBadge(
+  daysUntil: number | null,
+): { text: string; tone: PastelTone } | null {
+  if (daysUntil === null) return null;
+  if (daysUntil < 0) return { text: "Evento pasado", tone: "rose" };
+  if (daysUntil === 0) return { text: "Inicia hoy", tone: "rose" };
+  if (daysUntil === 1) return { text: "Inicia mañana", tone: "amber" };
+  if (daysUntil <= 3) return { text: `Faltan ${daysUntil} días`, tone: "amber" };
+  return { text: `Faltan ${daysUntil} días`, tone: "slate" };
+}
+
 type FactItem = {
   label: string;
   value: string | number | null | undefined;
+  /**
+   * Render alternativo del valor (por ejemplo un badge).
+   *
+   * `value` se sigue pidiendo aunque haya `node`: es lo que decide si el dato
+   * está vacío y por lo tanto si la celda se muestra. Sin él, una celda sin
+   * dato aparecería igual con un badge vacío adentro.
+   */
+  node?: React.ReactNode;
 };
 
 function isEmptyValue(value: FactItem["value"]) {
@@ -123,67 +202,80 @@ function isEmptyValue(value: FactItem["value"]) {
   return value.trim().length === 0;
 }
 
+/**
+ * Grilla de datos rotulados.
+ *
+ * Va sobre un panel propio y no suelta sobre la tarjeta: son pares
+ * rótulo/valor y sin el panel se leen como texto corrido dentro de la sección.
+ */
 function FactGrid({ items }: { items: FactItem[] }) {
   const visible = items.filter((item) => !isEmptyValue(item.value));
   if (visible.length === 0) return null;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <dl className="grid gap-4 rounded-xl border border-slate-200/70 bg-slate-50/60 p-4 sm:grid-cols-2 lg:grid-cols-3 dark:border-slate-700/60 dark:bg-slate-900/40">
       {visible.map((item) => (
         <div key={item.label} className="min-w-0">
-          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-500">
-            {item.label}
-          </p>
-          <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-            {String(item.value)}
-          </p>
+          <SectionLabel as="dt">{item.label}</SectionLabel>
+          <dd className="mt-1 truncate text-sm font-bold text-slate-800 dark:text-slate-200">
+            {item.node ?? String(item.value)}
+          </dd>
         </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
 type CollapsibleSectionProps = {
   title: string;
   icon?: React.ReactNode;
+  iconTone?: SectionIconTone;
   defaultOpen?: boolean;
   meta?: React.ReactNode;
   children: React.ReactNode;
 };
 
+/**
+ * Sección plegable con la misma piel que `SectionCard`.
+ *
+ * Reutiliza las clases del primitivo en vez de copiarlas para que una tarjeta
+ * plegable y una fija no se vean distintas. Sigue siendo `<details>/<summary>`
+ * nativo a propósito: el desplegado no necesita estado en React, funciona sin
+ * JavaScript y el navegador ya le da el rol y el foco correctos.
+ */
 function CollapsibleSection({
   title,
   icon,
+  iconTone = "slate",
   defaultOpen = false,
   meta,
   children,
 }: CollapsibleSectionProps) {
   return (
-    <details
-      open={defaultOpen}
-      className="group overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 shadow-sm transition-colors group-open:border-indigo-300 dark:group-open:border-indigo-500"
-    >
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-4 py-3 bg-gray-50 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {icon}
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {title}
-            </h2>
-          </div>
-          {meta ? <div className="mt-1">{meta}</div> : null}
-        </div>
-        <div className="flex items-center gap-2 shrink-0 mt-1">
-          <span className="text-[0.7rem] text-gray-400 dark:text-gray-500 group-open:hidden">
+    <details open={defaultOpen} className={`group ${SECTION_CARD_CLASS}`}>
+      <summary
+        className={`${SECTION_CARD_HEADER_CLASS} cursor-pointer list-none transition-colors hover:bg-slate-100/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 dark:hover:bg-slate-900/70`}
+      >
+        <SectionCardHeaderTitle
+          title={title}
+          icon={icon}
+          iconTone={iconTone}
+          meta={meta}
+        />
+        <div className="mt-1 flex shrink-0 items-center gap-2">
+          {/* Las dos leyendas conviven en el DOM y se alternan con
+              `group-open:`: el estado del `<details>` no vive en React, así
+              que no hay forma de elegir una sola al renderizar. */}
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-open:hidden dark:text-slate-500">
             Desplegar
           </span>
-          <span className="hidden text-[0.7rem] text-gray-400 dark:text-gray-500 group-open:inline">
+          <span className="hidden text-[11px] font-bold uppercase tracking-wider text-slate-400 group-open:inline dark:text-slate-500">
             Ocultar
           </span>
-          <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 transition-transform group-open:rotate-180" />
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
         </div>
       </summary>
-      <div className="px-4 pb-4 pt-1">{children}</div>
+      <div className="p-6">{children}</div>
     </details>
   );
 }
@@ -285,23 +377,25 @@ function StageTimeline({
       {/* Header con paso actual */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <SectionLabel>
             Paso {currentIndex + 1} de {stages.length}
-          </p>
-          <h2 className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          </SectionLabel>
+          <h2 className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">
             {isApproved
               ? "Aval aprobado"
               : `En: ${currentStageInfo?.label ?? "—"}`}
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+          <span className="text-sm font-bold tabular-nums text-slate-600 dark:text-slate-300">
             {Math.round(progressPercent)}%
           </span>
-          <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+          {/* La barra sí va con relleno sólido: es la única pieza sin texto
+              encima y en pastel no se distinguiría de su propio riel. */}
+          <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                isApproved ? "bg-emerald-500" : "bg-blue-600"
+                isApproved ? "bg-emerald-500" : "bg-indigo-500"
               }`}
               style={{ width: `${progressPercent}%` }}
             />
@@ -311,9 +405,15 @@ function StageTimeline({
 
       {/* Stepper visual */}
       <div className="relative pt-4 pb-2">
-        <div className="absolute inset-x-6 top-9 h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full" />
+        <div className="absolute inset-x-6 top-9 h-0.5 bg-slate-200 dark:bg-slate-700 rounded-full" />
         <div
-          className="absolute left-6 top-9 h-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-blue-600 transition-all duration-500"
+          // Mismo criterio que la barra de arriba: verde cuando el flujo está
+          // aprobado, indigo mientras avanza. Con un degradado fijo el tramo
+          // final se veía indigo incluso al 100%, y el aval aprobado quedaba
+          // contradiciéndose con su propio porcentaje.
+          className={`absolute left-6 top-9 h-0.5 rounded-full transition-all duration-500 ${
+            isApproved ? "bg-emerald-400" : "bg-indigo-400"
+          }`}
           style={{
             width: `calc((100% - 3rem) * ${progressPercent / 100})`,
           }}
@@ -339,27 +439,31 @@ function StageTimeline({
                   ? "skipped"
                   : "upcoming";
 
+            // Círculos pastel, nunca sólidos: siete pasos rellenos de color
+            // saturado tapan al resto de la página y el número de adentro
+            // pierde contraste. El estado se sigue leyendo por tono, y "en
+            // curso" se separa de "cumplida" con el halo, no con el relleno.
             const circleClasses =
               status === "done"
-                ? "bg-emerald-500 border-emerald-500 text-white shadow-sm"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
                 : isDraftStage
-                  ? "border-amber-500 bg-amber-50 text-amber-700 ring-4 ring-amber-100 shadow-md dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900/40"
+                  ? "border-amber-200 bg-amber-50 text-amber-700 ring-4 ring-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20"
                   : status === "current"
-                    ? "border-blue-600 bg-white text-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/40 shadow-md"
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700 ring-4 ring-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20"
                     : status === "skipped"
-                      ? "border-dashed border-amber-500 bg-white text-amber-600 dark:border-amber-500 dark:bg-gray-900 dark:text-amber-400"
-                      : "border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-500";
+                      ? "border-dashed border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+                      : "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-600 dark:bg-slate-500/10 dark:text-slate-400";
 
             const labelClasses =
               status === "done"
                 ? "text-emerald-700 dark:text-emerald-300"
                 : isDraftStage
-                  ? "text-amber-700 dark:text-amber-300 font-semibold"
+                  ? "font-bold text-amber-700 dark:text-amber-300"
                   : status === "current"
-                    ? "text-blue-700 dark:text-blue-300 font-semibold"
+                    ? "font-bold text-indigo-700 dark:text-indigo-300"
                     : status === "skipped"
                       ? "text-amber-700 dark:text-amber-400"
-                      : "text-gray-500 dark:text-gray-400";
+                      : "text-slate-500 dark:text-slate-400";
 
             const stageHref = ETAPA_TO_PATH[stage.etapa];
             const isClickable = isAdmin && avalId && stageHref;
@@ -410,7 +514,7 @@ function StageTimeline({
       </div>
 
       {skippedStages.length > 0 ? (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             Este aval avanzó con un orden de flujo anterior al configurado hoy.
@@ -426,12 +530,18 @@ function StageTimeline({
   );
 }
 
-const HISTORIAL_STATE_STYLES: Record<string, string> = {
-  SOLICITADO: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
-  RECHAZADO: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",
-  ACEPTADO: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  BORRADOR: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  DISPONIBLE: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+/**
+ * Estado del historial → tono pastel.
+ *
+ * Guarda el tono y no las clases para que el chip y el punto numerado de la
+ * misma fila no puedan quedar de colores distintos.
+ */
+const HISTORIAL_STATE_TONES: Record<string, PastelTone> = {
+  SOLICITADO: "indigo",
+  RECHAZADO: "rose",
+  ACEPTADO: "emerald",
+  BORRADOR: "slate",
+  DISPONIBLE: "slate",
 };
 
 function HistorialTimeline({
@@ -451,46 +561,34 @@ function HistorialTimeline({
         const stageLabel = flowStages.includes(entry.etapa)
           ? getApprovalStageLabel(entry.etapa)
           : entry.etapa;
-        const stateStyle =
-          HISTORIAL_STATE_STYLES[entry.estado] ??
-          "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+        const stateTone = HISTORIAL_STATE_TONES[entry.estado] ?? "slate";
         const isLast = idx === sorted.length - 1;
 
         return (
           <div key={entry.id} className="flex gap-3">
             <div className="flex flex-col items-center">
               <div
-                className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
-                  entry.estado === "RECHAZADO"
-                    ? "border-rose-400 bg-rose-50 text-rose-600 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
-                    : entry.estado === "ACEPTADO"
-                      ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-                }`}
+                className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${PASTEL_TONES[stateTone]}`}
               >
                 {idx + 1}
               </div>
               {!isLast && (
-                <div className="mt-1 w-0.5 flex-1 bg-gray-200 dark:bg-gray-700" />
+                <div className="mt-1 w-0.5 flex-1 bg-slate-200 dark:bg-slate-700" />
               )}
             </div>
             <div className="min-w-0 flex-1 pb-4">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                   {stageLabel}
                 </p>
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${stateStyle}`}
-                >
-                  {entry.estado}
-                </span>
+                <PastelBadge tone={stateTone}>{entry.estado}</PastelBadge>
               </div>
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 {entry.usuario.nombre} {entry.usuario.apellido} ·{" "}
                 {formatDate(entry.createdAt)}
               </p>
               {entry.comentario ? (
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 italic">
+                <p className="mt-1 text-xs italic text-slate-600 dark:text-slate-300">
                   {entry.comentario}
                 </p>
               ) : null}
@@ -509,7 +607,27 @@ type DocumentAction = {
   replaceHandler?: (files: File[]) => Promise<Aval>;
   replaceLabel?: string;
   allowMultiple?: boolean;
+  /**
+   * Marca la descarga principal del panel.
+   *
+   * Solo una la lleva: es la única que va con relleno sólido. Si las tres
+   * descargas se pintaran igual, no habría jerarquía y el usuario tendría que
+   * leer las tres etiquetas para saber cuál es "la" del aval.
+   */
+  primary?: boolean;
 };
+
+/** Botón secundario: contorno slate. Es el default de toda la página. */
+const OUTLINE_BUTTON_CLASS =
+  "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700";
+
+/** Botón secundario con acento: para acciones de subida y de edición. */
+const SOFT_INDIGO_BUTTON_CLASS =
+  "border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20";
+
+/** Botón primario: el único relleno sólido que se permite en la página. */
+const PRIMARY_BUTTON_CLASS =
+  "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed";
 
 type DocumentActionRowProps = {
   item: DocumentAction;
@@ -561,9 +679,9 @@ function DocumentActionRow({
       <button
         type="button"
         disabled
-        className="btn w-full justify-center border border-gray-200 bg-gray-100 text-gray-400 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500"
+        className="btn w-full justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-400 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-500"
       >
-        <Icon className="w-4 h-4 mr-2" />
+        <Icon className="mr-2 h-4 w-4" />
         {item.label}
       </button>
     );
@@ -589,12 +707,12 @@ function DocumentActionRow({
           type="button"
           onClick={handleReplaceClick}
           disabled={replacing}
-          className="btn w-full justify-center bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
+          className={`btn w-full justify-center rounded-xl disabled:opacity-50 ${SOFT_INDIGO_BUTTON_CLASS}`}
         >
           {replacing ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <Upload className="w-4 h-4 mr-2" />
+            <Upload className="mr-2 h-4 w-4" />
           )}
           {replacing ? "Subiendo..." : uploadLabel}
         </button>
@@ -610,9 +728,11 @@ function DocumentActionRow({
         target="_blank"
         rel="noreferrer noopener"
         download
-        className="btn flex-1 justify-center bg-indigo-500 text-white hover:bg-indigo-600"
+        className={`btn flex-1 justify-center rounded-xl ${
+          item.primary ? PRIMARY_BUTTON_CLASS : SOFT_INDIGO_BUTTON_CLASS
+        }`}
       >
-        <Icon className="w-4 h-4 mr-2" />
+        <Icon className="mr-2 h-4 w-4" />
         {item.label}
       </a>
       {canUpload && (
@@ -631,7 +751,7 @@ function DocumentActionRow({
             disabled={replacing}
             title={item.replaceLabel ?? "Reemplazar archivo"}
             aria-label={item.replaceLabel ?? "Reemplazar archivo"}
-            className="btn shrink-0 border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            className={`btn shrink-0 rounded-xl disabled:opacity-50 ${OUTLINE_BUTTON_CLASS}`}
           >
             {replacing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -712,16 +832,16 @@ function AddAdjuntosSolicitudButton({
         type="button"
         onClick={handleClick}
         disabled={!canUpload}
-        className="btn w-full justify-center border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        className={`btn w-full justify-center rounded-xl border-dashed disabled:cursor-not-allowed disabled:opacity-50 ${OUTLINE_BUTTON_CLASS}`}
       >
         {uploading ? (
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
-          <Upload className="w-4 h-4 mr-2" />
+          <Upload className="mr-2 h-4 w-4" />
         )}
         {uploading ? "Subiendo adjuntos..." : "Agregar archivos adjuntos"}
       </button>
-      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         {currentCount}/{MAX_ADJUNTOS_SOLICITUD} adjuntos de solicitud.
       </p>
     </div>
@@ -795,7 +915,7 @@ function AdjuntoExtraRow({
   };
 
   return (
-    <li className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800">
+    <li className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/60 px-3 py-2 text-sm dark:border-slate-700/60 dark:bg-slate-900/40">
       <a
         href={adjunto.url}
         target="_blank"
@@ -805,7 +925,7 @@ function AdjuntoExtraRow({
         title={`Descargar ${adjunto.nombreOriginal}`}
       >
         <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-        <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+        <span className="truncate font-medium text-slate-900 dark:text-slate-100">
           {adjunto.nombreOriginal}
         </span>
       </a>
@@ -824,7 +944,7 @@ function AdjuntoExtraRow({
             disabled={busy !== null}
             title="Reemplazar"
             aria-label="Reemplazar"
-            className="p-1 text-gray-500 hover:text-indigo-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-indigo-400"
+            className="p-1 text-slate-500 hover:text-indigo-600 disabled:opacity-50 dark:text-slate-400 dark:hover:text-indigo-400"
           >
             {busy === "replace" ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -838,7 +958,7 @@ function AdjuntoExtraRow({
             disabled={busy !== null}
             title="Eliminar"
             aria-label="Eliminar"
-            className="p-1 text-gray-500 hover:text-rose-600 disabled:opacity-50 dark:text-gray-400 dark:hover:text-rose-400"
+            className="p-1 text-slate-500 hover:text-rose-600 disabled:opacity-50 dark:text-slate-400 dark:hover:text-rose-400"
           >
             {busy === "delete" ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1023,11 +1143,11 @@ export default function AvalDetailPage() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl" />
-            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+          <div className="h-8 w-1/3 rounded-lg bg-slate-200 dark:bg-slate-700" />
+          <div className="h-64 rounded-2xl bg-slate-200 dark:bg-slate-700" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="h-32 rounded-2xl bg-slate-200 dark:bg-slate-700" />
+            <div className="h-32 rounded-2xl bg-slate-200 dark:bg-slate-700" />
           </div>
         </div>
       </div>
@@ -1037,13 +1157,13 @@ export default function AvalDetailPage() {
   if (error || !aval) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
-        <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl p-6 text-center">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {error ?? "Aval no encontrado"}
         </div>
         <div className="mt-4">
           <Link
             href="/avales"
-            className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver a mis avales
@@ -1061,19 +1181,47 @@ export default function AvalDetailPage() {
   const generoEtiqueta = evento?.genero
     ? formatGenero(evento.genero)
     : undefined;
-  const eventBadges = evento
-    ? [
-        evento.tipoEvento,
-        getEventoTipoParticipacionLabel(evento.tipoParticipacion),
-        evento.disciplina?.nombre,
-        formatCategoryLabel(
-          evento.categoria?.nombre ?? evento.categoriaCodigo,
-          "",
-        ),
-        evento.alcance,
-        generoEtiqueta,
-      ].filter(Boolean)
-    : [];
+  // Clasificación del evento. Se muestra solo acá, como fila de chips: antes
+  // estaban además repetidos campo por campo en la grilla de datos de abajo, y
+  // dos representaciones del mismo dato en la misma tarjeta se leen como si
+  // fueran datos distintos.
+  //
+  // Cada chip conserva su rótulo en `title` y en texto solo para lectores de
+  // pantalla, que es lo que la grilla aportaba de más.
+  const eventBadges: Array<{ label: string; value: string; tone: PastelTone }> =
+    evento
+      ? (
+          [
+            { label: "Tipo", value: evento.tipoEvento, tone: "indigo" },
+            {
+              label: "Participación",
+              value: getEventoTipoParticipacionLabel(evento.tipoParticipacion),
+              tone: "sky",
+            },
+            {
+              label: "Disciplina",
+              value: evento.disciplina?.nombre,
+              tone: "emerald",
+            },
+            {
+              label: "Categoría",
+              value: formatCategoryLabel(
+                evento.categoria?.nombre ?? evento.categoriaCodigo,
+                "",
+              ),
+              tone: "amber",
+            },
+            { label: "Alcance", value: evento.alcance, tone: "slate" },
+            { label: "Género", value: generoEtiqueta, tone: "slate" },
+          ] as Array<{
+            label: string;
+            value?: string | null;
+            tone: PastelTone;
+          }>
+        )
+          .filter((chip) => Boolean(chip.value?.trim()))
+          .map((chip) => ({ ...chip, value: chip.value as string }))
+      : [];
   const hasRealDates = Boolean(evento?.fechaInicio && evento?.fechaFin);
   const daysUntil =
     evento && hasRealDates ? getDaysUntilEvent(evento.fechaInicio) : null;
@@ -1094,14 +1242,10 @@ export default function AvalDetailPage() {
     duration
       ? `Duración estimada: ${duration} ${duration === 1 ? "día" : "días"}.`
       : null,
-    daysUntil !== null
-      ? daysUntil < 0
-        ? "La fecha del evento ya pasó."
-        : daysUntil === 0
-          ? "El evento inicia hoy."
-          : `Faltan ${daysUntil} días para el inicio del evento.`
-      : null,
+    // La cuenta regresiva NO va como frase acá: se muestra con el mismo badge
+    // que la ficha de programación, para que el dato tenga una sola forma.
   ].filter((line): line is string => Boolean(line));
+  const daysUntilBadge = getDaysUntilBadge(daysUntil);
   const canDownloadAvalCompleto = Boolean(aval.aval) || isAvalCompleto;
   const isAvalOwner =
     isTrainerUser(user) &&
@@ -1156,8 +1300,12 @@ export default function AvalDetailPage() {
   };
 
   const cupos = getAvalCupos(aval);
+  // `getAvalCupos` devuelve los campos crudos del evento o de la forma de
+  // participación, y cualquiera puede venir sin definir. Sumarlos a secas da
+  // NaN, y NaN no es nullish: un `?? "—"` en el render no lo atrapa nunca y
+  // la tarjeta termina mostrando "NaN" al usuario.
   const totalEntrenadores =
-    cupos.numEntrenadoresHombres + cupos.numEntrenadoresMujeres;
+    (cupos.numEntrenadoresHombres ?? 0) + (cupos.numEntrenadoresMujeres ?? 0);
 
   const deportistasList = aval.avalTecnico?.deportistasAval ?? [];
   const solicitudAvalUrl =
@@ -1167,6 +1315,7 @@ export default function AvalDetailPage() {
       label: "Descargar solicitud del aval",
       url: solicitudAvalUrl,
       icon: FileText,
+      primary: true,
     },
     {
       label: "Descargar convocatoria",
@@ -1219,9 +1368,9 @@ export default function AvalDetailPage() {
 
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto space-y-8">
         {regenerating ? (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800 dark:bg-indigo-950/40">
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-500/30 dark:bg-indigo-500/10">
             <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-2 text-sm text-indigo-900 dark:text-indigo-200">
+              <div className="flex items-center gap-2 text-sm text-indigo-800 dark:text-indigo-200">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="font-medium">Regenerando PDFs…</span>
                 <span className="text-indigo-700 dark:text-indigo-300 hidden sm:inline">
@@ -1232,9 +1381,9 @@ export default function AvalDetailPage() {
                 {regenerationProgress}%
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-900/50">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-500/20">
               <div
-                className="h-full bg-indigo-600 transition-all duration-300 ease-out"
+                className="h-full bg-indigo-500 transition-all duration-300 ease-out"
                 style={{ width: `${regenerationProgress}%` }}
               />
             </div>
@@ -1251,13 +1400,19 @@ export default function AvalDetailPage() {
                 ]}
               />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-2xl font-bold text-slate-900 md:text-3xl dark:text-slate-100">
               Detalle del Aval
             </h1>
             {evento?.codigo && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Código del evento: {evento.codigo}
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Código del evento:{" "}
+                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                    {evento.codigo}
+                  </span>
+                </p>
+                <CopyEventCodeButton codigo={evento.codigo} />
+              </div>
             )}
           </div>
 
@@ -1265,9 +1420,9 @@ export default function AvalDetailPage() {
             {canEditSolicitud && (
               <Link
                 href={`/avales/${aval.id}/crear-solicitud`}
-                className="btn border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+                className={`btn rounded-xl ${SOFT_INDIGO_BUTTON_CLASS}`}
               >
-                <Pencil className="w-4 h-4 mr-2" />
+                <Pencil className="mr-2 h-4 w-4" />
                 {editSolicitudLabel}
               </Link>
             )}
@@ -1275,9 +1430,9 @@ export default function AvalDetailPage() {
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
-                className="btn border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                className="btn rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 {canDeleteAsAdmin ? "Eliminar aval" : "Eliminar solicitud"}
               </button>
             )}
@@ -1286,13 +1441,13 @@ export default function AvalDetailPage() {
                 type="button"
                 onClick={handleRegeneratePdfs}
                 disabled={regenerating}
-                className="btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`btn rounded-xl disabled:cursor-not-allowed disabled:opacity-60 ${OUTLINE_BUTTON_CLASS}`}
                 title="Regenera todos los PDFs ya emitidos (PDA, Compras, Metodólogo, DTM, Control Previo, Financiero, Aval Técnico, Aval Completo)"
               >
                 {regenerating ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="mr-2 h-4 w-4" />
                 )}
                 {regenerating
                   ? `Regenerando… ${regenerationProgress}%`
@@ -1302,23 +1457,26 @@ export default function AvalDetailPage() {
             <button
               type="button"
               onClick={() => setComposerOpen(true)}
-              className="btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              className={`btn rounded-xl ${OUTLINE_BUTTON_CLASS}`}
               title="Vista previa o descarga combinada de documentos"
             >
-              <FileText className="w-4 h-4 mr-2" />
+              <FileText className="mr-2 h-4 w-4" />
               Documentos del aval
             </button>
+            {/* Acción primaria de la página: es la única del header con
+                relleno sólido. En pastel quedaría al mismo nivel que las
+                cuatro secundarias de al lado y se perdería la jerarquía. */}
             {canDownloadAvalCompleto ? (
               <button
                 type="button"
                 onClick={handleDownloadAvalCompleto}
                 disabled={downloadingAval}
-                className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`btn rounded-xl ${PRIMARY_BUTTON_CLASS}`}
               >
                 {downloadingAval ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Download className="w-4 h-4 mr-2" />
+                  <Download className="mr-2 h-4 w-4" />
                 )}
                 {downloadingAval ? "Descargando…" : "Descargar aval completo"}
               </button>
@@ -1327,9 +1485,9 @@ export default function AvalDetailPage() {
                 type="button"
                 disabled
                 title="El aval completo estará disponible una vez aprobado en todas las etapas."
-                className="btn bg-indigo-500 text-white opacity-50 cursor-not-allowed"
+                className={`btn rounded-xl ${PRIMARY_BUTTON_CLASS} opacity-50`}
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Download className="mr-2 h-4 w-4" />
                 Descargar aval completo
               </button>
             )}
@@ -1337,7 +1495,7 @@ export default function AvalDetailPage() {
         </div>
 
         {/* Estado del aval */}
-        <div className="space-y-4">
+        <SectionCard>
           <StageTimeline
             currentStage={displayCurrentEtapa}
             flowStages={flowStages}
@@ -1347,19 +1505,7 @@ export default function AvalDetailPage() {
             isDraft={aval.estado === "BORRADOR"}
             isApproved={isAvalCompleto}
           />
-          {/* <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
-            <p>{stageDescription}</p>
-            <div className="pt-3">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
-              >
-                <Eye className="w-4 h-4" />
-                Ver aval en PDF
-              </button>
-            </div>
-          </div> */}
-        </div>
+        </SectionCard>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
@@ -1367,74 +1513,48 @@ export default function AvalDetailPage() {
               <CollapsibleSection
                 title="Datos del evento"
                 defaultOpen
-                icon={
-                  <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                }
+                icon={<Trophy className="h-4 w-4" />}
+                iconTone="indigo"
                 meta={
                   evento.codigo ? (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                       Código: {evento.codigo}
                     </p>
                   ) : null
                 }
               >
                 <div className="space-y-5">
-                  {/* Header: nombre completo + tags rápidos */}
+                  {/* Header: nombre completo + chips de clasificación */}
                   <div className="space-y-3">
                     <div className="min-w-0">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 break-words">
+                      <h3 className="break-words text-lg font-bold text-slate-900 dark:text-slate-100">
                         {evento.nombre}
                       </h3>
                       {evento.codigo ? (
-                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           Evento {evento.codigo}
                         </p>
                       ) : null}
                     </div>
                     {eventBadges.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
-                        {eventBadges.map((badge, index) => (
-                          <span
-                            key={`${badge}-${index}`}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900"
+                        {eventBadges.map((badge) => (
+                          <PastelBadge
+                            key={badge.label}
+                            tone={badge.tone}
+                            title={badge.label}
                           >
-                            {badge}
-                          </span>
+                            <span className="sr-only">{badge.label}: </span>
+                            {badge.value}
+                          </PastelBadge>
                         ))}
                       </div>
                     ) : null}
                   </div>
 
-                  <FactGrid
-                    items={[
-                      { label: "Tipo", value: evento.tipoEvento },
-                      {
-                        label: "Participación",
-                        value:
-                          getEventoTipoParticipacionLabel(
-                            evento.tipoParticipacion,
-                          ) ?? "",
-                      },
-                      { label: "Disciplina", value: evento.disciplina?.nombre },
-                      {
-                        label: "Categoría",
-                        value: formatCategoryLabel(
-                          evento.categoria?.nombre ?? evento.categoriaCodigo,
-                        ),
-                      },
-                      { label: "Alcance", value: evento.alcance },
-                      {
-                        label: "Género",
-                        value: evento.genero ? formatGenero(evento.genero) : "",
-                      },
-                    ]}
-                  />
-
                   {/* Programación */}
                   <div className="space-y-2">
-                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
-                      Programación
-                    </p>
+                    <SectionLabel>Programación</SectionLabel>
                     {hasRealDates ? (
                       <FactGrid
                         items={[
@@ -1458,16 +1578,12 @@ export default function AvalDetailPage() {
                           },
                           {
                             label: "Tiempo",
-                            value:
-                              daysUntil === null
-                                ? ""
-                                : daysUntil < 0
-                                  ? "Evento pasado"
-                                  : daysUntil === 0
-                                    ? "Hoy"
-                                    : daysUntil === 1
-                                      ? "Mañana"
-                                      : `Faltan ${daysUntil} días`,
+                            value: daysUntilBadge?.text,
+                            node: daysUntilBadge ? (
+                              <PastelBadge tone={daysUntilBadge.tone}>
+                                {daysUntilBadge.text}
+                              </PastelBadge>
+                            ) : null,
                           },
                         ]}
                       />
@@ -1485,10 +1601,10 @@ export default function AvalDetailPage() {
 
                   {/* Ubicación */}
                   <div className="space-y-2">
-                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                      <MapPin className="w-3 h-3" />
+                    <SectionLabel className="flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3" aria-hidden="true" />
                       Ubicación
-                    </p>
+                    </SectionLabel>
                     <FactGrid
                       items={[
                         { label: "Lugar", value: evento.lugar },
@@ -1501,32 +1617,29 @@ export default function AvalDetailPage() {
 
                   {/* Cupos */}
                   <div className="space-y-2">
-                    <p className="text-[0.65rem] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
-                      Cupos
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 px-3 py-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-950/40">
-                          <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                        </div>
+                    <SectionLabel>Cupos</SectionLabel>
+                    {/* Número grande: son las dos cifras que se buscan de un
+                        vistazo, y al mismo cuerpo que el resto del texto
+                        había que leerlas para encontrarlas. */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-50/60 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/40">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+                          <Users className="h-5 w-5" aria-hidden="true" />
+                        </span>
                         <div className="min-w-0">
-                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-500">
-                            Total entrenadores
-                          </p>
-                          <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
-                            {totalEntrenadores ?? "—"}
+                          <SectionLabel>Total entrenadores</SectionLabel>
+                          <p className="mt-0.5 text-2xl font-bold leading-none tabular-nums text-slate-900 dark:text-slate-100">
+                            {totalEntrenadores || "—"}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 px-3 py-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">
-                          <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        </div>
+                      <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-slate-50/60 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/40">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                          <Trophy className="h-5 w-5" aria-hidden="true" />
+                        </span>
                         <div className="min-w-0">
-                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-500">
-                            Deportistas seleccionados
-                          </p>
-                          <p className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+                          <SectionLabel>Deportistas seleccionados</SectionLabel>
+                          <p className="mt-0.5 text-2xl font-bold leading-none tabular-nums text-slate-900 dark:text-slate-100">
                             {deportistasList.length || "—"}
                           </p>
                         </div>
@@ -1534,28 +1647,22 @@ export default function AvalDetailPage() {
                     </div>
 
                     {aval.resumenCupos ? (
-                      <div className="grid grid-cols-3 gap-2 rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-3 dark:border-gray-700 dark:bg-gray-800/60">
+                      <div className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200/70 bg-slate-50/60 px-3 py-3 dark:border-slate-700/60 dark:bg-slate-900/40">
                         <div className="text-center">
-                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Total
-                          </p>
-                          <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          <SectionLabel>Total</SectionLabel>
+                          <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-800 dark:text-slate-200">
                             {aval.resumenCupos.total}
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Cubiertos
-                          </p>
-                          <p className="mt-0.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                          <SectionLabel>Cubiertos</SectionLabel>
+                          <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
                             {aval.resumenCupos.cubiertos}
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Solo resultado
-                          </p>
-                          <p className="mt-0.5 text-sm font-semibold text-indigo-700 dark:text-indigo-400">
+                          <SectionLabel>Solo resultado</SectionLabel>
+                          <p className="mt-0.5 text-sm font-bold tabular-nums text-indigo-700 dark:text-indigo-400">
                             {aval.resumenCupos.soloResultado}
                           </p>
                         </div>
@@ -1569,11 +1676,10 @@ export default function AvalDetailPage() {
             <CollapsibleSection
               title="Solicitud del aval"
               defaultOpen
-              icon={
-                <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              }
+              icon={<FileText className="h-4 w-4" />}
+              iconTone="indigo"
               meta={
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {stageDescription}
                 </p>
               }
@@ -1609,22 +1715,18 @@ export default function AvalDetailPage() {
                 />
 
                 {aval.descripcion ? (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
-                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">
-                      Descripción
-                    </p>
-                    <p className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                  <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/40">
+                    <SectionLabel>Descripción</SectionLabel>
+                    <p className="mt-1 whitespace-pre-line text-sm text-slate-800 dark:text-slate-200">
                       {aval.descripcion}
                     </p>
                   </div>
                 ) : null}
 
                 {aval.comentario ? (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
-                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">
-                      Comentario
-                    </p>
-                    <p className="mt-1 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                  <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-900/40">
+                    <SectionLabel>Comentario</SectionLabel>
+                    <p className="mt-1 whitespace-pre-line text-sm text-slate-800 dark:text-slate-200">
                       {aval.comentario}
                     </p>
                   </div>
@@ -1632,9 +1734,14 @@ export default function AvalDetailPage() {
 
                 {aval.avalTecnico ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 p-1.5 text-slate-600 dark:border-slate-500/30 dark:bg-slate-500/10 dark:text-slate-300"
+                        aria-hidden="true"
+                      >
+                        <Users className="h-4 w-4" />
+                      </span>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                         Aval técnico
                       </p>
                     </div>
@@ -1650,17 +1757,15 @@ export default function AvalDetailPage() {
                       aval.avalTecnico.criterios?.length) && (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {aval.avalTecnico.objetivos?.length ? (
-                          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 p-4">
-                            <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
-                              Objetivos
-                            </p>
-                            <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                          <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
+                            <SectionLabel className="mb-2">Objetivos</SectionLabel>
+                            <ol className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                               {aval.avalTecnico.objetivos
                                 .slice()
                                 .sort((a, b) => a.orden - b.orden)
                                 .map((objetivo) => (
                                   <li key={objetivo.id} className="flex gap-2">
-                                    <span className="w-5 h-5 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-900 dark:text-gray-100 shrink-0">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                       {objetivo.orden}
                                     </span>
                                     <span className="flex-1">
@@ -1672,17 +1777,15 @@ export default function AvalDetailPage() {
                           </div>
                         ) : null}
                         {aval.avalTecnico.criterios?.length ? (
-                          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/40 p-4">
-                            <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
-                              Criterios
-                            </p>
-                            <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                          <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
+                            <SectionLabel className="mb-2">Criterios</SectionLabel>
+                            <ol className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                               {aval.avalTecnico.criterios
                                 .slice()
                                 .sort((a, b) => a.orden - b.orden)
                                 .map((criterio) => (
                                   <li key={criterio.id} className="flex gap-2">
-                                    <span className="w-5 h-5 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-900 dark:text-gray-100 shrink-0">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                       {criterio.orden}
                                     </span>
                                     <span className="flex-1">
@@ -1701,7 +1804,7 @@ export default function AvalDetailPage() {
                       <AvalDeportistasSection deportistas={deportistasList} />
                     ) : null}
                     {hasMixedParticipants ? (
-                      <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
+                      <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
                         Este aval incluye participantes solo por resultados dentro del mismo expediente.
                       </div>
                     ) : null}
@@ -1714,11 +1817,10 @@ export default function AvalDetailPage() {
               <CollapsibleSection
                 title="Presupuesto de salida"
                 defaultOpen
-                icon={
-                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                }
+                icon={<DollarSign className="h-4 w-4" />}
+                iconTone="emerald"
                 meta={
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Detalle y notas del presupuesto de salida.
                   </p>
                 }
@@ -1729,45 +1831,38 @@ export default function AvalDetailPage() {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-6 self-start">
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
-              <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-3">
-                Contrato aval
-              </p>
-              <div className="grid gap-3">
+            <SectionCard
+              title="Contrato aval"
+              icon={<DollarSign className="h-4 w-4" />}
+              iconTone="emerald"
+            >
+              <dl className="grid gap-3">
                 <div>
-                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    Tipo
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <SectionLabel as="dt">Tipo</SectionLabel>
+                  <dd className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
                     {getTipoAvalLabel(aval.tipoAval)}
-                  </p>
+                  </dd>
                 </div>
                 {typeof aval.montoSolicitado === "number" ? (
                   <div>
-                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Monto solicitado
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <SectionLabel as="dt">Monto solicitado</SectionLabel>
+                    <dd className="mt-1 text-sm font-bold tabular-nums text-slate-800 dark:text-slate-200">
                       {formatCurrency(aval.montoSolicitado)}
-                    </p>
+                    </dd>
                   </div>
                 ) : null}
                 {typeof aval.montoAsignado === "number" ? (
                   <div>
-                    <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Monto asignado
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <SectionLabel as="dt">Monto asignado</SectionLabel>
+                    <dd className="mt-1 text-sm font-bold tabular-nums text-slate-800 dark:text-slate-200">
                       {formatCurrency(aval.montoAsignado)}
-                    </p>
+                    </dd>
                   </div>
                 ) : null}
                 {aval.presupuesto ? (
-                  <div className="rounded-lg bg-gray-50 px-3 py-3 dark:bg-gray-900/60">
-                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                      Presupuesto por fuente
-                    </p>
-                    <div className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 px-3 py-3 dark:border-slate-700/60 dark:bg-slate-900/40">
+                    <SectionLabel>Presupuesto por fuente</SectionLabel>
+                    <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-400">
                       <p>Fuente: {getTipoAvalLabel(aval.presupuesto.fuente ?? aval.tipoAval)}</p>
                       <p>Asignado: {formatCurrency(aval.presupuesto.asignado)}</p>
                       <p>Comprometido: {formatCurrency(aval.presupuesto.comprometido)}</p>
@@ -1775,26 +1870,43 @@ export default function AvalDetailPage() {
                     </div>
                   </div>
                 ) : null}
-              </div>
-            </div>
+              </dl>
+            </SectionCard>
 
-            {summaryLines.length > 0 ? (
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
-                <p className="text-[0.65rem] uppercase tracking-wide text-gray-500 mb-2">
-                  Resumen
-                </p>
-                <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+            {summaryLines.length > 0 || daysUntilBadge ? (
+              <SectionCard
+                title="Resumen"
+                icon={<FileText className="h-4 w-4" />}
+                iconTone="sky"
+              >
+                <ul className="space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
                   {summaryLines.slice(0, 5).map((line) => (
                     <li key={line} className="flex gap-2">
-                      <span className="mt-2 h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
                       <span className="flex-1">{line}</span>
                     </li>
                   ))}
+                  {/* Mismo badge que la ficha de programación: es el mismo
+                      dato y no debería tener dos caras. */}
+                  {daysUntilBadge ? (
+                    <li className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
+                      <span className="flex-1">
+                        <PastelBadge tone={daysUntilBadge.tone}>
+                          {daysUntilBadge.text}
+                        </PastelBadge>
+                      </span>
+                    </li>
+                  ) : null}
                 </ul>
-              </div>
+              </SectionCard>
             ) : null}
 
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950/60 p-4 shadow-sm">
+            <SectionCard
+              title="Documentos"
+              icon={<Download className="h-4 w-4" />}
+              iconTone="indigo"
+            >
               <div className="space-y-2">
                 {documentActions.map((item) => (
                   <DocumentActionRow
@@ -1833,9 +1945,7 @@ export default function AvalDetailPage() {
 
               {(aval.adjuntosSolicitud?.length ?? 0) > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                    Adjuntos de solicitud
-                  </p>
+                  <SectionLabel className="mb-2">Adjuntos de solicitud</SectionLabel>
                   <ul className="space-y-2">
                     {aval.adjuntosSolicitud.map((adj) => (
                       <AdjuntoExtraRow
@@ -1862,9 +1972,7 @@ export default function AvalDetailPage() {
               {/* Adicionales de convocatoria — editables individualmente */}
               {(aval.convocatoriaAdjuntos?.length ?? 0) > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                    Convocatorias adicionales
-                  </p>
+                  <SectionLabel className="mb-2">Convocatorias adicionales</SectionLabel>
                   <ul className="space-y-2">
                     {aval.convocatoriaAdjuntos?.map((adj) => (
                       <AdjuntoExtraRow
@@ -1891,9 +1999,7 @@ export default function AvalDetailPage() {
               {/* Adicionales de pronóstico — editables individualmente */}
               {(aval.pronosticoDeportistasAdjuntos?.length ?? 0) > 0 && (
                 <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                    Pronósticos de deportistas adicionales
-                  </p>
+                  <SectionLabel className="mb-2">Pronósticos de deportistas adicionales</SectionLabel>
                   <ul className="space-y-2">
                     {aval.pronosticoDeportistasAdjuntos?.map((adj) => (
                       <AdjuntoExtraRow
@@ -1916,8 +2022,7 @@ export default function AvalDetailPage() {
                   </ul>
                 </div>
               )}
-            </div>
-
+            </SectionCard>
           </div>
         </div>
       </div>
@@ -1926,11 +2031,10 @@ export default function AvalDetailPage() {
         <div className="px-4 sm:px-6 lg:px-8 pb-8 w-full max-w-7xl mx-auto">
           <CollapsibleSection
             title="Historial de aprobación"
-            icon={
-              <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            }
+            icon={<FileText className="h-4 w-4" />}
+            iconTone="slate"
             meta={
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {aval.historial.length}{" "}
                 {aval.historial.length === 1 ? "evento" : "eventos"}
               </p>

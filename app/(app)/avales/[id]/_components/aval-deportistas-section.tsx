@@ -2,6 +2,7 @@
 
 import { User } from "lucide-react";
 import type { DeportistaAval, ModalidadParticipacion } from "@/types/aval";
+import { SectionLabel } from "@/components/ui/section-card";
 import { getModalidadParticipacionLabel } from "@/lib/constants";
 
 function normalizeSortKey(value: string) {
@@ -79,14 +80,21 @@ const MODALIDAD_ORDER: Array<ModalidadParticipacion | null> = [
   null,
 ];
 
+/**
+ * Chips de modalidad en pastel, con el mismo acento indigo del resto de la
+ * app: el azul que tenía autogestión era el único de la pantalla y se leía
+ * como un color con significado propio que en realidad no tenía.
+ */
 const MODALIDAD_STYLES: Record<string, string> = {
   CUBIERTO_FONDOS_PUBLICOS:
-    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800",
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30",
   CUBIERTO_AUTOGESTION:
-    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800",
+    "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30",
   SOLO_RESULTADO:
-    "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800/60 dark:text-gray-400 dark:border-gray-700",
+    "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/30",
 };
+
+const MODALIDAD_STYLE_FALLBACK = MODALIDAD_STYLES.SOLO_RESULTADO;
 
 type AvalDeportistasSectionProps = {
   deportistas: DeportistaAval[];
@@ -107,13 +115,13 @@ export default function AvalDeportistasSection({
   const orderedKeys = MODALIDAD_ORDER.filter((k) => grouped.has(k));
 
   return (
-    <div className="bg-white dark:bg-gray-950/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-      <p className="text-xs uppercase tracking-wide text-gray-500 mb-3">
+    <div className="rounded-xl border border-slate-200/70 bg-slate-50/60 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
+      <SectionLabel className="mb-3">
         Deportistas seleccionados ({deportistas.length})
-      </p>
+      </SectionLabel>
 
       {deportistas.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-600 bg-white/60 dark:bg-gray-900/40 px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-4 text-sm text-slate-500 dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-400">
           No hay deportistas registrados.
         </div>
       ) : hasGroups ? (
@@ -122,8 +130,7 @@ export default function AvalDeportistasSection({
             const grupo = grouped.get(modalidad) ?? [];
             const sorted = sortDeportistas(grupo);
             const badgeStyle =
-              MODALIDAD_STYLES[modalidad ?? ""] ??
-              "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800/60 dark:text-gray-400 dark:border-gray-700";
+              MODALIDAD_STYLES[modalidad ?? ""] ?? MODALIDAD_STYLE_FALLBACK;
 
             return (
               <div key={modalidad ?? "sin-modalidad"}>
@@ -133,7 +140,7 @@ export default function AvalDeportistasSection({
                   >
                     {getModalidadParticipacionLabel(modalidad)}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs font-bold tabular-nums text-slate-400 dark:text-slate-500">
                     {sorted.length}
                   </span>
                 </div>
@@ -165,21 +172,21 @@ function DeportistaRow({
   showModalidad: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 px-3 py-2">
-      <div className="w-10 h-10 rounded-full border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800/60 flex items-center justify-center">
-        <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 dark:border-indigo-500/30 dark:bg-indigo-500/10">
+        <User className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-200">
           {formatDeportistaName(deportista)}
         </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           {deportista.rol}
           {" · "}
           {getDeportistaCedula(deportista)}
         </p>
         {showModalidad && deportista.modalidadParticipacion ? (
-          <p className="mt-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-300">
+          <p className="mt-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-300">
             {getModalidadParticipacionLabel(deportista.modalidadParticipacion)}
           </p>
         ) : null}

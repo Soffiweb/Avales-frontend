@@ -121,19 +121,19 @@ export default function AvalPdfComposerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Documentos del aval
             </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Vista previa individual o descarga combinada en un solo PDF.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             aria-label="Cerrar"
           >
             <X className="h-5 w-5" />
@@ -146,7 +146,7 @@ export default function AvalPdfComposerModal({
           </div>
         ) : null}
 
-        <ul className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700">
+        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-slate-700/60 dark:border-slate-700">
           {rows.map(({ key, available, hasPreview }) => (
             <li
               key={key}
@@ -161,12 +161,12 @@ export default function AvalPdfComposerModal({
                 checked={selected.has(key)}
                 onChange={() => toggle(key)}
                 disabled={!available}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <label className="flex-1 text-sm text-gray-800 dark:text-gray-200 select-none cursor-pointer" onClick={() => available && toggle(key)}>
+              <label className="flex-1 text-sm text-slate-800 dark:text-slate-200 select-none cursor-pointer" onClick={() => available && toggle(key)}>
                 {DOCUMENT_LABELS[key]}
                 {!available ? (
-                  <span className="ml-2 text-xs text-gray-400">
+                  <span className="ml-2 text-xs text-slate-400">
                     (sin archivo)
                   </span>
                 ) : null}
@@ -175,7 +175,7 @@ export default function AvalPdfComposerModal({
                 <button
                   onClick={() => handlePreview(key)}
                   disabled={previewing === key}
-                  className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-60"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                   title="Abrir vista previa en otra pestaña"
                 >
                   {previewing === key ? (
@@ -194,7 +194,7 @@ export default function AvalPdfComposerModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             Cancelar
           </button>
@@ -202,7 +202,7 @@ export default function AvalPdfComposerModal({
             type="button"
             onClick={handleDownload}
             disabled={selected.size === 0 || downloading}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
           >
             {downloading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,17 +1,20 @@
 "use client";
 
-import {
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  Th,
-  Tr,
-  Td,
-} from "@/components/ui/table";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { Eye, Pencil, Trash2, Users } from "lucide-react";
 
+import {
+  ExpandToggle,
+  ExpandedRow,
+  Table,
+  TableBody,
+  TableContainer,
+  TableHead,
+  Td,
+  Th,
+  Tr,
+} from "@/components/ui/table";
 import { User, type RoleLike, type UserDisciplina } from "@/types/user";
 import { formatBoolean, formatRoles } from "@/lib/utils/formatters";
 import { getRoleCode, normalizeRoleCode } from "@/lib/auth/roles";
@@ -23,6 +26,15 @@ type Props = {
   error?: string | null;
   onDelete?: (user: User) => void;
 };
+
+/**
+ * Columnas visibles, contando la del toggle y la de acciones.
+ *
+ * Lo usan también las filas de esqueleto, error y vacío: si queda
+ * desincronizado con el `<tr>` del encabezado, esas filas ocupan un ancho
+ * distinto al de la tabla y el borde del contenedor se rompe.
+ */
+const COLUMN_COUNT = 6;
 
 function getDisciplinaNames(user: User) {
   const fromDetail = (user.disciplinasDetalle ?? []).map((disciplina) => disciplina.nombre);
@@ -38,6 +50,62 @@ function getDisciplinaNames(user: User) {
   return user.disciplina?.nombre ? [user.disciplina.nombre] : [];
 }
 
+/**
+ * Texto de la celda de disciplinas.
+ *
+ * Cuando el backend manda solo los ids (sin nombre) no se puede listar nada,
+ * pero decir "3 disciplina(s)" sigue siendo más útil que un guion: avisa que
+ * el usuario tiene disciplinas asignadas aunque no se puedan nombrar.
+ */
+function formatDisciplinas(user: User) {
+  const nombres = getDisciplinaNames(user);
+  if (nombres.length > 0) return nombres.join(", ");
+  if (Array.isArray(user.disciplinas) && user.disciplinas.length > 0) {
+    return `${user.disciplinas.length} disciplina(s)`;
+  }
+  return "-";
+}
+
+/**
+ * El permiso de reformas solo existe para entrenadores: para el resto de los
+ * roles no es "No", es una pregunta que no aplica.
+ */
+function formatPermisoReforma(user: User) {
+  const esEntrenador = (user.roles ?? []).some(
+    (role) => normalizeRoleCode(getRoleCode(role as RoleLike)) === "ENTRENADOR",
+  );
+  return esEntrenador ? formatBoolean(user.puedeSolicitarReformas) : "No aplica";
+}
+
+/**
+ * Nombre y apellido son un solo dato para quien lee el listado: partidos en
+ * dos columnas ocupaban el doble de ancho sin agregar información, y el
+ * buscador de la página ya busca sobre los dos campos juntos.
+ */
+function nombreCompleto(user: User) {
+  return [user.nombre, user.apellido].filter(Boolean).join(" ").trim();
+}
+
+/** Par rótulo/valor de la grilla del desplegable. */
+function Dato({
+  termino,
+  children,
+}: {
+  termino: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+        {termino}
+      </dt>
+      <dd className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
 export default function UsuarioTable({
   users,
   loading,
@@ -46,131 +114,116 @@ export default function UsuarioTable({
 }: Props) {
   const showEmpty = !loading && !error && users.length === 0;
 
+  // Varias filas pueden estar abiertas a la vez: sirve para comparar dos
+  // usuarios sin tener que cerrar uno para ver el otro.
+  const [abiertos, setAbiertos] = useState<Set<number>>(new Set());
+
+  const toggle = (id: number) =>
+    setAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <TableContainer>
-        <Table>
-          <TableHead>
-              <tr>
-                <Th>Nombre</Th>
-                <Th>Apellido</Th>
-                <Th>Email</Th>
-                <Th>Cédula</Th>
-                <Th>Categoría</Th>
-                <Th>Disciplina</Th>
-                <Th>Roles</Th>
-                <Th>Permiso reforma</Th>
-                <Th>Acciones</Th>
-              </tr>
-            </TableHead>
-            {/* Table body */}
-            <TableBody>
-              {loading &&
-                Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={`skeleton-${i}`} className="animate-pulse">
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-10" /></Td>
-                    <Td className="py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" /></Td>
-                  </tr>
+      {/* `table-fixed` + anchos explícitos: con `auto`, un email largo o un
+          usuario con varios roles estiraban la tabla más allá del contenedor y
+          aparecía el scroll horizontal que este listado quiere evitar. Con
+          anchos fijos el texto se recorta y el dato completo vive en el
+          desplegable. */}
+      <Table className="table-fixed">
+        <TableHead>
+          <tr>
+            <Th className="w-10" aria-label="Detalle" />
+            {/* Sin ancho: el nombre se queda con el espacio sobrante porque es
+                la columna con la que el usuario identifica la fila. */}
+            <Th>Usuario</Th>
+            <Th className="w-64">Email</Th>
+            <Th className="w-32">Cédula</Th>
+            <Th className="w-56">Roles</Th>
+            <Th className="w-44">Acciones</Th>
+          </tr>
+        </TableHead>
+
+        <TableBody>
+          {loading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              // Sin `Tr`: el hover marca la fila que el usuario está leyendo,
+              // y en un esqueleto no hay nada que leer todavía.
+              <tr key={`skeleton-${i}`} className="animate-pulse">
+                {Array.from({ length: COLUMN_COUNT }).map((__, j) => (
+                  <Td key={j} className="py-3">
+                    <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700" />
+                  </Td>
                 ))}
+              </tr>
+            ))}
 
-              {error && !loading && (
-                <tr>
-                  <Td
-                    className="text-center text-red-500"
-                    colSpan={9}
+          {error && !loading && (
+            <tr>
+              <Td className="text-center text-red-500" colSpan={COLUMN_COUNT}>
+                {error}
+              </Td>
+            </tr>
+          )}
+
+          {showEmpty && (
+            <tr>
+              <Td className="py-12 text-center" colSpan={COLUMN_COUNT}>
+                <Users className="mx-auto mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" />
+                <p className="text-base text-slate-500 dark:text-slate-400">
+                  No hay usuarios para mostrar.
+                </p>
+              </Td>
+            </tr>
+          )}
+
+          {!loading &&
+            !error &&
+            users.map((user) => {
+              const nombre = nombreCompleto(user);
+              const abierto = abiertos.has(user.id);
+              const roles = formatRoles(user.roles);
+
+              return (
+                <Fragment key={user.id}>
+                  <Tr
+                    className={abierto ? "bg-slate-50 dark:bg-slate-900/50" : ""}
                   >
-                    {error}
-                  </Td>
-                </tr>
-              )}
+                    <Td className="w-10 pr-0">
+                      <ExpandToggle
+                        expanded={abierto}
+                        onToggle={() => toggle(user.id)}
+                        label={`el usuario ${nombre || user.email}`}
+                      />
+                    </Td>
 
-              {showEmpty && (
-                <tr>
-                  <Td
-                    className="py-12 text-center"
-                    colSpan={9}
-                  >
-                    <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p className="text-base text-gray-500 dark:text-gray-400">No hay usuarios para mostrar.</p>
-                  </Td>
-                </tr>
-              )}
-
-              {!loading &&
-                !error &&
-                users.map((user) => (
-                  <Tr key={user.id}>
                     <Td>
-                      <div className="font-semibold text-gray-800 dark:text-gray-100">
-                        {user.nombre || "-"}
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {user.apellido || "-"}
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {user.email}
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {user.cedula || "-"}
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {formatCategoryLabel(
-                          user.categoria?.nombre ?? user.categoriaCodigo
-                        )}
-                      </div>
-                    </Td>
-                    <Td wrap className="w-[260px] max-w-[260px]">
                       <div
-                        className="block w-full truncate text-gray-700 dark:text-gray-300"
-                        title={
-                          getDisciplinaNames(user).length > 0
-                            ? getDisciplinaNames(user).join(", ")
-                            : undefined
-                        }
+                        className="truncate font-semibold text-slate-800 dark:text-slate-100"
+                        title={nombre || undefined}
                       >
-                        {getDisciplinaNames(user).length > 0
-                          ? getDisciplinaNames(user).join(", ")
-                          : Array.isArray(user.disciplinas) &&
-                            user.disciplinas.length > 0
-                          ? `${user.disciplinas.length} disciplina(s)`
-                          : "-"}
+                        {nombre || "-"}
                       </div>
                     </Td>
-                    <Td>
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {formatRoles(user.roles)}
-                      </div>
+
+                    <Td className="truncate" title={user.email}>
+                      {user.email}
                     </Td>
-                    <Td>
-                      <div className="text-gray-700 dark:text-gray-300">
-                        {(user.roles ?? []).some(
-                          (role) =>
-                            normalizeRoleCode(getRoleCode(role as RoleLike)) ===
-                            "ENTRENADOR",
-                        )
-                          ? formatBoolean(user.puedeSolicitarReformas)
-                          : "No aplica"}
-                      </div>
+
+                    <Td className="truncate">{user.cedula || "-"}</Td>
+
+                    <Td className="truncate" title={roles}>
+                      {roles}
                     </Td>
+
                     <Td>
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/settings/profile?id=${user.id}`}
-                          className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700/70 text-gray-600 dark:text-gray-200 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500/60 dark:hover:text-indigo-300 transition-colors"
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700/70 text-slate-600 dark:text-slate-200 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500/60 dark:hover:text-indigo-300 transition-colors"
                           aria-label={`Ver perfil de ${
                             user.nombre ?? user.email
                           }`}
@@ -180,7 +233,7 @@ export default function UsuarioTable({
                         </Link>
                         <Link
                           href={`/usuarios/${user.id}/editar`}
-                          className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700/70 text-gray-600 dark:text-gray-200 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500/60 dark:hover:text-indigo-300 transition-colors"
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700/70 text-slate-600 dark:text-slate-200 hover:border-indigo-300 hover:text-indigo-600 dark:hover:border-indigo-500/60 dark:hover:text-indigo-300 transition-colors"
                           aria-label={`Editar ${user.nombre ?? user.email}`}
                           title="Editar"
                         >
@@ -189,7 +242,7 @@ export default function UsuarioTable({
                         <button
                           type="button"
                           onClick={() => onDelete?.(user)}
-                          className="h-9 w-9 inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700/70 text-gray-600 dark:text-gray-200 hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/60 dark:hover:text-rose-300 transition-colors"
+                          className="h-9 w-9 inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700/70 text-slate-600 dark:text-slate-200 hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/60 dark:hover:text-rose-300 transition-colors"
                           aria-label={`Eliminar ${user.nombre ?? user.email}`}
                           title="Eliminar"
                         >
@@ -198,9 +251,34 @@ export default function UsuarioTable({
                       </div>
                     </Td>
                   </Tr>
-                ))}
-            </TableBody>
-        </Table>
+
+                  {abierto && (
+                    // Sin pie: este módulo no tiene pantalla de detalle
+                    // (`/usuarios/[id]` no existe, solo `[id]/editar`), y un
+                    // "Ver detalle completo" que abriera el formulario de
+                    // edición prometería una cosa y haría otra. El acceso al
+                    // perfil ya está en la columna de acciones de la fila.
+                    <ExpandedRow colSpan={COLUMN_COUNT}>
+                      <dl className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <Dato termino="Categoría">
+                          {formatCategoryLabel(
+                            user.categoria?.nombre ?? user.categoriaCodigo,
+                          )}
+                        </Dato>
+                        <Dato termino="Disciplina">
+                          {formatDisciplinas(user)}
+                        </Dato>
+                        <Dato termino="Permiso reforma">
+                          {formatPermisoReforma(user)}
+                        </Dato>
+                      </dl>
+                    </ExpandedRow>
+                  )}
+                </Fragment>
+              );
+            })}
+        </TableBody>
+      </Table>
     </TableContainer>
   );
 }

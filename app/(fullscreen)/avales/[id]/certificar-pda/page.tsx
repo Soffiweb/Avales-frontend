@@ -28,6 +28,14 @@ import ResponsableAnticipoPicker, {
   type ResponsableAnticipoDraft,
 } from "@/app/(app)/avales/_components/responsable-anticipo-picker";
 import AlertBanner from "@/components/ui/alert-banner";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  Td,
+  Th,
+  Tr,
+} from "@/components/ui/table";
 import PreviewCollapsible from "@/app/(app)/avales/_components/preview-collapsible";
 import { isPdaUser } from "@/lib/auth/access";
 import { getApprovalStageLabel, getTipoAvalLabel } from "@/lib/constants";
@@ -1334,38 +1342,31 @@ export default function CertificarAvalPage() {
                               </div>
 
                               <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead className="bg-gray-100 dark:bg-gray-800">
+                                {/* `dense` y no `comfortable`: cada celda lleva
+                                    un control de formulario con su propia
+                                    altura, y el padding cómodo sumado al del
+                                    input deja las filas muy separadas para lo
+                                    que es un editor de carga. */}
+                                <Table density="dense">
+                                  <TableHead>
                                     <tr>
                                       {item.usaDetallePorDia && (
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300 w-[40%]">
-                                          Nombre
-                                        </th>
+                                        <Th className="w-[40%]">Nombre</Th>
                                       )}
-                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                        No. dias
-                                      </th>
-                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                        Cantidad
-                                      </th>
-                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                        V. Unitario
-                                      </th>
-                                      <th className="px-3 py-2 text-right font-medium text-gray-600 dark:text-gray-300">
-                                        Subtotal
-                                      </th>
+                                      <Th className="text-right">No. dias</Th>
+                                      <Th className="text-right">Cantidad</Th>
+                                      <Th className="text-right">V. Unitario</Th>
+                                      <Th className="text-right">Subtotal</Th>
                                       {item.usaDetallePorDia && (
-                                        <th className="px-3 py-2 text-center font-medium text-gray-600 dark:text-gray-300">
-                                          Acciones
-                                        </th>
+                                        <Th className="text-center">Acciones</Th>
                                       )}
                                     </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                  </TableHead>
+                                  <TableBody>
                                     {visibleDias.map((dia) => (
-                                      <tr key={dia.localId}>
+                                      <Tr key={dia.localId}>
                                         {item.usaDetallePorDia && (
-                                          <td className="px-3 py-2 w-[40%]">
+                                          <Td className="w-[40%]">
                                             <input
                                               type="text"
                                               className="form-input w-full"
@@ -1385,9 +1386,9 @@ export default function CertificarAvalPage() {
                                                 item,
                                               )}
                                             />
-                                          </td>
+                                          </Td>
                                         )}
-                                        <td className="px-3 py-2 text-right">
+                                        <Td className="text-right">
                                           <input
                                             type="text"
                                             inputMode="numeric"
@@ -1409,8 +1410,8 @@ export default function CertificarAvalPage() {
                                               );
                                             }}
                                           />
-                                        </td>
-                                        <td className="px-3 py-2 text-right">
+                                        </Td>
+                                        <Td className="text-right">
                                           <input
                                             type="text"
                                             inputMode="decimal"
@@ -1430,13 +1431,13 @@ export default function CertificarAvalPage() {
                                               );
                                             }}
                                           />
-                                        </td>
-                                          <td className="px-3 py-2 text-right">
-                                            <input
-                                              type="text"
-                                              inputMode="decimal"
-                                              className="form-input w-24 ml-auto text-right"
-                                              value={dia.valorUnitario ?? ""}
+                                        </Td>
+                                        <Td className="text-right">
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="form-input w-24 ml-auto text-right"
+                                            value={dia.valorUnitario ?? ""}
                                             readOnly={!isEditable}
                                             disabled={!isEditable}
                                             onChange={(e) => {
@@ -1451,14 +1452,14 @@ export default function CertificarAvalPage() {
                                               );
                                             }}
                                           />
-                                        </td>
-                                        <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
+                                        </Td>
+                                        <Td className="text-right font-medium text-slate-900 dark:text-slate-100">
                                           {formatCurrency(
                                             getDraftItemDiaTotal(dia),
                                           )}
-                                        </td>
+                                        </Td>
                                         {item.usaDetallePorDia && (
-                                          <td className="px-3 py-2 text-center">
+                                          <Td className="text-center">
                                             {isEditable && (
                                               <button
                                                 type="button"
@@ -1473,12 +1474,12 @@ export default function CertificarAvalPage() {
                                                 ×
                                               </button>
                                             )}
-                                          </td>
+                                          </Td>
                                         )}
-                                      </tr>
+                                      </Tr>
                                     ))}
-                                  </tbody>
-                                </table>
+                                  </TableBody>
+                                </Table>
                               </div>
 
                               <div className="bg-gray-50 dark:bg-gray-800/40 px-4 py-2 flex items-center justify-between">

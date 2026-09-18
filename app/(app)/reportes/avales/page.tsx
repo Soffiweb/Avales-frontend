@@ -4,6 +4,15 @@ import { useMemo, useState } from "react";
 import { FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import AlertBanner from "@/components/ui/alert-banner";
+import {
+  Table,
+  TableBody,
+  TableContainer,
+  TableHead,
+  Td,
+  Th,
+  Tr,
+} from "@/components/ui/table";
 import { useAuth } from "@/app/providers/auth-provider";
 import { getNormalizedRoles } from "@/lib/auth/access";
 import { downloadAvalReport, getAvalReports } from "@/lib/api/aval-reports";
@@ -102,81 +111,92 @@ function ReportTable({
           {title} ({rows.length})
         </h2>
       </div>
-      <div className="max-h-[70vh] overflow-auto border border-gray-200 dark:border-gray-700">
-        <table className="min-w-[2900px] table-auto text-left text-xs text-gray-700 dark:text-gray-200">
-          <thead className="sticky top-0 z-10 bg-gray-100 text-[11px] uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+      {/* `maxHeight` + `TableHead sticky` van juntos a propósito: con 27
+          columnas el recorrido es en los dos ejes a la vez, y al scrollear
+          hacia abajo el encabezado es lo único que dice qué columna se está
+          leyendo. 70vh recorta la tabla sin tapar el título de la sección ni
+          el contador de filas, que son la referencia de cuánto queda. */}
+      <TableContainer density="dense" maxHeight="70vh">
+        {/* El ancho mínimo es del `table`, no del contenedor: es lo que fuerza
+            el scroll horizontal. Sin él las 27 columnas se comprimen hasta
+            volverse ilegibles. */}
+        <Table className="min-w-[2900px]">
+          <TableHead sticky>
             <tr>
-              <th className="px-3 py-2">Número de aval</th>
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Estado</th>
-              <th className="px-3 py-2">Aprobación final</th>
-              <th className="px-3 py-2">Monto autorizado</th>
-              <th className="px-3 py-2">Monto ejecutado</th>
-              <th className="px-3 py-2">Honorario</th>
-              <th className="px-3 py-2">ID interno</th>
-              <th className="px-3 py-2">Etapa actual</th>
-              <th className="px-3 py-2">Fecha emisión</th>
-              <th className="px-3 py-2">Fecha registro</th>
-              <th className="px-3 py-2">Código evento</th>
-              <th className="px-3 py-2">Evento</th>
-              <th className="px-3 py-2">Disciplina</th>
-              <th className="px-3 py-2">Categoría</th>
-              <th className="px-3 py-2">Provincia</th>
-              <th className="px-3 py-2">Ciudad</th>
-              <th className="px-3 py-2">País</th>
-              <th className="px-3 py-2">Inicio evento</th>
-              <th className="px-3 py-2">Fin evento</th>
-              <th className="px-3 py-2">Deportistas</th>
-              <th className="px-3 py-2">Entrenadores</th>
-              <th className="px-3 py-2">Monto solicitado</th>
-              <th className="px-3 py-2">Base honorario</th>
-              <th className="px-3 py-2">Histórico</th>
-              <th className="px-3 py-2">Cobrable</th>
-              <th className="px-3 py-2">Motivo de exclusión</th>
+              <Th>Número de aval</Th>
+              <Th>Tipo</Th>
+              <Th>Estado</Th>
+              <Th>Aprobación final</Th>
+              <Th>Monto autorizado</Th>
+              <Th>Monto ejecutado</Th>
+              <Th>Honorario</Th>
+              <Th>ID interno</Th>
+              <Th>Etapa actual</Th>
+              <Th>Fecha emisión</Th>
+              <Th>Fecha registro</Th>
+              <Th>Código evento</Th>
+              <Th>Evento</Th>
+              <Th>Disciplina</Th>
+              <Th>Categoría</Th>
+              <Th>Provincia</Th>
+              <Th>Ciudad</Th>
+              <Th>País</Th>
+              <Th>Inicio evento</Th>
+              <Th>Fin evento</Th>
+              <Th>Deportistas</Th>
+              <Th>Entrenadores</Th>
+              <Th>Monto solicitado</Th>
+              <Th>Base honorario</Th>
+              <Th>Histórico</Th>
+              <Th>Cobrable</Th>
+              <Th>Motivo de exclusión</Th>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+          </TableHead>
+          <TableBody>
             {sortedRows.map((row) => (
-              <tr key={row.id} className="whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                <td className="px-3 py-2 font-semibold">{row.numeroAval}</td>
-                <td className="px-3 py-2">{TYPE_LABELS[row.tipoAval]}</td>
-                <td className="px-3 py-2"><StatusBadge estado={row.estado} /></td>
-                <td className="px-3 py-2">{formatDate(row.fechaAprobacionFinal)}</td>
-                <td className="px-3 py-2 text-right">{formatCurrencyFromString(row.montoAutorizado)}</td>
-                <td className="px-3 py-2 text-right">{formatCurrencyFromString(row.montoEjecutado)}</td>
-                <td className="px-3 py-2 text-right font-medium">{formatCurrencyFromString(row.honorarioCalculado)}</td>
-                <td className="px-3 py-2">{row.id}</td>
-                <td className="px-3 py-2">{STAGE_LABELS[row.etapaActual] ?? row.etapaActual}</td>
-                <td className="px-3 py-2">{formatDate(row.fechaEmision)}</td>
-                <td className="px-3 py-2">{formatDate(row.fechaRegistro)}</td>
-                <td className="px-3 py-2">{row.codigoEvento}</td>
-                <td className="max-w-64 truncate px-3 py-2" title={row.nombreEvento}>{row.nombreEvento}</td>
-                <td className="px-3 py-2">{row.disciplina}</td>
-                <td className="px-3 py-2">{row.categoria ?? "—"}</td>
-                <td className="px-3 py-2">{row.provincia ?? "—"}</td>
-                <td className="px-3 py-2">{row.ciudad ?? "—"}</td>
-                <td className="px-3 py-2">{row.pais}</td>
-                <td className="px-3 py-2">{formatDate(row.fechaInicioEvento)}</td>
-                <td className="px-3 py-2">{formatDate(row.fechaFinEvento)}</td>
-                <td className="px-3 py-2 text-center">{row.numeroDeportistas}</td>
-                <td className="px-3 py-2 text-center">{row.numeroEntrenadores}</td>
-                <td className="px-3 py-2 text-right">{formatCurrencyFromString(row.montoSolicitado)}</td>
-                <td className="px-3 py-2 text-right">{formatCurrencyFromString(row.baseCalculoHonorario)}</td>
-                <td className="px-3 py-2">{row.esHistorico ? "Sí" : "No"}</td>
-                <td className="px-3 py-2">{row.esCobrable ? "Sí" : "No"}</td>
-                <td className="max-w-96 whitespace-normal px-3 py-2">{row.motivoExclusion ?? "—"}</td>
-              </tr>
+              <Tr key={row.id}>
+                <Td className="font-semibold">{row.numeroAval}</Td>
+                <Td>{TYPE_LABELS[row.tipoAval]}</Td>
+                <Td><StatusBadge estado={row.estado} /></Td>
+                <Td>{formatDate(row.fechaAprobacionFinal)}</Td>
+                <Td className="text-right">{formatCurrencyFromString(row.montoAutorizado)}</Td>
+                <Td className="text-right">{formatCurrencyFromString(row.montoEjecutado)}</Td>
+                <Td className="text-right font-medium">{formatCurrencyFromString(row.honorarioCalculado)}</Td>
+                <Td>{row.id}</Td>
+                <Td>{STAGE_LABELS[row.etapaActual] ?? row.etapaActual}</Td>
+                <Td>{formatDate(row.fechaEmision)}</Td>
+                <Td>{formatDate(row.fechaRegistro)}</Td>
+                <Td>{row.codigoEvento}</Td>
+                <Td className="max-w-64 truncate" title={row.nombreEvento}>{row.nombreEvento}</Td>
+                <Td>{row.disciplina}</Td>
+                <Td>{row.categoria ?? "—"}</Td>
+                <Td>{row.provincia ?? "—"}</Td>
+                <Td>{row.ciudad ?? "—"}</Td>
+                <Td>{row.pais}</Td>
+                <Td>{formatDate(row.fechaInicioEvento)}</Td>
+                <Td>{formatDate(row.fechaFinEvento)}</Td>
+                <Td className="text-center">{row.numeroDeportistas}</Td>
+                <Td className="text-center">{row.numeroEntrenadores}</Td>
+                <Td className="text-right">{formatCurrencyFromString(row.montoSolicitado)}</Td>
+                <Td className="text-right">{formatCurrencyFromString(row.baseCalculoHonorario)}</Td>
+                <Td>{row.esHistorico ? "Sí" : "No"}</Td>
+                <Td>{row.esCobrable ? "Sí" : "No"}</Td>
+                <Td wrap className="max-w-96">{row.motivoExclusion ?? "—"}</Td>
+              </Tr>
             ))}
             {sortedRows.length === 0 && (
               <tr>
-                <td colSpan={27} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+                <Td
+                  colSpan={27}
+                  className="py-8 text-center text-slate-500 dark:text-slate-400"
+                >
                   No hay avales en esta sección para el rango seleccionado.
-                </td>
+                </Td>
               </tr>
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
     </section>
   );
 }
@@ -199,23 +219,32 @@ function SummaryTable({
     ["Honorario total", formatCurrencyFromString(summary.honorarioTotal)],
   ] as const;
 
+  // Sin `maxHeight`: son dos filas, un scroll vertical interno acá solo
+  // molestaría. El ancho mínimo evita que las diez métricas se apretujen.
   return (
-    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700">
-      <table className="w-full min-w-[760px] text-sm">
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-          <tr className="bg-gray-50 dark:bg-gray-800/60">
-            {metrics.map(([label]) => (
-              <th key={label} className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">{label}</th>
-            ))}
-          </tr>
+    <TableContainer density="dense">
+      <Table className="min-w-[760px]">
+        <TableHead>
           <tr>
-            {metrics.map(([label, value]) => (
-              <td key={label} className="px-3 py-3 font-semibold text-gray-900 dark:text-gray-100">{value}</td>
+            {metrics.map(([label]) => (
+              <Th key={label}>{label}</Th>
             ))}
           </tr>
-        </tbody>
-      </table>
-    </div>
+        </TableHead>
+        <TableBody>
+          <Tr>
+            {metrics.map(([label, value]) => (
+              <Td
+                key={label}
+                className="font-semibold text-slate-900 dark:text-slate-100"
+              >
+                {value}
+              </Td>
+            ))}
+          </Tr>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 

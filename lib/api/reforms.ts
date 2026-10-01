@@ -12,6 +12,8 @@ export type ReformEventoItemPayload = {
 };
 
 export type ReformFormaParticipacionChanges = {
+  /** Forma concreta a reformar (un evento puede tener varias del mismo tipo). */
+  id?: number;
   tipoAval: TipoAval;
   numEntrenadoresHombres: number;
   numEntrenadoresMujeres: number;

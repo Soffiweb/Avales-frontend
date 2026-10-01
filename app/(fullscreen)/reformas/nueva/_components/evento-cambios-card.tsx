@@ -416,6 +416,7 @@ export default function EventoCambiosCard({
 
       if (hasParticipantChanges || hasBudgetChanges) {
         const forma: ReformFormaParticipacionChanges = {
+          id: selectedForma.id,
           tipoAval: selectedForma.tipoAval,
           numEntrenadoresHombres: participantsForm.numEntrenadoresHombres,
           numEntrenadoresMujeres: participantsForm.numEntrenadoresMujeres,

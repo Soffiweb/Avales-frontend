@@ -252,7 +252,8 @@ function buildInitialFormData(aval: Aval): FormData {
       apellidos: item.deportista?.apellidos,
       cedula: item.deportista?.cedula,
       fechaNacimiento: toStringValue(payload?.fechaNacimiento),
-      genero: item.deportista?.genero,
+      genero:
+        item.deportista?.genero ?? toStringValue(payload?.genero),
       categoriaId:
         item.categoriaId ??
         item.deportista?.categoriaId ??

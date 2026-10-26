@@ -117,7 +117,6 @@ export default function Paso04Presupuesto({
   isAdminLike = false,
 }: Paso04PresupuestoProps) {
   const router = useRouter();
-  const [numeroAval] = useState(aval.avalTecnico?.numeroAval ?? "");
   const [observaciones, setObservaciones] = useState(
     formData.observaciones || "",
   );
@@ -445,7 +444,6 @@ export default function Paso04Presupuesto({
             : undefined,
         montoAsignado: aval.montoAsignado ?? undefined,
         fechaEmision: formData.fechaEmision || getTodayDateInputValue(),
-        numeroAval: numeroAval.trim() || undefined,
         fechaHoraSalida: formData.fechaHoraSalida,
         fechaHoraRetorno: formData.fechaHoraRetorno,
         lugarSalida: formData.lugarSalida,

@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/app/providers/auth-provider";
 import { profileSchema, type ProfileFormValues } from "@/lib/validation/user";
 import { getUser, updateProfile } from "@/lib/api/user";
+import { sendTestEmail } from "@/lib/api/mail";
 import { getCatalog } from "@/lib/api/catalog";
 import { CatalogItem } from "@/types/catalog";
 import type { User } from "@/types/user";
@@ -21,6 +22,7 @@ import {
   getCategoryByCatalogValue,
   getCategoryIdOptions,
 } from "@/lib/utils/categories";
+import { Loader2, Mail } from "lucide-react";
 
 type Props = {
   viewUserId?: number;
@@ -79,11 +81,15 @@ export default function ProfilePanel({ viewUserId }: Props) {
   const [subjectUser, setSubjectUser] = useState<User | null>(null);
   const [subjectLoading, setSubjectLoading] = useState(false);
   const [subjectError, setSubjectError] = useState<string | null>(null);
+  const [testEmailMsg, setTestEmailMsg] = useState("");
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
 
   const isReadOnly =
     viewUserId !== undefined &&
     user?.id !== undefined &&
     user.id !== viewUserId;
+  const canTestEmail =
+    !isReadOnly && getNormalizedRoles(user).includes("SUPER_ADMIN");
 
   /* =========================
      Cargar catálogo
@@ -142,9 +148,11 @@ export default function ProfilePanel({ viewUserId }: Props) {
         if (!res.data) {
           setSubjectError("Usuario no encontrado.");
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setSubjectError(
-          err?.message ?? "No se pudo cargar el perfil solicitado."
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar el perfil solicitado."
         );
         setSubjectUser(null);
       } finally {
@@ -195,8 +203,30 @@ export default function ProfilePanel({ viewUserId }: Props) {
       reset(values);
       setInitialValues(values);
       setSaveMsg("Cambios guardados correctamente.");
-    } catch (e: any) {
-      setSaveMsg(e?.message ?? "No se pudo actualizar el perfil.");
+    } catch (error: unknown) {
+      setSaveMsg(
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el perfil.",
+      );
+    }
+  };
+
+  const onTestEmail = async () => {
+    setTestEmailMsg("");
+    setIsSendingTestEmail(true);
+
+    try {
+      const response = await sendTestEmail();
+      setTestEmailMsg(response.data?.message ?? "Correo de prueba enviado.");
+    } catch (error) {
+      setTestEmailMsg(
+        error instanceof Error
+          ? error.message
+          : "No se pudo enviar el correo de prueba.",
+      );
+    } finally {
+      setIsSendingTestEmail(false);
     }
   };
 
@@ -375,6 +405,35 @@ export default function ProfilePanel({ viewUserId }: Props) {
             </div>
           </div>
         </section>
+
+        {canTestEmail && (
+          <section>
+            <h2 className="text-xl leading-snug text-gray-800 dark:text-gray-100 font-bold mb-1">
+              Prueba de correo
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Envía un correo de prueba a tu dirección para verificar la configuración SMTP.
+            </p>
+            <button
+              type="button"
+              onClick={() => void onTestEmail()}
+              disabled={isSendingTestEmail}
+              className="btn bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-50"
+            >
+              {isSendingTestEmail ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 size-4" />
+              )}
+              {isSendingTestEmail ? "Enviando..." : "Probar envío de correo"}
+            </button>
+            {testEmailMsg && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {testEmailMsg}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Asignación */}
         <section>
